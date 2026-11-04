@@ -1,86 +1,23 @@
 # 更新日志
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+每个版本的详细发布说明见 `release-<版本>.md`。
 
 ## [v0.1.0] - 2026-11-04
 
-首个版本：**天枢画布设计** —— 把前端设计原型写入一块可平移缩放的**无限画布**。
+首个版本：无限画布设计工作台。详细说明见 [release-0.1.0.md](release-0.1.0.md)。
 
-### 简介
+### 新增
 
-本插件为天枢（Tianshu）提供一块无限画布：天枢生成的前端设计原型（HTML）会作为**画布节点**
-呈现，每个节点内以 iframe 渲染真实页面，可多页并排、自由缩放平移。画布内核为
-[React Flow](https://github.com/xyflow/xyflow)（`@xyflow/react`，MIT）。
+- 无限画布（基于 React Flow）：空格/中键拖拽平移、Ctrl+滚轮缩放、普通滚轮平移、12px 网格吸附、右下角 MiniMap。
+- `canvas_open`：启动/复用本工作区的本地画布服务，返回可在浏览器打开的 URL。
+- `canvas_add_page`：把 HTML 原型作为页面节点加入画布，节点内以沙箱 iframe 渲染。
+- `canvas_list_pages`：列出画布上已有的页面节点。
+- 实时刷新：项目变更经 SSE 推送到浏览器自动刷新。
+- 项目存储：工作区 `<cwd>/.tianshu-canvas/`（`project.json` + `pages/*.html`），原子写。
 
-由于天枢插件无法内嵌窗口，画布以**本地服务 + 浏览器打开**的方式呈现：
-插件在 `127.0.0.1` 起一个单例服务，返回 URL，用浏览器打开即可。
+### 工程
 
-### 安装
-
-通过天枢「插件中心 → 社区插件 → 从其他来源安装」安装，两种方式均支持：
-
-- **Git URL**：填本仓库地址（可选分支/标签）→「读取清单并审阅」→ 确认安装。
-- **本地路径**：填本仓库根目录的**绝对路径** → 审阅 → 安装。
-
-> 仓库根目录即插件根（`tianshu.plugin.json` 在根目录）。
-> **安装/启用后需新建会话才生效。**
-
-### 快速上手
-
-1. 调用 `canvas_open` → 拿到画布 URL，用浏览器打开。
-2. 让天枢把设计原型写成 HTML 文件（如 `prototype/login.html`）。
-3. 调用 `canvas_add_page`（传 `html_path` 或 `html`，可选 `title` / `device_type` / 坐标）加入画布。
-4. 调用 `canvas_list_pages` 查看当前所有页面节点。
-
-**画布操作**：空格/中键拖拽平移 · Ctrl+滚轮缩放 · 普通滚轮平移 · 右下角 MiniMap。
-
-### 功能亮点
-
-- **无限画布**：空格/中键拖拽平移、Ctrl+滚轮缩放、普通滚轮平移、12px 网格吸附、
-  右下角 MiniMap；节点标题栏在任意缩放下**视觉尺寸恒定**。
-- **原型即节点**：`canvas_add_page` 支持工作区内 HTML 文件或内联 HTML；节点内以
-  **沙箱 iframe**（`sandbox="allow-scripts"`，无同源权限）渲染真实页面，设备预设
-  desktop 1440×900 / tablet 768×1024 / mobile 375×812，可自由缩放。
-- **实时刷新**：项目变更经 SSE 推送到浏览器，画布自动刷新（多标签同步）。
-- **项目可版本化**：数据存于工作区 `<cwd>/.tianshu-canvas/`（`project.json` +
-  `pages/*.html`），原子写，随项目走。
-
-### 工具
-
-| 工具 | 用途 |
-|---|---|
-| `canvas_open` | 启动/复用本工作区的本地画布服务，返回浏览器 URL |
-| `canvas_add_page` | 把 HTML 原型作为页面节点加入画布 |
-| `canvas_list_pages` | 列出画布上已有的页面节点 |
-
-### 运行要求
-
-- 天枢桌面端（TPI 1.0）；插件运行时为 Node 24。
-- 一个现代浏览器（Chrome / Edge 等）用于打开画布。
-- 默认端口 `43117`，被占用时自动递增，最终兜底为随机端口。
-
-### 已知限制
-
-- **画布在浏览器中打开，而非内嵌于天枢窗口**：天枢 TPI 插件为 headless，无窗口/面板
-  贡献点，故采用本地服务 + 浏览器方案。
-- 本地画布服务为**进程级单例**，跨工具调用/会话存活，不随会话结束关闭（浏览器标签可能仍开着）。
-- 原型运行在无同源权限的沙箱 iframe 中，**不能读取画布页面的状态**（这是有意的安全隔离）。
-
-### 安全
-
-- 服务仅绑定 `127.0.0.1`，并校验 `Host` 头。
-- 静态资源**白名单**（非目录遍历）。
-- 原型页响应带严格 CSP（`default-src 'none'`）+ `nosniff`。
-- 变更路由要求自定义头 `X-Tianshu-Canvas: 1`（跨源无法携带 → 天然防 CSRF）。
-
-### 工程与验证
-
-- TypeScript（Node 侧 + React 侧），esbuild 打包；**构建产物 `dist/` 提交进仓库**
-  （天枢安装时只跑 `npm install --ignore-scripts --omit=dev`，不会构建）。
-- `node:test` 测试：契约（握手一致、返回形状）、项目模型、本地服务。
-- 端到端验证：无头浏览器真实打开画布，断言 React Flow 渲染、节点出现、iframe 指向原型页、无 JS 报错。
-- 构建确定性（两次构建哈希一致）、干净 clone 不构建直接加载、CI 全绿。
-
-### 许可
-
-MIT（见 [LICENSE](LICENSE)）。
+- TypeScript（Node 侧 + React 侧），esbuild 打包，构建产物 `dist/` 提交进仓库。
+- `node:test` 测试：契约（握手一致）、项目模型、本地服务。
+- CI（typecheck + build + dist 一致性 + test）与 Release（tag 触发）工作流。
