@@ -312,9 +312,122 @@ body {
   background: #2563eb;
 }
 
+/* ---------- 节点工具栏 ---------- */
+.node-toolbar-wrap {
+  position: absolute;
+  left: 0;
+  top: -34px;
+  z-index: 6;
+}
+
+.node-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: #fff;
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.node-toolbar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.node-toolbar__btn:hover {
+  color: var(--text);
+  background: #f3f4f6;
+}
+
+.node-toolbar__input {
+  width: 160px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--node-selected);
+  border-radius: 4px;
+  outline: none;
+}
+
+/* ---------- 连线 ---------- */
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--node-selected);
+}
+
+.react-flow__edge-text {
+  font-size: 11px;
+  fill: var(--text-dim);
+}
+
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background: #cbd5e1;
+  border: 1px solid #fff;
+}
+
+.react-flow__handle:hover {
+  background: var(--node-selected);
+}
+
+/* ---------- 导出菜单 ---------- */
+.export-menu {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+}
+
+.export-menu__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.export-menu__list button {
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.export-menu__list button:hover {
+  background: #f3f4f6;
+}
+
 /* ---------- 导出模式：隐藏交互外壳 ---------- */
 .app--exporting .hint,
 .app--exporting .selection-panel,
+.app--exporting .export-menu,
+.app--exporting .node-toolbar-wrap,
 .app--exporting .react-flow__minimap,
 .app--exporting .react-flow__controls,
 .app--exporting .app-error {

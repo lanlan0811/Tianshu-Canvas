@@ -13,6 +13,8 @@ import { memo, useEffect, useRef } from 'react'
 import { Handle, Position, useStore, type NodeProps, type Node } from '@xyflow/react'
 import { DeviceIcon } from './icons'
 import { registerIframe, unregisterIframe } from './ProbeBridge'
+import { useCanvasActions } from './actions'
+import { NodeToolbar } from './NodeToolbar'
 
 export interface PageNodeData extends Record<string, unknown> {
   title: string
@@ -34,6 +36,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
   const width = data.width
   const height = data.height
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const actions = useCanvasActions()
 
   useEffect(() => {
     return () => unregisterIframe(id)
@@ -44,6 +47,19 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
       className={`page-node${selected ? ' page-node--selected' : ''}`}
       style={{ width, height: height + HEADER, ['--inv' as string]: String(inv) }}
     >
+      {selected && actions && (
+        <div
+          className="node-toolbar-wrap"
+          style={{ transform: `scale(${inv})`, transformOrigin: 'bottom left' }}
+        >
+          <NodeToolbar
+            node={{ id, type: 'page', position: { x: 0, y: 0 }, data } as PageFlowNode}
+            onRename={actions.rename}
+            onDuplicate={actions.duplicate}
+            onRemove={actions.remove}
+          />
+        </div>
+      )}
       <Handle type="target" position={Position.Left} id="in" className="page-node__handle" />
       <div className="page-node__header" style={{ height: HEADER }}>
         <div

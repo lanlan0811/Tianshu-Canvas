@@ -18,6 +18,7 @@ import { canvasConfig } from './canvasConfig'
 import { nodeTypes, type PageFlowNode } from './PageNode'
 import { GridLayer } from './GridLayer'
 import { SelectionPanel } from './SelectionPanel'
+import { CanvasActionsProvider, type CanvasActions } from './actions'
 import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
   fetchProject,
@@ -168,6 +169,19 @@ function Canvas() {
     [],
   )
 
+  // 画布编排动作（供节点工具栏调用）
+  const actions: CanvasActions = {
+    rename: (id, title) => {
+      void postNodeOp(ws, 'rename', { id, title })
+    },
+    duplicate: (id) => {
+      void postNodeOp(ws, 'duplicate', { id })
+    },
+    remove: (id) => {
+      void postNodeOp(ws, 'remove', { id })
+    },
+  }
+
   useEffect(() => {
     if (!ws) {
       setError('缺少 ws 参数：请通过 canvas_open 返回的 URL 打开本页。')
@@ -200,30 +214,34 @@ function Canvas() {
   const pageTitle = selectedNode ? selectedNode.data.title : null
 
   return (
-    <div className={`app${exporting ? ' app--exporting' : ''}`}>
-      <GridLayer />
-      <ReactFlow<PageFlowNode, Edge>
-        {...canvasConfig}
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        nodeTypes={nodeTypes}
-        onMove={onMove}
-        fitView
-        fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
-      >
-        <MiniMap pannable zoomable position="bottom-right" />
-      </ReactFlow>
-      {ready && !error && nodes.length === 0 && <EmptyState />}
-      {error && <div className="app-error">{error}</div>}
-      {!exporting && <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>}
-      {!exporting && (
-        <SelectionPanel selection={selection} pageTitle={pageTitle} onApplyEdits={applyEdits} />
-      )}
-    </div>
+    <CanvasActionsProvider value={actions}>
+      <div className={`app${exporting ? ' app--exporting' : ''}`}>
+        <GridLayer />
+        <ReactFlow<PageFlowNode, Edge>
+          {...canvasConfig}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          nodeTypes={nodeTypes}
+          onMove={onMove}
+          fitView
+          fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+        >
+          <MiniMap pannable zoomable position="bottom-right" />
+        </ReactFlow>
+        {ready && !error && nodes.length === 0 && <EmptyState />}
+        {error && <div className="app-error">{error}</div>}
+        {!exporting && (
+          <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>
+        )}
+        {!exporting && (
+          <SelectionPanel selection={selection} pageTitle={pageTitle} onApplyEdits={applyEdits} />
+        )}
+      </div>
+    </CanvasActionsProvider>
   )
 }
 

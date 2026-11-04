@@ -2,7 +2,7 @@
  * 项目模型测试：通过构建产物驱动工具，验证 add(内联/文件)/upsert/list + 越界写被拒。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -57,7 +57,49 @@ try {
   const empty = await tools.canvas_add_page.execute({ input: { title: 'Y' }, cwd })
   assert.equal(empty.isError, true)
 
-  console.log('OK 项目模型: add(内联/文件) / upsert / list / 越界拒绝 全部通过')
+  // ---- 画布编排：重命名 / 复制 / 移动 / 删除 / 连线 ----
+  const p0 = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
+  const idA = p0.nodes.find((n) => n.title === 'A2').id
+  const idB = p0.nodes.find((n) => n.title === 'B').id
+
+  const ren = await tools.canvas_rename_page.execute({ input: { id: idA, title: '首页' }, cwd })
+  assert.ok(!ren.isError, ren.content)
+  assert.match(ren.content, /首页/)
+
+  const dup = await tools.canvas_duplicate_page.execute({ input: { id: idA }, cwd })
+  assert.ok(!dup.isError, dup.content)
+  const dupId = dup.content.match(/id=([\w-]+)/)[1]
+  assert.notEqual(dupId, idA)
+  const dupHtml = readFileSync(join(cwd, '.tianshu-canvas', 'pages', `${dupId}.html`), 'utf8')
+  assert.match(dupHtml, /Hi2/, '复制应拷贝原型 HTML')
+
+  const mv = await tools.canvas_move_page.execute({ input: { id: idB, x: 999, y: 888 }, cwd })
+  assert.ok(!mv.isError, mv.content)
+  const pm = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
+  const nodeB = pm.nodes.find((n) => n.id === idB)
+  assert.equal(nodeB.x, 999)
+  assert.equal(nodeB.y, 888)
+
+  const link = await tools.canvas_link_pages.execute({ input: { source: idA, target: idB, label: '跳转' }, cwd })
+  assert.ok(!link.isError, link.content)
+  const pl = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
+  assert.equal(pl.edges.length, 1)
+  assert.equal(pl.edges[0].label, '跳转')
+
+  // 重复连线去重
+  await tools.canvas_link_pages.execute({ input: { source: idA, target: idB }, cwd })
+  const pd = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
+  assert.equal(pd.edges.length, 1, '重复连线应去重')
+
+  // 删除节点连带删边与文件
+  const rm = await tools.canvas_remove_page.execute({ input: { id: idA }, cwd })
+  assert.ok(!rm.isError, rm.content)
+  const pr = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
+  assert.ok(!pr.nodes.some((n) => n.id === idA))
+  assert.equal(pr.edges.length, 0, '删除节点应连带删除其连线')
+  assert.equal(existsSync(join(cwd, '.tianshu-canvas', 'pages', `${idA}.html`)), false, '删除节点应删除页面文件')
+
+  console.log('OK 项目模型: add/upsert/list/越界 + 重命名/复制/移动/删除/连线 全部通过')
 } finally {
   rmSync(cwd, { recursive: true, force: true })
 }
