@@ -1,6 +1,6 @@
 # 天枢画布设计 v0.2.1
 
-> 2026-11-04 · MIT
+> 2026-11-04 · Apache-2.0
 
 修复**画布节点标题栏被页面内容遮挡**的问题。
 
@@ -50,4 +50,4 @@ iframe 里的深色内容压住、只露出一部分，文字与尺寸数字难�
 
 ## 许可
 
-MIT（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。
+Apache License 2.0（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。

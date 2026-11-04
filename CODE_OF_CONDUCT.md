@@ -1,7 +1,5 @@
 # 贡献者行为准则
 
-English: [CODE_OF_CONDUCT.en.md](CODE_OF_CONDUCT.en.md)
-
 ## 我们的承诺
 
 作为成员、贡献者和领导者，我们承诺让参与本社区的体验对每个人都不受骚扰，

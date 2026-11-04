@@ -2,6 +2,7 @@
   "name": "tianshu-canvas",
   "version": "0.2.3",
   "description": "无限画布设计工作台（天枢 TPI 插件）",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "engines": {

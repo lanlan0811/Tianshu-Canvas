@@ -1,7 +1,7 @@
 # 贡献指南
 
 感谢你有兴趣为 **Tianshu-Canvas（天枢画布设计）** 做贡献。
-本文说明本地开发、测试与提交流程。English: [CONTRIBUTING.en.md](CONTRIBUTING.en.md)。
+本文说明本地开发、测试与提交流程。
 
 ## 环境要求
 
@@ -71,4 +71,4 @@ node scripts/verify-web.mjs <chrome.exe>
 
 ## 许可
 
-贡献即表示同意你的贡献以 [MIT](LICENSE) 许可发布。
+贡献即表示同意你的贡献以 [Apache License 2.0](LICENSE) 许可发布。

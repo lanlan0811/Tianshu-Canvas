@@ -1,6 +1,6 @@
 # 天枢画布设计 v0.2.3
 
-> 2026-11-04 · MIT
+> 2026-11-04 · Apache-2.0
 
 修复**使用画布设计时，工作区里多出 `design/` 等文件夹**的问题。设计原型只需要存放在 `.tianshu-canvas/` 里。
 
@@ -32,4 +32,4 @@
 
 ## 许可
 
-MIT（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。
+Apache License 2.0（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。

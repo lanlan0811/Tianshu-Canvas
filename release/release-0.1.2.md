@@ -1,6 +1,6 @@
 # 天枢画布设计 v0.1.2
 
-> 2026-11-04 · MIT
+> 2026-11-04 · Apache-2.0
 
 从「AI 写入画布」升级为**可迭代的设计工作台**：在画布上选中元素反馈给 AI、直接改文案与样式、
 编排多页原型流程，并把成果导出交付。
@@ -93,4 +93,4 @@
 
 ## 许可
 
-MIT（见 [LICENSE](../LICENSE)）。完整安装与使用见 [release-0.1.0.md](release-0.1.0.md)。
+Apache License 2.0（见 [LICENSE](../LICENSE)）。完整安装与使用见 [release-0.1.0.md](release-0.1.0.md)。
