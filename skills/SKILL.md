@@ -31,10 +31,10 @@ triggers:
 
 1. **`canvas_open`（必做第一步）**：拿到画布 URL，把 URL 发给用户让其用浏览器打开。
    - 若用户已在本会话拿到过链接，可复用（`canvas_open` 会返回同一个服务地址）。
-2. **生成原型**：把设计原型写成 HTML 文件放进工作区（例如 `<cwd>/prototype/login.html`）。
+2. **生成原型**：直接写好完整 HTML，**不要**在工作区里新建 `design/`、`prototype/` 等文件夹或 HTML 文件——原型只存放在 `.tianshu-canvas/pages/`。
    - 用真实 HTML/CSS，可用现代布局（flex/grid）、渐变、圆角、阴影。
    - 单页自包含最好；如引用资源，用相对路径或内联。
-3. **写入画布**：调用 `canvas_upsert_page`，传 `html_path`（工作区内的 HTML 文件路径）或 `html`（内联），
+3. **写入画布**：调用 `canvas_upsert_page`，用 `html` 参数直接传入完整内联 HTML（不要先写文件再用 `html_path`），
    再给 `title`、可选 `device_type`（desktop/tablet/mobile/free）与 `x`/`y`。
    - 每次写入后，把画布 URL 一并回给用户，方便其刷新查看。
 4. **多页设计**：重复 2–3，每页一个节点，画布会自动排布。
@@ -61,7 +61,7 @@ triggers:
   节点标题栏在任意缩放下视觉尺寸恒定。
 - 画布操作：空格/中键拖拽平移；Ctrl+滚轮缩放；普通滚轮平移；MiniMap 右下角。
 - 原型在沙箱 iframe 中渲染（`sandbox=\"allow-scripts\"`，无同源权限），因此**不要依赖读取画布页面的状态**。
-- 项目数据存于 `<cwd>/.tianshu-canvas/`（project.json + pages/*.html），可版本化。
+- 项目数据存于 `<cwd>/.tianshu-canvas/`（project.json + pages/*.html），可版本化。原型 HTML 只存放在这里，**不要**在工作区另建 `design/`、`prototype/` 等目录存放原型。
 - 安装/启用插件后需**新建会话**才生效。
 
 ## 工具

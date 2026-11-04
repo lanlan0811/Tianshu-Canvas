@@ -376,14 +376,14 @@ export const tools: TpiTool[] = [
     definition: {
       name: 'canvas_upsert_page',
       description:
-        '新增或更新画布上的页面节点。传 html_path（读文件）或 html（内联）写入 HTML 原型；' +
+        '新增或更新画布上的页面节点。优先传 html（内联）写入 HTML 原型（原型自动保存到 .tianshu-canvas/pages/，无需也不要在工作区另建文件夹），html_path 仅用于导入已有文件；' +
         '对已有 id 可省略 html，仅更新标题/位置/尺寸/设备（即重命名、移动、调整尺寸，未指定的字段保持原值）。' +
         '返回里会带上画布 URL（若画布服务尚未启动会自动启动）。',
       input_schema: {
         type: 'object',
         properties: {
-          html_path: { type: 'string', description: '原型 HTML 文件路径（工作区内，优先于 html）' },
-          html: { type: 'string', description: '内联 HTML（当没有 html_path 时使用）；更新已有页面的元数据时可省略' },
+          html_path: { type: 'string', description: '已有 HTML 文件路径（工作区内，优先于 html）；一般不要用，请直接用 html 内联，避免在工作区产生多余文件' },
+          html: { type: 'string', description: '内联 HTML（推荐方式：原型只存放在 .tianshu-canvas/pages/，不要另建文件夹）；更新已有页面的元数据时可省略' },
           title: { type: 'string', description: '页面标题' },
           id: { type: 'string', description: '页面 id（字母数字/_/-）。缺省则新建并自动生成；传已存在的 id 则更新该页面' },
           x: { type: 'number', description: '画布 X 坐标（新建缺省按网格自动排布；更新缺省保持原位）' },

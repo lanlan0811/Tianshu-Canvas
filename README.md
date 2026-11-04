@@ -22,7 +22,7 @@
 在对话里让天枢做前端设计，或直接调用工具：
 
 1. `canvas_open` — 启动/复用本地画布服务，返回浏览器 URL（用浏览器打开）。
-2. 让天枢把原型写成 HTML 文件（例如 `prototype/login.html`）。
+2. 让天枢生成原型 HTML，并直接内联传给 `canvas_upsert_page`（只存放在 `.tianshu-canvas/pages/`，不会在工作区产生其他文件夹）。
 3. `canvas_upsert_page` — 新增或更新页面节点（`html_path` 或 `html`，可选 `title` / `device_type`；对已有 `id` 可省略 html，仅改标题/位置/尺寸）。
 4. `canvas_get_state` — 读取页面节点、连线、当前选中项与画布 URL。
 

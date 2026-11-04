@@ -3,6 +3,16 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release-<版本>.md`。
 
+## [v0.2.3] - 2026-11-04
+
+不再在工作区产生多余的原型文件夹。详细说明见 [release-0.2.3.md](release-0.2.3.md)。
+
+### 修复
+
+- 技能说明不再引导 AI 把原型先写成工作区里的 HTML 文件（如 `prototype/`、`design/`），改为直接用 `html` 内联传入 `canvas_upsert_page`；原型只存放在 `.tianshu-canvas/pages/`。
+- `canvas_upsert_page` 的工具描述同步调整：`html` 为推荐方式，`html_path` 仅用于导入已有文件。
+- README 使用步骤同步更新。
+
 ## [v0.2.2] - 2026-11-04
 
 修复 PNG 导出偶发失败（Failed to launch the browser process / The browser is already running）。详细说明见 [release-0.2.2.md](release-0.2.2.md)。
