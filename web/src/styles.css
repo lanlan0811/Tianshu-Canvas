@@ -231,6 +231,33 @@ body {
   font-weight: 600;
 }
 
+.selection-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 收起后的浮动小标签，点击重新展开 */
+.selection-panel__tab {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+
+.selection-panel__tab:hover {
+  background: #f3f4f6;
+}
+
 .selection-panel__meta {
   margin-top: 4px;
   color: var(--text-dim);
@@ -319,6 +346,23 @@ body {
 
 .btn--primary:hover {
   background: #2563eb;
+}
+
+.selection-panel__collapse {
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: #f3f4f6;
+  border: 1px solid var(--node-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.selection-panel__collapse:hover {
+  color: var(--text);
+  background: #e5e7eb;
 }
 
 /* ---------- 节点工具栏 ---------- */
