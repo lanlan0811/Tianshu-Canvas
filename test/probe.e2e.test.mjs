@@ -98,24 +98,24 @@ test('探针 e2e：两层选择 + 编辑回写', { skip: !browserPath && '未找
     assert.match(sel.element.xpath, /button\[1\]$/, `Ctrl 点击应选中 button，实际 ${sel.element.xpath}`)
     assert.equal(sel.element.tagName, 'button')
 
-    // 3) 编辑回写：父→子发 __vd_apply_edits 改 div 背景色 → pages/<id>.html 应含新样式且无探针痕迹
-    await page.evaluate(() => {
-      const iframe = document.querySelector('.page-node__iframe')
-      iframe.contentWindow.postMessage(
-        {
-          type: '__vd_apply_edits',
-          payload: { xpath: '/html[1]/body[1]/div[1]', styles: { 'background-color': 'rgb(1, 2, 3)' } },
-        },
-        '*',
-      )
-    })
+    // 3) 编辑回写（走真实 UI 路径）：选中元素 → 面板出现 → 填样式 → 点「应用修改」
+    //    → 面板 postToPage(__vd_apply_edits) → 探针改 DOM+序列化 → POST /api/page-html → 文件
+    await clickButtonWith(true) // 选中 button#b，面板显示
+    await page.waitForSelector('.selection-panel', { timeout: 5000 })
+    const colorInput = await page.$('.selection-panel input')
+    assert.ok(colorInput, '面板应有样式输入框')
+    await colorInput.click({ clickCount: 3 })
+    await colorInput.type('rgb(1, 2, 3)')
+    await page.click('.selection-panel .btn:not(.btn--primary)')
     await new Promise((r) => setTimeout(r, 800))
+
     const saved = readFileSync(join(cwd, '.tianshu-canvas', 'pages', `${id}.html`), 'utf8')
-    assert.match(saved, /background-color: rgb\(1, 2, 3\)/, '编辑应写回页面文件')
+    assert.match(saved, /color: rgb\(1, 2, 3\)/, '编辑应写回页面文件')
     assert.doesNotMatch(saved, /data-tianshu-probe/, '写回文件不应含探针')
     assert.doesNotMatch(saved, /__tianshu_probe__/, '写回文件不应含探针运行时')
+    assert.doesNotMatch(saved, /data-tianshu-(hover|selected)/, '写回文件不应含高亮标记')
 
-    console.log('OK 探针 e2e: 两层选择（div / button）+ 编辑回写（无探针痕迹）')
+    console.log('OK 探针 e2e: 两层选择（div / button）+ UI 编辑回写（无探针痕迹）')
   } finally {
     if (browser) await browser.close().catch(() => {})
     rmSync(cwd, { recursive: true, force: true })

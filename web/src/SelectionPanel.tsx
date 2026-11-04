@@ -45,14 +45,8 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
   useEffect(() => {
     setCopied(false)
     setText(selection?.element?.textContent ?? '')
-    const cs = selection?.element?.computedStyles ?? {}
-    setStyles({
-      color: cs['color'] ?? '',
-      'background-color': cs['background-color'] ?? '',
-      'font-size': cs['font-size'] ?? '',
-      padding: cs['padding'] ?? '',
-      'border-radius': cs['border-radius'] ?? '',
-    })
+    // 样式输入留空：仅应用用户实际填写的项，避免把当前计算样式整体写成内联样式污染原型。
+    setStyles({})
   }, [selection])
 
   if (!selection) return null
