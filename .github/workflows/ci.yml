@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify committed dist is up to date
+        run: |
+          if ! git diff --exit-code -- dist; then
+            echo "::error::dist/ 与源码不一致。请本地运行 'npm run build' 并提交产物。"
+            exit 1
+          fi
+
+      - name: Test
+        run: npm test

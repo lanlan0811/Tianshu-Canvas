@@ -2,11 +2,15 @@
 node_modules/
 
 # Build output
-dist/
 build/
 out/
 lib/
 *.tsbuildinfo
+
+# dist/ 是插件安装后直接运行的产物（安装时不会构建），因此必须提交进仓库。
+dist/
+!dist/
+!dist/**
 
 # Test coverage
 coverage/
@@ -43,6 +47,9 @@ Thumbs.db
 .rivet/
 AGENTS.md
 CLAUDE.md
+
+# 画布项目数据（工作区内，不应入库）
+.tianshu-canvas/
 
 # Frameworks / bundlers
 .vite/

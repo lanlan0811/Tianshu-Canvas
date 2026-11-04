@@ -1,0 +1,25 @@
+{
+  "$tpi": "1.0",
+  "kind": "tianshu.plugin",
+  "id": "tianshu-canvas",
+  "displayName": "画布设计",
+  "version": "0.1.0",
+  "description": "无限画布设计工作台：把前端设计原型写入可平移缩放的无限画布",
+  "runtime": "agent",
+  "entry": "dist/index.js",
+  "capabilities": ["tools"],
+  "contributes": {
+    "tools": [
+      { "name": "canvas_open", "description": "启动/复用本工作区的本地画布服务并返回可在浏览器打开的 URL" },
+      { "name": "canvas_add_page", "description": "把 HTML 原型作为页面节点加入画布" },
+      { "name": "canvas_list_pages", "description": "列出画布上已有的页面节点" }
+    ],
+    "lifecycle": [],
+    "skills": ["skills"]
+  },
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": false
+  }
+}
