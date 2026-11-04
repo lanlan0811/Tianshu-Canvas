@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.1.1",
-  "description": "无限画布设计工作台：把前端设计原型写入可平移缩放的无限画布",
+  "version": "0.1.2",
+  "description": "无限画布设计工作台：写入前端原型、选中反馈、可视化编辑、编排与导出",
   "runtime": "agent",
   "entry": "dist/index.js",
   "capabilities": [

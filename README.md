@@ -28,6 +28,16 @@
 
 **画布操作**：空格/中键拖拽平移 · Ctrl+滚轮缩放 · 普通滚轮平移 · 右下角 MiniMap。
 
+### 迭代与交付
+
+- **选中反馈**：在画布上点击页面/元素（Ctrl 点击选最内层），用 `canvas_get_selection` 读回；
+  或点面板「复制修改请求」粘给 AI。
+- **可视化编辑**：选中元素后直接改文案/样式，回写原型 HTML。
+- **编排**：节点工具栏重命名/复制/删除；页面间连线。
+- **导出**：`canvas_export` 产出画布截图 PNG 与/或原型打包 ZIP。
+
+> PNG 导出需系统安装 Chrome/Edge；可用 `TIANSHU_CANVAS_BROWSER` 指定路径。ZIP 不依赖浏览器。
+
 ## 项目数据
 
 存于工作区内，可版本化：
@@ -55,10 +65,10 @@ npm run verify   # typecheck + build + test
 ### 目录
 
 ```
-src/        Node 侧（入口/工具/本地服务/项目模型）→ dist/index.js
+src/        Node 侧（入口/工具/本地服务/项目模型/探针/导出）→ dist/index.js
 web/        画布前端（React + React Flow）→ dist/web/canvas.js
 dist/       构建产物（提交进仓库）
-test/       契约 / 项目 / 服务测试（node:test，跑构建产物）
+test/       契约 / 项目 / 服务 / 选中 / 导出 / 探针 e2e 测试（node:test，跑构建产物）
 scripts/    build.mjs、verify-web.mjs、extract-release-notes.mjs
 ```
 

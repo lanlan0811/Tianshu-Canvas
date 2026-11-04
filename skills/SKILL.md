@@ -40,6 +40,15 @@ triggers:
 4. **多页设计**：重复 2–3，每页一个节点，画布会自动排布。
 5. **查看/确认**：`canvas_list_pages` 列出当前所有页面节点。
 
+## 迭代与交付（v0.1.2）
+
+- **读用户选中**：用户在画布上点选元素后，调用 `canvas_get_selection` 读取选中项
+  （页面/元素 xpath/文案/关键样式），据此修改设计。
+- **编排**：`canvas_remove_page` / `canvas_rename_page` / `canvas_duplicate_page` /
+  `canvas_move_page` / `canvas_link_pages`。
+- **导出**：`canvas_export`（`kind`: png / zip / both）——画布截图 PNG + 原型打包 ZIP。
+- 用户也可在画布面板点「复制修改请求」把选中项文本粘给你；或直接在画布上改文案/样式（会回写原型）。
+
 ## 约定
 
 - 页面节点以**逻辑分辨率**渲染（desktop 1440×900 / tablet 768×1024 / mobile 375×812），
@@ -56,3 +65,7 @@ triggers:
 | `canvas_open` | 启动/复用本地画布服务，返回浏览器 URL | **第一步，永远先调用** |
 | `canvas_add_page` | 把 HTML 原型作为页面节点加入画布 | 已 `canvas_open` 且已生成原型后 |
 | `canvas_list_pages` | 列出画布上的页面节点 | 需要查看/确认时 |
+| `canvas_get_selection` | 读取画布上的当前选中项 | 用户选中元素后，据此修改 |
+| `canvas_remove_page` / `canvas_rename_page` / `canvas_duplicate_page` / `canvas_move_page` | 节点增删改 | 编排画布时 |
+| `canvas_link_pages` | 页面间连线 | 表达页面流程时 |
+| `canvas_export` | 导出 PNG / ZIP | 交付成果时 |
