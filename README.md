@@ -23,17 +23,17 @@
 
 1. `canvas_open` — 启动/复用本地画布服务，返回浏览器 URL（用浏览器打开）。
 2. 让天枢把原型写成 HTML 文件（例如 `prototype/login.html`）。
-3. `canvas_add_page` — 把 HTML 原型加入画布（`html_path` 或 `html`，可选 `title` / `device_type`）。
-4. `canvas_list_pages` — 列出画布上的页面节点。
+3. `canvas_upsert_page` — 新增或更新页面节点（`html_path` 或 `html`，可选 `title` / `device_type`；对已有 `id` 可省略 html，仅改标题/位置/尺寸）。
+4. `canvas_get_state` — 读取页面节点、连线、当前选中项与画布 URL。
 
 **画布操作**：空格/中键拖拽平移 · Ctrl+滚轮缩放 · 普通滚轮平移 · 右下角 MiniMap。
 
 ### 迭代与交付
 
-- **选中反馈**：在画布上点击页面/元素（Ctrl 点击选最内层），用 `canvas_get_selection` 读回；
+- **选中反馈**：在画布上点击页面/元素（Ctrl 点击选最内层），用 `canvas_get_state` 读回；
   或点面板「复制修改请求」粘给 AI。
 - **可视化编辑**：选中元素后直接改文案/样式，回写原型 HTML。
-- **编排**：节点工具栏重命名/复制/删除；页面间连线。
+- **编排**：节点工具栏重命名/复制/删除；页面间连线。AI 侧用 `canvas_arrange`（`action`: remove / duplicate / link / unlink）。
 - **导出**：`canvas_export` 产出画布截图 PNG 与/或原型打包 ZIP。
 
 > PNG 导出需系统安装 Chrome/Edge；可用 `TIANSHU_CANVAS_BROWSER` 指定路径。ZIP 不依赖浏览器。

@@ -3,6 +3,22 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release-<版本>.md`。
 
+## [v0.2.0] - 2026-11-04
+
+工具精简：10 个工具合并为 5 个，业务能力不变。详细说明见 [release-0.2.0.md](release-0.2.0.md)。
+
+### 变更（破坏性）
+
+- 工具由 10 个精简为 5 个：`canvas_open`、`canvas_upsert_page`、`canvas_get_state`、`canvas_arrange`、`canvas_export`。
+- `canvas_add_page` / `canvas_rename_page` / `canvas_move_page` 合并为 `canvas_upsert_page`：已有 id 可省略 html，仅更新标题/位置/尺寸/设备；未指定的字段保持原值。
+- `canvas_list_pages` / `canvas_get_selection` 合并为 `canvas_get_state`：一次返回页面、连线、选中项和画布 URL。
+- `canvas_remove_page` / `canvas_duplicate_page` / `canvas_link_pages` 合并为 `canvas_arrange`（`action`: remove / duplicate / link / unlink）。
+- 旧工具名不再保留，升级后需新建会话。
+
+### 工程
+
+- 测试同步改用新工具名；新增 upsert 仅改元数据（HTML 与尺寸不被重置）、arrange 各 action 及错误路径的覆盖；共 5 个工具握手一致。
+
 ## [v0.1.2] - 2026-11-04
 
 画布交互闭环：选中反馈 + 可视化编辑 + 编排 + 导出。详细说明见 [release-0.1.2.md](release-0.1.2.md)。

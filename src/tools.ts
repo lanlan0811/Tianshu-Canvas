@@ -4,6 +4,8 @@
  * execute 收到宿主传入的 { args, cwd, sessionId }（cwd = 会话工作区根）。
  * 返回值约定：{ content: string, isError?: boolean } —— 宿主只透传这两个字段，
  * 其它字段一律丢弃，因此 URL / id / 路径都必须写进 content 文本。
+ *
+ * v0.2.0：10 个工具精简为 5 个（open / upsert_page / get_state / arrange / export）。
  */
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -15,7 +17,6 @@ import {
   addEdge,
   autoLayoutPosition,
   duplicateNode,
-  moveNode,
   nextLayoutIndex,
   PROJECT_DIR_NAME,
   projectFile,
@@ -23,10 +24,11 @@ import {
   readSelection,
   removeEdge,
   removeNode,
-  renameNode,
   upsertNode,
   writePageHtml,
   type PageNode,
+  type Project,
+  type Selection,
 } from './project.js'
 import { currentUrl, ensureServer } from './server.js'
 
@@ -62,6 +64,10 @@ function str(v: unknown): string | undefined {
 
 function num(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+}
+
+function positive(v: number | undefined): number | undefined {
+  return v !== undefined && v > 0 ? Math.round(v) : undefined
 }
 
 function projectHint(cwd: string): string {
@@ -108,10 +114,10 @@ function openBrowser(url: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// canvas_add_page
+// canvas_upsert_page（新增 / 更新 HTML / 重命名 / 移动 / 改尺寸）
 // ---------------------------------------------------------------------------
 
-async function canvasAddPage(call: ToolCall): Promise<ToolResult> {
+async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
   const args = call.args
   const htmlPath = str(args.html_path)
   let html: string | undefined
@@ -127,21 +133,34 @@ async function canvasAddPage(call: ToolCall): Promise<ToolResult> {
   } else {
     html = str(args.html)
   }
-  if (!html) {
-    return { content: '缺少内容：请提供 html_path（工作区内的 HTML 文件）或 html（内联 HTML）。', isError: true }
-  }
 
   const requestedId = str(args.id)
   if (requestedId && !isSafeId(requestedId)) {
     return { content: `非法 id：${requestedId}（仅允许字母数字、下划线、连字符，1–64 位）`, isError: true }
   }
-  const id = requestedId ?? newPageId()
-
-  const deviceType: DeviceType = isDeviceType(args.device_type) ? args.device_type : DEFAULT_DEVICE
-  const size = resolveSize(deviceType, num(args.width), num(args.height))
 
   const project = readProject(call.cwd)
-  const existing = project.nodes.find((n) => n.id === id)
+  const existing = requestedId ? project.nodes.find((n) => n.id === requestedId) : undefined
+  if (!html && !existing) {
+    return {
+      content:
+        '缺少内容：请提供 html_path（工作区内的 HTML 文件）或 html（内联 HTML）。' +
+        '仅更新已有页面的标题/位置/尺寸时，需传已存在的 id。',
+      isError: true,
+    }
+  }
+  const id = requestedId ?? newPageId()
+
+  // 已存在的节点：未显式指定设备/尺寸时沿用原值，避免只改标题就把尺寸重置。
+  const deviceProvided = isDeviceType(args.device_type)
+  const deviceType: DeviceType = isDeviceType(args.device_type)
+    ? args.device_type
+    : (existing?.deviceType ?? DEFAULT_DEVICE)
+  const base = existing && !deviceProvided ? { width: existing.width, height: existing.height } : resolveSize(deviceType)
+  const size = {
+    width: positive(num(args.width)) ?? base.width,
+    height: positive(num(args.height)) ?? base.height,
+  }
 
   let x = num(args.x)
   let y = num(args.y)
@@ -156,7 +175,7 @@ async function canvasAddPage(call: ToolCall): Promise<ToolResult> {
     }
   }
 
-  const rel = writePageHtml(call.cwd, id, html)
+  const rel = html !== undefined ? writePageHtml(call.cwd, id, html) : (existing?.htmlPath ?? '')
   const now = Date.now()
   const node: PageNode = {
     id,
@@ -177,58 +196,19 @@ async function canvasAddPage(call: ToolCall): Promise<ToolResult> {
   const { url } = await ensureServer(call.cwd)
   return {
     content:
-      `${existing ? '已更新' : '已添加'}页面节点 "${node.title}"（id=${id}）。\n` +
+      `${existing ? '已更新' : '已添加'}页面节点「${node.title}」（id=${id}）。\n` +
       `位置：x=${node.x}, y=${node.y}；尺寸：${node.width}×${node.height}（${deviceType}）\n` +
-      `原型文件：${join(call.cwd, rel)}\n` +
+      (html !== undefined ? `原型文件：${join(call.cwd, rel)}\n` : `原型 HTML 未改动（仅更新了节点信息）。\n`) +
       `画布 URL：${url}\n` +
       `项目：${projectHint(call.cwd)}`,
   }
 }
 
 // ---------------------------------------------------------------------------
-// canvas_list_pages
+// canvas_get_state（页面列表 + 连线 + 选中项 + URL）
 // ---------------------------------------------------------------------------
 
-async function canvasListPages(call: ToolCall): Promise<ToolResult> {
-  const project = readProject(call.cwd)
-  const url = currentUrl(call.cwd)
-  if (project.nodes.length === 0) {
-    return {
-      content:
-        `画布上暂无页面节点。\n` +
-        `用 canvas_add_page 添加一个 HTML 原型。\n` +
-        (url ? `画布 URL：${url}` : `提示：先调用 canvas_open 获取画布 URL。`),
-    }
-  }
-  const lines = project.nodes.map((n, i) => {
-    return (
-      `${i + 1}. ${n.title} (id=${n.id})\n` +
-      `   位置 x=${n.x}, y=${n.y}；尺寸 ${n.width}×${n.height}（${n.deviceType}）`
-    )
-  })
-  return {
-    content:
-      `画布上有 ${project.nodes.length} 个页面节点：\n` +
-      lines.join('\n') +
-      `\n` +
-      (url ? `画布 URL：${url}` : `提示：先调用 canvas_open 获取画布 URL。`),
-  }
-}
-
-// ---------------------------------------------------------------------------
-// canvas_get_selection
-// ---------------------------------------------------------------------------
-
-async function canvasGetSelection(call: ToolCall): Promise<ToolResult> {
-  const selection = readSelection(call.cwd)
-  if (!selection) {
-    return {
-      content:
-        '当前画布没有选中项。\n' +
-        '请在浏览器打开画布，点击某个页面节点（或按住 Ctrl 点击页面内的元素）后再试。',
-    }
-  }
-  const project = readProject(call.cwd)
+function formatSelection(selection: Selection, project: Project): string[] {
   const node = project.nodes.find((n) => n.id === selection.pageId)
   const pageTitle = node ? node.title : selection.pageId
   const lines: string[] = [
@@ -247,73 +227,98 @@ async function canvasGetSelection(call: ToolCall): Promise<ToolResult> {
       if (picked.length) lines.push(`关键样式：${picked.join('；')}`)
     }
   }
-  return { content: lines.join('\n') }
+  return lines
 }
 
-// ---------------------------------------------------------------------------
-// 画布编排工具
-// ---------------------------------------------------------------------------
-
-async function canvasRemovePage(call: ToolCall): Promise<ToolResult> {
-  const id = str(call.args.id)
-  if (!id) return { content: '缺少 id。', isError: true }
+async function canvasGetState(call: ToolCall): Promise<ToolResult> {
   const project = readProject(call.cwd)
-  if (!project.nodes.some((n) => n.id === id)) return { content: `节点不存在：${id}`, isError: true }
-  const next = removeNode(call.cwd, id)
-  return { content: `已删除页面节点 ${id}。剩余 ${next.nodes.length} 个节点。` }
-}
+  const selection = readSelection(call.cwd)
+  const url = currentUrl(call.cwd)
+  const sections: string[] = []
 
-async function canvasRenamePage(call: ToolCall): Promise<ToolResult> {
-  const id = str(call.args.id)
-  const title = str(call.args.title)
-  if (!id || !title) return { content: '缺少 id 或 title。', isError: true }
-  try {
-    renameNode(call.cwd, id, title)
-    return { content: `已把节点 ${id} 重命名为「${title}」。` }
-  } catch (err) {
-    return { content: (err as Error).message, isError: true }
+  if (project.nodes.length === 0) {
+    sections.push('画布上暂无页面节点。\n用 canvas_upsert_page 添加一个 HTML 原型。')
+  } else {
+    const lines = project.nodes.map((n, i) => {
+      return (
+        `${i + 1}. ${n.title} (id=${n.id})\n` +
+        `   位置 x=${n.x}, y=${n.y}；尺寸 ${n.width}×${n.height}（${n.deviceType}）`
+      )
+    })
+    sections.push(`画布上有 ${project.nodes.length} 个页面节点：\n${lines.join('\n')}`)
   }
+
+  if (project.edges.length > 0) {
+    const titleOf = (id: string): string => project.nodes.find((n) => n.id === id)?.title ?? id
+    const lines = project.edges.map(
+      (e) => `- ${titleOf(e.source)}（${e.source}） → ${titleOf(e.target)}（${e.target}）${e.label ? `：${e.label}` : ''}`,
+    )
+    sections.push(`页面连线（${project.edges.length} 条）：\n${lines.join('\n')}`)
+  }
+
+  if (selection) {
+    sections.push(`当前选中：\n${formatSelection(selection, project).join('\n')}`)
+  } else {
+    sections.push(
+      '当前画布没有选中项。\n' +
+        '请在浏览器打开画布，点击某个页面节点（或按住 Ctrl 点击页面内的元素）后再试。',
+    )
+  }
+
+  sections.push(url ? `画布 URL：${url}` : '提示：先调用 canvas_open 获取画布 URL。')
+  return { content: sections.join('\n\n') }
 }
 
-async function canvasDuplicatePage(call: ToolCall): Promise<ToolResult> {
-  const id = str(call.args.id)
-  if (!id) return { content: '缺少 id。', isError: true }
-  try {
-    const node = duplicateNode(call.cwd, id, str(call.args.title))
-    const { url } = await ensureServer(call.cwd)
-    return {
-      content:
-        `已复制页面节点，新 id=${node.id}，标题「${node.title}」。\n` +
-        `位置：x=${node.x}, y=${node.y}\n画布 URL：${url}`,
+// ---------------------------------------------------------------------------
+// canvas_arrange（remove / duplicate / link / unlink）
+// ---------------------------------------------------------------------------
+
+async function canvasArrange(call: ToolCall): Promise<ToolResult> {
+  const action = str(call.args.action)
+  switch (action) {
+    case 'remove': {
+      const id = str(call.args.id)
+      if (!id) return { content: 'remove 需要 id。', isError: true }
+      const project = readProject(call.cwd)
+      if (!project.nodes.some((n) => n.id === id)) return { content: `节点不存在：${id}`, isError: true }
+      const next = removeNode(call.cwd, id)
+      return { content: `已删除页面节点 ${id}（连带其连线与原型文件）。剩余 ${next.nodes.length} 个节点。` }
     }
-  } catch (err) {
-    return { content: (err as Error).message, isError: true }
+    case 'duplicate': {
+      const id = str(call.args.id)
+      if (!id) return { content: 'duplicate 需要 id。', isError: true }
+      try {
+        const node = duplicateNode(call.cwd, id, str(call.args.title))
+        const { url } = await ensureServer(call.cwd)
+        return {
+          content:
+            `已复制页面节点，新 id=${node.id}，标题「${node.title}」。\n` +
+            `位置：x=${node.x}, y=${node.y}\n画布 URL：${url}`,
+        }
+      } catch (err) {
+        return { content: (err as Error).message, isError: true }
+      }
+    }
+    case 'link': {
+      const source = str(call.args.source)
+      const target = str(call.args.target)
+      if (!source || !target) return { content: 'link 需要 source 和 target。', isError: true }
+      const edge = addEdge(call.cwd, source, target, str(call.args.label))
+      return { content: `已连线 ${edge.source} → ${edge.target}${edge.label ? `（${edge.label}）` : ''}。` }
+    }
+    case 'unlink': {
+      const source = str(call.args.source)
+      const target = str(call.args.target)
+      if (!source || !target) return { content: 'unlink 需要 source 和 target。', isError: true }
+      removeEdge(call.cwd, source, target)
+      return { content: `已取消连线 ${source} → ${target}。` }
+    }
+    default:
+      return {
+        content: `未知或缺失的 action：${action ?? '(空)'}。可选：remove / duplicate / link / unlink。`,
+        isError: true,
+      }
   }
-}
-
-async function canvasMovePage(call: ToolCall): Promise<ToolResult> {
-  const id = str(call.args.id)
-  const x = num(call.args.x)
-  const y = num(call.args.y)
-  if (!id || x === undefined || y === undefined) return { content: '缺少 id / x / y。', isError: true }
-  try {
-    moveNode(call.cwd, id, x, y)
-    return { content: `已把节点 ${id} 移动到 x=${x}, y=${y}。` }
-  } catch (err) {
-    return { content: (err as Error).message, isError: true }
-  }
-}
-
-async function canvasLinkPages(call: ToolCall): Promise<ToolResult> {
-  const source = str(call.args.source)
-  const target = str(call.args.target)
-  if (!source || !target) return { content: '缺少 source 或 target。', isError: true }
-  if (call.args.remove === true) {
-    removeEdge(call.cwd, source, target)
-    return { content: `已取消连线 ${source} → ${target}。` }
-  }
-  const edge = addEdge(call.cwd, source, target, str(call.args.label))
-  return { content: `已连线 ${edge.source} → ${edge.target}${edge.label ? `（${edge.label}）` : ''}。` }
 }
 
 // ---------------------------------------------------------------------------
@@ -369,25 +374,26 @@ export const tools: TpiTool[] = [
   },
   {
     definition: {
-      name: 'canvas_add_page',
+      name: 'canvas_upsert_page',
       description:
-        '把一段 HTML 原型作为页面节点加入画布（可用 html_path 读文件，或直接给 html）。可指定标题/位置/尺寸/设备。' +
+        '新增或更新画布上的页面节点。传 html_path（读文件）或 html（内联）写入 HTML 原型；' +
+        '对已有 id 可省略 html，仅更新标题/位置/尺寸/设备（即重命名、移动、调整尺寸，未指定的字段保持原值）。' +
         '返回里会带上画布 URL（若画布服务尚未启动会自动启动）。',
       input_schema: {
         type: 'object',
         properties: {
           html_path: { type: 'string', description: '原型 HTML 文件路径（工作区内，优先于 html）' },
-          html: { type: 'string', description: '内联 HTML（当没有 html_path 时使用）' },
+          html: { type: 'string', description: '内联 HTML（当没有 html_path 时使用）；更新已有页面的元数据时可省略' },
           title: { type: 'string', description: '页面标题' },
-          id: { type: 'string', description: '可选页面 id（字母数字/_/-，缺省自动生成）' },
-          x: { type: 'number', description: '画布 X 坐标（缺省按网格自动排布）' },
-          y: { type: 'number', description: '画布 Y 坐标（缺省按网格自动排布）' },
+          id: { type: 'string', description: '页面 id（字母数字/_/-）。缺省则新建并自动生成；传已存在的 id 则更新该页面' },
+          x: { type: 'number', description: '画布 X 坐标（新建缺省按网格自动排布；更新缺省保持原位）' },
+          y: { type: 'number', description: '画布 Y 坐标（新建缺省按网格自动排布；更新缺省保持原位）' },
           width: { type: 'number', description: '逻辑宽度 px（覆盖设备预设）' },
           height: { type: 'number', description: '逻辑高度 px（覆盖设备预设）' },
           device_type: {
             type: 'string',
             enum: ['desktop', 'tablet', 'mobile', 'free'],
-            description: '设备预设（默认 desktop）',
+            description: '设备预设（新建默认 desktop；更新缺省保持原设备与尺寸）',
           },
         },
         required: [],
@@ -397,126 +403,51 @@ export const tools: TpiTool[] = [
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasAddPage,
+    execute: canvasUpsertPage,
   },
   {
     definition: {
-      name: 'canvas_list_pages',
-      description: '列出画布上已有的页面节点（id/标题/位置/尺寸/设备）。',
+      name: 'canvas_get_state',
+      description:
+        '读取画布当前状态：所有页面节点（id/标题/位置/尺寸/设备）、页面连线、' +
+        '用户在画布上的选中项（整个页面或页面内元素，含 xpath/标签/文案/关键样式）以及画布 URL。' +
+        '修改设计前先调用，据此定位用户指的是哪个页面/元素。',
       input_schema: { type: 'object', properties: {}, required: [] },
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => true,
     isEnabled: () => true,
-    execute: canvasListPages,
+    execute: canvasGetState,
   },
   {
     definition: {
-      name: 'canvas_get_selection',
-      description: '读取用户在画布上的当前选中项（整个页面节点或页面内元素，含 xpath/标签/文案/关键样式），用于据此修改设计。',
-      input_schema: { type: 'object', properties: {}, required: [] },
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => true,
-    isEnabled: () => true,
-    execute: canvasGetSelection,
-  },
-  {
-    definition: {
-      name: 'canvas_remove_page',
-      description: '从画布删除一个页面节点（连带其连线与原型文件）。',
-      input_schema: {
-        type: 'object',
-        properties: { id: { type: 'string', description: '页面节点 id' } },
-        required: ['id'],
-      },
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasRemovePage,
-  },
-  {
-    definition: {
-      name: 'canvas_rename_page',
-      description: '重命名画布上的页面节点。',
+      name: 'canvas_arrange',
+      description:
+        '编排画布：按 action 删除页面（remove，连带其连线与原型文件）、复制页面（duplicate）、' +
+        '在两个页面间连线（link）或取消连线（unlink）。重命名/移动请用 canvas_upsert_page。',
       input_schema: {
         type: 'object',
         properties: {
-          id: { type: 'string', description: '页面节点 id' },
-          title: { type: 'string', description: '新标题' },
+          action: {
+            type: 'string',
+            enum: ['remove', 'duplicate', 'link', 'unlink'],
+            description: '操作类型',
+          },
+          id: { type: 'string', description: 'remove / duplicate 使用：页面节点 id' },
+          title: { type: 'string', description: 'duplicate 可选：新标题（默认「原标题 副本」）' },
+          source: { type: 'string', description: 'link / unlink 使用：源页面 id' },
+          target: { type: 'string', description: 'link / unlink 使用：目标页面 id' },
+          label: { type: 'string', description: 'link 可选：连线标签' },
         },
-        required: ['id', 'title'],
+        required: ['action'],
       },
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasRenamePage,
-  },
-  {
-    definition: {
-      name: 'canvas_duplicate_page',
-      description: '复制画布上的页面节点（含原型 HTML，偏移 40px）。',
-      input_schema: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', description: '源页面节点 id' },
-          title: { type: 'string', description: '可选新标题（默认「原标题 副本」）' },
-        },
-        required: ['id'],
-      },
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasDuplicatePage,
-  },
-  {
-    definition: {
-      name: 'canvas_move_page',
-      description: '移动画布上的页面节点到指定坐标。',
-      input_schema: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', description: '页面节点 id' },
-          x: { type: 'number', description: 'X 坐标' },
-          y: { type: 'number', description: 'Y 坐标' },
-        },
-        required: ['id', 'x', 'y'],
-      },
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasMovePage,
-  },
-  {
-    definition: {
-      name: 'canvas_link_pages',
-      description: '在两个页面节点之间连线（页面流程），或取消连线。',
-      input_schema: {
-        type: 'object',
-        properties: {
-          source: { type: 'string', description: '源页面 id' },
-          target: { type: 'string', description: '目标页面 id' },
-          label: { type: 'string', description: '可选连线标签' },
-          remove: { type: 'boolean', description: '为 true 时取消连线' },
-        },
-        required: ['source', 'target'],
-      },
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasLinkPages,
+    execute: canvasArrange,
   },
   {
     definition: {

@@ -38,8 +38,8 @@ function listZipEntries(buf) {
 
 const cwd = mkdtempSync(join(tmpdir(), 'tsc-exp-'))
 try {
-  const a = await tools.canvas_add_page.execute({ input: { html: '<h1>A</h1>', title: '首页' }, cwd })
-  const b = await tools.canvas_add_page.execute({ input: { html: '<h1>B</h1>', title: '详情页' }, cwd })
+  const a = await tools.canvas_upsert_page.execute({ input: { html: '<h1>A</h1>', title: '首页' }, cwd })
+  const b = await tools.canvas_upsert_page.execute({ input: { html: '<h1>B</h1>', title: '详情页' }, cwd })
   const idA = a.content.match(/id=([\w-]+)/)[1]
   const idB = b.content.match(/id=([\w-]+)/)[1]
 

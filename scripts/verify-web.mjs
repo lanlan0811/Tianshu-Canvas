@@ -34,7 +34,7 @@ try {
   const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)
   if (!m) throw new Error('未返回合法 URL: ' + open.content)
   const url = m[0]
-  await tools.canvas_add_page.execute({
+  await tools.canvas_upsert_page.execute({
     args: { html: '<h1 id="probe">HELLO_CANVAS</h1>', title: 'Probe' },
     cwd,
     sessionId: 's',

@@ -133,7 +133,7 @@ export function EmptyState() {
     <div className="empty-state">
       <CanvasIcon size={48} style={{ opacity: 0.4 }} />
       <p className="empty-state__title">画布为空</p>
-      <p className="empty-state__desc">让天枢生成一个前端原型页面，然后调用 canvas_add_page 加入画布。</p>
+      <p className="empty-state__desc">让天枢生成一个前端原型页面，然后调用 canvas_upsert_page 加入画布。</p>
     </div>
   )
 }

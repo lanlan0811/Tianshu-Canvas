@@ -43,7 +43,7 @@ try {
   assert.equal(before.nodes.length, 0)
 
   // 添加一页
-  const add = await tools.canvas_add_page.execute({ input: { html: '<h1>P</h1>', title: 'P' }, cwd })
+  const add = await tools.canvas_upsert_page.execute({ input: { html: '<h1>P</h1>', title: 'P' }, cwd })
   assert.ok(!add.isError, add.content)
 
   // 项目里出现该节点

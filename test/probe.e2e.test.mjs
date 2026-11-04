@@ -41,7 +41,7 @@ test('探针 e2e：两层选择 + 编辑回写', { skip: !browserPath && '未找
     const pageHtml =
       '<!doctype html><html><head><meta charset="utf-8"></head><body>' +
       '<div id="a" style="padding:20px"><button id="b">OK</button></div></body></html>'
-    const add = await tools.canvas_add_page.execute({ input: { html: pageHtml, title: 'E2E' }, cwd })
+    const add = await tools.canvas_upsert_page.execute({ input: { html: pageHtml, title: 'E2E' }, cwd })
     assert.ok(!add.isError, add.content)
     const id = add.content.match(/id=([\w-]+)/)[1]
 

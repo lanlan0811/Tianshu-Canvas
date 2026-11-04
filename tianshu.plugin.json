@@ -3,7 +3,7 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "无限画布设计工作台：写入前端原型、选中反馈、可视化编辑、编排与导出",
   "runtime": "agent",
   "entry": "dist/index.js",
@@ -17,36 +17,16 @@
         "description": "启动/复用本工作区的本地画布服务并返回可在浏览器打开的 URL"
       },
       {
-        "name": "canvas_add_page",
-        "description": "把 HTML 原型作为页面节点加入画布"
+        "name": "canvas_upsert_page",
+        "description": "新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸）"
       },
       {
-        "name": "canvas_list_pages",
-        "description": "列出画布上已有的页面节点"
+        "name": "canvas_get_state",
+        "description": "读取画布状态：页面节点、连线、用户当前选中项与画布 URL"
       },
       {
-        "name": "canvas_get_selection",
-        "description": "读取用户在画布上的当前选中项（页面节点或页面内元素）"
-      },
-      {
-        "name": "canvas_remove_page",
-        "description": "从画布删除一个页面节点"
-      },
-      {
-        "name": "canvas_rename_page",
-        "description": "重命名画布上的页面节点"
-      },
-      {
-        "name": "canvas_duplicate_page",
-        "description": "复制画布上的页面节点"
-      },
-      {
-        "name": "canvas_move_page",
-        "description": "移动画布上的页面节点到指定坐标"
-      },
-      {
-        "name": "canvas_link_pages",
-        "description": "在两个页面节点之间连线或取消连线"
+        "name": "canvas_arrange",
+        "description": "编排画布：删除/复制页面节点、页面间连线或取消连线"
       },
       {
         "name": "canvas_export",

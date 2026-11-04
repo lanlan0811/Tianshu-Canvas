@@ -1072,6 +1072,9 @@ function str(v) {
 function num(v) {
   return typeof v === "number" && Number.isFinite(v) ? v : void 0;
 }
+function positive(v) {
+  return v !== void 0 && v > 0 ? Math.round(v) : void 0;
+}
 function projectHint(cwd) {
   return `${PROJECT_DIR_NAME}/\uFF08\u9879\u76EE\u6587\u4EF6\uFF1A${projectFile(cwd)}\uFF09`;
 }
@@ -1104,7 +1107,7 @@ function openBrowser(url) {
   } catch {
   }
 }
-async function canvasAddPage(call) {
+async function canvasUpsertPage(call) {
   const args = call.args;
   const htmlPath = str(args.html_path);
   let html;
@@ -1120,18 +1123,26 @@ async function canvasAddPage(call) {
   } else {
     html = str(args.html);
   }
-  if (!html) {
-    return { content: "\u7F3A\u5C11\u5185\u5BB9\uFF1A\u8BF7\u63D0\u4F9B html_path\uFF08\u5DE5\u4F5C\u533A\u5185\u7684 HTML \u6587\u4EF6\uFF09\u6216 html\uFF08\u5185\u8054 HTML\uFF09\u3002", isError: true };
-  }
   const requestedId = str(args.id);
   if (requestedId && !isSafeId(requestedId)) {
     return { content: `\u975E\u6CD5 id\uFF1A${requestedId}\uFF08\u4EC5\u5141\u8BB8\u5B57\u6BCD\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u3001\u8FDE\u5B57\u7B26\uFF0C1\u201364 \u4F4D\uFF09`, isError: true };
   }
-  const id = requestedId ?? newPageId();
-  const deviceType = isDeviceType(args.device_type) ? args.device_type : DEFAULT_DEVICE;
-  const size = resolveSize(deviceType, num(args.width), num(args.height));
   const project = readProject(call.cwd);
-  const existing = project.nodes.find((n) => n.id === id);
+  const existing = requestedId ? project.nodes.find((n) => n.id === requestedId) : void 0;
+  if (!html && !existing) {
+    return {
+      content: "\u7F3A\u5C11\u5185\u5BB9\uFF1A\u8BF7\u63D0\u4F9B html_path\uFF08\u5DE5\u4F5C\u533A\u5185\u7684 HTML \u6587\u4EF6\uFF09\u6216 html\uFF08\u5185\u8054 HTML\uFF09\u3002\u4EC5\u66F4\u65B0\u5DF2\u6709\u9875\u9762\u7684\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8\u65F6\uFF0C\u9700\u4F20\u5DF2\u5B58\u5728\u7684 id\u3002",
+      isError: true
+    };
+  }
+  const id = requestedId ?? newPageId();
+  const deviceProvided = isDeviceType(args.device_type);
+  const deviceType = isDeviceType(args.device_type) ? args.device_type : existing?.deviceType ?? DEFAULT_DEVICE;
+  const base = existing && !deviceProvided ? { width: existing.width, height: existing.height } : resolveSize(deviceType);
+  const size = {
+    width: positive(num(args.width)) ?? base.width,
+    height: positive(num(args.height)) ?? base.height
+  };
   let x = num(args.x);
   let y = num(args.y);
   if (x === void 0 || y === void 0) {
@@ -1144,7 +1155,7 @@ async function canvasAddPage(call) {
       y = y ?? pos.y;
     }
   }
-  const rel = writePageHtml(call.cwd, id, html);
+  const rel = html !== void 0 ? writePageHtml(call.cwd, id, html) : existing?.htmlPath ?? "";
   const now = Date.now();
   const node = {
     id,
@@ -1162,41 +1173,15 @@ async function canvasAddPage(call) {
   upsertNode(call.cwd, node);
   const { url } = await ensureServer(call.cwd);
   return {
-    content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9 "${node.title}"\uFF08id=${id}\uFF09\u3002
+    content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-\u539F\u578B\u6587\u4EF6\uFF1A${join4(call.cwd, rel)}
-\u753B\u5E03 URL\uFF1A${url}
+` + (html !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join4(call.cwd, rel)}
+` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
+`) + `\u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}`
   };
 }
-async function canvasListPages(call) {
-  const project = readProject(call.cwd);
-  const url = currentUrl(call.cwd);
-  if (project.nodes.length === 0) {
-    return {
-      content: `\u753B\u5E03\u4E0A\u6682\u65E0\u9875\u9762\u8282\u70B9\u3002
-\u7528 canvas_add_page \u6DFB\u52A0\u4E00\u4E2A HTML \u539F\u578B\u3002
-` + (url ? `\u753B\u5E03 URL\uFF1A${url}` : `\u63D0\u793A\uFF1A\u5148\u8C03\u7528 canvas_open \u83B7\u53D6\u753B\u5E03 URL\u3002`)
-    };
-  }
-  const lines = project.nodes.map((n, i) => {
-    return `${i + 1}. ${n.title} (id=${n.id})
-   \u4F4D\u7F6E x=${n.x}, y=${n.y}\uFF1B\u5C3A\u5BF8 ${n.width}\xD7${n.height}\uFF08${n.deviceType}\uFF09`;
-  });
-  return {
-    content: `\u753B\u5E03\u4E0A\u6709 ${project.nodes.length} \u4E2A\u9875\u9762\u8282\u70B9\uFF1A
-` + lines.join("\n") + `
-` + (url ? `\u753B\u5E03 URL\uFF1A${url}` : `\u63D0\u793A\uFF1A\u5148\u8C03\u7528 canvas_open \u83B7\u53D6\u753B\u5E03 URL\u3002`)
-  };
-}
-async function canvasGetSelection(call) {
-  const selection = readSelection(call.cwd);
-  if (!selection) {
-    return {
-      content: "\u5F53\u524D\u753B\u5E03\u6CA1\u6709\u9009\u4E2D\u9879\u3002\n\u8BF7\u5728\u6D4F\u89C8\u5668\u6253\u5F00\u753B\u5E03\uFF0C\u70B9\u51FB\u67D0\u4E2A\u9875\u9762\u8282\u70B9\uFF08\u6216\u6309\u4F4F Ctrl \u70B9\u51FB\u9875\u9762\u5185\u7684\u5143\u7D20\uFF09\u540E\u518D\u8BD5\u3002"
-    };
-  }
-  const project = readProject(call.cwd);
+function formatSelection(selection, project) {
   const node = project.nodes.find((n) => n.id === selection.pageId);
   const pageTitle = node ? node.title : selection.pageId;
   const lines = [
@@ -1213,64 +1198,88 @@ async function canvasGetSelection(call) {
       if (picked.length) lines.push(`\u5173\u952E\u6837\u5F0F\uFF1A${picked.join("\uFF1B")}`);
     }
   }
-  return { content: lines.join("\n") };
+  return lines;
 }
-async function canvasRemovePage(call) {
-  const id = str(call.args.id);
-  if (!id) return { content: "\u7F3A\u5C11 id\u3002", isError: true };
+async function canvasGetState(call) {
   const project = readProject(call.cwd);
-  if (!project.nodes.some((n) => n.id === id)) return { content: `\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`, isError: true };
-  const next = removeNode(call.cwd, id);
-  return { content: `\u5DF2\u5220\u9664\u9875\u9762\u8282\u70B9 ${id}\u3002\u5269\u4F59 ${next.nodes.length} \u4E2A\u8282\u70B9\u3002` };
-}
-async function canvasRenamePage(call) {
-  const id = str(call.args.id);
-  const title = str(call.args.title);
-  if (!id || !title) return { content: "\u7F3A\u5C11 id \u6216 title\u3002", isError: true };
-  try {
-    renameNode(call.cwd, id, title);
-    return { content: `\u5DF2\u628A\u8282\u70B9 ${id} \u91CD\u547D\u540D\u4E3A\u300C${title}\u300D\u3002` };
-  } catch (err) {
-    return { content: err.message, isError: true };
+  const selection = readSelection(call.cwd);
+  const url = currentUrl(call.cwd);
+  const sections = [];
+  if (project.nodes.length === 0) {
+    sections.push("\u753B\u5E03\u4E0A\u6682\u65E0\u9875\u9762\u8282\u70B9\u3002\n\u7528 canvas_upsert_page \u6DFB\u52A0\u4E00\u4E2A HTML \u539F\u578B\u3002");
+  } else {
+    const lines = project.nodes.map((n, i) => {
+      return `${i + 1}. ${n.title} (id=${n.id})
+   \u4F4D\u7F6E x=${n.x}, y=${n.y}\uFF1B\u5C3A\u5BF8 ${n.width}\xD7${n.height}\uFF08${n.deviceType}\uFF09`;
+    });
+    sections.push(`\u753B\u5E03\u4E0A\u6709 ${project.nodes.length} \u4E2A\u9875\u9762\u8282\u70B9\uFF1A
+${lines.join("\n")}`);
   }
+  if (project.edges.length > 0) {
+    const titleOf = (id) => project.nodes.find((n) => n.id === id)?.title ?? id;
+    const lines = project.edges.map(
+      (e) => `- ${titleOf(e.source)}\uFF08${e.source}\uFF09 \u2192 ${titleOf(e.target)}\uFF08${e.target}\uFF09${e.label ? `\uFF1A${e.label}` : ""}`
+    );
+    sections.push(`\u9875\u9762\u8FDE\u7EBF\uFF08${project.edges.length} \u6761\uFF09\uFF1A
+${lines.join("\n")}`);
+  }
+  if (selection) {
+    sections.push(`\u5F53\u524D\u9009\u4E2D\uFF1A
+${formatSelection(selection, project).join("\n")}`);
+  } else {
+    sections.push(
+      "\u5F53\u524D\u753B\u5E03\u6CA1\u6709\u9009\u4E2D\u9879\u3002\n\u8BF7\u5728\u6D4F\u89C8\u5668\u6253\u5F00\u753B\u5E03\uFF0C\u70B9\u51FB\u67D0\u4E2A\u9875\u9762\u8282\u70B9\uFF08\u6216\u6309\u4F4F Ctrl \u70B9\u51FB\u9875\u9762\u5185\u7684\u5143\u7D20\uFF09\u540E\u518D\u8BD5\u3002"
+    );
+  }
+  sections.push(url ? `\u753B\u5E03 URL\uFF1A${url}` : "\u63D0\u793A\uFF1A\u5148\u8C03\u7528 canvas_open \u83B7\u53D6\u753B\u5E03 URL\u3002");
+  return { content: sections.join("\n\n") };
 }
-async function canvasDuplicatePage(call) {
-  const id = str(call.args.id);
-  if (!id) return { content: "\u7F3A\u5C11 id\u3002", isError: true };
-  try {
-    const node = duplicateNode(call.cwd, id, str(call.args.title));
-    const { url } = await ensureServer(call.cwd);
-    return {
-      content: `\u5DF2\u590D\u5236\u9875\u9762\u8282\u70B9\uFF0C\u65B0 id=${node.id}\uFF0C\u6807\u9898\u300C${node.title}\u300D\u3002
+async function canvasArrange(call) {
+  const action = str(call.args.action);
+  switch (action) {
+    case "remove": {
+      const id = str(call.args.id);
+      if (!id) return { content: "remove \u9700\u8981 id\u3002", isError: true };
+      const project = readProject(call.cwd);
+      if (!project.nodes.some((n) => n.id === id)) return { content: `\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`, isError: true };
+      const next = removeNode(call.cwd, id);
+      return { content: `\u5DF2\u5220\u9664\u9875\u9762\u8282\u70B9 ${id}\uFF08\u8FDE\u5E26\u5176\u8FDE\u7EBF\u4E0E\u539F\u578B\u6587\u4EF6\uFF09\u3002\u5269\u4F59 ${next.nodes.length} \u4E2A\u8282\u70B9\u3002` };
+    }
+    case "duplicate": {
+      const id = str(call.args.id);
+      if (!id) return { content: "duplicate \u9700\u8981 id\u3002", isError: true };
+      try {
+        const node = duplicateNode(call.cwd, id, str(call.args.title));
+        const { url } = await ensureServer(call.cwd);
+        return {
+          content: `\u5DF2\u590D\u5236\u9875\u9762\u8282\u70B9\uFF0C\u65B0 id=${node.id}\uFF0C\u6807\u9898\u300C${node.title}\u300D\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}
 \u753B\u5E03 URL\uFF1A${url}`
-    };
-  } catch (err) {
-    return { content: err.message, isError: true };
+        };
+      } catch (err) {
+        return { content: err.message, isError: true };
+      }
+    }
+    case "link": {
+      const source = str(call.args.source);
+      const target = str(call.args.target);
+      if (!source || !target) return { content: "link \u9700\u8981 source \u548C target\u3002", isError: true };
+      const edge = addEdge(call.cwd, source, target, str(call.args.label));
+      return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+    }
+    case "unlink": {
+      const source = str(call.args.source);
+      const target = str(call.args.target);
+      if (!source || !target) return { content: "unlink \u9700\u8981 source \u548C target\u3002", isError: true };
+      removeEdge(call.cwd, source, target);
+      return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source} \u2192 ${target}\u3002` };
+    }
+    default:
+      return {
+        content: `\u672A\u77E5\u6216\u7F3A\u5931\u7684 action\uFF1A${action ?? "(\u7A7A)"}\u3002\u53EF\u9009\uFF1Aremove / duplicate / link / unlink\u3002`,
+        isError: true
+      };
   }
-}
-async function canvasMovePage(call) {
-  const id = str(call.args.id);
-  const x = num(call.args.x);
-  const y = num(call.args.y);
-  if (!id || x === void 0 || y === void 0) return { content: "\u7F3A\u5C11 id / x / y\u3002", isError: true };
-  try {
-    moveNode(call.cwd, id, x, y);
-    return { content: `\u5DF2\u628A\u8282\u70B9 ${id} \u79FB\u52A8\u5230 x=${x}, y=${y}\u3002` };
-  } catch (err) {
-    return { content: err.message, isError: true };
-  }
-}
-async function canvasLinkPages(call) {
-  const source = str(call.args.source);
-  const target = str(call.args.target);
-  if (!source || !target) return { content: "\u7F3A\u5C11 source \u6216 target\u3002", isError: true };
-  if (call.args.remove === true) {
-    removeEdge(call.cwd, source, target);
-    return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source} \u2192 ${target}\u3002` };
-  }
-  const edge = addEdge(call.cwd, source, target, str(call.args.label));
-  return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
 }
 async function canvasExport(call) {
   const kindRaw = str(call.args.kind);
@@ -1318,23 +1327,23 @@ var tools = [
   },
   {
     definition: {
-      name: "canvas_add_page",
-      description: "\u628A\u4E00\u6BB5 HTML \u539F\u578B\u4F5C\u4E3A\u9875\u9762\u8282\u70B9\u52A0\u5165\u753B\u5E03\uFF08\u53EF\u7528 html_path \u8BFB\u6587\u4EF6\uFF0C\u6216\u76F4\u63A5\u7ED9 html\uFF09\u3002\u53EF\u6307\u5B9A\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8/\u8BBE\u5907\u3002\u8FD4\u56DE\u91CC\u4F1A\u5E26\u4E0A\u753B\u5E03 URL\uFF08\u82E5\u753B\u5E03\u670D\u52A1\u5C1A\u672A\u542F\u52A8\u4F1A\u81EA\u52A8\u542F\u52A8\uFF09\u3002",
+      name: "canvas_upsert_page",
+      description: "\u65B0\u589E\u6216\u66F4\u65B0\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\u3002\u4F20 html_path\uFF08\u8BFB\u6587\u4EF6\uFF09\u6216 html\uFF08\u5185\u8054\uFF09\u5199\u5165 HTML \u539F\u578B\uFF1B\u5BF9\u5DF2\u6709 id \u53EF\u7701\u7565 html\uFF0C\u4EC5\u66F4\u65B0\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8/\u8BBE\u5907\uFF08\u5373\u91CD\u547D\u540D\u3001\u79FB\u52A8\u3001\u8C03\u6574\u5C3A\u5BF8\uFF0C\u672A\u6307\u5B9A\u7684\u5B57\u6BB5\u4FDD\u6301\u539F\u503C\uFF09\u3002\u8FD4\u56DE\u91CC\u4F1A\u5E26\u4E0A\u753B\u5E03 URL\uFF08\u82E5\u753B\u5E03\u670D\u52A1\u5C1A\u672A\u542F\u52A8\u4F1A\u81EA\u52A8\u542F\u52A8\uFF09\u3002",
       input_schema: {
         type: "object",
         properties: {
           html_path: { type: "string", description: "\u539F\u578B HTML \u6587\u4EF6\u8DEF\u5F84\uFF08\u5DE5\u4F5C\u533A\u5185\uFF0C\u4F18\u5148\u4E8E html\uFF09" },
-          html: { type: "string", description: "\u5185\u8054 HTML\uFF08\u5F53\u6CA1\u6709 html_path \u65F6\u4F7F\u7528\uFF09" },
+          html: { type: "string", description: "\u5185\u8054 HTML\uFF08\u5F53\u6CA1\u6709 html_path \u65F6\u4F7F\u7528\uFF09\uFF1B\u66F4\u65B0\u5DF2\u6709\u9875\u9762\u7684\u5143\u6570\u636E\u65F6\u53EF\u7701\u7565" },
           title: { type: "string", description: "\u9875\u9762\u6807\u9898" },
-          id: { type: "string", description: "\u53EF\u9009\u9875\u9762 id\uFF08\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C\u7F3A\u7701\u81EA\u52A8\u751F\u6210\uFF09" },
-          x: { type: "number", description: "\u753B\u5E03 X \u5750\u6807\uFF08\u7F3A\u7701\u6309\u7F51\u683C\u81EA\u52A8\u6392\u5E03\uFF09" },
-          y: { type: "number", description: "\u753B\u5E03 Y \u5750\u6807\uFF08\u7F3A\u7701\u6309\u7F51\u683C\u81EA\u52A8\u6392\u5E03\uFF09" },
+          id: { type: "string", description: "\u9875\u9762 id\uFF08\u5B57\u6BCD\u6570\u5B57/_/-\uFF09\u3002\u7F3A\u7701\u5219\u65B0\u5EFA\u5E76\u81EA\u52A8\u751F\u6210\uFF1B\u4F20\u5DF2\u5B58\u5728\u7684 id \u5219\u66F4\u65B0\u8BE5\u9875\u9762" },
+          x: { type: "number", description: "\u753B\u5E03 X \u5750\u6807\uFF08\u65B0\u5EFA\u7F3A\u7701\u6309\u7F51\u683C\u81EA\u52A8\u6392\u5E03\uFF1B\u66F4\u65B0\u7F3A\u7701\u4FDD\u6301\u539F\u4F4D\uFF09" },
+          y: { type: "number", description: "\u753B\u5E03 Y \u5750\u6807\uFF08\u65B0\u5EFA\u7F3A\u7701\u6309\u7F51\u683C\u81EA\u52A8\u6392\u5E03\uFF1B\u66F4\u65B0\u7F3A\u7701\u4FDD\u6301\u539F\u4F4D\uFF09" },
           width: { type: "number", description: "\u903B\u8F91\u5BBD\u5EA6 px\uFF08\u8986\u76D6\u8BBE\u5907\u9884\u8BBE\uFF09" },
           height: { type: "number", description: "\u903B\u8F91\u9AD8\u5EA6 px\uFF08\u8986\u76D6\u8BBE\u5907\u9884\u8BBE\uFF09" },
           device_type: {
             type: "string",
             enum: ["desktop", "tablet", "mobile", "free"],
-            description: "\u8BBE\u5907\u9884\u8BBE\uFF08\u9ED8\u8BA4 desktop\uFF09"
+            description: "\u8BBE\u5907\u9884\u8BBE\uFF08\u65B0\u5EFA\u9ED8\u8BA4 desktop\uFF1B\u66F4\u65B0\u7F3A\u7701\u4FDD\u6301\u539F\u8BBE\u5907\u4E0E\u5C3A\u5BF8\uFF09"
           }
         },
         required: []
@@ -1344,126 +1353,46 @@ var tools = [
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasAddPage
+    execute: canvasUpsertPage
   },
   {
     definition: {
-      name: "canvas_list_pages",
-      description: "\u5217\u51FA\u753B\u5E03\u4E0A\u5DF2\u6709\u7684\u9875\u9762\u8282\u70B9\uFF08id/\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8/\u8BBE\u5907\uFF09\u3002",
+      name: "canvas_get_state",
+      description: "\u8BFB\u53D6\u753B\u5E03\u5F53\u524D\u72B6\u6001\uFF1A\u6240\u6709\u9875\u9762\u8282\u70B9\uFF08id/\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8/\u8BBE\u5907\uFF09\u3001\u9875\u9762\u8FDE\u7EBF\u3001\u7528\u6237\u5728\u753B\u5E03\u4E0A\u7684\u9009\u4E2D\u9879\uFF08\u6574\u4E2A\u9875\u9762\u6216\u9875\u9762\u5185\u5143\u7D20\uFF0C\u542B xpath/\u6807\u7B7E/\u6587\u6848/\u5173\u952E\u6837\u5F0F\uFF09\u4EE5\u53CA\u753B\u5E03 URL\u3002\u4FEE\u6539\u8BBE\u8BA1\u524D\u5148\u8C03\u7528\uFF0C\u636E\u6B64\u5B9A\u4F4D\u7528\u6237\u6307\u7684\u662F\u54EA\u4E2A\u9875\u9762/\u5143\u7D20\u3002",
       input_schema: { type: "object", properties: {}, required: [] }
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => true,
     isEnabled: () => true,
-    execute: canvasListPages
+    execute: canvasGetState
   },
   {
     definition: {
-      name: "canvas_get_selection",
-      description: "\u8BFB\u53D6\u7528\u6237\u5728\u753B\u5E03\u4E0A\u7684\u5F53\u524D\u9009\u4E2D\u9879\uFF08\u6574\u4E2A\u9875\u9762\u8282\u70B9\u6216\u9875\u9762\u5185\u5143\u7D20\uFF0C\u542B xpath/\u6807\u7B7E/\u6587\u6848/\u5173\u952E\u6837\u5F0F\uFF09\uFF0C\u7528\u4E8E\u636E\u6B64\u4FEE\u6539\u8BBE\u8BA1\u3002",
-      input_schema: { type: "object", properties: {}, required: [] }
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => true,
-    isEnabled: () => true,
-    execute: canvasGetSelection
-  },
-  {
-    definition: {
-      name: "canvas_remove_page",
-      description: "\u4ECE\u753B\u5E03\u5220\u9664\u4E00\u4E2A\u9875\u9762\u8282\u70B9\uFF08\u8FDE\u5E26\u5176\u8FDE\u7EBF\u4E0E\u539F\u578B\u6587\u4EF6\uFF09\u3002",
-      input_schema: {
-        type: "object",
-        properties: { id: { type: "string", description: "\u9875\u9762\u8282\u70B9 id" } },
-        required: ["id"]
-      }
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasRemovePage
-  },
-  {
-    definition: {
-      name: "canvas_rename_page",
-      description: "\u91CD\u547D\u540D\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\u3002",
+      name: "canvas_arrange",
+      description: "\u7F16\u6392\u753B\u5E03\uFF1A\u6309 action \u5220\u9664\u9875\u9762\uFF08remove\uFF0C\u8FDE\u5E26\u5176\u8FDE\u7EBF\u4E0E\u539F\u578B\u6587\u4EF6\uFF09\u3001\u590D\u5236\u9875\u9762\uFF08duplicate\uFF09\u3001\u5728\u4E24\u4E2A\u9875\u9762\u95F4\u8FDE\u7EBF\uFF08link\uFF09\u6216\u53D6\u6D88\u8FDE\u7EBF\uFF08unlink\uFF09\u3002\u91CD\u547D\u540D/\u79FB\u52A8\u8BF7\u7528 canvas_upsert_page\u3002",
       input_schema: {
         type: "object",
         properties: {
-          id: { type: "string", description: "\u9875\u9762\u8282\u70B9 id" },
-          title: { type: "string", description: "\u65B0\u6807\u9898" }
+          action: {
+            type: "string",
+            enum: ["remove", "duplicate", "link", "unlink"],
+            description: "\u64CD\u4F5C\u7C7B\u578B"
+          },
+          id: { type: "string", description: "remove / duplicate \u4F7F\u7528\uFF1A\u9875\u9762\u8282\u70B9 id" },
+          title: { type: "string", description: "duplicate \u53EF\u9009\uFF1A\u65B0\u6807\u9898\uFF08\u9ED8\u8BA4\u300C\u539F\u6807\u9898 \u526F\u672C\u300D\uFF09" },
+          source: { type: "string", description: "link / unlink \u4F7F\u7528\uFF1A\u6E90\u9875\u9762 id" },
+          target: { type: "string", description: "link / unlink \u4F7F\u7528\uFF1A\u76EE\u6807\u9875\u9762 id" },
+          label: { type: "string", description: "link \u53EF\u9009\uFF1A\u8FDE\u7EBF\u6807\u7B7E" }
         },
-        required: ["id", "title"]
+        required: ["action"]
       }
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasRenamePage
-  },
-  {
-    definition: {
-      name: "canvas_duplicate_page",
-      description: "\u590D\u5236\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\uFF08\u542B\u539F\u578B HTML\uFF0C\u504F\u79FB 40px\uFF09\u3002",
-      input_schema: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "\u6E90\u9875\u9762\u8282\u70B9 id" },
-          title: { type: "string", description: "\u53EF\u9009\u65B0\u6807\u9898\uFF08\u9ED8\u8BA4\u300C\u539F\u6807\u9898 \u526F\u672C\u300D\uFF09" }
-        },
-        required: ["id"]
-      }
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasDuplicatePage
-  },
-  {
-    definition: {
-      name: "canvas_move_page",
-      description: "\u79FB\u52A8\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\u5230\u6307\u5B9A\u5750\u6807\u3002",
-      input_schema: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "\u9875\u9762\u8282\u70B9 id" },
-          x: { type: "number", description: "X \u5750\u6807" },
-          y: { type: "number", description: "Y \u5750\u6807" }
-        },
-        required: ["id", "x", "y"]
-      }
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasMovePage
-  },
-  {
-    definition: {
-      name: "canvas_link_pages",
-      description: "\u5728\u4E24\u4E2A\u9875\u9762\u8282\u70B9\u4E4B\u95F4\u8FDE\u7EBF\uFF08\u9875\u9762\u6D41\u7A0B\uFF09\uFF0C\u6216\u53D6\u6D88\u8FDE\u7EBF\u3002",
-      input_schema: {
-        type: "object",
-        properties: {
-          source: { type: "string", description: "\u6E90\u9875\u9762 id" },
-          target: { type: "string", description: "\u76EE\u6807\u9875\u9762 id" },
-          label: { type: "string", description: "\u53EF\u9009\u8FDE\u7EBF\u6807\u7B7E" },
-          remove: { type: "boolean", description: "\u4E3A true \u65F6\u53D6\u6D88\u8FDE\u7EBF" }
-        },
-        required: ["source", "target"]
-      }
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasLinkPages
+    execute: canvasArrange
   },
   {
     definition: {
