@@ -32,4 +32,4 @@
 
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。
+MIT（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。

@@ -50,4 +50,4 @@ iframe 里的深色内容压住、只露出一部分，文字与尺寸数字难�
 
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。
+MIT（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。

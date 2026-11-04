@@ -35,4 +35,4 @@
 
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。
+MIT（见 [LICENSE](../LICENSE)）。

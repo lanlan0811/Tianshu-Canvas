@@ -93,4 +93,4 @@
 
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。完整安装与使用见 [release-0.1.0.md](release-0.1.0.md)。
+MIT（见 [LICENSE](../LICENSE)）。完整安装与使用见 [release-0.1.0.md](release-0.1.0.md)。

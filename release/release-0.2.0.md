@@ -72,4 +72,4 @@
 
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。功能与使用见 [release-0.1.2.md](release-0.1.2.md)。
+MIT（见 [LICENSE](../LICENSE)）。功能与使用见 [release-0.1.2.md](release-0.1.2.md)。

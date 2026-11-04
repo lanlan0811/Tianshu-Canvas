@@ -70,6 +70,7 @@ web/        画布前端（React + React Flow）→ dist/web/canvas.js
 dist/       构建产物（提交进仓库）
 test/       契约 / 项目 / 服务 / 选中 / 导出 / 探针 e2e 测试（node:test，跑构建产物）
 scripts/    build.mjs、verify-web.mjs、extract-release-notes.mjs
+release/    每个版本的发布详情文档（release-<版本>.md）
 ```
 
 ### 端到端验证（真实浏览器）

@@ -1,11 +1,11 @@
 # 更新日志
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
-每个版本的详细发布说明见 `release-<版本>.md`。
+每个版本的详细发布说明见 `release/release-<版本>.md`。
 
 ## [v0.2.3] - 2026-11-04
 
-不再在工作区产生多余的原型文件夹。详细说明见 [release-0.2.3.md](release-0.2.3.md)。
+不再在工作区产生多余的原型文件夹。详细说明见 [release-0.2.3.md](release/release-0.2.3.md)。
 
 ### 修复
 
@@ -15,7 +15,7 @@
 
 ## [v0.2.2] - 2026-11-04
 
-修复 PNG 导出偶发失败（Failed to launch the browser process / The browser is already running）。详细说明见 [release-0.2.2.md](release-0.2.2.md)。
+修复 PNG 导出偶发失败（Failed to launch the browser process / The browser is already running）。详细说明见 [release-0.2.2.md](release/release-0.2.2.md)。
 
 ### 修复
 
@@ -26,7 +26,7 @@
 
 ## [v0.2.1] - 2026-11-04
 
-修复画布节点标题栏被页面内容遮挡。详细说明见 [release-0.2.1.md](release-0.2.1.md)。
+修复画布节点标题栏被页面内容遮挡。详细说明见 [release-0.2.1.md](release/release-0.2.1.md)。
 
 ### 修复
 
@@ -37,7 +37,7 @@
 
 ## [v0.2.0] - 2026-11-04
 
-工具精简：10 个工具合并为 5 个，业务能力不变。详细说明见 [release-0.2.0.md](release-0.2.0.md)。
+工具精简：10 个工具合并为 5 个，业务能力不变。详细说明见 [release-0.2.0.md](release/release-0.2.0.md)。
 
 ### 变更（破坏性）
 
@@ -53,7 +53,7 @@
 
 ## [v0.1.2] - 2026-11-04
 
-画布交互闭环：选中反馈 + 可视化编辑 + 编排 + 导出。详细说明见 [release-0.1.2.md](release-0.1.2.md)。
+画布交互闭环：选中反馈 + 可视化编辑 + 编排 + 导出。详细说明见 [release-0.1.2.md](release/release-0.1.2.md)。
 
 ### 新增
 
@@ -74,7 +74,7 @@
 
 ## [v0.1.1] - 2026-11-04
 
-修复工作流顺序：先启动画布、给用户链接，再做原型设计。详细说明见 [release-0.1.1.md](release-0.1.1.md)。
+修复工作流顺序：先启动画布、给用户链接，再做原型设计。详细说明见 [release-0.1.1.md](release/release-0.1.1.md)。
 
 ### 修复
 
@@ -84,7 +84,7 @@
 
 ## [v0.1.0] - 2026-11-04
 
-首个版本：无限画布设计工作台。详细说明见 [release-0.1.0.md](release-0.1.0.md)。
+首个版本：无限画布设计工作台。详细说明见 [release-0.1.0.md](release/release-0.1.0.md)。
 
 ### 新增
 
