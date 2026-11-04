@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertSafeId } from './ids.js'
 import { injectProbe } from './probe.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
@@ -42,6 +43,8 @@ const WEB_DIR = fileURLToPath(new URL('./web/', import.meta.url))
 const DEFAULT_PORT = 43117
 const MUTATION_HEADER = 'x-tianshu-canvas'
 const MAX_BODY = 4 * 1024 * 1024
+/** 视口请求体很小，沿用比通用 JSON 更紧的上限。 */
+const MAX_VIEWPORT_BODY = 4096
 
 interface ServerState {
   server: http.Server
@@ -146,11 +149,25 @@ const ASSET_TYPES: Record<string, string> = {
 }
 
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  try {
+    routeRequest(req, res)
+  } catch {
+    // 同步异常（例如读页面文件失败）不能打垮进程。
+    if (res.headersSent || res.writableEnded) return
+    try {
+      send(res, 500, 'text/plain; charset=utf-8', 'internal error')
+    } catch {
+      /* 响应已结束 */
+    }
+  }
+}
+
+function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   const host = req.headers.host
   if (!host || !isLocalHost(host)) {
     return send(res, 403, 'text/plain; charset=utf-8', 'forbidden host')
   }
-  const url = new URL(req.url ?? '/', `http://${host}`)
+  const url = new URL(req.url ?? '/', `http://${urlHost(host)}`)
   const path = url.pathname
 
   if (req.method === 'GET' && path === '/healthz') {
@@ -182,7 +199,14 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   if (req.method === 'GET' && path.startsWith('/page/')) {
     const cwd = resolveCwd(url.searchParams.get('ws'))
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
-    const id = decodeURIComponent(path.slice('/page/'.length))
+    let id: string
+    try {
+      id = decodeURIComponent(path.slice('/page/'.length))
+    } catch (err) {
+      // 畸形百分号编码会抛 URIError；不能让它变成未捕获异常。
+      if (err instanceof URIError) return send(res, 400, 'text/plain; charset=utf-8', 'bad page id')
+      throw err
+    }
     const html = readPageHtml(cwd, id)
     if (html === null) return send(res, 404, 'text/plain; charset=utf-8', 'page not found')
     // 注入探针：iframe 内做元素命中/选择/编辑（CSP 已允许内联脚本）
@@ -241,14 +265,33 @@ function handleExport(req: http.IncomingMessage, res: http.ServerResponse): void
 // 变更路由（body 读取 + 分发）
 // ---------------------------------------------------------------------------
 
-function readJsonBody(req: http.IncomingMessage, res: http.ServerResponse, onBody: (body: Record<string, unknown>) => void): void {
+function readJsonBody(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  onBody: (body: Record<string, unknown>) => void,
+  maxBytes = MAX_BODY,
+): void {
   let raw = ''
+  let rejected = false
   req.setEncoding('utf8')
+  req.on('error', () => {
+    /* 客户端断开，或超限后 destroy */
+  })
   req.on('data', (chunk: string) => {
+    if (rejected) return
     raw += chunk
-    if (raw.length > MAX_BODY) req.destroy()
+    if (raw.length > maxBytes) {
+      rejected = true
+      raw = ''
+      // 先把 413 写完再拆连接，避免客户端只看到连接被重置。
+      res.once('finish', () => {
+        req.destroy()
+      })
+      send(res, 413, 'application/json; charset=utf-8', JSON.stringify({ error: 'body too large' }))
+    }
   })
   req.on('end', () => {
+    if (rejected || res.writableEnded || res.headersSent) return
     let parsed: Record<string, unknown>
     try {
       parsed = JSON.parse(raw || '{}') as Record<string, unknown>
@@ -267,27 +310,32 @@ function handleSelection(req: http.IncomingMessage, res: http.ServerResponse): v
     const pageId = typeof body.pageId === 'string' ? body.pageId : ''
     const kind = body.kind === 'page' ? 'page' : 'element'
     if (!pageId) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing pageId' }))
-    const raw = body.payload as Record<string, unknown> | undefined
-    const selection: Selection = {
-      pageId,
-      kind,
-      at: Date.now(),
-      ...(kind === 'element' && raw
-        ? {
-            element: {
-              xpath: String(raw.xpath ?? ''),
-              tagName: String(raw.tagName ?? ''),
-              textContent: typeof raw.textContent === 'string' ? raw.textContent : undefined,
-              computedStyles:
-                raw.computedStyles && typeof raw.computedStyles === 'object'
-                  ? (raw.computedStyles as Record<string, string>)
-                  : undefined,
-            },
-          }
-        : {}),
+    try {
+      assertSafeId(pageId)
+      const raw = body.payload as Record<string, unknown> | undefined
+      const selection: Selection = {
+        pageId,
+        kind,
+        at: Date.now(),
+        ...(kind === 'element' && raw
+          ? {
+              element: {
+                xpath: String(raw.xpath ?? ''),
+                tagName: String(raw.tagName ?? ''),
+                textContent: typeof raw.textContent === 'string' ? raw.textContent : undefined,
+                computedStyles:
+                  raw.computedStyles && typeof raw.computedStyles === 'object'
+                    ? (raw.computedStyles as Record<string, string>)
+                    : undefined,
+              },
+            }
+          : {}),
+      }
+      writeSelection(cwd, selection)
+      return sendJson(res, { ok: true })
+    } catch (err) {
+      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
     }
-    writeSelection(cwd, selection)
-    return sendJson(res, { ok: true })
   })
 }
 
@@ -348,43 +396,44 @@ function handleEdges(req: http.IncomingMessage, res: http.ServerResponse): void 
     const source = typeof body.source === 'string' ? body.source : ''
     const target = typeof body.target === 'string' ? body.target : ''
     if (!source || !target) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing source or target' }))
-    if (op === 'add') {
-      const edge = addEdge(cwd, source, target, typeof body.label === 'string' ? body.label : undefined)
-      return sendJson(res, { ok: true, edge })
+    try {
+      if (op === 'add') {
+        const edge = addEdge(cwd, source, target, typeof body.label === 'string' ? body.label : undefined)
+        return sendJson(res, { ok: true, edge })
+      }
+      if (op === 'remove') {
+        removeEdge(cwd, source, target)
+        return sendJson(res, { ok: true })
+      }
+      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
+    } catch (err) {
+      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
     }
-    if (op === 'remove') {
-      removeEdge(cwd, source, target)
-      return sendJson(res, { ok: true })
-    }
-    return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
   })
 }
 
 function handleViewport(req: http.IncomingMessage, res: http.ServerResponse): void {
-  let body = ''
-  req.setEncoding('utf8')
-  req.on('data', (chunk: string) => {
-    body += chunk
-    if (body.length > 4096) req.destroy()
-  })
-  req.on('end', () => {
-    try {
-      const parsed = JSON.parse(body) as { ws?: unknown; x?: unknown; y?: unknown; zoom?: unknown }
-      const cwd = resolveCwd(typeof parsed.ws === 'string' ? parsed.ws : null)
-      if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
-      const x = Number(parsed.x)
-      const y = Number(parsed.y)
-      const zoom = Number(parsed.zoom)
-      setViewport(cwd, {
-        x: Number.isFinite(x) ? x : 0,
-        y: Number.isFinite(y) ? y : 0,
-        zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
-      })
-      return sendJson(res, { ok: true })
-    } catch {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad json' }))
-    }
-  })
+  readJsonBody(
+    req,
+    res,
+    (body) => {
+      try {
+        const cwd = String(body.__cwd)
+        const x = Number(body.x)
+        const y = Number(body.y)
+        const zoom = Number(body.zoom)
+        setViewport(cwd, {
+          x: Number.isFinite(x) ? x : 0,
+          y: Number.isFinite(y) ? y : 0,
+          zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
+        })
+        return sendJson(res, { ok: true })
+      } catch (err) {
+        return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
+      }
+    },
+    MAX_VIEWPORT_BODY,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -443,9 +492,35 @@ function resolveCwd(token: string | null): string | null {
   return state.tokens.get(token) ?? null
 }
 
+/**
+ * Host 头里的主机名。
+ * 不能用 split(':')[0]：`[::1]:43117` 会被切成 `[`，本机 IPv6 会被误拒。
+ */
+function hostName(host: string): string {
+  const value = host.trim().toLowerCase()
+  if (value.startsWith('[')) {
+    const end = value.indexOf(']')
+    return end > 1 ? value.slice(1, end) : value
+  }
+  const firstColon = value.indexOf(':')
+  if (firstColon === -1) return value
+  // 多个冒号是无方括号的 IPv6（如 ::1）。端口只出现在 [addr]:port 形式里。
+  if (value.lastIndexOf(':') !== firstColon) return value
+  return value.slice(0, firstColon)
+}
+
 function isLocalHost(host: string): boolean {
-  const name = host.split(':')[0]?.toLowerCase()
-  return name === '127.0.0.1' || name === 'localhost'
+  const name = hostName(host)
+  return name === '127.0.0.1' || name === 'localhost' || name === '::1'
+}
+
+/** 给 URL 构造器用。裸 IPv6（::1）必须补上方括号，否则 new URL 抛 TypeError。 */
+function urlHost(host: string): string {
+  const value = host.trim()
+  if (value.startsWith('[')) return value
+  const name = hostName(value)
+  if (name.includes(':')) return `[${name}]`
+  return value
 }
 
 function serveStatic(res: http.ServerResponse, name: string, type = 'text/html; charset=utf-8'): void {

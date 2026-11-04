@@ -85,20 +85,51 @@ function emptyProject(): Project {
   return { version: 1, viewport: { x: 0, y: 0, zoom: 1 }, nodes: [], edges: [] }
 }
 
+/**
+ * 损坏的 project.json 不能当成空项目继续用：随后的写入会把原文件覆盖掉。
+ * 挪到 project.json.corrupt-<timestamp>（保留原始字节）后再按空项目继续。
+ * 挪走而不是复制：重复读取不会不断产生备份，后续写入也不会盖掉唯一的原件。
+ * 挪走失败且原文件还在时抛出，避免静默丢数据。
+ */
+function quarantineCorruptProject(file: string): void {
+  if (!existsSync(file)) return
+  const stamp = Date.now()
+  let dest = `${file}.corrupt-${stamp}`
+  let n = 0
+  while (existsSync(dest) && n < 1000) {
+    n += 1
+    dest = `${file}.corrupt-${stamp}-${n}`
+  }
+  if (existsSync(dest)) throw new Error(`无法备份损坏的项目文件：${file}`)
+  try {
+    renameSync(file, dest)
+  } catch (err) {
+    if (!existsSync(file)) return
+    throw err
+  }
+}
+
 export function readProject(cwd: string): Project {
   const file = projectFile(cwd)
   if (!existsSync(file)) return emptyProject()
+  const raw = readFileSync(file, 'utf8')
+  let parsed: unknown
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<Project>
-    if (!parsed || !Array.isArray(parsed.nodes)) return emptyProject()
-    return {
-      version: 1,
-      viewport: normalizeViewport(parsed.viewport),
-      nodes: parsed.nodes.filter(isPageNode),
-      edges: Array.isArray(parsed.edges) ? parsed.edges.filter(isEdge) : [],
-    }
+    parsed = JSON.parse(raw)
   } catch {
+    quarantineCorruptProject(file)
     return emptyProject()
+  }
+  const obj = parsed as Partial<Project>
+  if (!obj || !Array.isArray(obj.nodes)) {
+    quarantineCorruptProject(file)
+    return emptyProject()
+  }
+  return {
+    version: 1,
+    viewport: normalizeViewport(obj.viewport),
+    nodes: obj.nodes.filter(isPageNode),
+    edges: Array.isArray(obj.edges) ? obj.edges.filter(isEdge) : [],
   }
 }
 
@@ -260,9 +291,22 @@ export function duplicateNode(cwd: string, id: string, title?: string): PageNode
   return node
 }
 
-/** 新增连线（按 source→target 去重）。 */
+function assertEdgeEnds(source: string, target: string): void {
+  assertSafeId(source)
+  assertSafeId(target)
+  if (source === target) throw new Error(`不能将节点连接到自身：${source}`)
+}
+
+function assertEdgeNodes(project: Project, source: string, target: string): void {
+  if (!project.nodes.some((n) => n.id === source)) throw new Error(`节点不存在：${source}`)
+  if (!project.nodes.some((n) => n.id === target)) throw new Error(`节点不存在：${target}`)
+}
+
+/** 新增连线（按 source→target 去重）。两端必须是已存在的节点，且不能自环。 */
 export function addEdge(cwd: string, source: string, target: string, label?: string): Edge {
+  assertEdgeEnds(source, target)
   const project = readProject(cwd)
+  assertEdgeNodes(project, source, target)
   const exists = project.edges.find((e) => e.source === source && e.target === target)
   if (exists) {
     if (label !== undefined && exists.label !== label) {
@@ -277,10 +321,14 @@ export function addEdge(cwd: string, source: string, target: string, label?: str
   return edge
 }
 
-/** 删除连线。 */
+/** 删除连线。端点不合法时抛出；没有匹配的连线时不写盘。 */
 export function removeEdge(cwd: string, source: string, target: string): Project {
+  assertEdgeEnds(source, target)
   const project = readProject(cwd)
-  project.edges = project.edges.filter((e) => !(e.source === source && e.target === target))
+  assertEdgeNodes(project, source, target)
+  const edges = project.edges.filter((e) => !(e.source === source && e.target === target))
+  if (edges.length === project.edges.length) return project
+  project.edges = edges
   writeProjectAtomic(cwd, project)
   return project
 }

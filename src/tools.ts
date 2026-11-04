@@ -303,15 +303,23 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
       const source = str(call.args.source)
       const target = str(call.args.target)
       if (!source || !target) return { content: 'link 需要 source 和 target。', isError: true }
-      const edge = addEdge(call.cwd, source, target, str(call.args.label))
-      return { content: `已连线 ${edge.source} → ${edge.target}${edge.label ? `（${edge.label}）` : ''}。` }
+      try {
+        const edge = addEdge(call.cwd, source, target, str(call.args.label))
+        return { content: `已连线 ${edge.source} → ${edge.target}${edge.label ? `（${edge.label}）` : ''}。` }
+      } catch (err) {
+        return { content: (err as Error).message, isError: true }
+      }
     }
     case 'unlink': {
       const source = str(call.args.source)
       const target = str(call.args.target)
       if (!source || !target) return { content: 'unlink 需要 source 和 target。', isError: true }
-      removeEdge(call.cwd, source, target)
-      return { content: `已取消连线 ${source} → ${target}。` }
+      try {
+        removeEdge(call.cwd, source, target)
+        return { content: `已取消连线 ${source} → ${target}。` }
+      } catch (err) {
+        return { content: (err as Error).message, isError: true }
+      }
     }
     default:
       return {

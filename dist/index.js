@@ -70,21 +70,45 @@ function pagesDir(cwd) {
 function emptyProject() {
   return { version: 1, viewport: { x: 0, y: 0, zoom: 1 }, nodes: [], edges: [] };
 }
+function quarantineCorruptProject(file) {
+  if (!existsSync(file)) return;
+  const stamp2 = Date.now();
+  let dest = `${file}.corrupt-${stamp2}`;
+  let n = 0;
+  while (existsSync(dest) && n < 1e3) {
+    n += 1;
+    dest = `${file}.corrupt-${stamp2}-${n}`;
+  }
+  if (existsSync(dest)) throw new Error(`\u65E0\u6CD5\u5907\u4EFD\u635F\u574F\u7684\u9879\u76EE\u6587\u4EF6\uFF1A${file}`);
+  try {
+    renameSync(file, dest);
+  } catch (err) {
+    if (!existsSync(file)) return;
+    throw err;
+  }
+}
 function readProject(cwd) {
   const file = projectFile(cwd);
   if (!existsSync(file)) return emptyProject();
+  const raw = readFileSync(file, "utf8");
+  let parsed;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
-    if (!parsed || !Array.isArray(parsed.nodes)) return emptyProject();
-    return {
-      version: 1,
-      viewport: normalizeViewport(parsed.viewport),
-      nodes: parsed.nodes.filter(isPageNode),
-      edges: Array.isArray(parsed.edges) ? parsed.edges.filter(isEdge) : []
-    };
+    parsed = JSON.parse(raw);
   } catch {
+    quarantineCorruptProject(file);
     return emptyProject();
   }
+  const obj = parsed;
+  if (!obj || !Array.isArray(obj.nodes)) {
+    quarantineCorruptProject(file);
+    return emptyProject();
+  }
+  return {
+    version: 1,
+    viewport: normalizeViewport(obj.viewport),
+    nodes: obj.nodes.filter(isPageNode),
+    edges: Array.isArray(obj.edges) ? obj.edges.filter(isEdge) : []
+  };
 }
 function normalizeViewport(v) {
   if (v && typeof v === "object") {
@@ -217,8 +241,19 @@ function duplicateNode(cwd, id, title) {
   writeProjectAtomic(cwd, project);
   return node;
 }
+function assertEdgeEnds(source, target) {
+  assertSafeId(source);
+  assertSafeId(target);
+  if (source === target) throw new Error(`\u4E0D\u80FD\u5C06\u8282\u70B9\u8FDE\u63A5\u5230\u81EA\u8EAB\uFF1A${source}`);
+}
+function assertEdgeNodes(project, source, target) {
+  if (!project.nodes.some((n) => n.id === source)) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${source}`);
+  if (!project.nodes.some((n) => n.id === target)) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${target}`);
+}
 function addEdge(cwd, source, target, label) {
+  assertEdgeEnds(source, target);
   const project = readProject(cwd);
+  assertEdgeNodes(project, source, target);
   const exists = project.edges.find((e) => e.source === source && e.target === target);
   if (exists) {
     if (label !== void 0 && exists.label !== label) {
@@ -233,8 +268,12 @@ function addEdge(cwd, source, target, label) {
   return edge;
 }
 function removeEdge(cwd, source, target) {
+  assertEdgeEnds(source, target);
   const project = readProject(cwd);
-  project.edges = project.edges.filter((e) => !(e.source === source && e.target === target));
+  assertEdgeNodes(project, source, target);
+  const edges = project.edges.filter((e) => !(e.source === source && e.target === target));
+  if (edges.length === project.edges.length) return project;
+  project.edges = edges;
   writeProjectAtomic(cwd, project);
   return project;
 }
@@ -534,6 +573,7 @@ var WEB_DIR = fileURLToPath(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
 var MUTATION_HEADER = "x-tianshu-canvas";
 var MAX_BODY = 4 * 1024 * 1024;
+var MAX_VIEWPORT_BODY = 4096;
 var state = null;
 function tokenFor(cwd) {
   return createHash("sha256").update(cwd).digest("hex").slice(0, 16);
@@ -596,11 +636,22 @@ var ASSET_TYPES = {
   "canvas.js.map": "application/json; charset=utf-8"
 };
 function handleRequest(req, res) {
+  try {
+    routeRequest(req, res);
+  } catch {
+    if (res.headersSent || res.writableEnded) return;
+    try {
+      send(res, 500, "text/plain; charset=utf-8", "internal error");
+    } catch {
+    }
+  }
+}
+function routeRequest(req, res) {
   const host = req.headers.host;
   if (!host || !isLocalHost(host)) {
     return send(res, 403, "text/plain; charset=utf-8", "forbidden host");
   }
-  const url = new URL(req.url ?? "/", `http://${host}`);
+  const url = new URL(req.url ?? "/", `http://${urlHost(host)}`);
   const path = url.pathname;
   if (req.method === "GET" && path === "/healthz") {
     return send(res, 200, "text/plain; charset=utf-8", "ok");
@@ -626,7 +677,13 @@ function handleRequest(req, res) {
   if (req.method === "GET" && path.startsWith("/page/")) {
     const cwd = resolveCwd(url.searchParams.get("ws"));
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
-    const id = decodeURIComponent(path.slice("/page/".length));
+    let id;
+    try {
+      id = decodeURIComponent(path.slice("/page/".length));
+    } catch (err) {
+      if (err instanceof URIError) return send(res, 400, "text/plain; charset=utf-8", "bad page id");
+      throw err;
+    }
     const html = readPageHtml(cwd, id);
     if (html === null) return send(res, 404, "text/plain; charset=utf-8", "page not found");
     return sendUntrustedHtml(res, injectProbe(html));
@@ -671,14 +728,26 @@ function handleExport(req, res) {
     void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result })).catch((err) => send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message })));
   });
 }
-function readJsonBody(req, res, onBody) {
+function readJsonBody(req, res, onBody, maxBytes = MAX_BODY) {
   let raw = "";
+  let rejected = false;
   req.setEncoding("utf8");
+  req.on("error", () => {
+  });
   req.on("data", (chunk) => {
+    if (rejected) return;
     raw += chunk;
-    if (raw.length > MAX_BODY) req.destroy();
+    if (raw.length > maxBytes) {
+      rejected = true;
+      raw = "";
+      res.once("finish", () => {
+        req.destroy();
+      });
+      send(res, 413, "application/json; charset=utf-8", JSON.stringify({ error: "body too large" }));
+    }
   });
   req.on("end", () => {
+    if (rejected || res.writableEnded || res.headersSent) return;
     let parsed;
     try {
       parsed = JSON.parse(raw || "{}");
@@ -696,22 +765,27 @@ function handleSelection(req, res) {
     const pageId = typeof body.pageId === "string" ? body.pageId : "";
     const kind = body.kind === "page" ? "page" : "element";
     if (!pageId) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing pageId" }));
-    const raw = body.payload;
-    const selection = {
-      pageId,
-      kind,
-      at: Date.now(),
-      ...kind === "element" && raw ? {
-        element: {
-          xpath: String(raw.xpath ?? ""),
-          tagName: String(raw.tagName ?? ""),
-          textContent: typeof raw.textContent === "string" ? raw.textContent : void 0,
-          computedStyles: raw.computedStyles && typeof raw.computedStyles === "object" ? raw.computedStyles : void 0
-        }
-      } : {}
-    };
-    writeSelection(cwd, selection);
-    return sendJson(res, { ok: true });
+    try {
+      assertSafeId(pageId);
+      const raw = body.payload;
+      const selection = {
+        pageId,
+        kind,
+        at: Date.now(),
+        ...kind === "element" && raw ? {
+          element: {
+            xpath: String(raw.xpath ?? ""),
+            tagName: String(raw.tagName ?? ""),
+            textContent: typeof raw.textContent === "string" ? raw.textContent : void 0,
+            computedStyles: raw.computedStyles && typeof raw.computedStyles === "object" ? raw.computedStyles : void 0
+          }
+        } : {}
+      };
+      writeSelection(cwd, selection);
+      return sendJson(res, { ok: true });
+    } catch (err) {
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+    }
   });
 }
 function handlePageHtml(req, res) {
@@ -769,42 +843,43 @@ function handleEdges(req, res) {
     const source = typeof body.source === "string" ? body.source : "";
     const target = typeof body.target === "string" ? body.target : "";
     if (!source || !target) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing source or target" }));
-    if (op === "add") {
-      const edge = addEdge(cwd, source, target, typeof body.label === "string" ? body.label : void 0);
-      return sendJson(res, { ok: true, edge });
+    try {
+      if (op === "add") {
+        const edge = addEdge(cwd, source, target, typeof body.label === "string" ? body.label : void 0);
+        return sendJson(res, { ok: true, edge });
+      }
+      if (op === "remove") {
+        removeEdge(cwd, source, target);
+        return sendJson(res, { ok: true });
+      }
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
+    } catch (err) {
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
     }
-    if (op === "remove") {
-      removeEdge(cwd, source, target);
-      return sendJson(res, { ok: true });
-    }
-    return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
   });
 }
 function handleViewport(req, res) {
-  let body = "";
-  req.setEncoding("utf8");
-  req.on("data", (chunk) => {
-    body += chunk;
-    if (body.length > 4096) req.destroy();
-  });
-  req.on("end", () => {
-    try {
-      const parsed = JSON.parse(body);
-      const cwd = resolveCwd(typeof parsed.ws === "string" ? parsed.ws : null);
-      if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
-      const x = Number(parsed.x);
-      const y = Number(parsed.y);
-      const zoom = Number(parsed.zoom);
-      setViewport(cwd, {
-        x: Number.isFinite(x) ? x : 0,
-        y: Number.isFinite(y) ? y : 0,
-        zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1
-      });
-      return sendJson(res, { ok: true });
-    } catch {
-      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "bad json" }));
-    }
-  });
+  readJsonBody(
+    req,
+    res,
+    (body) => {
+      try {
+        const cwd = String(body.__cwd);
+        const x = Number(body.x);
+        const y = Number(body.y);
+        const zoom = Number(body.zoom);
+        setViewport(cwd, {
+          x: Number.isFinite(x) ? x : 0,
+          y: Number.isFinite(y) ? y : 0,
+          zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+        });
+        return sendJson(res, { ok: true });
+      } catch (err) {
+        return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+      }
+    },
+    MAX_VIEWPORT_BODY
+  );
 }
 function handleSse(res, token) {
   res.writeHead(200, {
@@ -852,9 +927,27 @@ function resolveCwd(token) {
   if (!token || !state) return null;
   return state.tokens.get(token) ?? null;
 }
+function hostName(host) {
+  const value = host.trim().toLowerCase();
+  if (value.startsWith("[")) {
+    const end = value.indexOf("]");
+    return end > 1 ? value.slice(1, end) : value;
+  }
+  const firstColon = value.indexOf(":");
+  if (firstColon === -1) return value;
+  if (value.lastIndexOf(":") !== firstColon) return value;
+  return value.slice(0, firstColon);
+}
 function isLocalHost(host) {
-  const name = host.split(":")[0]?.toLowerCase();
-  return name === "127.0.0.1" || name === "localhost";
+  const name = hostName(host);
+  return name === "127.0.0.1" || name === "localhost" || name === "::1";
+}
+function urlHost(host) {
+  const value = host.trim();
+  if (value.startsWith("[")) return value;
+  const name = hostName(value);
+  if (name.includes(":")) return `[${name}]`;
+  return value;
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
   const file = join2(WEB_DIR, name);
@@ -1303,15 +1396,23 @@ async function canvasArrange(call) {
       const source = str(call.args.source);
       const target = str(call.args.target);
       if (!source || !target) return { content: "link \u9700\u8981 source \u548C target\u3002", isError: true };
-      const edge = addEdge(call.cwd, source, target, str(call.args.label));
-      return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+      try {
+        const edge = addEdge(call.cwd, source, target, str(call.args.label));
+        return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+      } catch (err) {
+        return { content: err.message, isError: true };
+      }
     }
     case "unlink": {
       const source = str(call.args.source);
       const target = str(call.args.target);
       if (!source || !target) return { content: "unlink \u9700\u8981 source \u548C target\u3002", isError: true };
-      removeEdge(call.cwd, source, target);
-      return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source} \u2192 ${target}\u3002` };
+      try {
+        removeEdge(call.cwd, source, target);
+        return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source} \u2192 ${target}\u3002` };
+      } catch (err) {
+        return { content: err.message, isError: true };
+      }
     }
     default:
       return {
