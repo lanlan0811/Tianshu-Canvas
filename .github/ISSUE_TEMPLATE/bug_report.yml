@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         感谢反馈。请尽量提供可复现的信息。
-        安全漏洞请勿在此提交，参见 [SECURITY.md](../../SECURITY.md)。
+        安全漏洞请勿在此提交，请发邮件至 lanaiw2025@163.com。
   - type: textarea
     id: what-happened
     attributes:
