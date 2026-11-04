@@ -125,6 +125,26 @@ export async function postPageHtml(ws: string, id: string, html: string): Promis
   return res.ok
 }
 
+export interface ExportResult {
+  ok: boolean
+  files: Array<{ name: string; path: string; bytes: number }>
+  pngError?: string
+  error?: string
+}
+
+export async function requestExport(ws: string, kind: 'png' | 'zip' | 'both'): Promise<ExportResult> {
+  const res = await fetch('/api/export', {
+    method: 'POST',
+    headers: MUTATION_HEADERS,
+    body: JSON.stringify({ ws, kind }),
+  })
+  return (await res.json()) as ExportResult
+}
+
+export function exportFileUrl(ws: string, name: string): string {
+  return `/api/export-file?ws=${encodeURIComponent(ws)}&name=${encodeURIComponent(name)}`
+}
+
 export interface EventHandlers {
   onProject?: () => void
   onSelection?: () => void

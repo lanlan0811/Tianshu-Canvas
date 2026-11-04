@@ -47,6 +47,10 @@
       {
         "name": "canvas_link_pages",
         "description": "在两个页面节点之间连线或取消连线"
+      },
+      {
+        "name": "canvas_export",
+        "description": "导出画布截图 PNG 与/或原型打包 ZIP"
       }
     ],
     "lifecycle": [],

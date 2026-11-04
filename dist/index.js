@@ -7,8 +7,8 @@ function defineTianshuPlugin(spec) {
 
 // src/tools.ts
 import { spawn } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync3 } from "node:fs";
+import { join as join4 } from "node:path";
 
 // src/device.ts
 var DEVICE_PRESETS = {
@@ -30,6 +30,16 @@ function positiveOr(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
 }
 
+// src/export.ts
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join3 } from "node:path";
+import { deflateRawSync } from "node:zlib";
+
+// src/project.ts
+import { EventEmitter } from "node:events";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 // src/ids.ts
 import { randomUUID } from "node:crypto";
 var ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -44,9 +54,6 @@ function newPageId() {
 }
 
 // src/project.ts
-import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
 projectEvents.setMaxListeners(0);
@@ -628,6 +635,20 @@ function handleRequest(req, res) {
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
     return sendJson(res, { selection: readSelection(cwd) });
   }
+  if (req.method === "GET" && path === "/api/export-file") {
+    const cwd = resolveCwd(url.searchParams.get("ws"));
+    if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
+    const name = url.searchParams.get("name") ?? "";
+    if (!name || /[\\/]/.test(name) || name.includes("..")) {
+      return send(res, 400, "text/plain; charset=utf-8", "bad name");
+    }
+    const file = join2(exportsDir(cwd), name);
+    if (!existsSync2(file)) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    const type = name.endsWith(".png") ? "image/png" : "application/zip";
+    res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
+    res.end(readFileSync2(file));
+    return;
+  }
   if (req.method === "POST") {
     if (String(req.headers[MUTATION_HEADER] ?? "") !== "1") {
       return send(res, 403, "text/plain; charset=utf-8", "missing header");
@@ -637,8 +658,17 @@ function handleRequest(req, res) {
     if (path === "/api/page-html") return handlePageHtml(req, res);
     if (path === "/api/nodes") return handleNodes(req, res);
     if (path === "/api/edges") return handleEdges(req, res);
+    if (path === "/api/export") return handleExport(req, res);
   }
   return send(res, 404, "text/plain; charset=utf-8", "not found");
+}
+function handleExport(req, res) {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd);
+    const kindRaw = String(body.kind ?? "both");
+    const kind = kindRaw === "png" || kindRaw === "zip" ? kindRaw : "both";
+    void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result })).catch((err) => send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message })));
+  });
 }
 function readJsonBody(req, res, onBody) {
   let raw = "";
@@ -851,6 +881,190 @@ function send(res, status, type, body) {
   res.end(body);
 }
 
+// src/export.ts
+var BROWSER_CANDIDATES = [
+  process.env.TIANSHU_CANVAS_BROWSER,
+  "C:/Program Files/Google/Chrome/Application/chrome.exe",
+  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+  "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+].filter((p) => typeof p === "string" && p.length > 0);
+function resolveBrowser() {
+  return BROWSER_CANDIDATES.find((p) => existsSync3(p)) ?? null;
+}
+function exportsDir(cwd) {
+  return join3(projectDir(cwd), "exports");
+}
+function stamp() {
+  const d = /* @__PURE__ */ new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+async function exportPng(cwd) {
+  const exe = resolveBrowser();
+  if (!exe) {
+    throw new Error(
+      "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u5BFC\u51FA PNG\u3002\u8BF7\u5B89\u88C5 Chrome/Edge\uFF0C\u6216\u7528\u73AF\u5883\u53D8\u91CF TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u6D4F\u89C8\u5668\u8DEF\u5F84\u3002"
+    );
+  }
+  const { url } = await ensureServer(cwd);
+  const puppeteer = (await import("puppeteer-core")).default;
+  const browser = await puppeteer.launch({
+    executablePath: exe,
+    headless: true,
+    args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 });
+    await page.goto(`${url}&export=1`, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    await page.waitForSelector(".page-node", { timeout: 15e3 });
+    await new Promise((r) => setTimeout(r, 800));
+    const clip = await page.evaluate(() => {
+      const doc = globalThis.document;
+      const els = Array.from(doc.querySelectorAll(".page-node"));
+      if (!els.length) return null;
+      const rects = els.map((e) => e.getBoundingClientRect());
+      const left = Math.min(...rects.map((r) => r.left));
+      const top = Math.min(...rects.map((r) => r.top));
+      const right = Math.max(...rects.map((r) => r.right));
+      const bottom = Math.max(...rects.map((r) => r.bottom));
+      const pad = 40;
+      return { x: left - pad, y: top - pad, width: right - left + pad * 2, height: bottom - top + pad * 2 };
+    });
+    const dir = exportsDir(cwd);
+    mkdirSync2(dir, { recursive: true });
+    const path = join3(dir, `canvas-${stamp()}.png`);
+    await page.screenshot({ path, clip: clip ?? void 0 });
+    return { name: `canvas-${stamp()}.png`, path, bytes: readFileSync3(path).length };
+  } finally {
+    await browser.close().catch(() => {
+    });
+  }
+}
+var CRC_TABLE = (() => {
+  const table = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+    table[n] = c;
+  }
+  return table;
+})();
+function crc32(buf) {
+  let c = 4294967295;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 255] ^ c >>> 8;
+  return (c ^ 4294967295) >>> 0;
+}
+function buildZip(entries) {
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const nameBuf = Buffer.from(entry.name, "utf8");
+    const crc = crc32(entry.data);
+    const compressed = deflateRawSync(entry.data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(67324752, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(2048, 6);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(0, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(entry.data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    local.writeUInt16LE(0, 28);
+    chunks.push(local, nameBuf, compressed);
+    const cd = Buffer.alloc(46);
+    cd.writeUInt32LE(33639248, 0);
+    cd.writeUInt16LE(20, 4);
+    cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(2048, 8);
+    cd.writeUInt16LE(8, 10);
+    cd.writeUInt16LE(0, 12);
+    cd.writeUInt16LE(0, 14);
+    cd.writeUInt32LE(crc, 16);
+    cd.writeUInt32LE(compressed.length, 20);
+    cd.writeUInt32LE(entry.data.length, 24);
+    cd.writeUInt16LE(nameBuf.length, 28);
+    cd.writeUInt16LE(0, 30);
+    cd.writeUInt16LE(0, 32);
+    cd.writeUInt16LE(0, 34);
+    cd.writeUInt16LE(0, 36);
+    cd.writeUInt32LE(0, 38);
+    cd.writeUInt32LE(offset, 42);
+    central.push(cd, nameBuf);
+    offset += local.length + nameBuf.length + compressed.length;
+  }
+  const centralBuf = Buffer.concat(central);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(101010256, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+  return Buffer.concat([...chunks, centralBuf, eocd]);
+}
+function galleryHtml(cwd) {
+  const project = readProject(cwd);
+  const cards = project.nodes.map(
+    (n) => `<section><h2>${escapeHtml(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1px solid #ddd;border-radius:8px;background:#fff"></iframe></section>`
+  ).join("\n");
+  return `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6</title>
+<style>body{font-family:system-ui;margin:0;padding:24px;background:#f5f6f8;color:#1f2328}
+h1{font-size:20px}section{margin:0 0 32px}h2{font-size:15px;margin:0 0 8px}small{color:#6b7280;font-weight:400}
+iframe{display:block}</style></head>
+<body><h1>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6\uFF08\u5171 ${project.nodes.length} \u9875\uFF09</h1>
+${cards || "<p>\uFF08\u65E0\u9875\u9762\uFF09</p>"}
+</body></html>`;
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+async function exportZip(cwd) {
+  const project = readProject(cwd);
+  const entries = [];
+  for (const node of project.nodes) {
+    const html = readPageHtml(cwd, node.id);
+    if (html !== null) entries.push({ name: `pages/${node.id}.html`, data: Buffer.from(html, "utf8") });
+  }
+  entries.push({ name: "project.json", data: Buffer.from(JSON.stringify(project, null, 2), "utf8") });
+  entries.push({ name: "index.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
+  const zip = buildZip(entries);
+  const dir = exportsDir(cwd);
+  mkdirSync2(dir, { recursive: true });
+  const name = `canvas-${stamp()}.zip`;
+  const path = join3(dir, name);
+  writeFileSync2(path, zip);
+  return { name, path, bytes: zip.length };
+}
+async function runExport(cwd, kind) {
+  const files = [];
+  let pngError;
+  if (kind === "png" || kind === "both") {
+    try {
+      files.push(await exportPng(cwd));
+    } catch (err) {
+      pngError = err.message;
+    }
+  }
+  if (kind === "zip" || kind === "both") {
+    files.push(await exportZip(cwd));
+  }
+  return { files, pngError };
+}
+
 // src/tools.ts
 function str(v) {
   return typeof v === "string" && v.length > 0 ? v : void 0;
@@ -877,7 +1091,7 @@ async function canvasOpen(call) {
 }
 function writeUrlHint(cwd, url) {
   try {
-    writeFileSync2(join3(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "utf8");
+    writeFileSync3(join4(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "utf8");
   } catch {
   }
 }
@@ -895,11 +1109,11 @@ async function canvasAddPage(call) {
   const htmlPath = str(args.html_path);
   let html;
   if (htmlPath) {
-    if (!existsSync3(htmlPath)) {
+    if (!existsSync4(htmlPath)) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A\u6587\u4EF6\u4E0D\u5B58\u5728 ${htmlPath}`, isError: true };
     }
     try {
-      html = readFileSync3(htmlPath, "utf8");
+      html = readFileSync4(htmlPath, "utf8");
     } catch (err) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
     }
@@ -950,7 +1164,7 @@ async function canvasAddPage(call) {
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9 "${node.title}"\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-\u539F\u578B\u6587\u4EF6\uFF1A${join3(call.cwd, rel)}
+\u539F\u578B\u6587\u4EF6\uFF1A${join4(call.cwd, rel)}
 \u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}`
   };
@@ -1057,6 +1271,30 @@ async function canvasLinkPages(call) {
   }
   const edge = addEdge(call.cwd, source, target, str(call.args.label));
   return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+}
+async function canvasExport(call) {
+  const kindRaw = str(call.args.kind);
+  const kind = kindRaw === "png" || kindRaw === "zip" ? kindRaw : "both";
+  await ensureServer(call.cwd);
+  let result;
+  try {
+    result = await runExport(call.cwd, kind);
+  } catch (err) {
+    return { content: `\u5BFC\u51FA\u5931\u8D25\uFF1A${err.message}`, isError: true };
+  }
+  const lines = [];
+  for (const f of result.files) {
+    lines.push(`${f.name}\uFF08${(f.bytes / 1024).toFixed(1)} KB\uFF09
+  \u8DEF\u5F84\uFF1A${f.path}`);
+  }
+  const url = currentUrl(call.cwd);
+  const head = `\u5DF2\u5BFC\u51FA ${result.files.length} \u4E2A\u6587\u4EF6\uFF1A`;
+  const pngNote = result.pngError ? `
+\u6CE8\u610F\uFF1APNG \u5BFC\u51FA\u672A\u5B8C\u6210\u2014\u2014${result.pngError}` : "";
+  const linkNote = url ? `
+\u753B\u5E03 URL\uFF1A${url}` : "";
+  return { content: `${head}
+${lines.join("\n")}${pngNote}${linkNote}` };
 }
 var tools = [
   {
@@ -1226,6 +1464,24 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: canvasLinkPages
+  },
+  {
+    definition: {
+      name: "canvas_export",
+      description: "\u5BFC\u51FA\u753B\u5E03\u6210\u679C\uFF1A\u6574\u5757\u753B\u5E03\u622A\u56FE PNG \u4E0E/\u6216\u539F\u578B\u6253\u5305 ZIP\uFF08\u542B index.html \u753B\u5ECA + project.json\uFF09\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["png", "zip", "both"], description: "\u5BFC\u51FA\u7C7B\u578B\uFF08\u9ED8\u8BA4 both\uFF09" }
+        },
+        required: []
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasExport
   }
 ];
 
@@ -1249,5 +1505,6 @@ var index_default = defineTianshuPlugin({
 });
 export {
   index_default as default,
+  resolveBrowser,
   tools
 };

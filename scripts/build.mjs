@@ -20,6 +20,7 @@ rmSync(dist, { recursive: true, force: true })
 mkdirSync(distWeb, { recursive: true })
 
 // (a) Node 侧：src/index.ts -> dist/index.js（单文件 ESM bundle）
+// puppeteer-core 保持 external：运行时从 node_modules 动态 import（它体积大且非纯 JS 依赖树）。
 await build({
   absWorkingDir: root,
   entryPoints: ['src/index.ts'],
@@ -28,6 +29,7 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node24',
+  external: ['puppeteer-core'],
   sourcemap: false,
   legalComments: 'none',
   logLevel: 'info',

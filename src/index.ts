@@ -37,3 +37,4 @@ export default defineTianshuPlugin({
 
 // 供测试直接使用（loader 只读 .default，忽略这些命名导出）。
 export { tools } from './tools.js'
+export { resolveBrowser } from './export.js'

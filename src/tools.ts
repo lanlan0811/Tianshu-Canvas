@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
+import { runExport, type ExportFile, type ExportKind } from './export.js'
 import { isSafeId, newPageId } from './ids.js'
 import {
   addEdge,
@@ -316,6 +317,31 @@ async function canvasLinkPages(call: ToolCall): Promise<ToolResult> {
 }
 
 // ---------------------------------------------------------------------------
+// canvas_export
+// ---------------------------------------------------------------------------
+
+async function canvasExport(call: ToolCall): Promise<ToolResult> {
+  const kindRaw = str(call.args.kind)
+  const kind: ExportKind = kindRaw === 'png' || kindRaw === 'zip' ? kindRaw : 'both'
+  await ensureServer(call.cwd)
+  let result: { files: ExportFile[]; pngError?: string }
+  try {
+    result = await runExport(call.cwd, kind)
+  } catch (err) {
+    return { content: `导出失败：${(err as Error).message}`, isError: true }
+  }
+  const lines: string[] = []
+  for (const f of result.files) {
+    lines.push(`${f.name}（${(f.bytes / 1024).toFixed(1)} KB）\n  路径：${f.path}`)
+  }
+  const url = currentUrl(call.cwd)
+  const head = `已导出 ${result.files.length} 个文件：`
+  const pngNote = result.pngError ? `\n注意：PNG 导出未完成——${result.pngError}` : ''
+  const linkNote = url ? `\n画布 URL：${url}` : ''
+  return { content: `${head}\n${lines.join('\n')}${pngNote}${linkNote}` }
+}
+
+// ---------------------------------------------------------------------------
 // 工具清单（名称必须与 tianshu.plugin.json 的 contributes.tools 完全一致）
 // ---------------------------------------------------------------------------
 
@@ -491,5 +517,23 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: canvasLinkPages,
+  },
+  {
+    definition: {
+      name: 'canvas_export',
+      description: '导出画布成果：整块画布截图 PNG 与/或原型打包 ZIP（含 index.html 画廊 + project.json）。',
+      input_schema: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['png', 'zip', 'both'], description: '导出类型（默认 both）' },
+        },
+        required: [],
+      },
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasExport,
   },
 ]

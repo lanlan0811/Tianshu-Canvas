@@ -18,9 +18,11 @@ import { canvasConfig } from './canvasConfig'
 import { nodeTypes, type PageFlowNode } from './PageNode'
 import { GridLayer } from './GridLayer'
 import { SelectionPanel } from './SelectionPanel'
+import { ExportMenu } from './ExportMenu'
 import { CanvasActionsProvider, type CanvasActions } from './actions'
 import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
+  exportFileUrl,
   fetchProject,
   fetchSelection,
   postEdge,
@@ -28,6 +30,7 @@ import {
   postPageHtml,
   postSelection,
   postViewport,
+  requestExport,
   subscribeEvents,
   type ApiProject,
   type ApiSelection,
@@ -169,6 +172,32 @@ function Canvas() {
     [],
   )
 
+  const [exportingNow, setExportingNow] = useState(false)
+
+  const doExport = useCallback(async (kind: 'png' | 'zip' | 'both') => {
+    setExportingNow(true)
+    try {
+      const result = await requestExport(ws, kind)
+      if (!result.ok) {
+        setError(result.error ?? '导出失败')
+        return
+      }
+      for (const f of result.files) {
+        const a = document.createElement('a')
+        a.href = exportFileUrl(ws, f.name)
+        a.download = f.name
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+      if (result.pngError) setError(`PNG 导出未完成：${result.pngError}`)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setExportingNow(false)
+    }
+  }, [])
+
   // 画布编排动作（供节点工具栏调用）
   const actions: CanvasActions = {
     rename: (id, title) => {
@@ -234,6 +263,7 @@ function Canvas() {
         </ReactFlow>
         {ready && !error && nodes.length === 0 && <EmptyState />}
         {error && <div className="app-error">{error}</div>}
+        {!exporting && <ExportMenu onExport={doExport} busy={exportingNow} />}
         {!exporting && (
           <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>
         )}

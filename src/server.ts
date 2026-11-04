@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { injectProbe } from './probe.js'
+import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
   addEdge,
   moveNode,
@@ -194,6 +195,22 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     return sendJson(res, { selection: readSelection(cwd) })
   }
 
+  if (req.method === 'GET' && path === '/api/export-file') {
+    const cwd = resolveCwd(url.searchParams.get('ws'))
+    if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
+    const name = url.searchParams.get('name') ?? ''
+    // 只允许文件名（无路径分隔符、无 ..）
+    if (!name || /[\\/]/.test(name) || name.includes('..')) {
+      return send(res, 400, 'text/plain; charset=utf-8', 'bad name')
+    }
+    const file = join(exportsDir(cwd), name)
+    if (!existsSync(file)) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+    const type = name.endsWith('.png') ? 'image/png' : 'application/zip'
+    res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' })
+    res.end(readFileSync(file))
+    return
+  }
+
   if (req.method === 'POST') {
     if (String(req.headers[MUTATION_HEADER] ?? '') !== '1') {
       return send(res, 403, 'text/plain; charset=utf-8', 'missing header')
@@ -203,9 +220,21 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     if (path === '/api/page-html') return handlePageHtml(req, res)
     if (path === '/api/nodes') return handleNodes(req, res)
     if (path === '/api/edges') return handleEdges(req, res)
+    if (path === '/api/export') return handleExport(req, res)
   }
 
   return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+}
+
+function handleExport(req: http.IncomingMessage, res: http.ServerResponse): void {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd)
+    const kindRaw = String(body.kind ?? 'both')
+    const kind: ExportKind = kindRaw === 'png' || kindRaw === 'zip' ? kindRaw : 'both'
+    void runExport(cwd, kind)
+      .then((result) => sendJson(res, { ok: true, ...result }))
+      .catch((err) => send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message })))
+  })
 }
 
 // ---------------------------------------------------------------------------
