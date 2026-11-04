@@ -36,8 +36,17 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Extract release notes
-        run: node scripts/extract-release-notes.mjs "${GITHUB_REF_NAME}" > RELEASE_NOTES.md
+      - name: Collect release notes
+        run: |
+          # 发布详情文档优先：release-<版本>.md（版本去掉 v 前缀）
+          bare="${GITHUB_REF_NAME#v}"
+          if [ -f "release-${bare}.md" ]; then
+            cp "release-${bare}.md" RELEASE_NOTES.md
+            echo "使用发布详情文档 release-${bare}.md"
+          else
+            node scripts/extract-release-notes.mjs "${GITHUB_REF_NAME}" > RELEASE_NOTES.md
+            echo "未找到 release-${bare}.md，回退用 CHANGELOG 对应版本段"
+          fi
 
       - name: Create GitHub Release
         env:
