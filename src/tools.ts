@@ -165,14 +165,15 @@ async function canvasAddPage(call: ToolCall): Promise<ToolResult> {
   }
   upsertNode(call.cwd, node)
 
-  const url = currentUrl(call.cwd)
+  // 确保画布服务在跑，这样返回里一定带可点击的画布 URL（用户能看到）。
+  const { url } = await ensureServer(call.cwd)
   return {
     content:
       `${existing ? '已更新' : '已添加'}页面节点 "${node.title}"（id=${id}）。\n` +
       `位置：x=${node.x}, y=${node.y}；尺寸：${node.width}×${node.height}（${deviceType}）\n` +
       `原型文件：${join(call.cwd, rel)}\n` +
-      (url ? `画布 URL：${url}` : `提示：先调用 canvas_open 获取画布 URL。`) +
-      `\n项目：${projectHint(call.cwd)}`,
+      `画布 URL：${url}\n` +
+      `项目：${projectHint(call.cwd)}`,
   }
 }
 
@@ -214,7 +215,9 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_open',
-      description: '启动/复用本工作区的本地画布服务，返回可在浏览器打开的 URL（127.0.0.1）。',
+      description:
+        '启动/复用本工作区的本地画布服务，返回可在浏览器打开的 URL（127.0.0.1）。' +
+        '**这是画布设计的第一步：先调用本工具把画布链接给用户，再开始生成原型。**',
       input_schema: {
         type: 'object',
         properties: {
@@ -233,7 +236,9 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_add_page',
-      description: '把一段 HTML 原型作为页面节点加入画布（可用 html_path 读文件，或直接给 html）。可指定标题/位置/尺寸/设备。',
+      description:
+        '把一段 HTML 原型作为页面节点加入画布（可用 html_path 读文件，或直接给 html）。可指定标题/位置/尺寸/设备。' +
+        '返回里会带上画布 URL（若画布服务尚未启动会自动启动）。',
       input_schema: {
         type: 'object',
         properties: {

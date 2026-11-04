@@ -13,9 +13,10 @@ const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js'))
 
 const cwd = mkdtempSync(join(tmpdir(), 'tsc-proj-'))
 try {
-  // 内联 HTML
+  // 内联 HTML（未先 canvas_open，也应自动起服务并在返回里带画布 URL）
   const r1 = await tools.canvas_add_page.execute({ input: { html: '<h1>Hi</h1>', title: 'A' }, cwd })
   assert.ok(!r1.isError, r1.content)
+  assert.match(r1.content, /画布 URL：http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/, 'add_page 返回应含画布 URL')
   const p1 = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
   assert.equal(p1.nodes.length, 1)
   const id = p1.nodes[0].id
