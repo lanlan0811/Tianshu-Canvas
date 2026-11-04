@@ -45,7 +45,7 @@ function newPageId() {
 
 // src/project.ts
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
@@ -72,7 +72,7 @@ function readProject(cwd) {
       version: 1,
       viewport: normalizeViewport(parsed.viewport),
       nodes: parsed.nodes.filter(isPageNode),
-      edges: Array.isArray(parsed.edges) ? parsed.edges : []
+      edges: Array.isArray(parsed.edges) ? parsed.edges.filter(isEdge) : []
     };
   } catch {
     return emptyProject();
@@ -92,6 +92,11 @@ function isPageNode(n) {
   if (!n || typeof n !== "object") return false;
   const o = n;
   return typeof o.id === "string" && isSafeId(o.id) && o.type === "page";
+}
+function isEdge(e) {
+  if (!e || typeof e !== "object") return false;
+  const o = e;
+  return typeof o.id === "string" && typeof o.source === "string" && typeof o.target === "string";
 }
 function writeProjectAtomic(cwd, project) {
   mkdirSync(pagesDir(cwd), { recursive: true });
@@ -148,6 +153,105 @@ function setViewport(cwd, viewport) {
 function nextLayoutIndex(cwd) {
   return readProject(cwd).nodes.length;
 }
+function removeNode(cwd, id) {
+  assertSafeId(id);
+  const project = readProject(cwd);
+  project.nodes = project.nodes.filter((n) => n.id !== id);
+  project.edges = project.edges.filter((e) => e.source !== id && e.target !== id);
+  writeProjectAtomic(cwd, project);
+  try {
+    rmSync(join(pagesDir(cwd), `${id}.html`), { force: true });
+  } catch {
+  }
+  return project;
+}
+function renameNode(cwd, id, title) {
+  assertSafeId(id);
+  const project = readProject(cwd);
+  const node = project.nodes.find((n) => n.id === id);
+  if (!node) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  node.title = title;
+  node.updatedAt = Date.now();
+  writeProjectAtomic(cwd, project);
+  return project;
+}
+function moveNode(cwd, id, x, y) {
+  assertSafeId(id);
+  const project = readProject(cwd);
+  const node = project.nodes.find((n) => n.id === id);
+  if (!node) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  node.x = x;
+  node.y = y;
+  node.updatedAt = Date.now();
+  writeProjectAtomic(cwd, project);
+  return project;
+}
+function duplicateNode(cwd, id, title) {
+  assertSafeId(id);
+  const project = readProject(cwd);
+  const src = project.nodes.find((n) => n.id === id);
+  if (!src) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  const newId = newPageId();
+  const html = readPageHtml(cwd, id) ?? "";
+  const rel = writePageHtml(cwd, newId, html);
+  const now = Date.now();
+  const node = {
+    ...src,
+    id: newId,
+    title: title ?? `${src.title} \u526F\u672C`,
+    x: src.x + 40,
+    y: src.y + 40,
+    htmlPath: rel,
+    createdAt: now,
+    updatedAt: now
+  };
+  project.nodes.push(node);
+  writeProjectAtomic(cwd, project);
+  return node;
+}
+function addEdge(cwd, source, target, label) {
+  const project = readProject(cwd);
+  const exists = project.edges.find((e) => e.source === source && e.target === target);
+  if (exists) {
+    if (label !== void 0 && exists.label !== label) {
+      exists.label = label;
+      writeProjectAtomic(cwd, project);
+    }
+    return exists;
+  }
+  const edge = { id: `edge-${source}-${target}`, source, target, ...label ? { label } : {} };
+  project.edges.push(edge);
+  writeProjectAtomic(cwd, project);
+  return edge;
+}
+function removeEdge(cwd, source, target) {
+  const project = readProject(cwd);
+  project.edges = project.edges.filter((e) => !(e.source === source && e.target === target));
+  writeProjectAtomic(cwd, project);
+  return project;
+}
+function selectionFile(cwd) {
+  return join(projectDir(cwd), "selection.json");
+}
+function readSelection(cwd) {
+  const file = selectionFile(cwd);
+  if (!existsSync(file)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    if (!parsed || typeof parsed.pageId !== "string") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+function writeSelection(cwd, selection) {
+  mkdirSync(projectDir(cwd), { recursive: true });
+  const file = selectionFile(cwd);
+  const tmp = file + ".tmp";
+  writeFileSync(tmp, JSON.stringify(selection, null, 2) + "\n", "utf8");
+  renameSync(tmp, file);
+  projectEvents.emit("selection", { cwd });
+}
 
 // src/server.ts
 import http from "node:http";
@@ -155,9 +259,273 @@ import { createHash } from "node:crypto";
 import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// src/probe.ts
+var PROBE_MARKER = "data-tianshu-probe";
+var PROBE_SCRIPT = [
+  "(function(){",
+  "  if (window.__tianshu_probe__) return;",
+  "  window.__tianshu_probe__ = true;",
+  "  var PARENT = null;",
+  "  var KNOWN = {",
+  "    __vd_ping: 1, __vd_proto_state: 1, __vd_set_scope: 1,",
+  "    __vd_request_add_to_chat: 1, __vd_request_select_xpath: 1,",
+  "    __vd_apply_edits: 1, __vd_request_serialize: 1",
+  "  };",
+  "  var STYLE_KEYS = [",
+  "    'color','background-color','background-image','font-family','font-size','font-weight',",
+  "    'font-style','line-height','letter-spacing','text-align','text-decoration',",
+  "    'padding','margin','border','border-radius','border-color','border-width','border-style',",
+  "    'display','flex-direction','justify-content','align-items','gap',",
+  "    'width','height','opacity','box-shadow','position','overflow'",
+  "  ];",
+  "  var scopeXpath = null;",
+  "",
+  "  function post(type, payload){",
+  "    var msg = { type: type, payload: payload === undefined ? null : payload };",
+  '    try { if (PARENT) parent.postMessage(msg, PARENT); else parent.postMessage(msg, "*"); } catch (e) {}',
+  "  }",
+  "",
+  '  window.addEventListener("message", function(e){',
+  "    var d = e.data;",
+  '    if (!d || typeof d.type !== "string" || !KNOWN[d.type]) return;',
+  '    if (!PARENT) PARENT = e.origin || "*";',
+  '    else if (PARENT !== "*" && e.origin !== PARENT) return;',
+  "    try { handle(d); } catch (err) {}",
+  "  });",
+  "",
+  "  function getXPath(el){",
+  '    if (!el || el.nodeType !== 1) return "";',
+  "    var parts = [];",
+  "    while (el && el.nodeType === 1) {",
+  "      var idx = 1, sib = el.previousElementSibling;",
+  "      while (sib) { if (sib.tagName === el.tagName) idx++; sib = sib.previousElementSibling; }",
+  '      parts.unshift(el.tagName.toLowerCase() + "[" + idx + "]");',
+  "      el = el.parentElement;",
+  "    }",
+  '    return "/" + parts.join("/");',
+  "  }",
+  "",
+  "  function byXPath(xp){",
+  "    if (!xp) return null;",
+  '    var parts = xp.split("/").filter(Boolean);',
+  "    var cur = null;",
+  "    for (var i = 0; i < parts.length; i++) {",
+  "      var m = /^([a-zA-Z0-9]+)\\[(\\d+)\\]$/.exec(parts[i]);",
+  "      if (!m) return null;",
+  "      var tag = m[1].toLowerCase(), idx = parseInt(m[2], 10);",
+  "      var list = cur ? cur.children : document.children;",
+  "      var count = 0, found = null;",
+  "      for (var j = 0; j < list.length; j++) {",
+  "        if (list[j].tagName && list[j].tagName.toLowerCase() === tag) {",
+  "          count++; if (count === idx) { found = list[j]; break; }",
+  "        }",
+  "      }",
+  "      if (!found) return null;",
+  "      cur = found;",
+  "    }",
+  "    return cur;",
+  "  }",
+  "",
+  "  function getCssSelector(el){",
+  '    if (!el || el.nodeType !== 1) return "";',
+  '    if (el.id) return "#" + el.id;',
+  "    var tag = el.tagName.toLowerCase();",
+  '    var cls = (typeof el.className === "string" ? el.className : "").trim().split(/\\s+/).filter(Boolean).slice(0, 3);',
+  '    return tag + (cls.length ? "." + cls.join(".") : "");',
+  "  }",
+  "",
+  "  // SVG \u5185\u5C42\u56FE\u5F62\u5F52\u4E00\u5230\u5916\u5C42 <svg>\uFF0C\u907F\u514D\u9009\u4E2D <path> \u7B49\u3002",
+  "  function normalize(el){",
+  '    while (el && el.namespaceURI === "http://www.w3.org/2000/svg" && el.parentElement && el.parentElement.namespaceURI === "http://www.w3.org/2000/svg") {',
+  "      el = el.parentElement;",
+  "    }",
+  "    return el;",
+  "  }",
+  "",
+  "  function hitStack(x, y){",
+  "    var el = document.elementFromPoint(x, y);",
+  "    var stack = [];",
+  "    while (el && el.nodeType === 1) { stack.push(el); el = el.parentElement; }",
+  "    if (stack.length) stack[0] = normalize(stack[0]);",
+  "    return stack;",
+  "  }",
+  "",
+  "  function resolveAtPoint(x, y, intent){",
+  "    var stack = hitStack(x, y);",
+  "    if (!stack.length) return null;",
+  '    if (intent === "direct") return stack[0];',
+  "    var scope = (scopeXpath && byXPath(scopeXpath)) || document.body;",
+  "    var found = null;",
+  "    for (var i = 0; i < stack.length; i++) { if (stack[i].parentElement === scope) { found = stack[i]; break; } }",
+  "    if (!found && scope !== document.body) {",
+  '      scopeXpath = null; post("__vd_scope_reset", null); scope = document.body;',
+  "      for (var j = 0; j < stack.length; j++) { if (stack[j].parentElement === scope) { found = stack[j]; break; } }",
+  "    }",
+  "    return found || stack[stack.length - 1];",
+  "  }",
+  "",
+  "  function payload(el){",
+  "    var rect = el.getBoundingClientRect();",
+  "    var cs = getComputedStyle(el);",
+  "    var styles = {};",
+  "    for (var i = 0; i < STYLE_KEYS.length; i++) {",
+  "      var v = cs.getPropertyValue(STYLE_KEYS[i]);",
+  "      if (v) styles[STYLE_KEYS[i]] = v;",
+  "    }",
+  '    var cls = typeof el.className === "string" ? el.className : "";',
+  "    return {",
+  "      xpath: getXPath(el),",
+  "      selector: getCssSelector(el),",
+  '      tagName: el.tagName ? el.tagName.toLowerCase() : "",',
+  "      className: cls,",
+  '      domId: el.getAttribute("data-dom-id") || el.id || null,',
+  '      textContent: (el.textContent || "").trim().slice(0, 200),',
+  '      outerHtml: (el.outerHTML || "").slice(0, 2000),',
+  "      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },",
+  "      computedStyles: styles,",
+  "      parentXpath: el.parentElement ? getXPath(el.parentElement) : null,",
+  "      siblingIndex: el.parentElement ? Array.prototype.indexOf.call(el.parentElement.children, el) : 0",
+  "    };",
+  "  }",
+  "",
+  "  function isEditable(t){",
+  "    if (!t || t.nodeType !== 1) return false;",
+  "    var tag = t.tagName.toLowerCase();",
+  '    return tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable === true;',
+  "  }",
+  "",
+  "  // \u9AD8\u4EAE\u5728 iframe \u5185\u505A\uFF08\u7236\u4FA7\u65E0\u6CD5\u8BBF\u95EE\u5176 DOM\uFF09\uFF1B\u5E8F\u5217\u5316\u65F6\u6309\u6807\u8BB0\u5265\u79BB\uFF0C\u4E0D\u6C61\u67D3\u539F\u578B\u3002",
+  "  var hovered = null, selectedEl = null;",
+  "  function ensureStyle(){",
+  '    if (document.querySelector("style[' + PROBE_MARKER + ']")) return;',
+  '    var s = document.createElement("style");',
+  '    s.setAttribute("' + PROBE_MARKER + '", "1");',
+  '    s.textContent = "[data-tianshu-hover]{outline:2px solid #3b82f6;outline-offset:-1px}[data-tianshu-selected]{outline:2px solid #2563eb;outline-offset:-1px;box-shadow:0 0 0 2px rgba(37,99,235,.25)}";',
+  "    (document.head || document.documentElement).appendChild(s);",
+  "  }",
+  "  function setHover(el){",
+  "    if (hovered === el) return;",
+  '    if (hovered) hovered.removeAttribute("data-tianshu-hover");',
+  "    hovered = el;",
+  '    if (hovered) hovered.setAttribute("data-tianshu-hover", "1");',
+  "  }",
+  "  function setSelected(el){",
+  '    if (selectedEl) selectedEl.removeAttribute("data-tianshu-selected");',
+  "    selectedEl = el;",
+  '    if (selectedEl) selectedEl.setAttribute("data-tianshu-selected", "1");',
+  "  }",
+  "",
+  '  document.addEventListener("click", function(e){',
+  "    if (isEditable(e.target)) return;",
+  "    ensureStyle();",
+  '    var el = resolveAtPoint(e.clientX, e.clientY, (e.metaKey || e.ctrlKey) ? "direct" : "descend");',
+  "    if (!el) return;",
+  "    if (e.preventDefault) e.preventDefault();",
+  "    if (!(e.metaKey || e.ctrlKey)) scopeXpath = getXPath(el);",
+  "    setSelected(el);",
+  '    post("__vd_proto_element_selected", payload(el));',
+  "  }, true);",
+  "",
+  "  var hoverRaf = 0;",
+  '  document.addEventListener("mousemove", function(e){',
+  "    if (hoverRaf) return;",
+  "    hoverRaf = requestAnimationFrame(function(){",
+  "      hoverRaf = 0;",
+  "      ensureStyle();",
+  '      var el = resolveAtPoint(e.clientX, e.clientY, "descend");',
+  "      setHover(el);",
+  '      post("__vd_proto_hover_changed", el ? payload(el) : null);',
+  "    });",
+  "  }, true);",
+  "",
+  '  document.addEventListener("mouseleave", function(){ setHover(null); post("__vd_proto_hover_changed", null); }, true);',
+  "",
+  '  window.addEventListener("wheel", function(e){',
+  "    if (e.preventDefault) e.preventDefault();",
+  '    post("__vd_wheel_forward", {',
+  "      deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode,",
+  "      ctrlKey: e.ctrlKey, metaKey: e.metaKey, clientX: e.clientX, clientY: e.clientY",
+  "    });",
+  "  }, { capture: true, passive: false });",
+  "",
+  "  function reportHeight(){",
+  "    var h = Math.max(document.body ? document.body.scrollHeight : 0, document.documentElement ? document.documentElement.scrollHeight : 0);",
+  '    post("__vd_content_height", { height: h });',
+  "  }",
+  "",
+  "  function handle(d){",
+  "    var p = d.payload || {};",
+  '    if (d.type === "__vd_ping") { post("__vd_iframe_ready", null); reportHeight(); return; }',
+  '    if (d.type === "__vd_proto_state") { scopeXpath = p.scopeXpath || null; return; }',
+  '    if (d.type === "__vd_set_scope") { scopeXpath = p.xpath || null; return; }',
+  '    if (d.type === "__vd_request_select_xpath") {',
+  '      var el = byXPath(p.xpath); if (el) post("__vd_proto_element_selected", payload(el)); return;',
+  "    }",
+  '    if (d.type === "__vd_request_add_to_chat") {',
+  '      var el2 = byXPath(p.xpath); if (el2) post("__vd_proto_element_add_to_chat", payload(el2)); return;',
+  "    }",
+  '    if (d.type === "__vd_request_serialize") { post("__vd_edit_applied", { xpath: null, ok: true, html: serialize() }); return; }',
+  '    if (d.type === "__vd_apply_edits") { applyEdits(p); return; }',
+  "  }",
+  "",
+  "  var SAFE_PROP = /^[a-z-]+$/;",
+  "  var BAD_VALUE = /url\\(|expression|javascript:|@import/i;",
+  "",
+  "  function applyEdits(p){",
+  "    var el = byXPath(p.xpath);",
+  '    if (!el) { post("__vd_edit_applied", { xpath: p.xpath, ok: false, error: "element not found" }); return; }',
+  "    try {",
+  '      if (typeof p.text === "string") el.textContent = p.text;',
+  '      if (p.styles && typeof p.styles === "object") {',
+  "        for (var k in p.styles) {",
+  "          if (!Object.prototype.hasOwnProperty.call(p.styles, k)) continue;",
+  "          if (!SAFE_PROP.test(k) || BAD_VALUE.test(String(p.styles[k]))) continue;",
+  "          el.style.setProperty(k, String(p.styles[k]));",
+  "        }",
+  "      }",
+  '      post("__vd_edit_applied", { xpath: p.xpath, ok: true, html: serialize() });',
+  "    } catch (err) {",
+  '      post("__vd_edit_applied", { xpath: p.xpath, ok: false, error: String(err && err.message || err) });',
+  "    }",
+  "  }",
+  "",
+  "  function serialize(){",
+  "    var clone = document.documentElement.cloneNode(true);",
+  '    var probes = clone.querySelectorAll("[' + PROBE_MARKER + ']");',
+  "    for (var i = 0; i < probes.length; i++) probes[i].parentNode.removeChild(probes[i]);",
+  '    var marked = clone.querySelectorAll("[data-tianshu-hover],[data-tianshu-selected]");',
+  "    for (var j = 0; j < marked.length; j++) {",
+  '      marked[j].removeAttribute("data-tianshu-hover");',
+  '      marked[j].removeAttribute("data-tianshu-selected");',
+  "    }",
+  '    return "<!doctype html>\\n" + clone.outerHTML;',
+  "  }",
+  "",
+  '  if (document.readyState === "loading") {',
+  '    document.addEventListener("DOMContentLoaded", function(){ post("__vd_iframe_ready", null); reportHeight(); });',
+  '  } else { post("__vd_iframe_ready", null); reportHeight(); }',
+  '  window.addEventListener("load", reportHeight);',
+  '  window.addEventListener("resize", reportHeight);',
+  "})();"
+].join("\n");
+function injectProbe(html) {
+  if (html.includes(PROBE_MARKER)) return html;
+  const safe = PROBE_SCRIPT.replace(/<\/script/gi, "<\\/script");
+  const tag = `<script ${PROBE_MARKER}="1">
+${safe}
+</script>
+`;
+  const idx = html.search(/<\/head\s*>/i);
+  if (idx >= 0) return html.slice(0, idx) + tag + html.slice(idx);
+  return tag + html;
+}
+
+// src/server.ts
 var WEB_DIR = fileURLToPath(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
 var MUTATION_HEADER = "x-tianshu-canvas";
+var MAX_BODY = 4 * 1024 * 1024;
 var state = null;
 function tokenFor(cwd) {
   return createHash("sha256").update(cwd).digest("hex").slice(0, 16);
@@ -198,7 +566,10 @@ async function ensureServer(cwd, preferredPort = DEFAULT_PORT) {
     const created = { server, port, tokens: /* @__PURE__ */ new Map(), sse: /* @__PURE__ */ new Map() };
     state = created;
     projectEvents.on("change", ({ cwd: changed }) => {
-      broadcast(created, tokenFor(changed));
+      broadcast(created, tokenFor(changed), "project");
+    });
+    projectEvents.on("selection", ({ cwd: changed }) => {
+      broadcast(created, tokenFor(changed), "selection");
     });
   }
   const token = tokenFor(cwd);
@@ -250,15 +621,133 @@ function handleRequest(req, res) {
     const id = decodeURIComponent(path.slice("/page/".length));
     const html = readPageHtml(cwd, id);
     if (html === null) return send(res, 404, "text/plain; charset=utf-8", "page not found");
-    return sendUntrustedHtml(res, html);
+    return sendUntrustedHtml(res, injectProbe(html));
   }
-  if (req.method === "POST" && path === "/api/viewport") {
+  if (req.method === "GET" && path === "/api/selection") {
+    const cwd = resolveCwd(url.searchParams.get("ws"));
+    if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
+    return sendJson(res, { selection: readSelection(cwd) });
+  }
+  if (req.method === "POST") {
     if (String(req.headers[MUTATION_HEADER] ?? "") !== "1") {
       return send(res, 403, "text/plain; charset=utf-8", "missing header");
     }
-    return handleViewport(req, res);
+    if (path === "/api/viewport") return handleViewport(req, res);
+    if (path === "/api/selection") return handleSelection(req, res);
+    if (path === "/api/page-html") return handlePageHtml(req, res);
+    if (path === "/api/nodes") return handleNodes(req, res);
+    if (path === "/api/edges") return handleEdges(req, res);
   }
   return send(res, 404, "text/plain; charset=utf-8", "not found");
+}
+function readJsonBody(req, res, onBody) {
+  let raw = "";
+  req.setEncoding("utf8");
+  req.on("data", (chunk) => {
+    raw += chunk;
+    if (raw.length > MAX_BODY) req.destroy();
+  });
+  req.on("end", () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw || "{}");
+    } catch {
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "bad json" }));
+    }
+    const cwd = resolveCwd(typeof parsed.ws === "string" ? parsed.ws : null);
+    if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
+    onBody({ ...parsed, __cwd: cwd });
+  });
+}
+function handleSelection(req, res) {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd);
+    const pageId = typeof body.pageId === "string" ? body.pageId : "";
+    const kind = body.kind === "page" ? "page" : "element";
+    if (!pageId) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing pageId" }));
+    const raw = body.payload;
+    const selection = {
+      pageId,
+      kind,
+      at: Date.now(),
+      ...kind === "element" && raw ? {
+        element: {
+          xpath: String(raw.xpath ?? ""),
+          tagName: String(raw.tagName ?? ""),
+          textContent: typeof raw.textContent === "string" ? raw.textContent : void 0,
+          computedStyles: raw.computedStyles && typeof raw.computedStyles === "object" ? raw.computedStyles : void 0
+        }
+      } : {}
+    };
+    writeSelection(cwd, selection);
+    return sendJson(res, { ok: true });
+  });
+}
+function handlePageHtml(req, res) {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd);
+    const id = typeof body.id === "string" ? body.id : "";
+    const html = typeof body.html === "string" ? body.html : "";
+    if (!id || !html) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing id or html" }));
+    if (html.length > 2 * 1024 * 1024) return send(res, 413, "application/json; charset=utf-8", JSON.stringify({ error: "html too large" }));
+    try {
+      writePageHtml(cwd, id, html);
+      projectEvents.emit("change", { cwd });
+      return sendJson(res, { ok: true });
+    } catch (err) {
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+    }
+  });
+}
+function handleNodes(req, res) {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd);
+    const op = String(body.op ?? "");
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      if (op === "remove") {
+        if (!id) throw new Error("missing id");
+        removeNode(cwd, id);
+        return sendJson(res, { ok: true, id });
+      }
+      if (op === "rename") {
+        if (!id || typeof body.title !== "string") throw new Error("missing id or title");
+        renameNode(cwd, id, body.title);
+        return sendJson(res, { ok: true, id, title: body.title });
+      }
+      if (op === "move") {
+        if (!id) throw new Error("missing id");
+        moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0);
+        return sendJson(res, { ok: true, id });
+      }
+      if (op === "duplicate") {
+        if (!id) throw new Error("missing id");
+        const node = duplicateNode(cwd, id, typeof body.title === "string" ? body.title : void 0);
+        return sendJson(res, { ok: true, node });
+      }
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
+    } catch (err) {
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+    }
+  });
+}
+function handleEdges(req, res) {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd);
+    const op = String(body.op ?? "");
+    const source = typeof body.source === "string" ? body.source : "";
+    const target = typeof body.target === "string" ? body.target : "";
+    if (!source || !target) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing source or target" }));
+    if (op === "add") {
+      const edge = addEdge(cwd, source, target, typeof body.label === "string" ? body.label : void 0);
+      return sendJson(res, { ok: true, edge });
+    }
+    if (op === "remove") {
+      removeEdge(cwd, source, target);
+      return sendJson(res, { ok: true });
+    }
+    return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
+  });
 }
 function handleViewport(req, res) {
   let body = "";
@@ -314,10 +803,10 @@ function handleSse(res, token) {
     set.delete(res);
   });
 }
-function broadcast(s, token) {
+function broadcast(s, token, event = "project") {
   const set = s.sse.get(token);
   if (!set) return;
-  const frame = `event: project
+  const frame = `event: ${event}
 data: ${JSON.stringify({ at: Date.now() })}
 
 `;
@@ -486,6 +975,89 @@ async function canvasListPages(call) {
 ` + (url ? `\u753B\u5E03 URL\uFF1A${url}` : `\u63D0\u793A\uFF1A\u5148\u8C03\u7528 canvas_open \u83B7\u53D6\u753B\u5E03 URL\u3002`)
   };
 }
+async function canvasGetSelection(call) {
+  const selection = readSelection(call.cwd);
+  if (!selection) {
+    return {
+      content: "\u5F53\u524D\u753B\u5E03\u6CA1\u6709\u9009\u4E2D\u9879\u3002\n\u8BF7\u5728\u6D4F\u89C8\u5668\u6253\u5F00\u753B\u5E03\uFF0C\u70B9\u51FB\u67D0\u4E2A\u9875\u9762\u8282\u70B9\uFF08\u6216\u6309\u4F4F Ctrl \u70B9\u51FB\u9875\u9762\u5185\u7684\u5143\u7D20\uFF09\u540E\u518D\u8BD5\u3002"
+    };
+  }
+  const project = readProject(call.cwd);
+  const node = project.nodes.find((n) => n.id === selection.pageId);
+  const pageTitle = node ? node.title : selection.pageId;
+  const lines = [
+    `\u9009\u4E2D\u7C7B\u578B\uFF1A${selection.kind === "element" ? "\u9875\u9762\u5185\u5143\u7D20" : "\u6574\u4E2A\u9875\u9762\u8282\u70B9"}`,
+    `\u6240\u5C5E\u9875\u9762\uFF1A${pageTitle}\uFF08id=${selection.pageId}\uFF09`
+  ];
+  if (selection.kind === "element" && selection.element) {
+    const el = selection.element;
+    lines.push(`\u5143\u7D20\uFF1A<${el.tagName}> xpath=${el.xpath}`);
+    if (el.textContent) lines.push(`\u6587\u672C\uFF1A${el.textContent}`);
+    if (el.computedStyles) {
+      const keys = ["color", "background-color", "font-size", "font-weight", "padding", "margin", "border-radius"];
+      const picked = keys.filter((k) => el.computedStyles?.[k]).map((k) => `${k}: ${el.computedStyles?.[k]}`);
+      if (picked.length) lines.push(`\u5173\u952E\u6837\u5F0F\uFF1A${picked.join("\uFF1B")}`);
+    }
+  }
+  return { content: lines.join("\n") };
+}
+async function canvasRemovePage(call) {
+  const id = str(call.args.id);
+  if (!id) return { content: "\u7F3A\u5C11 id\u3002", isError: true };
+  const project = readProject(call.cwd);
+  if (!project.nodes.some((n) => n.id === id)) return { content: `\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`, isError: true };
+  const next = removeNode(call.cwd, id);
+  return { content: `\u5DF2\u5220\u9664\u9875\u9762\u8282\u70B9 ${id}\u3002\u5269\u4F59 ${next.nodes.length} \u4E2A\u8282\u70B9\u3002` };
+}
+async function canvasRenamePage(call) {
+  const id = str(call.args.id);
+  const title = str(call.args.title);
+  if (!id || !title) return { content: "\u7F3A\u5C11 id \u6216 title\u3002", isError: true };
+  try {
+    renameNode(call.cwd, id, title);
+    return { content: `\u5DF2\u628A\u8282\u70B9 ${id} \u91CD\u547D\u540D\u4E3A\u300C${title}\u300D\u3002` };
+  } catch (err) {
+    return { content: err.message, isError: true };
+  }
+}
+async function canvasDuplicatePage(call) {
+  const id = str(call.args.id);
+  if (!id) return { content: "\u7F3A\u5C11 id\u3002", isError: true };
+  try {
+    const node = duplicateNode(call.cwd, id, str(call.args.title));
+    const { url } = await ensureServer(call.cwd);
+    return {
+      content: `\u5DF2\u590D\u5236\u9875\u9762\u8282\u70B9\uFF0C\u65B0 id=${node.id}\uFF0C\u6807\u9898\u300C${node.title}\u300D\u3002
+\u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}
+\u753B\u5E03 URL\uFF1A${url}`
+    };
+  } catch (err) {
+    return { content: err.message, isError: true };
+  }
+}
+async function canvasMovePage(call) {
+  const id = str(call.args.id);
+  const x = num(call.args.x);
+  const y = num(call.args.y);
+  if (!id || x === void 0 || y === void 0) return { content: "\u7F3A\u5C11 id / x / y\u3002", isError: true };
+  try {
+    moveNode(call.cwd, id, x, y);
+    return { content: `\u5DF2\u628A\u8282\u70B9 ${id} \u79FB\u52A8\u5230 x=${x}, y=${y}\u3002` };
+  } catch (err) {
+    return { content: err.message, isError: true };
+  }
+}
+async function canvasLinkPages(call) {
+  const source = str(call.args.source);
+  const target = str(call.args.target);
+  if (!source || !target) return { content: "\u7F3A\u5C11 source \u6216 target\u3002", isError: true };
+  if (call.args.remove === true) {
+    removeEdge(call.cwd, source, target);
+    return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source} \u2192 ${target}\u3002` };
+  }
+  const edge = addEdge(call.cwd, source, target, str(call.args.label));
+  return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+}
 var tools = [
   {
     definition: {
@@ -547,6 +1119,113 @@ var tools = [
     isConcurrencySafe: () => true,
     isEnabled: () => true,
     execute: canvasListPages
+  },
+  {
+    definition: {
+      name: "canvas_get_selection",
+      description: "\u8BFB\u53D6\u7528\u6237\u5728\u753B\u5E03\u4E0A\u7684\u5F53\u524D\u9009\u4E2D\u9879\uFF08\u6574\u4E2A\u9875\u9762\u8282\u70B9\u6216\u9875\u9762\u5185\u5143\u7D20\uFF0C\u542B xpath/\u6807\u7B7E/\u6587\u6848/\u5173\u952E\u6837\u5F0F\uFF09\uFF0C\u7528\u4E8E\u636E\u6B64\u4FEE\u6539\u8BBE\u8BA1\u3002",
+      input_schema: { type: "object", properties: {}, required: [] }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => true,
+    isEnabled: () => true,
+    execute: canvasGetSelection
+  },
+  {
+    definition: {
+      name: "canvas_remove_page",
+      description: "\u4ECE\u753B\u5E03\u5220\u9664\u4E00\u4E2A\u9875\u9762\u8282\u70B9\uFF08\u8FDE\u5E26\u5176\u8FDE\u7EBF\u4E0E\u539F\u578B\u6587\u4EF6\uFF09\u3002",
+      input_schema: {
+        type: "object",
+        properties: { id: { type: "string", description: "\u9875\u9762\u8282\u70B9 id" } },
+        required: ["id"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasRemovePage
+  },
+  {
+    definition: {
+      name: "canvas_rename_page",
+      description: "\u91CD\u547D\u540D\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "\u9875\u9762\u8282\u70B9 id" },
+          title: { type: "string", description: "\u65B0\u6807\u9898" }
+        },
+        required: ["id", "title"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasRenamePage
+  },
+  {
+    definition: {
+      name: "canvas_duplicate_page",
+      description: "\u590D\u5236\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\uFF08\u542B\u539F\u578B HTML\uFF0C\u504F\u79FB 40px\uFF09\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "\u6E90\u9875\u9762\u8282\u70B9 id" },
+          title: { type: "string", description: "\u53EF\u9009\u65B0\u6807\u9898\uFF08\u9ED8\u8BA4\u300C\u539F\u6807\u9898 \u526F\u672C\u300D\uFF09" }
+        },
+        required: ["id"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasDuplicatePage
+  },
+  {
+    definition: {
+      name: "canvas_move_page",
+      description: "\u79FB\u52A8\u753B\u5E03\u4E0A\u7684\u9875\u9762\u8282\u70B9\u5230\u6307\u5B9A\u5750\u6807\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "\u9875\u9762\u8282\u70B9 id" },
+          x: { type: "number", description: "X \u5750\u6807" },
+          y: { type: "number", description: "Y \u5750\u6807" }
+        },
+        required: ["id", "x", "y"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasMovePage
+  },
+  {
+    definition: {
+      name: "canvas_link_pages",
+      description: "\u5728\u4E24\u4E2A\u9875\u9762\u8282\u70B9\u4E4B\u95F4\u8FDE\u7EBF\uFF08\u9875\u9762\u6D41\u7A0B\uFF09\uFF0C\u6216\u53D6\u6D88\u8FDE\u7EBF\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          source: { type: "string", description: "\u6E90\u9875\u9762 id" },
+          target: { type: "string", description: "\u76EE\u6807\u9875\u9762 id" },
+          label: { type: "string", description: "\u53EF\u9009\u8FDE\u7EBF\u6807\u7B7E" },
+          remove: { type: "boolean", description: "\u4E3A true \u65F6\u53D6\u6D88\u8FDE\u7EBF" }
+        },
+        required: ["source", "target"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasLinkPages
   }
 ];
 

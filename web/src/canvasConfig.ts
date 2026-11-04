@@ -27,7 +27,7 @@ export const canvasConfig: Partial<ReactFlowProps<PageFlowNode, Edge>> = {
   minZoom: 0.1,
   maxZoom: 5,
   elevateNodesOnSelect: false,
-  nodesConnectable: false,
+  nodesConnectable: true,
   connectionMode: ConnectionMode.Loose,
 }
 

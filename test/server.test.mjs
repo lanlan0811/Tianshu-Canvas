@@ -51,11 +51,46 @@ try {
   assert.equal(after.nodes.length, 1)
   const id = after.nodes[0].id
 
-  // 原型页可访问，且带沙箱 CSP
+  // 原型页可访问，且带沙箱 CSP + 注入探针
   const pageRes = await fetch(`${base}/page/${id}?ws=${ws}`)
   assert.equal(pageRes.status, 200)
   assert.match(pageRes.headers.get('content-security-policy') ?? '', /default-src 'none'/)
-  assert.match(await pageRes.text(), /<h1>P<\/h1>/)
+  const pageHtml = await pageRes.text()
+  assert.match(pageHtml, /<h1>P<\/h1>/)
+  assert.match(pageHtml, /data-tianshu-probe/, '原型页应注入探针')
+
+  // 选中：写 → 读
+  const selRes = await fetch(`${base}/api/selection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+    body: JSON.stringify({
+      ws: token,
+      pageId: id,
+      kind: 'element',
+      payload: { xpath: '/html[1]/body[1]/h1[1]', tagName: 'h1', textContent: 'P', computedStyles: { color: 'red' } },
+    }),
+  })
+  assert.equal(selRes.status, 200)
+  const gotSel = await (await fetch(`${base}/api/selection?ws=${ws}`)).json()
+  assert.equal(gotSel.selection.pageId, id)
+  assert.equal(gotSel.selection.kind, 'element')
+  assert.equal(gotSel.selection.element.xpath, '/html[1]/body[1]/h1[1]')
+
+  // 选中缺头 → 403
+  const selNoHeader = await fetch(`${base}/api/selection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ws: token, pageId: id, kind: 'page' }),
+  })
+  assert.equal(selNoHeader.status, 403)
+
+  // page-html 越界 id → 400
+  const badHtml = await fetch(`${base}/api/page-html`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+    body: JSON.stringify({ ws: token, id: '../evil', html: '<p>x</p>' }),
+  })
+  assert.equal(badHtml.status, 400)
 
   // 未知 token 拒绝
   assert.equal((await fetch(`${base}/api/project?ws=deadbeefdeadbeef`)).status, 404)
@@ -76,7 +111,7 @@ try {
   })
   assert.equal(okHeader.status, 200)
 
-  console.log('OK 服务: /、/api/project、/page/:id、白名单、CSRF 头校验 全部通过')
+  console.log('OK 服务: /、/api/project、/page/:id（含探针）、/api/selection、CSRF 头、越界 id 全部通过')
 } finally {
   rmSync(cwd, { recursive: true, force: true })
 }

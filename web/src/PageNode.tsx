@@ -6,10 +6,13 @@
  *    使标题在任何缩放级别下视觉尺寸恒定（只有内容真正缩放）。
  *  - 内容用 iframe 以逻辑分辨率渲染原型；iframe 无 allow-same-origin（opaque origin），
  *    只能通过 postMessage 通信，原型无法读取画布页面的任何状态。
+ *
+ * v0.1.2：iframe 注册到探针桥；页面内元素选中时标题栏显示徽标。
  */
-import { memo } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Handle, Position, useStore, type NodeProps, type Node } from '@xyflow/react'
 import { DeviceIcon } from './icons'
+import { registerIframe, unregisterIframe } from './ProbeBridge'
 
 export interface PageNodeData extends Record<string, unknown> {
   title: string
@@ -17,6 +20,8 @@ export interface PageNodeData extends Record<string, unknown> {
   height: number
   deviceType: string
   ws: string
+  /** 该页当前是否选中了页面内元素（标题栏显示徽标） */
+  elementSelected?: boolean
 }
 
 export type PageFlowNode = Node<PageNodeData, 'page'>
@@ -28,6 +33,11 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
   const inv = 1 / zoom
   const width = data.width
   const height = data.height
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  useEffect(() => {
+    return () => unregisterIframe(id)
+  }, [id])
 
   return (
     <div
@@ -42,6 +52,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
         >
           <DeviceIcon type={data.deviceType} size={14} />
           <span className="page-node__title">{data.title}</span>
+          {data.elementSelected && <span className="page-node__badge">已选元素</span>}
           <span className="page-node__size">
             {data.width}×{data.height}
           </span>
@@ -49,11 +60,13 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
       </div>
       <div className="page-node__body" style={{ height }}>
         <iframe
+          ref={iframeRef}
           className="page-node__iframe"
           title={data.title}
           src={`/page/${encodeURIComponent(id)}?ws=${encodeURIComponent(data.ws)}`}
           sandbox="allow-scripts"
           loading="lazy"
+          onLoad={() => registerIframe(id, iframeRef.current?.contentWindow ?? null)}
         />
       </div>
       <div className="page-node__frame" />
