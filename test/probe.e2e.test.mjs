@@ -55,6 +55,15 @@ test('探针 e2e：两层选择 + 编辑回写', { skip: !browserPath && '未找
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
     await page.waitForSelector('.page-node__iframe', { timeout: 15000 })
 
+    // 回归：标题栏恒为 28px 屏幕高度，且不与 iframe 内容区重叠（v0.2.1 修复的遮挡问题）
+    const geo = await page.evaluate(() => {
+      const h = document.querySelector('.page-node__header').getBoundingClientRect()
+      const f = document.querySelector('.page-node__iframe').getBoundingClientRect()
+      return { headerHeight: h.height, headerBottom: h.bottom, iframeTop: f.top }
+    })
+    assert.ok(Math.abs(geo.headerHeight - 28) < 0.5, `标题栏高度应为 28px，实际 ${geo.headerHeight}`)
+    assert.ok(geo.headerBottom <= geo.iframeTop + 0.5, `标题栏不应被 iframe 覆盖：${JSON.stringify(geo)}`)
+
     const frameEl = await page.$('.page-node__iframe')
     const frame = await frameEl.contentFrame()
     assert.ok(frame, '应能取得 iframe frame')

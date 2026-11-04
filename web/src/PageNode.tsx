@@ -45,7 +45,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
   return (
     <div
       className={`page-node${selected ? ' page-node--selected' : ''}`}
-      style={{ width, height: height + HEADER, ['--inv' as string]: String(inv) }}
+      style={{ width, height, ['--inv' as string]: String(inv) }}
     >
       {selected && actions && (
         <div
@@ -61,10 +61,12 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
         </div>
       )}
       <Handle type="target" position={Position.Left} id="in" className="page-node__handle" />
-      <div className="page-node__header" style={{ height: HEADER }}>
+      {/* 标题栏悬于节点上方、不参与布局：画布高度 = HEADER × inv，屏幕上恒为 HEADER px，
+          内层以固定 HEADER 高度反缩放，永远不会溢出到 iframe 区域被遮挡。 */}
+      <div className="page-node__header" style={{ height: HEADER * inv }}>
         <div
           className="page-node__header-inner"
-          style={{ transform: `scale(${inv})`, transformOrigin: 'top left', width: `${100 * zoom}%` }}
+          style={{ height: HEADER, transform: `scale(${inv})`, transformOrigin: 'top left', width: `${100 * zoom}%` }}
         >
           <DeviceIcon type={data.deviceType} size={14} />
           <span className="page-node__title">{data.title}</span>
@@ -74,7 +76,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
           </span>
         </div>
       </div>
-      <div className="page-node__body" style={{ height }}>
+      <div className="page-node__body">
         <iframe
           ref={iframeRef}
           className="page-node__iframe"
