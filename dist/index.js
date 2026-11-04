@@ -31,7 +31,8 @@ function positiveOr(value, fallback) {
 }
 
 // src/export.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { tmpdir } from "node:os";
 import { join as join3 } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
@@ -905,7 +906,50 @@ function stamp() {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
-async function exportPng(cwd) {
+var pngQueue = Promise.resolve();
+function exportPng(cwd) {
+  const run = pngQueue.then(() => exportPngOnce(cwd));
+  pngQueue = run.catch(() => {
+  });
+  return run;
+}
+async function launchBrowser(exe) {
+  const puppeteer = (await import("puppeteer-core")).default;
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const userDataDir = mkdtempSync(join3(tmpdir(), "tsc-png-"));
+    try {
+      const browser = await puppeteer.launch({
+        executablePath: exe,
+        headless: true,
+        userDataDir,
+        timeout: 6e4,
+        protocolTimeout: 12e4,
+        args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run", "--no-default-browser-check", "--disable-extensions"]
+      });
+      const dispose = async () => {
+        const proc = browser.process();
+        await Promise.race([browser.close().catch(() => {
+        }), new Promise((r) => setTimeout(r, 1e4))]);
+        if (proc && proc.exitCode === null) proc.kill("SIGKILL");
+        try {
+          rmSync2(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+        } catch {
+        }
+      };
+      return { browser, dispose };
+    } catch (err) {
+      lastErr = err;
+      try {
+        rmSync2(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+      } catch {
+      }
+      await new Promise((r) => setTimeout(r, 1e3 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+async function exportPngOnce(cwd) {
   const exe = resolveBrowser();
   if (!exe) {
     throw new Error(
@@ -913,12 +957,7 @@ async function exportPng(cwd) {
     );
   }
   const { url } = await ensureServer(cwd);
-  const puppeteer = (await import("puppeteer-core")).default;
-  const browser = await puppeteer.launch({
-    executablePath: exe,
-    headless: true,
-    args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
-  });
+  const { browser, dispose } = await launchBrowser(exe);
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 });
@@ -939,12 +978,12 @@ async function exportPng(cwd) {
     });
     const dir = exportsDir(cwd);
     mkdirSync2(dir, { recursive: true });
-    const path = join3(dir, `canvas-${stamp()}.png`);
+    const name = `canvas-${stamp()}.png`;
+    const path = join3(dir, name);
     await page.screenshot({ path, clip: clip ?? void 0 });
-    return { name: `canvas-${stamp()}.png`, path, bytes: readFileSync3(path).length };
+    return { name, path, bytes: readFileSync3(path).length };
   } finally {
-    await browser.close().catch(() => {
-    });
+    await dispose();
   }
 }
 var CRC_TABLE = (() => {

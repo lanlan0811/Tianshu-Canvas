@@ -3,6 +3,17 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release-<版本>.md`。
 
+## [v0.2.2] - 2026-11-04
+
+修复 PNG 导出偶发失败（Failed to launch the browser process / The browser is already running）。详细说明见 [release-0.2.2.md](release-0.2.2.md)。
+
+### 修复
+
+- PNG 导出串行排队：同一时刻只启动一个无头浏览器，避免并发导出互相争抢。
+- 每次启动使用独立的临时 profile，启动失败自动清理并重试（最多 3 次）。
+- 关闭浏览器加 10 秒超时，超时后强杀进程并清理 profile，不再留下孤儿 Edge/Chrome 进程。
+- 修复 PNG 文件名与实际路径可能不一致的问题（原先跨秒时会两次取时间戳）。
+
 ## [v0.2.1] - 2026-11-04
 
 修复画布节点标题栏被页面内容遮挡。详细说明见 [release-0.2.1.md](release-0.2.1.md)。

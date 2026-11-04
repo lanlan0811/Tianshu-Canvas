@@ -4,7 +4,9 @@
  * PNG 依赖 puppeteer-core + 系统 Chrome/Edge（与 design 插件同款做法）。
  * ZIP 用 node:zlib 自写最小 zip，零依赖。
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import type { Browser } from 'puppeteer-core'
 import { join } from 'node:path'
 import { deflateRawSync } from 'node:zlib'
 import { projectDir, readPageHtml, readProject } from './project.js'
@@ -49,7 +51,58 @@ function stamp(): string {
 // PNG
 // ---------------------------------------------------------------------------
 
-export async function exportPng(cwd: string): Promise<ExportFile> {
+// PNG 导出串行排队：同一时刻只允许一个无头浏览器，避免并发启动互相争抢/残留。
+let pngQueue: Promise<unknown> = Promise.resolve()
+
+export function exportPng(cwd: string): Promise<ExportFile> {
+  const run = pngQueue.then(() => exportPngOnce(cwd))
+  pngQueue = run.catch(() => {})
+  return run
+}
+
+/**
+ * 启动无头浏览器：每次尝试使用独立的临时 profile，启动失败自动清理并重试（最多 3 次）。
+ * dispose 带超时：close 卡住时强杀进程，并清理 profile，不留孤儿进程。
+ */
+async function launchBrowser(exe: string): Promise<{ browser: Browser; dispose: () => Promise<void> }> {
+  const puppeteer = (await import('puppeteer-core')).default
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const userDataDir = mkdtempSync(join(tmpdir(), 'tsc-png-'))
+    try {
+      const browser = await puppeteer.launch({
+        executablePath: exe,
+        headless: true,
+        userDataDir,
+        timeout: 60000,
+        protocolTimeout: 120000,
+        args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-extensions'],
+      })
+      const dispose = async (): Promise<void> => {
+        const proc = browser.process()
+        await Promise.race([browser.close().catch(() => {}), new Promise<void>((r) => setTimeout(r, 10000))])
+        if (proc && proc.exitCode === null) proc.kill('SIGKILL')
+        try {
+          rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
+        } catch {
+          /* 进程刚退出时文件可能仍被占用，忽略 */
+        }
+      }
+      return { browser, dispose }
+    } catch (err) {
+      lastErr = err
+      try {
+        rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
+      } catch {
+        /* 忽略 */
+      }
+      await new Promise<void>((r) => setTimeout(r, 1000 * (attempt + 1)))
+    }
+  }
+  throw lastErr
+}
+
+async function exportPngOnce(cwd: string): Promise<ExportFile> {
   const exe = resolveBrowser()
   if (!exe) {
     throw new Error(
@@ -57,12 +110,7 @@ export async function exportPng(cwd: string): Promise<ExportFile> {
     )
   }
   const { url } = await ensureServer(cwd)
-  const puppeteer = (await import('puppeteer-core')).default
-  const browser = await puppeteer.launch({
-    executablePath: exe,
-    headless: true,
-    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-  })
+  const { browser, dispose } = await launchBrowser(exe)
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 })
@@ -86,11 +134,12 @@ export async function exportPng(cwd: string): Promise<ExportFile> {
 
     const dir = exportsDir(cwd)
     mkdirSync(dir, { recursive: true })
-    const path = join(dir, `canvas-${stamp()}.png`)
+    const name = `canvas-${stamp()}.png`
+    const path = join(dir, name)
     await page.screenshot({ path, clip: clip ?? undefined })
-    return { name: `canvas-${stamp()}.png`, path, bytes: readFileSync(path).length }
+    return { name, path, bytes: readFileSync(path).length }
   } finally {
-    await browser.close().catch(() => {})
+    await dispose()
   }
 }
 
