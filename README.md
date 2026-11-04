@@ -83,6 +83,13 @@ node scripts/verify-web.mjs <chrome.exe>
 
 用无头浏览器打开画布，断言 React Flow 真正渲染、节点出现、iframe 指向原型页、无 JS 报错。
 
+## 参与贡献
+
+- [贡献指南](CONTRIBUTING.md)（English: [CONTRIBUTING.en.md](CONTRIBUTING.en.md)）
+- [安全策略](SECURITY.md)（English: [SECURITY.en.md](SECURITY.en.md)）——漏洞请勿公开报告，发邮件至 lanaiw2025@163.com
+- [贡献者行为准则](CODE_OF_CONDUCT.md)（English: [CODE_OF_CONDUCT.en.md](CODE_OF_CONDUCT.en.md)）
+- [更新日志](CHANGELOG.md)
+
 ## 许可
 
 MIT（见 [LICENSE](LICENSE)）。

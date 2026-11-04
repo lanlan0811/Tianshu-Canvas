@@ -1,0 +1,63 @@
+name: Bug 报告
+description: 报告一个可复现的问题
+title: '[Bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量提供可复现的信息。
+        安全漏洞请勿在此提交，参见 [SECURITY.md](../../SECURITY.md)。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 问题描述
+      description: 实际发生了什么？期望发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 尽可能给出最小可复现步骤。
+      placeholder: |
+        1. 调用 canvas_open ...
+        2. 调用 canvas_upsert_page ...
+        3. 观察到 ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 插件版本
+      description: 见 tianshu.plugin.json 的 version，或 release 标签。
+      placeholder: '0.2.3'
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js 版本
+      description: 运行 `node -v` 的输出。
+      placeholder: 'v24.0.0'
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 报错信息
+      description: 相关日志、堆栈或截图。
+      render: shell
+    validations:
+      required: false
