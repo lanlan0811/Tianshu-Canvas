@@ -9,7 +9,7 @@ import test from 'node:test'
 const root = resolve(import.meta.dirname, '..')
 const designDir = join(root, 'dist', 'design')
 const catalog = JSON.parse(readFileSync(join(designDir, 'index.json'), 'utf8'))
-const STYLES = ['apple', 'google', 'claude', 'tianshu-original', 'barbie', 'nerv']
+const STYLES = ['apple', 'google', 'claude', 'tianshu-original', 'barbie', 'nerv', 'minimalist']
 
 const FORBIDDEN = [
   'library-consumption',

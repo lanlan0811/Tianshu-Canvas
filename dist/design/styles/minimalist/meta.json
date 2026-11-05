@@ -1,0 +1,25 @@
+{
+  "id": "minimalist",
+  "name": "极简风",
+  "tagline": "黑白灰、克制、纯中性",
+  "description": "纯中性黑白灰单色系统，近乎无彩的层级靠明度与细边框拉开，12px 圆角与极轻分层投影，适合工具、文档与数据密集界面。",
+  "tags": [
+    "monochrome",
+    "minimal",
+    "light"
+  ],
+  "swatches": [
+    "#fafafa",
+    "#ffffff",
+    "#18181b",
+    "#71717a"
+  ],
+  "version": 1,
+  "iconStyle": {
+    "strokeWidth": 1.5,
+    "linecap": "round",
+    "linejoin": "round"
+  },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；为纯中性单色的风格化描述，不代表任何特定产品。"
+}
