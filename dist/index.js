@@ -410,7 +410,7 @@ var PROBE_SCRIPT = [
   '    if (document.querySelector("style[' + PROBE_MARKER + ']")) return;',
   '    var s = document.createElement("style");',
   '    s.setAttribute("' + PROBE_MARKER + '", "1");',
-  '    s.textContent = "[data-tianshu-hover]{outline:2px solid #3b82f6;outline-offset:-1px}[data-tianshu-selected]{outline:2px solid #2563eb;outline-offset:-1px;box-shadow:0 0 0 2px rgba(37,99,235,.25)}";',
+  '    s.textContent = "[data-tianshu-hover]{outline:2px solid #e07a3f;outline-offset:-1px}[data-tianshu-selected]{outline:2px solid #b85a24;outline-offset:-1px;box-shadow:0 0 0 2px rgba(224,122,63,.25)}";',
   "    (document.head || document.documentElement).appendChild(s);",
   "  }",
   "  function setHover(el){",
@@ -1041,7 +1041,7 @@ async function exportPngOnce(cwd) {
     await new Promise((r) => setTimeout(r, 800));
     const clip = await page.evaluate(() => {
       const doc = globalThis.document;
-      const els = Array.from(doc.querySelectorAll(".page-node"));
+      const els = Array.from(doc.querySelectorAll(".page-node, .page-node__header"));
       if (!els.length) return null;
       const rects = els.map((e) => e.getBoundingClientRect());
       const left = Math.min(...rects.map((r) => r.left));
@@ -1132,12 +1132,12 @@ function buildZip(entries) {
 function galleryHtml(cwd) {
   const project = readProject(cwd);
   const cards = project.nodes.map(
-    (n) => `<section><h2>${escapeHtml(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1px solid #ddd;border-radius:8px;background:#fff"></iframe></section>`
+    (n) => `<section><h2>${escapeHtml(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1.5px solid #2b2b2b;border-radius:12px 5px 14px 6px/6px 13px 5px 12px;background:#fffdf8"></iframe></section>`
   ).join("\n");
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6</title>
-<style>body{font-family:system-ui;margin:0;padding:24px;background:#f5f6f8;color:#1f2328}
-h1{font-size:20px}section{margin:0 0 32px}h2{font-size:15px;margin:0 0 8px}small{color:#6b7280;font-weight:400}
+<style>body{font-family:system-ui;margin:0;padding:24px;background:#faf7f0;color:#2b2b2b}
+h1{font-size:20px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}h2{font-size:15px;margin:0 0 8px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}section{margin:0 0 32px}small{color:#6b6152;font-weight:400}
 iframe{display:block}</style></head>
 <body><h1>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6\uFF08\u5171 ${project.nodes.length} \u9875\uFF09</h1>
 ${cards || "<p>\uFF08\u65E0\u9875\u9762\uFF09</p>"}

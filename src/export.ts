@@ -211,9 +211,10 @@ async function exportPngOnce(cwd: string): Promise<ExportFile> {
     await new Promise((r) => setTimeout(r, 800))
 
     // 该回调在浏览器上下文执行（Node 侧无 DOM 类型，故用 any 访问）
+    // 同时纳入标题栏矩形：标题栏悬于节点上方，只按 .page-node 裁剪会把它切掉。
     const clip = await page.evaluate(() => {
       const doc = (globalThis as unknown as { document: any }).document
-      const els = Array.from(doc.querySelectorAll('.page-node')) as any[]
+      const els = Array.from(doc.querySelectorAll('.page-node, .page-node__header')) as any[]
       if (!els.length) return null
       const rects = els.map((e) => e.getBoundingClientRect())
       const left = Math.min(...rects.map((r) => r.left))
@@ -327,13 +328,13 @@ function galleryHtml(cwd: string): string {
     .map(
       (n) =>
         `<section><h2>${escapeHtml(n.title)} <small>${n.width}×${n.height}</small></h2>` +
-        `<iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1px solid #ddd;border-radius:8px;background:#fff"></iframe></section>`,
+        `<iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1.5px solid #2b2b2b;border-radius:12px 5px 14px 6px/6px 13px 5px 12px;background:#fffdf8"></iframe></section>`,
     )
     .join('\n')
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>天枢画布设计 · 原型集</title>
-<style>body{font-family:system-ui;margin:0;padding:24px;background:#f5f6f8;color:#1f2328}
-h1{font-size:20px}section{margin:0 0 32px}h2{font-size:15px;margin:0 0 8px}small{color:#6b7280;font-weight:400}
+<style>body{font-family:system-ui;margin:0;padding:24px;background:#faf7f0;color:#2b2b2b}
+h1{font-size:20px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}h2{font-size:15px;margin:0 0 8px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}section{margin:0 0 32px}small{color:#6b6152;font-weight:400}
 iframe{display:block}</style></head>
 <body><h1>天枢画布设计 · 原型集（共 ${project.nodes.length} 页）</h1>
 ${cards || '<p>（无页面）</p>'}

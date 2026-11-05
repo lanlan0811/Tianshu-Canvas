@@ -7,14 +7,13 @@ import { GRID_STEP } from './canvasConfig'
 
 export function GridLayer() {
   const { x, y, zoom } = useViewport()
-  const minor = GRID_STEP * zoom
-  const major = minor * 5
+  const step = GRID_STEP * zoom
   return (
     <div
       className="grid-layer"
       style={{
-        backgroundSize: `${minor}px ${minor}px, ${minor}px ${minor}px, ${major}px ${major}px, ${major}px ${major}px`,
-        backgroundPosition: `${x}px ${y}px, ${x}px ${y}px, ${x}px ${y}px, ${x}px ${y}px`,
+        backgroundSize: `${step}px ${step}px`,
+        backgroundPosition: `${x}px ${y}px`,
       }}
     />
   )

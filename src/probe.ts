@@ -154,7 +154,7 @@ export const PROBE_SCRIPT = [
   '    if (document.querySelector("style[' + PROBE_MARKER + ']")) return;',
   '    var s = document.createElement("style");',
   '    s.setAttribute("' + PROBE_MARKER + '", "1");',
-  '    s.textContent = "[data-tianshu-hover]{outline:2px solid #3b82f6;outline-offset:-1px}[data-tianshu-selected]{outline:2px solid #2563eb;outline-offset:-1px;box-shadow:0 0 0 2px rgba(37,99,235,.25)}";',
+  '    s.textContent = "[data-tianshu-hover]{outline:2px solid #e07a3f;outline-offset:-1px}[data-tianshu-selected]{outline:2px solid #b85a24;outline-offset:-1px;box-shadow:0 0 0 2px rgba(224,122,63,.25)}";',
   '    (document.head || document.documentElement).appendChild(s);',
   '  }',
   '  function setHover(el){',

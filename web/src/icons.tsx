@@ -128,12 +128,83 @@ export function DownloadIcon(p: IconProps) {
   )
 }
 
+export function ZoomInIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M16.5 16.5 21 21M11 8v6M8 11h6" />
+    </Svg>
+  )
+}
+
+export function ZoomOutIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M16.5 16.5 21 21M8 11h6" />
+    </Svg>
+  )
+}
+
+export function FitViewIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />
+      <rect x="9" y="9" width="6" height="6" rx="1" />
+    </Svg>
+  )
+}
+
+export function SidebarIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </Svg>
+  )
+}
+
+export function RenameIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 7V5h16v2M12 5v14M9 19h6" />
+    </Svg>
+  )
+}
+
+export function BringToFrontIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="3" y="3" width="12" height="12" rx="1.5" />
+      <path d="M9 21h12V9" />
+    </Svg>
+  )
+}
+
+export function ChevronIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="m6 9 6 6 6-6" />
+    </Svg>
+  )
+}
+
+export function PlusIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  )
+}
+
 export function EmptyState() {
   return (
     <div className="empty-state">
-      <CanvasIcon size={48} style={{ opacity: 0.4 }} />
-      <p className="empty-state__title">画布为空</p>
-      <p className="empty-state__desc">让天枢生成一个前端原型页面，然后调用 canvas_upsert_page 加入画布。</p>
+      <div className="empty-state__art">
+        <CanvasIcon size={44} style={{ filter: 'url(#sketch)' }} />
+      </div>
+      <p className="empty-state__title">画布还是空白的</p>
+      <p className="empty-state__desc">让天枢生成一个前端原型页面，再调用 canvas_upsert_page 贴到这块白板上。</p>
     </div>
   )
 }

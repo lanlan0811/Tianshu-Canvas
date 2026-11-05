@@ -2,8 +2,9 @@
  * 画布应用：拉项目 → 渲染 React Flow 无限画布 → 订阅 SSE 实时刷新。
  * v0.1.2：接入探针桥（选中/悬停/滚轮/编辑）、选中面板、连线编排、导出模式。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
+  MarkerType,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -17,8 +18,13 @@ import {
 import { canvasConfig } from './canvasConfig'
 import { nodeTypes, type PageFlowNode } from './PageNode'
 import { GridLayer } from './GridLayer'
+import { SketchDefs } from './SketchDefs'
+import { TopBar } from './TopBar'
+import { PageListSidebar } from './PageListSidebar'
+import { ZoomControls } from './ZoomControls'
+import { ContextMenu, type ContextMenuState } from './ContextMenu'
+import { InkEdge } from './edges/InkEdge'
 import { SelectionPanel } from './SelectionPanel'
-import { ExportMenu } from './ExportMenu'
 import { CanvasActionsProvider, type CanvasActions } from './actions'
 import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
@@ -41,6 +47,12 @@ const params = new URLSearchParams(location.search)
 const ws = params.get('ws') ?? ''
 const exporting = params.get('export') === '1'
 
+const edgeTypes = { ink: InkEdge }
+const defaultEdgeOptions = {
+  type: 'ink',
+  markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#2b2b2b' },
+}
+
 function toFlowNodes(project: ApiProject): PageFlowNode[] {
   return project.nodes.map((n) => ({
     id: n.id,
@@ -60,6 +72,8 @@ function Canvas() {
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selection, setSelection] = useState<ApiSelection | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const nodesRef = useRef<PageFlowNode[]>([])
   nodesRef.current = nodes
 
@@ -156,6 +170,42 @@ function Canvas() {
     [],
   )
 
+  // 侧栏点击：选中该页并定位到它
+  const selectAndFit = useCallback(
+    (id: string) => {
+      const node = nodesRef.current.find((n) => n.id === id)
+      if (!node) return
+      const sel: ApiSelection = { pageId: id, kind: 'page', at: Date.now() }
+      setSelection(sel)
+      markElementSelected(sel)
+      void postSelection(ws, id, 'page')
+      void fitView({ nodes: [{ id }], padding: 0.5, maxZoom: 1, duration: 600 })
+    },
+    [fitView],
+  )
+
+  // 右键菜单：节点 / 空白
+  const onNodeContextMenu = useCallback((e: ReactMouseEvent, node: PageFlowNode) => {
+    e.preventDefault()
+    setMenu({ kind: 'node', x: e.clientX, y: e.clientY, nodeId: node.id, title: node.data.title })
+  }, [])
+
+  const onPaneContextMenu = useCallback((e: ReactMouseEvent | MouseEvent) => {
+    e.preventDefault()
+    setMenu({ kind: 'pane', x: e.clientX, y: e.clientY })
+  }, [])
+
+  // 置顶：客户端 zIndex，不持久化（重载/SSE 刷新后复位）
+  const bringToFront = useCallback(
+    (id: string) => {
+      setNodes((nds) => {
+        const max = Math.max(0, ...nds.map((n) => n.zIndex ?? 0))
+        return nds.map((n) => (n.id === id ? { ...n, zIndex: max + 1 } : n))
+      })
+    },
+    [setNodes],
+  )
+
   const onConnect = useCallback(
     (c: Connection) => {
       if (!c.source || !c.target) return
@@ -246,6 +296,7 @@ function Canvas() {
     <CanvasActionsProvider value={actions}>
       <div className={`app${exporting ? ' app--exporting' : ''}`}>
         <GridLayer />
+        <SketchDefs />
         <ReactFlow<PageFlowNode, Edge>
           {...canvasConfig}
           nodes={nodes}
@@ -254,21 +305,63 @@ function Canvas() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneContextMenu={onPaneContextMenu}
+          onPaneClick={() => setMenu(null)}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
           onMove={onMove}
           fitView
           fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
         >
-          <MiniMap pannable zoomable position="bottom-right" />
+          <MiniMap
+            pannable
+            zoomable
+            position="bottom-right"
+            className="minimap"
+            bgColor="var(--paper-2)"
+            maskColor="rgba(43, 43, 43, 0.08)"
+            nodeColor="var(--amber)"
+            nodeStrokeColor="#2b2b2b"
+            nodeStrokeWidth={2}
+            nodeBorderRadius={3}
+          />
         </ReactFlow>
         {ready && !error && nodes.length === 0 && <EmptyState />}
         {error && <div className="app-error">{error}</div>}
-        {!exporting && <ExportMenu onExport={doExport} busy={exportingNow} />}
+        {!exporting && (
+          <TopBar
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
+            onExport={doExport}
+            busy={exportingNow}
+          />
+        )}
+        {!exporting && sidebarOpen && (
+          <PageListSidebar
+            nodes={nodes}
+            selectedId={selection?.pageId ?? null}
+            onPick={selectAndFit}
+          />
+        )}
+        {!exporting && <ZoomControls />}
         {!exporting && (
           <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>
         )}
         {!exporting && (
           <SelectionPanel selection={selection} pageTitle={pageTitle} onApplyEdits={applyEdits} />
+        )}
+        {!exporting && menu && (
+          <ContextMenu
+            state={menu}
+            onClose={() => setMenu(null)}
+            onRename={actions.rename}
+            onDuplicate={actions.duplicate}
+            onRemove={actions.remove}
+            onBringToFront={bringToFront}
+            onFitView={() => void fitView({ padding: 0.3, maxZoom: 1, duration: 400 })}
+          />
         )}
       </div>
     </CanvasActionsProvider>

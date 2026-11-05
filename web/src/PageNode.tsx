@@ -63,7 +63,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
       <Handle type="target" position={Position.Left} id="in" className="page-node__handle" />
       {/* 标题栏悬于节点上方、不参与布局：画布高度 = HEADER × inv，屏幕上恒为 HEADER px，
           内层以固定 HEADER 高度反缩放，永远不会溢出到 iframe 区域被遮挡。 */}
-      <div className="page-node__header" style={{ height: HEADER * inv }}>
+      <div className="page-node__header" data-device={data.deviceType} style={{ height: HEADER * inv }}>
         <div
           className="page-node__header-inner"
           style={{ height: HEADER, transform: `scale(${inv})`, transformOrigin: 'top left', width: `${100 * zoom}%` }}

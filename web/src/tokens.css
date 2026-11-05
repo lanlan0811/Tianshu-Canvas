@@ -1,0 +1,64 @@
+/* 天枢画布设计令牌：手绘白板 / 便签风（浅色单主题）。
+   字体只用系统字体——CSP 为 default-src 'self' 且无 font-src，禁止外链字体。 */
+
+:root {
+  /* 纸与墨 */
+  --paper: #faf7f0;
+  --paper-2: #f3ede1;
+  --card: #fffdf8;
+  --ink: #2b2b2b;
+  --ink-soft: #6b6152;
+  --ink-faint: #b8ad9a;
+  --line: #d9cfbd;
+
+  /* 便签色（浅、粉笔感） */
+  --amber: #ffd166;
+  --mint: #a8e6cf;
+  --sky: #a5d8ff;
+  --coral: #ff9b9b;
+  --lilac: #d8c4ff;
+
+  /* 暖色强调（替代原蓝色选中态） */
+  --accent: #e07a3f;
+  --accent-soft: #f7e3d3;
+  --accent-ink: #b85a24;
+
+  --danger: #c0392b;
+  --danger-soft: #fbe3e0;
+
+  /* 字体：全部系统字体，无外链 */
+  --font-hand: 'Kaiti SC', 'STKaiti', 'KaiTi', '楷体', 'Segoe Print', 'Comic Sans MS', cursive;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 20px;
+
+  /* 手绘「抖动框」圆角（非对称，制造手绘感） */
+  --r-sketch: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --r-sketch-md: 18px 6px 16px 7px / 7px 16px 6px 18px;
+  --r-sketch-sm: 10px 4px 9px 4px / 4px 9px 4px 10px;
+
+  /* 阴影：硬偏移＝马克笔感，而非模糊浮层 */
+  --shadow-card: 2px 3px 0 rgba(43, 43, 43, 0.1), 0 6px 18px rgba(43, 43, 43, 0.06);
+  --shadow-pop: 3px 4px 0 rgba(43, 43, 43, 0.16);
+  --shadow-note: 1px 2px 0 rgba(43, 43, 43, 0.12);
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  --z-canvas: 0;
+  --z-nodes: 1;
+  --z-chrome: 5;
+  --z-menu: 20;
+  --z-error: 30;
+
+  --dot: rgba(43, 43, 43, 0.14);
+}
