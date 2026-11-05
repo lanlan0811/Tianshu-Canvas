@@ -5,15 +5,30 @@
 import { useEffect, useRef, useState } from 'react'
 import { useReactFlow, useViewport } from '@xyflow/react'
 import { ChevronIcon, DownloadIcon, FitViewIcon, SidebarIcon } from './icons'
+import { StyleSwitcher } from './StyleSwitcher'
+import type { ApiDesignCatalog } from './api'
 
 export interface TopBarProps {
   sidebarOpen: boolean
   onToggleSidebar: () => void
   onExport: (kind: 'png' | 'zip' | 'both') => void
   busy?: boolean
+  catalog: ApiDesignCatalog | null
+  design: { styleId: string; updatedAt: number } | null
+  onPickStyle: (styleId: string | null) => void
+  styleBusy?: boolean
 }
 
-export function TopBar({ sidebarOpen, onToggleSidebar, onExport, busy }: TopBarProps) {
+export function TopBar({
+  sidebarOpen,
+  onToggleSidebar,
+  onExport,
+  busy,
+  catalog,
+  design,
+  onPickStyle,
+  styleBusy,
+}: TopBarProps) {
   const { fitView } = useReactFlow()
   const { zoom } = useViewport()
   const [open, setOpen] = useState(false)
@@ -60,6 +75,7 @@ export function TopBar({ sidebarOpen, onToggleSidebar, onExport, busy }: TopBarP
         </button>
       </div>
       <div className="topbar__spacer" />
+      <StyleSwitcher catalog={catalog} current={design} onPick={onPickStyle} busy={styleBusy} />
       <span className="topbar__zoom">{Math.round(zoom * 100)}%</span>
       <div className="export-menu" ref={ref}>
         <button

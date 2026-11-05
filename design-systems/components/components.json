@@ -1,0 +1,278 @@
+{
+  "schema": 1,
+  "sharedClasses": ["ts-icon"],
+  "components": [
+    {
+      "id": "app",
+      "name": "应用框架",
+      "category": "layout",
+      "base": "ts-app",
+      "classes": ["ts-app"],
+      "slots": ["sidebar", "main"],
+      "tokens": ["color.bg.canvas", "font.families.sans", "font.sizes.md"],
+      "example": "<div class=\"ts-app\"><aside class=\"ts-sidebar\"></aside><main class=\"ts-main\"></main></div>"
+    },
+    {
+      "id": "sidebar",
+      "name": "侧边栏",
+      "category": "layout",
+      "base": "ts-sidebar",
+      "classes": ["ts-sidebar", "ts-sidebar__brand", "ts-sidebar__nav", "ts-sidebar__item", "ts-sidebar__item--active"],
+      "slots": ["brand", "nav", "item"],
+      "tokens": ["color.bg.surface", "color.border.default", "size.sidebar", "space.3"],
+      "example": "<aside class=\"ts-sidebar\"><div class=\"ts-sidebar__brand\">工作台</div><nav class=\"ts-sidebar__nav\"><a class=\"ts-sidebar__item ts-sidebar__item--active\">概览</a></nav></aside>"
+    },
+    {
+      "id": "main",
+      "name": "主区域",
+      "category": "layout",
+      "base": "ts-main",
+      "classes": ["ts-main", "ts-main__header", "ts-main__body"],
+      "slots": ["header", "body"],
+      "tokens": ["color.bg.canvas", "space.6"],
+      "example": "<main class=\"ts-main\"><header class=\"ts-main__header\">概览</header><div class=\"ts-main__body\"></div></main>"
+    },
+    {
+      "id": "container",
+      "name": "内容容器",
+      "category": "layout",
+      "base": "ts-container",
+      "classes": ["ts-container"],
+      "slots": ["root"],
+      "tokens": ["size.containerLg", "space.6"],
+      "example": "<div class=\"ts-container\"></div>"
+    },
+    {
+      "id": "stack",
+      "name": "纵向堆叠",
+      "category": "layout",
+      "base": "ts-stack",
+      "classes": ["ts-stack", "ts-stack--sm", "ts-stack--lg"],
+      "slots": ["root"],
+      "tokens": ["space.4"],
+      "example": "<div class=\"ts-stack\"></div>"
+    },
+    {
+      "id": "row",
+      "name": "横向排列",
+      "category": "layout",
+      "base": "ts-row",
+      "classes": ["ts-row", "ts-row--between", "ts-row--center"],
+      "slots": ["root"],
+      "tokens": ["space.3"],
+      "example": "<div class=\"ts-row ts-row--between\"></div>"
+    },
+    {
+      "id": "grid",
+      "name": "网格",
+      "category": "layout",
+      "base": "ts-grid",
+      "classes": ["ts-grid", "ts-grid--2", "ts-grid--3", "ts-grid--4"],
+      "slots": ["root"],
+      "tokens": ["space.4"],
+      "example": "<div class=\"ts-grid ts-grid--3\"></div>"
+    },
+    {
+      "id": "section",
+      "name": "区块",
+      "category": "layout",
+      "base": "ts-section",
+      "classes": ["ts-section", "ts-section__title", "ts-section__desc"],
+      "slots": ["title", "desc", "body"],
+      "tokens": ["font.sizes.lg", "font.weights.semibold", "space.4"],
+      "example": "<section class=\"ts-section\"><h2 class=\"ts-section__title\">标题</h2><p class=\"ts-section__desc\">说明</p></section>"
+    },
+    {
+      "id": "button",
+      "name": "按钮",
+      "category": "action",
+      "base": "ts-btn",
+      "variants": {
+        "priority": ["primary", "secondary", "ghost", "danger"],
+        "size": ["sm", "md", "lg"]
+      },
+      "classes": [
+        "ts-btn",
+        "ts-btn--primary",
+        "ts-btn--secondary",
+        "ts-btn--ghost",
+        "ts-btn--danger",
+        "ts-btn--sm",
+        "ts-btn--lg"
+      ],
+      "slots": ["root", "icon", "label"],
+      "tokens": ["color.action.primary", "size.controlMd", "radius.md", "space.3", "font.sizes.md"],
+      "example": "<button class=\"ts-btn ts-btn--primary\"><svg data-icon=\"plus\" class=\"ts-icon\"></svg><span>新建</span></button>"
+    },
+    {
+      "id": "icon-button",
+      "name": "图标按钮",
+      "category": "action",
+      "base": "ts-icon-btn",
+      "classes": ["ts-icon-btn"],
+      "slots": ["root", "icon"],
+      "tokens": ["size.controlMd", "radius.md", "color.text.secondary"],
+      "example": "<button class=\"ts-icon-btn\" aria-label=\"设置\"><svg data-icon=\"settings\" class=\"ts-icon\"></svg></button>"
+    },
+    {
+      "id": "input",
+      "name": "输入框",
+      "category": "form",
+      "base": "ts-input",
+      "classes": ["ts-input", "ts-input--sm"],
+      "slots": ["root"],
+      "tokens": ["color.bg.surface", "color.border.default", "size.controlMd", "radius.md"],
+      "example": "<input class=\"ts-input\" placeholder=\"搜索\" />"
+    },
+    {
+      "id": "field",
+      "name": "表单行",
+      "category": "form",
+      "base": "ts-field",
+      "classes": ["ts-field", "ts-field__label", "ts-field__hint"],
+      "slots": ["label", "control", "hint"],
+      "tokens": ["font.sizes.sm", "color.text.secondary", "space.2"],
+      "example": "<label class=\"ts-field\"><span class=\"ts-field__label\">名称</span><input class=\"ts-input\" /><span class=\"ts-field__hint\">最多 40 字</span></label>"
+    },
+    {
+      "id": "select",
+      "name": "下拉选择",
+      "category": "form",
+      "base": "ts-select",
+      "classes": ["ts-select"],
+      "slots": ["root"],
+      "tokens": ["color.bg.surface", "color.border.default", "size.controlMd"],
+      "example": "<select class=\"ts-select\"><option>全部</option></select>"
+    },
+    {
+      "id": "switch",
+      "name": "开关",
+      "category": "form",
+      "base": "ts-switch",
+      "classes": ["ts-switch", "ts-switch--on"],
+      "slots": ["root"],
+      "tokens": ["color.action.primary", "color.border.default"],
+      "example": "<button class=\"ts-switch ts-switch--on\" role=\"switch\" aria-checked=\"true\"></button>"
+    },
+    {
+      "id": "checkbox",
+      "name": "复选框",
+      "category": "form",
+      "base": "ts-check",
+      "classes": ["ts-check", "ts-check__box", "ts-check__label"],
+      "slots": ["box", "label"],
+      "tokens": ["color.border.default", "color.action.primary", "font.sizes.md"],
+      "example": "<label class=\"ts-check\"><input type=\"checkbox\" /><span class=\"ts-check__box\"></span><span class=\"ts-check__label\">启用</span></label>"
+    },
+    {
+      "id": "card",
+      "name": "卡片",
+      "category": "surface",
+      "base": "ts-card",
+      "classes": ["ts-card", "ts-card__header", "ts-card__title", "ts-card__body", "ts-card__footer"],
+      "slots": ["header", "title", "body", "footer"],
+      "tokens": ["color.bg.surface", "color.border.default", "radius.lg", "shadow.sm", "space.4"],
+      "example": "<div class=\"ts-card\"><div class=\"ts-card__header\"><h3 class=\"ts-card__title\">标题</h3></div><div class=\"ts-card__body\"></div></div>"
+    },
+    {
+      "id": "stat",
+      "name": "指标卡",
+      "category": "data",
+      "base": "ts-stat",
+      "classes": ["ts-stat", "ts-stat__label", "ts-stat__value", "ts-stat__delta", "ts-stat__delta--up", "ts-stat__delta--down"],
+      "slots": ["label", "value", "delta"],
+      "tokens": ["font.sizes.3xl", "font.weights.semibold", "color.status.success", "color.status.danger"],
+      "example": "<div class=\"ts-stat\"><span class=\"ts-stat__label\">活跃用户</span><strong class=\"ts-stat__value\">12,480</strong><span class=\"ts-stat__delta ts-stat__delta--up\">+8.2%</span></div>"
+    },
+    {
+      "id": "badge",
+      "name": "徽标",
+      "category": "data",
+      "base": "ts-badge",
+      "classes": ["ts-badge", "ts-badge--success", "ts-badge--warning", "ts-badge--danger", "ts-badge--info"],
+      "slots": ["root"],
+      "tokens": ["color.status.successBg", "color.status.success", "radius.full", "font.sizes.xs"],
+      "example": "<span class=\"ts-badge ts-badge--success\">运行中</span>"
+    },
+    {
+      "id": "table",
+      "name": "表格",
+      "category": "data",
+      "base": "ts-table",
+      "classes": ["ts-table", "ts-table__num"],
+      "slots": ["root"],
+      "tokens": ["color.border.default", "color.bg.sunken", "font.sizes.md", "space.3"],
+      "example": "<table class=\"ts-table\"><thead><tr><th>名称</th><th class=\"ts-table__num\">数量</th></tr></thead><tbody><tr><td>示例</td><td class=\"ts-table__num\">12</td></tr></tbody></table>"
+    },
+    {
+      "id": "nav",
+      "name": "顶部导航",
+      "category": "navigation",
+      "base": "ts-nav",
+      "classes": ["ts-nav", "ts-nav__brand", "ts-nav__links", "ts-nav__link", "ts-nav__link--active"],
+      "slots": ["brand", "links"],
+      "tokens": ["color.bg.surface", "color.border.default", "font.sizes.md"],
+      "example": "<nav class=\"ts-nav\"><span class=\"ts-nav__brand\">天枢</span><div class=\"ts-nav__links\"><a class=\"ts-nav__link ts-nav__link--active\">首页</a></div></nav>"
+    },
+    {
+      "id": "tabs",
+      "name": "标签页",
+      "category": "navigation",
+      "base": "ts-tabs",
+      "classes": ["ts-tabs", "ts-tab", "ts-tab--active"],
+      "slots": ["root", "tab"],
+      "tokens": ["color.text.muted", "color.text.primary", "color.action.primary", "space.4"],
+      "example": "<div class=\"ts-tabs\"><button class=\"ts-tab ts-tab--active\">概览</button><button class=\"ts-tab\">明细</button></div>"
+    },
+    {
+      "id": "dialog",
+      "name": "对话框",
+      "category": "feedback",
+      "base": "ts-dialog",
+      "classes": ["ts-dialog", "ts-dialog__header", "ts-dialog__title", "ts-dialog__body", "ts-dialog__footer"],
+      "slots": ["header", "title", "body", "footer"],
+      "tokens": ["color.bg.raised", "radius.xl", "shadow.lg", "space.6"],
+      "example": "<div class=\"ts-dialog\"><div class=\"ts-dialog__header\"><h3 class=\"ts-dialog__title\">确认</h3></div><div class=\"ts-dialog__body\"></div><div class=\"ts-dialog__footer\"></div></div>"
+    },
+    {
+      "id": "toast",
+      "name": "轻提示",
+      "category": "feedback",
+      "base": "ts-toast",
+      "classes": ["ts-toast", "ts-toast--success", "ts-toast--danger"],
+      "slots": ["icon", "text"],
+      "tokens": ["color.bg.inverse", "color.text.inverse", "radius.md", "shadow.md"],
+      "example": "<div class=\"ts-toast ts-toast--success\">已保存</div>"
+    },
+    {
+      "id": "avatar",
+      "name": "头像",
+      "category": "data",
+      "base": "ts-avatar",
+      "classes": ["ts-avatar", "ts-avatar--sm", "ts-avatar--lg", "ts-avatar--square"],
+      "slots": ["root"],
+      "tokens": ["color.bg.sunken", "color.text.secondary", "radius.full"],
+      "example": "<span class=\"ts-avatar\">天</span>"
+    },
+    {
+      "id": "empty",
+      "name": "空状态",
+      "category": "feedback",
+      "base": "ts-empty",
+      "classes": ["ts-empty", "ts-empty__icon", "ts-empty__title", "ts-empty__desc"],
+      "slots": ["icon", "title", "desc", "action"],
+      "tokens": ["color.text.muted", "font.sizes.lg", "space.4"],
+      "example": "<div class=\"ts-empty\"><span class=\"ts-empty__icon\"><svg data-icon=\"folder\" class=\"ts-icon\"></svg></span><p class=\"ts-empty__title\">还没有内容</p><p class=\"ts-empty__desc\">创建一个开始吧</p></div>"
+    },
+    {
+      "id": "progress",
+      "name": "进度条",
+      "category": "feedback",
+      "base": "ts-progress",
+      "classes": ["ts-progress", "ts-progress__bar"],
+      "slots": ["root", "bar"],
+      "tokens": ["color.bg.sunken", "color.action.primary", "radius.full"],
+      "example": "<div class=\"ts-progress\"><span class=\"ts-progress__bar\" style=\"width:64%\"></span></div>"
+    }
+  ]
+}

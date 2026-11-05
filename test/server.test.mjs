@@ -111,7 +111,51 @@ try {
   })
   assert.equal(okHeader.status, 200)
 
-  console.log('OK 服务: /、/api/project、/page/:id（含探针）、/api/selection、CSRF 头、越界 id 全部通过')
+  // 设计系统目录
+  const catalogRes = await fetch(`${base}/api/design-systems`)
+  assert.equal(catalogRes.status, 200)
+  const catalog = await catalogRes.json()
+  assert.deepEqual(catalog.styles.map((s) => s.id), ['apple', 'google', 'claude', 'tianshu-original'])
+  assert.ok(catalog.notice.includes('无隶属'))
+
+  // 切换风格：缺头 403 / 带头 200 / 未知风格 400 / 解绑
+  const designBody = JSON.stringify({ ws: token, styleId: 'claude' })
+  const designNoHeader = await fetch(`${base}/api/design`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: designBody,
+  })
+  assert.equal(designNoHeader.status, 403)
+
+  const designOk = await fetch(`${base}/api/design`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+    body: designBody,
+  })
+  assert.equal(designOk.status, 200)
+  const designResult = await designOk.json()
+  assert.equal(designResult.styleId, 'claude')
+  assert.ok(designResult.pagesUpdated >= 1)
+
+  const projectWithDesign = await (await fetch(apiProject)).json()
+  assert.equal(projectWithDesign.design.styleId, 'claude')
+
+  const designBad = await fetch(`${base}/api/design`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+    body: JSON.stringify({ ws: token, styleId: 'nope' }),
+  })
+  assert.equal(designBad.status, 400)
+
+  const designFree = await fetch(`${base}/api/design`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+    body: JSON.stringify({ ws: token, styleId: null }),
+  })
+  assert.equal(designFree.status, 200)
+  assert.equal((await (await fetch(apiProject)).json()).design, undefined)
+
+  console.log('OK 服务: /、/api/project、/page/:id（含探针）、/api/selection、/api/design-systems、/api/design、CSRF 头、越界 id 全部通过')
 } finally {
   rmSync(cwd, { recursive: true, force: true })
 }

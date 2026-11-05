@@ -338,7 +338,7 @@ describe('回归', { concurrency: false }, () => {
     assert.equal(dirName.status, 404, dirName.body)
 
     const headers = { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' }
-    for (const path of ['/api/viewport', '/api/nodes', '/api/edges', '/api/selection', '/api/page-html', '/api/export']) {
+    for (const path of ['/api/viewport', '/api/nodes', '/api/edges', '/api/selection', '/api/page-html', '/api/export', '/api/design']) {
       for (const body of ['null', '[]', '1']) {
         const res = await rawRequest({ port, method: 'POST', path, headers, body })
         assert.equal(res.status, 400, `${path} ${body} -> ${res.status} ${res.body}`)

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "templates": [
+    {
+      "id": "dashboard",
+      "name": "数据看板",
+      "description": "侧栏 + 顶栏 + 指标卡 + 折线图 + 数据表",
+      "device": "desktop",
+      "file": "templates/dashboard.html",
+      "components": ["app", "sidebar", "main", "stack", "card", "stat", "table", "badge", "button", "input"],
+      "icons": ["search", "bell", "settings", "chart-line", "more-horizontal"]
+    },
+    {
+      "id": "landing",
+      "name": "落地页",
+      "description": "导航 + 首屏 + 特性三栏 + 页脚",
+      "device": "desktop",
+      "file": "templates/landing.html",
+      "components": ["nav", "container", "section", "grid", "card", "button", "badge"],
+      "icons": ["arrow-right", "check", "globe", "layers", "chart-bar"]
+    }
+  ]
+}

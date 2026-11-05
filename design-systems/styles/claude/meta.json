@@ -1,0 +1,12 @@
+{
+  "id": "claude",
+  "name": "Claude 风",
+  "tagline": "暖纸、赭石强调、编辑感",
+  "description": "暖纸底色、衬线标题、克制的赭石强调色，适合阅读、写作与文档型界面。",
+  "tags": ["warm", "editorial", "light"],
+  "swatches": ["#faf9f5", "#f0eee6", "#c96442", "#141413"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 1.75, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与各品牌无隶属关系。"
+}

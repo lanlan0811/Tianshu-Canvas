@@ -1,0 +1,12 @@
+{
+  "id": "google",
+  "name": "谷歌风",
+  "tagline": "明亮、秩序、4dp 网格",
+  "description": "白色底、明确的层级分割线、蓝色主操作、紧凑而规整的间距。",
+  "tags": ["material", "crisp", "light"],
+  "swatches": ["#f8f9fa", "#ffffff", "#1a73e8", "#202124"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 2, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与各品牌无隶属关系。"
+}

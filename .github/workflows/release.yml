@@ -52,6 +52,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          # 含连字符的标签（如 v0.4.0-beta）标记为预发布，避免占据 latest
+          case "${GITHUB_REF_NAME}" in
+            *-*) PRE="--prerelease" ;;
+            *)   PRE="" ;;
+          esac
+          gh release create "${GITHUB_REF_NAME}" $PRE \
             --title "${GITHUB_REF_NAME}" \
             --notes-file RELEASE_NOTES.md

@@ -26,8 +26,35 @@ export interface ApiProject {
   viewport: { x: number; y: number; zoom: number }
   nodes: ApiPageNode[]
   edges: ApiEdge[]
+  /** 项目级设计风格锁定；缺省表示自由发挥。 */
+  design?: { styleId: string; updatedAt: number }
   /** 项目文件有问题时的提示。 */
   issue?: string
+}
+
+export interface ApiDesignTemplateSummary {
+  id: string
+  name: string
+  device: string
+}
+
+export interface ApiDesignStyleSummary {
+  id: string
+  name: string
+  tagline: string
+  description: string
+  tags: string[]
+  swatches: string[]
+  fonts: Record<string, string>
+  iconStyle: { strokeWidth: number; linecap?: string; linejoin?: string }
+  counts: { icons: number; components: number; templates: number }
+  templates: ApiDesignTemplateSummary[]
+}
+
+export interface ApiDesignCatalog {
+  schemaVersion: 1
+  notice: string
+  styles: ApiDesignStyleSummary[]
 }
 
 export interface ApiSelection {
@@ -49,6 +76,32 @@ export async function fetchProject(ws: string): Promise<ApiProject> {
   const res = await fetch(`/api/project?ws=${encodeURIComponent(ws)}`)
   if (!res.ok) throw new Error(`project ${res.status}`)
   return (await res.json()) as ApiProject
+}
+
+export async function fetchDesignSystems(): Promise<ApiDesignCatalog | null> {
+  try {
+    const res = await fetch('/api/design-systems')
+    if (!res.ok) return null
+    return (await res.json()) as ApiDesignCatalog
+  } catch {
+    return null
+  }
+}
+
+/** 切换项目级设计风格；styleId=null 表示解除锁定。返回失败原因，成功返回 null。 */
+export async function postDesignStyle(ws: string, styleId: string | null): Promise<string | null> {
+  const res = await fetch('/api/design', {
+    method: 'POST',
+    headers: MUTATION_HEADERS,
+    body: JSON.stringify({ ws, styleId }),
+  })
+  if (res.ok) return null
+  try {
+    const body = (await res.json()) as { error?: string }
+    return body.error ?? `切换失败（${res.status}）`
+  } catch {
+    return `切换失败（${res.status}）`
+  }
 }
 
 export async function fetchSelection(ws: string): Promise<ApiSelection | null> {

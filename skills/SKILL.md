@@ -27,6 +27,30 @@ triggers:
 
 **禁止**：跳过 `canvas_open` 直接生成原型或 `canvas_upsert_page`——那样用户看不到画布。
 
+## 设计风格（项目级）
+
+生成原型前先看 `canvas_get_state` 的「设计风格」段：
+
+- **已锁定** → 必须用该风格的 token 与组件类写页面，不要另造配色 / 字体。
+- **自由发挥** 且用户**没有**指定风格 → 先 `canvas_style`（action=list），把返回的风格名作为选项**问用户一次**：
+  「这次用哪种风格？A 苹果风　B 谷歌风　C Claude 风　D 天枢原创　E 自由发挥」
+  用户选 A–D 后调用 `canvas_style`（action=set，style_id 分别为 apple / google / claude / tianshu-original）；
+  选 E 或「你决定」→ 保持自由发挥，不要锁定。
+- 用户已在需求里给出风格、参考产品、品牌色或设计规范 → **不要问**；能对应到四大风格时先 `canvas_style set`，否则保持自由发挥。
+
+锁定后这么写（工具会在写入时自动注入 token 与组件 CSS，**不要自己写一套变量**）：
+
+- 颜色 `var(--ts-color-*)`；字体 `var(--ts-font-*)`；字号 `var(--ts-fs-*)`；字重 `var(--ts-weight-*)`；
+  间距 `var(--ts-space-*)`；圆角 `var(--ts-radius-*)`；阴影 `var(--ts-shadow-*)`；尺寸 `var(--ts-size-*)`。
+- 组件用 `canvas_style`（action=get）列出的 `ts-*` 类；不要发明带 `ts-` 前缀的新类。
+- 图标写 `<svg data-icon="search" class="ts-icon"></svg>`，名字取自图标清单；写入时工具会内联为当前风格 SVG。
+  不要用 emoji 当图标，不要外链图标库 / 字体。
+- 需要骨架：`canvas_style`（action=template，template_id=dashboard|landing）取完整 HTML，改内容后交给 `canvas_upsert_page`。
+- 每次写完页面调用 `canvas_check_style`（只报告）；有 color / font / spacing / icon / component 命中就修掉再交付。
+  **不要**把检查清单原样念给用户，除非用户问。
+- 换风格用 `canvas_style set`：所有页面会被重写、画布自动刷新；告知用户即可。
+  v1 只有项目级风格，不要给单页单独设风格。
+
 ## 工作流
 
 1. **`canvas_open`（必做第一步）**：拿到画布 URL，把 URL 发给用户让其用浏览器打开。
@@ -73,4 +97,6 @@ triggers:
 | `canvas_upsert_page` | 新增页面，或更新已有页面（HTML / 标题 / 位置 / 尺寸） | 已 `canvas_open` 且已生成原型后；重命名、移动也用它 |
 | `canvas_get_state` | 读取页面列表、连线、用户当前选中项、画布 URL | 需要查看/确认，或用户选中元素后据此修改 |
 | `canvas_arrange` | 删除 / 复制页面、连线 / 取消连线（`action` 选择） | 编排画布、表达页面流程时 |
+| `canvas_style` | 列出 / 查看 / 锁定 / 切换项目设计风格，取模板 HTML | 用户没指定风格时先 list 再问，选定后 set；写页面前 get；需要骨架时 template |
+| `canvas_check_style` | 只读检查页面是否符合当前风格 | 每次写完页面后；用户问「为什么风格不统一」时 |
 | `canvas_export` | 导出 PNG / ZIP | 交付成果时 |

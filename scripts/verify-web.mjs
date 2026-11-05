@@ -34,6 +34,9 @@ try {
   const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)
   if (!m) throw new Error('未返回合法 URL: ' + open.content)
   const url = m[0]
+  // 先锁定一套风格，验证顶栏切换器与注入链路
+  const styled = await tools.canvas_style.execute({ args: { action: 'set', style_id: 'claude' }, cwd, sessionId: 's' })
+  if (styled.isError) throw new Error('锁定设计风格失败: ' + styled.content)
   await tools.canvas_upsert_page.execute({
     args: { html: '<h1 id="probe">HELLO_CANVAS</h1>', title: 'Probe' },
     cwd,
@@ -65,6 +68,8 @@ try {
     iframeSrc: document.querySelector('.page-node__iframe')?.getAttribute('src') ?? null,
     minimap: !!document.querySelector('.react-flow__minimap'),
     hint: !!document.querySelector('.hint'),
+    styleChip: document.querySelector('.style-switcher__chip')?.textContent ?? null,
+    styleSwatches: document.querySelectorAll('.style-switcher__chip .style-switcher__dot').length,
   }))
 
   const checks = {
@@ -75,6 +80,8 @@ try {
     'iframe 指向 /page/': /\/page\/page-/.test(probe.iframeSrc ?? ''),
     'MiniMap 渲染': probe.minimap,
     '提示条渲染': probe.hint,
+    '风格切换器渲染': (probe.styleChip ?? '').includes('Claude 风'),
+    '风格色卡渲染': probe.styleSwatches === 4,
     '无 JS 报错': errors.length === 0,
   }
   let ok = true

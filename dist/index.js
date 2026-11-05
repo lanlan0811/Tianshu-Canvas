@@ -7,8 +7,8 @@ function defineTianshuPlugin(spec) {
 
 // src/tools.ts
 import { spawn as spawn2 } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync3 } from "node:fs";
-import { join as join4 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
+import { join as join5 } from "node:path";
 
 // src/device.ts
 var DEVICE_PRESETS = {
@@ -30,17 +30,145 @@ function positiveOr(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
 }
 
-// src/export.ts
-import { spawn } from "node:child_process";
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, readdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { tmpdir } from "node:os";
-import { join as join3 } from "node:path";
-import { deflateRawSync } from "node:zlib";
-
-// src/project.ts
-import { EventEmitter } from "node:events";
-import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+// src/design.ts
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+var DESIGN_DIR = fileURLToPath(new URL("./design/", import.meta.url));
+var BLOCK_START = "<!--tianshu-ds:start";
+var BLOCK_END = "<!--tianshu-ds:end-->";
+var START_RE = /<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\s*/g;
+var catalogCache = null;
+var catalogFailed = null;
+var styleCache = /* @__PURE__ */ new Map();
+var styleFailed = /* @__PURE__ */ new Map();
+function readJson(file) {
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+function loadDesignCatalog() {
+  if (catalogCache) return catalogCache;
+  if (catalogFailed) throw new Error(catalogFailed);
+  const file = join(DESIGN_DIR, "index.json");
+  if (!existsSync(file)) {
+    catalogFailed = "\u8BBE\u8BA1\u7CFB\u7EDF\u6784\u5EFA\u4EA7\u7269\u7F3A\u5931\uFF08dist/design/index.json\uFF09\uFF0C\u8BF7\u5148\u8FD0\u884C npm run build\u3002";
+    throw new Error(catalogFailed);
+  }
+  catalogCache = readJson(file);
+  return catalogCache;
+}
+function designStyleIds() {
+  try {
+    return loadDesignCatalog().styles.map((s) => s.id);
+  } catch {
+    return [];
+  }
+}
+function designStyleExists(id) {
+  return typeof id === "string" && designStyleIds().includes(id);
+}
+function designStyleSummary(id) {
+  try {
+    return loadDesignCatalog().styles.find((s) => s.id === id) ?? null;
+  } catch {
+    return null;
+  }
+}
+function resolveDesignStyle(id) {
+  if (!designStyleExists(id)) return null;
+  const cached = styleCache.get(id);
+  if (cached) return cached;
+  const failed = styleFailed.get(id);
+  if (failed) throw new Error(failed);
+  const dir = join(DESIGN_DIR, "styles", id);
+  try {
+    const resolved = {
+      summary: designStyleSummary(id),
+      tokensCss: readFileSync(join(dir, "tokens.css"), "utf8"),
+      componentsCss: readFileSync(join(dir, "components.css"), "utf8"),
+      manifest: readJson(join(dir, "tokens.manifest.json")),
+      icons: readJson(join(dir, "icons.json")),
+      templates: readJson(join(dir, "templates.json"))
+    };
+    styleCache.set(id, resolved);
+    return resolved;
+  } catch (err) {
+    const message = `\u8BBE\u8BA1\u98CE\u683C\u300C${id}\u300D\u7684\u6784\u5EFA\u4EA7\u7269\u4E0D\u5B8C\u6574\uFF1A${err.message}`;
+    styleFailed.set(id, message);
+    throw new Error(message);
+  }
+}
+function stripDesign(html) {
+  return html.replace(START_RE, "");
+}
+function maskSegments(html) {
+  const mask2 = (text) => text.replace(/[^\n]/g, " ");
+  return html.replace(/<script\b[\s\S]*?<\/script>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
+}
+function findInsertOffset(html) {
+  const masked = maskSegments(html);
+  const head = /<head\b[^>]*>/i.exec(masked);
+  if (head) return head.index + head[0].length;
+  const htmlTag = /<html\b[^>]*>/i.exec(masked);
+  if (htmlTag) return htmlTag.index + htmlTag[0].length;
+  return 0;
+}
+function escapeStyleText(css) {
+  return css.replace(/<\/style/gi, "<\\/style");
+}
+function buildIconSvg(attrs, body, set, viewBox) {
+  const kept = attrs.replace(/\s*\/\s*$/g, "").replace(/\s+/g, " ").trim();
+  const hasViewBox = /\bviewBox\s*=/.test(kept);
+  const stroke = `fill="none" stroke="currentColor" stroke-width="${set.stroke.strokeWidth}"` + (set.stroke.linecap ? ` stroke-linecap="${set.stroke.linecap}"` : "") + (set.stroke.linejoin ? ` stroke-linejoin="${set.stroke.linejoin}"` : "");
+  const parts = [kept, hasViewBox ? "" : `viewBox="${viewBox}"`, stroke].filter(Boolean);
+  return `<svg ${parts.join(" ")}>${body}</svg>`;
+}
+function expandIcons(html, set) {
+  const used = /* @__PURE__ */ new Set();
+  const missing = /* @__PURE__ */ new Set();
+  const viewBox = set.viewBox || "0 0 24 24";
+  const normalized = html.replace(/<svg\b([^>]*?)\/>/gi, "<svg$1></svg>");
+  const expanded = normalized.replace(
+    /<svg\b([^>]*?)>([\s\S]*?)<\/svg>/gi,
+    (whole, attrs) => {
+      const iconMatch = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+      if (!iconMatch) return whole;
+      const name = (iconMatch[1] ?? iconMatch[2] ?? "").trim();
+      const body = set.icons[name];
+      if (!body) {
+        missing.add(name);
+        return whole;
+      }
+      used.add(name);
+      return buildIconSvg(attrs, body, set, viewBox);
+    }
+  );
+  return { html: expanded, usedIcons: [...used], missingIcons: [...missing] };
+}
+function injectDesign(html, styleId) {
+  const stripped = stripDesign(html);
+  if (styleId === null) {
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [] };
+  }
+  const style = resolveDesignStyle(styleId);
+  if (!style) {
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [] };
+  }
+  const icons = expandIcons(stripped, style.icons);
+  const block = `${BLOCK_START} style=${style.summary.id} version=${style.manifest.version}-->
+<style id="tianshu-tokens" data-tianshu-ds="tokens" data-style="${style.summary.id}" data-version="${style.manifest.version}">${escapeStyleText(style.tokensCss)}</style>
+<style id="tianshu-components" data-tianshu-ds="components">${escapeStyleText(style.componentsCss)}</style>
+${BLOCK_END}
+`;
+  const offset = findInsertOffset(icons.html);
+  const result = icons.html.slice(0, offset) + "\n" + block + icons.html.slice(offset);
+  return {
+    html: result,
+    styleId: style.summary.id,
+    injected: true,
+    usedIcons: icons.usedIcons,
+    missingIcons: icons.missingIcons
+  };
+}
 
 // src/ids.ts
 import { randomUUID } from "node:crypto";
@@ -58,25 +186,28 @@ function newPageId() {
 }
 
 // src/project.ts
+import { EventEmitter } from "node:events";
+import { constants, copyFileSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join as join2 } from "node:path";
 var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
 projectEvents.setMaxListeners(0);
 function projectDir(cwd) {
-  return join(cwd, PROJECT_DIR_NAME);
+  return join2(cwd, PROJECT_DIR_NAME);
 }
 function projectFile(cwd) {
-  return join(projectDir(cwd), "project.json");
+  return join2(projectDir(cwd), "project.json");
 }
 function pagesDir(cwd) {
-  return join(projectDir(cwd), "pages");
+  return join2(projectDir(cwd), "pages");
 }
 function emptyProject() {
   return { version: 1, viewport: { x: 0, y: 0, zoom: 1 }, nodes: [], edges: [] };
 }
 function inspectProject(cwd) {
   const file = projectFile(cwd);
-  if (!existsSync(file)) return { project: emptyProject(), dropped: 0 };
-  const raw = readFileSync(file, "utf8");
+  if (!existsSync2(file)) return { project: emptyProject(), dropped: 0 };
+  const raw = readFileSync2(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -90,8 +221,11 @@ function inspectProject(cwd) {
   const rawEdges = Array.isArray(obj.edges) ? obj.edges : [];
   const nodes = obj.nodes.filter(isPageNode);
   const edges = rawEdges.filter(isEdge);
+  const project = { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges };
+  const design = normalizeDesign(obj.design);
+  if (design) project.design = design;
   return {
-    project: { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges },
+    project,
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length
   };
 }
@@ -143,6 +277,13 @@ function normalizeViewport(v) {
   }
   return { x: 0, y: 0, zoom: 1 };
 }
+function normalizeDesign(v) {
+  if (!v || typeof v !== "object") return null;
+  const o = v;
+  if (typeof o.styleId !== "string" || o.styleId.trim() === "") return null;
+  const updatedAt = typeof o.updatedAt === "number" && Number.isFinite(o.updatedAt) ? o.updatedAt : 0;
+  return { styleId: o.styleId.trim(), updatedAt };
+}
 function isPageNode(n) {
   if (!n || typeof n !== "object") return false;
   const o = n;
@@ -162,11 +303,14 @@ function writeProjectAtomic(cwd, project) {
   renameSync(tmp, file);
   projectEvents.emit("change", { cwd });
 }
+function writeProject(cwd, project) {
+  writeProjectAtomic(cwd, project);
+}
 function writePageHtml(cwd, id, html) {
   assertSafeId(id);
   mkdirSync(pagesDir(cwd), { recursive: true });
-  const rel = join(PROJECT_DIR_NAME, "pages", `${id}.html`);
-  const abs = join(cwd, rel);
+  const rel = join2(PROJECT_DIR_NAME, "pages", `${id}.html`);
+  const abs = join2(cwd, rel);
   const tmp = abs + ".tmp";
   writeFileSync(tmp, html, "utf8");
   renameSync(tmp, abs);
@@ -174,8 +318,8 @@ function writePageHtml(cwd, id, html) {
 }
 function readPageHtml(cwd, id) {
   if (!isSafeId(id)) return null;
-  const abs = join(pagesDir(cwd), `${id}.html`);
-  return existsSync(abs) ? readFileSync(abs, "utf8") : null;
+  const abs = join2(pagesDir(cwd), `${id}.html`);
+  return existsSync2(abs) ? readFileSync2(abs, "utf8") : null;
 }
 function upsertNode(cwd, node) {
   const project = readProject(cwd);
@@ -217,7 +361,7 @@ function removeNode(cwd, id) {
   project.edges = project.edges.filter((e) => e.source !== id && e.target !== id);
   writeProjectAtomic(cwd, project);
   try {
-    rmSync(join(pagesDir(cwd), `${id}.html`), { force: true });
+    rmSync(join2(pagesDir(cwd), `${id}.html`), { force: true });
   } catch {
   }
   return project;
@@ -301,13 +445,13 @@ function removeEdge(cwd, source, target) {
   return project;
 }
 function selectionFile(cwd) {
-  return join(projectDir(cwd), "selection.json");
+  return join2(projectDir(cwd), "selection.json");
 }
 function readSelection(cwd) {
   const file = selectionFile(cwd);
-  if (!existsSync(file)) return null;
+  if (!existsSync2(file)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    const parsed = JSON.parse(readFileSync2(file, "utf8"));
     if (!parsed || typeof parsed.pageId !== "string") return null;
     return parsed;
   } catch {
@@ -323,12 +467,80 @@ function writeSelection(cwd, selection) {
   projectEvents.emit("selection", { cwd });
 }
 
+// src/designOps.ts
+function currentStyleId(cwd) {
+  return readProject(cwd).design?.styleId ?? null;
+}
+function applyProjectStyle(cwd, styleId) {
+  if (styleId !== null && !designStyleExists(styleId)) {
+    throw new InvalidInputError(`\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`);
+  }
+  if (projectIssue(cwd)) {
+    throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u5207\u6362\u8BBE\u8BA1\u98CE\u683C\u3002");
+  }
+  const project = readProject(cwd);
+  if (styleId === null) {
+    delete project.design;
+  } else {
+    const design = { styleId, updatedAt: Date.now() };
+    project.design = design;
+  }
+  const missing = /* @__PURE__ */ new Set();
+  let pagesUpdated = 0;
+  const now = Date.now();
+  if (styleId !== null) {
+    for (const node of project.nodes) {
+      const html = readPageHtml(cwd, node.id);
+      if (html === null || html.trim() === "") continue;
+      const injected = injectDesign(html, styleId);
+      for (const name of injected.missingIcons) missing.add(name);
+      if (injected.html === html) continue;
+      writePageHtml(cwd, node.id, injected.html);
+      node.htmlRev = now;
+      pagesUpdated++;
+    }
+  }
+  writeProject(cwd, project);
+  return {
+    styleId,
+    name: styleId === null ? null : designStyleSummary(styleId)?.name ?? styleId,
+    pagesUpdated,
+    missingIcons: [...missing]
+  };
+}
+function templateDocument(styleId, templateId) {
+  const style = resolveDesignStyle(styleId);
+  if (!style) return null;
+  const template = style.templates[templateId];
+  if (!template) return null;
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${template.name}</title>
+</head>
+<body>
+${template.html.trim()}
+</body>
+</html>
+`;
+  return { html, device: template.device, name: template.name };
+}
+
+// src/export.ts
+import { spawn } from "node:child_process";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync4, readdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as join4 } from "node:path";
+import { deflateRawSync } from "node:zlib";
+
 // src/server.ts
 import http from "node:http";
 import { createHash } from "node:crypto";
-import { existsSync as existsSync2, readFileSync as readFileSync2, statSync } from "node:fs";
-import { join as join2 } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync as existsSync3, readFileSync as readFileSync3, statSync } from "node:fs";
+import { join as join3 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/probe.ts
 var PROBE_MARKER = "data-tianshu-probe";
@@ -582,7 +794,7 @@ ${safe}
 }
 
 // src/server.ts
-var WEB_DIR = fileURLToPath(new URL("./web/", import.meta.url));
+var WEB_DIR = fileURLToPath2(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
 var MUTATION_HEADER = "x-tianshu-canvas";
 var MAX_BODY = 4 * 1024 * 1024;
@@ -681,6 +893,13 @@ function routeRequest(req, res) {
     if (name in ASSET_TYPES) return serveStatic(res, name, ASSET_TYPES[name]);
     return send(res, 404, "text/plain; charset=utf-8", "not found");
   }
+  if (req.method === "GET" && path === "/api/design-systems") {
+    try {
+      return sendJson(res, loadDesignCatalog());
+    } catch (err) {
+      return send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+    }
+  }
   if (req.method === "GET" && path === "/api/project") {
     const cwd = resolveCwd(url.searchParams.get("ws"));
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
@@ -725,10 +944,10 @@ function routeRequest(req, res) {
     if (!name || /[\\/]/.test(name) || name.includes("..")) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
-    const file = join2(exportsDir(cwd), name);
-    if (!existsSync2(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    const file = join3(exportsDir(cwd), name);
+    if (!existsSync3(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
-    const data = readFileSync2(file);
+    const data = readFileSync3(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
     res.end(data);
     return;
@@ -743,6 +962,7 @@ function routeRequest(req, res) {
     if (path === "/api/nodes") return handleNodes(req, res);
     if (path === "/api/edges") return handleEdges(req, res);
     if (path === "/api/export") return handleExport(req, res);
+    if (path === "/api/design") return handleDesign(req, res);
   }
   return send(res, 404, "text/plain; charset=utf-8", "not found");
 }
@@ -753,6 +973,20 @@ function handleExport(req, res) {
     const kind = kindRaw === "png" || kindRaw === "zip" ? kindRaw : "both";
     void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result })).catch((err) => send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message })));
   });
+}
+function handleDesign(req, res) {
+  readJsonBody(
+    req,
+    res,
+    (body) => {
+      const cwd = String(body.__cwd);
+      const raw = body.styleId;
+      const styleId = raw === null || raw === void 0 ? null : String(raw);
+      const result = applyProjectStyle(cwd, styleId === "free" ? null : styleId);
+      sendJson(res, { ok: true, ...result });
+    },
+    1024
+  );
 }
 function readJsonBody(req, res, onBody, maxBytes = MAX_BODY) {
   let raw = "";
@@ -952,14 +1186,14 @@ function isLocalHost(host) {
   return name === "127.0.0.1" || name === "localhost";
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
-  const file = join2(WEB_DIR, name);
-  if (!existsSync2(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
+  const file = join3(WEB_DIR, name);
+  if (!existsSync3(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
   res.writeHead(200, headers);
-  res.end(readFileSync2(file));
+  res.end(readFileSync3(file));
 }
 function sendUntrustedHtml(res, html) {
   res.writeHead(200, {
@@ -992,10 +1226,10 @@ var BROWSER_CANDIDATES = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ].filter((p) => typeof p === "string" && p.length > 0);
 function resolveBrowser() {
-  return BROWSER_CANDIDATES.find((p) => existsSync3(p)) ?? null;
+  return BROWSER_CANDIDATES.find((p) => existsSync4(p)) ?? null;
 }
 function exportsDir(cwd) {
-  return join3(projectDir(cwd), "exports");
+  return join4(projectDir(cwd), "exports");
 }
 function stamp() {
   const d = /* @__PURE__ */ new Date();
@@ -1027,7 +1261,7 @@ var LAUNCH_ARGS = [
   "--disable-crash-reporter"
 ];
 async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
-  const portFile = join3(userDataDir, "DevToolsActivePort");
+  const portFile = join4(userDataDir, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
   let stderr = "";
   proc.stderr?.on("data", (chunk) => {
@@ -1041,8 +1275,8 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
     if (exitCode !== null) {
       throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
     }
-    if (existsSync3(portFile)) {
-      const lines = readFileSync3(portFile, "utf8").split("\n");
+    if (existsSync4(portFile)) {
+      const lines = readFileSync4(portFile, "utf8").split("\n");
       const port = lines[0]?.trim();
       const wsPath = lines[1]?.trim();
       if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
@@ -1074,7 +1308,7 @@ function cleanStaleProfiles() {
   try {
     for (const entry of readdirSync(tmpdir())) {
       if (!entry.startsWith("tsc-png-")) continue;
-      const dir = join3(tmpdir(), entry);
+      const dir = join4(tmpdir(), entry);
       try {
         if (statSync2(dir).mtimeMs < cutoff) rmSync2(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
       } catch {
@@ -1087,7 +1321,7 @@ async function launchBrowser(exe) {
   const puppeteer = (await import("puppeteer-core")).default;
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const userDataDir = mkdtempSync(join3(tmpdir(), "tsc-png-"));
+    const userDataDir = mkdtempSync(join4(tmpdir(), "tsc-png-"));
     const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, "about:blank"], {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -1149,9 +1383,9 @@ async function exportPngOnce(cwd) {
     const dir = exportsDir(cwd);
     mkdirSync2(dir, { recursive: true });
     const name = `canvas-${stamp()}.png`;
-    const path = join3(dir, name);
+    const path = join4(dir, name);
     await page.screenshot({ path, clip: clip ?? void 0 });
-    return { name, path, bytes: readFileSync3(path).length };
+    return { name, path, bytes: readFileSync4(path).length };
   } finally {
     await dispose();
   }
@@ -1254,7 +1488,7 @@ async function exportZip(cwd) {
   const dir = exportsDir(cwd);
   mkdirSync2(dir, { recursive: true });
   const name = `canvas-${stamp()}.zip`;
-  const path = join3(dir, name);
+  const path = join4(dir, name);
   writeFileSync2(path, zip);
   return { name, path, bytes: zip.length };
 }
@@ -1287,6 +1521,226 @@ function findBlockedResources(html) {
     }
   }
   return [...found];
+}
+
+// src/lint.ts
+var MAX_FINDINGS = 40;
+var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
+var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
+var FUNC_COLOR = /\b(?:rgb|rgba|hsl|hsla)\([^)]*\)/gi;
+var VAR_REF = /var\(\s*(--ts-[A-Za-z0-9-]+)\s*\)/g;
+var CLASS_ATTR = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+var DATA_ICON = /data-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+var EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi;
+var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left))?$/;
+var RADIUS_PROP = /^border(?:-[a-z]+)*-radius$/;
+var FONT_PROP = /^font-family$/;
+function mask(text) {
+  return text.replace(/[^\n]/g, " ");
+}
+function maskBalanced(text, pattern) {
+  const out = [...text];
+  pattern.lastIndex = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    for (let i = start; i < start + match[0].length; i++) if (out[i] !== "\n") out[i] = " ";
+  }
+  return out.join("");
+}
+function maskUrls(segment) {
+  let out = maskBalanced(segment, /url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\s*\)/gi);
+  out = maskBalanced(out, /\bdata:[^"')\s]+/gi);
+  return out;
+}
+function styleSegments(maskedHtml) {
+  const segments = [];
+  for (const match of maskedHtml.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+    const inner = match[1] ?? "";
+    const start = (match.index ?? 0) + match[0].indexOf(inner);
+    segments.push({ start, text: inner });
+  }
+  for (const match of maskedHtml.matchAll(/style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+    const inner = match[1] ?? match[2] ?? "";
+    const start = (match.index ?? 0) + match[0].indexOf(inner);
+    segments.push({ start, text: inner });
+  }
+  return segments;
+}
+function declarations(text) {
+  const out = [];
+  let depth = 0;
+  let quote = "";
+  let start = 0;
+  const flush = (end) => {
+    const body = text.slice(start, end);
+    const colon = body.indexOf(":");
+    if (colon > 0) {
+      const prop = body.slice(0, colon).trim().toLowerCase();
+      const value = body.slice(colon + 1).replace(/\}+\s*$/, "").trim();
+      if (prop && value) out.push({ prop, value, offset: start + colon + 1 });
+    }
+  };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === quote && text[i - 1] !== "\\") quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && (ch === ";" || ch === "}")) {
+      flush(i);
+      start = i + 1;
+    } else if (depth === 0 && ch === "{") {
+      start = i + 1;
+    }
+  }
+  if (start < text.length) flush(text.length);
+  return out;
+}
+function lineIndex(html) {
+  const index = [0];
+  for (let i = 0; i < html.length; i++) if (html[i] === "\n") index.push(i + 1);
+  return index;
+}
+function lineOf(index, offset) {
+  let lo = 0;
+  let hi = index.length - 1;
+  while (lo < hi) {
+    const mid = lo + hi + 1 >> 1;
+    if (index[mid] <= offset) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
+}
+function snippetAt(html, offset, length = 80) {
+  const start = Math.max(0, offset);
+  const lineEnd = html.indexOf("\n", start);
+  const end = lineEnd === -1 ? Math.min(html.length, start + length) : Math.min(lineEnd, start + length);
+  return html.slice(start, end).trim();
+}
+function nearest(values, target) {
+  const sorted = [...values].sort((a, b) => Math.abs(a - target) - Math.abs(b - target));
+  return sorted.slice(0, 2);
+}
+function nearestTokenHint(kind, value, manifest) {
+  const pool = kind === "space" ? manifest.spacing : manifest.radius;
+  const close = nearest(pool, value);
+  return close.map((v) => `--ts-${kind === "space" ? "space" : "radius"}-${keyFor(pool, v, kind)}`).join(" / ");
+}
+function keyFor(pool, value, kind) {
+  const names = kind === "radius" ? { 0: "none", 4: "sm", 6: "sm", 8: "md", 10: "md", 12: "lg", 14: "lg", 16: "xl", 18: "xl", 20: "xl", 9999: "full" } : {};
+  return names[value] ?? String(value);
+}
+function lintHtml(html, styleId) {
+  const counts = Object.fromEntries(RULES.map((r) => [r, 0]));
+  const findings = [];
+  const index = lineIndex(html);
+  const add = (rule, offset, message) => {
+    counts[rule]++;
+    if (findings.length < MAX_FINDINGS) {
+      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset) });
+    }
+  };
+  const blocked = findBlockedResources(html);
+  if (blocked.length) {
+    const first = blocked[0];
+    const at = Math.max(0, html.indexOf(first));
+    add("resource", at, `\u5C06\u88AB\u753B\u5E03 CSP \u62E6\u622A\uFF1A${blocked.slice(0, 3).join("\u3001")}${blocked.length > 3 ? ` \u7B49 ${blocked.length} \u5904` : ""}`);
+  }
+  const style = styleId ? resolveDesignStyle(styleId) : null;
+  if (!style) {
+    return { styleId, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
+  }
+  const manifest = style.manifest;
+  const varSet = new Set(manifest.vars);
+  const iconSet = new Set(manifest.iconNames);
+  const classSet = new Set(manifest.componentClasses);
+  const familySet = new Set(manifest.fontFamilies.map((f) => f.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase()));
+  const spacing = new Set(manifest.spacing);
+  const radius = new Set(manifest.radius);
+  let masked = html.replace(/<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->/g, mask).replace(/<script\b[\s\S]*?<\/script>/gi, mask).replace(/<!--[\s\S]*?-->/g, mask);
+  masked = maskUrls(masked);
+  for (const match of masked.matchAll(VAR_REF)) {
+    const name = match[1];
+    if (!varSet.has(name)) add("token", match.index ?? 0, `\u672A\u77E5 token\uFF1A${name}`);
+  }
+  for (const segment of styleSegments(masked)) {
+    for (const decl of declarations(segment.text)) {
+      const offset = segment.start + decl.offset;
+      if (FONT_PROP.test(decl.prop)) {
+        const first = decl.value.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase();
+        if (first && !first.startsWith("var(") && first !== "inherit" && !familySet.has(first)) {
+          add("font", offset, `\u5B57\u4F53 ${first} \u4E0D\u5728\u5F53\u524D\u98CE\u683C\u5B57\u4F53\u6808\u5185\uFF0C\u6539\u7528 var(--ts-font-sans)`);
+        }
+        continue;
+      }
+      if (RADIUS_PROP.test(decl.prop)) {
+        const px = pxValue(decl.value);
+        if (px !== null && !radius.has(px) && px !== 0 && !/calc\(|var\(|%/.test(decl.value)) {
+          add("radius", offset, `\u5706\u89D2 ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("radius", px, manifest)}`);
+        }
+        continue;
+      }
+      if (SPACING_PROPS.test(decl.prop)) {
+        const px = pxValue(decl.value);
+        if (px !== null && !spacing.has(px) && px !== 0 && px !== 1 && !/calc\(|var\(|%|em\b|rem\b|auto/.test(decl.value)) {
+          add("spacing", offset, `\u95F4\u8DDD ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("space", px, manifest)}`);
+        }
+      }
+    }
+  }
+  for (const segment of styleSegments(masked)) {
+    for (const match of segment.text.matchAll(HEX_COLOR)) {
+      add("color", segment.start + (match.index ?? 0), `\u88F8\u8272\u503C ${match[0]}\uFF0C\u6539\u7528 var(--ts-color-*)`);
+    }
+    for (const match of segment.text.matchAll(FUNC_COLOR)) {
+      add("color", segment.start + (match.index ?? 0), `\u88F8\u8272\u503C ${match[0]}\uFF0C\u6539\u7528 var(--ts-color-*)`);
+    }
+  }
+  for (const match of masked.matchAll(DATA_ICON)) {
+    const name = (match[1] ?? match[2] ?? "").trim();
+    if (name && !iconSet.has(name)) add("icon", match.index ?? 0, `\u56FE\u6807\u76EE\u5F55\u65E0\u6B64\u540D\uFF1A${name}`);
+  }
+  for (const match of masked.matchAll(EMPTY_SVG)) {
+    if (!/data-icon/.test(match[1] ?? "")) add("icon", match.index ?? 0, "\u7A7A <svg> \u7F3A\u5C11 data-icon \u540D\u79F0");
+  }
+  for (const match of masked.matchAll(CLASS_ATTR)) {
+    const value = match[1] ?? match[2] ?? "";
+    for (const cls of value.split(/\s+/).filter(Boolean)) {
+      if (cls.startsWith("ts-") && !classSet.has(cls)) {
+        add("component", match.index ?? 0, `\u7EC4\u4EF6\u76EE\u5F55\u65E0\u6B64\u7C7B\uFF1A${cls}`);
+      }
+    }
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  findings.sort((a, b) => a.line - b.line);
+  return { styleId, findings, counts, truncated: total > MAX_FINDINGS, total };
+}
+function pxValue(value) {
+  const match = /^(-?\d+(?:\.\d+)?)px$/.exec(value.trim());
+  return match ? Number(match[1]) : null;
+}
+function formatLintReport(report, label) {
+  const styleName = report.styleId ? designStyleSummary(report.styleId)?.name ?? report.styleId : null;
+  const head = styleName ? `\u98CE\u683C\u68C0\u67E5\uFF1A${styleName}\uFF08${report.styleId}\uFF09\xB7 ${label}` : `\u98CE\u683C\u68C0\u67E5\uFF1A\u672A\u9501\u5B9A\u98CE\u683C \xB7 ${label}\uFF08\u4EC5\u68C0\u67E5\u8D44\u6E90\u5F15\u7528\uFF09`;
+  if (report.total === 0) {
+    return `${head}
+\u672A\u53D1\u73B0\u4E0D\u7B26\u5408\u9879\uFF080 \u5904\uFF09\u3002`;
+  }
+  const lines = report.findings.map((f, i) => `${i + 1}. [${f.rule}] \u7B2C ${f.line} \u884C ${f.message}
+   ${f.snippet}`);
+  const summary = RULES.filter((r) => report.counts[r] > 0).map((r) => `${r} ${report.counts[r]}`).join("\u3001");
+  const tail = report.truncated ? `
+\u2026\u53E6\u6709 ${report.total - report.findings.length} \u5904\u672A\u663E\u793A\u3002` : "";
+  return `${head}
+\u53D1\u73B0 ${report.total} \u5904\uFF08\u4EC5\u62A5\u544A\uFF0C\u672A\u4FEE\u6539\u6587\u4EF6\uFF09\uFF1A
+${lines.join("\n")}
+\u6C47\u603B\uFF1A${summary}${tail}`;
 }
 
 // src/tools.ts
@@ -1327,7 +1781,7 @@ async function canvasOpen(call) {
 }
 function writeUrlHint(cwd, url) {
   try {
-    writeFileSync3(join4(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "utf8");
+    writeFileSync3(join5(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "utf8");
   } catch {
   }
 }
@@ -1345,11 +1799,11 @@ async function canvasUpsertPage(call) {
   const htmlPath = str(args.html_path);
   let html;
   if (htmlPath) {
-    if (!existsSync4(htmlPath)) {
+    if (!existsSync5(htmlPath)) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A\u6587\u4EF6\u4E0D\u5B58\u5728 ${htmlPath}`, isError: true };
     }
     try {
-      html = readFileSync4(htmlPath, "utf8");
+      html = readFileSync5(htmlPath, "utf8");
     } catch (err) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
     }
@@ -1388,7 +1842,10 @@ async function canvasUpsertPage(call) {
       y = y ?? pos.y;
     }
   }
-  const rel = html !== void 0 ? writePageHtml(call.cwd, id, html) : existing?.htmlPath ?? "";
+  const styleId = currentStyleId(call.cwd);
+  const injection = html !== void 0 ? injectDesign(html, styleId) : null;
+  const pageHtml = injection ? injection.html : html;
+  const rel = pageHtml !== void 0 ? writePageHtml(call.cwd, id, pageHtml) : existing?.htmlPath ?? "";
   const now = Date.now();
   const node = {
     id,
@@ -1400,20 +1857,24 @@ async function canvasUpsertPage(call) {
     height: size.height,
     deviceType,
     htmlPath: rel,
-    htmlRev: html !== void 0 ? now : existing?.htmlRev,
+    htmlRev: pageHtml !== void 0 ? now : existing?.htmlRev,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
   };
   upsertNode(call.cwd, node);
   const { url } = await ensureServer(call.cwd);
-  const blocked = html !== void 0 ? findBlockedResources(html) : [];
+  const blocked = pageHtml !== void 0 ? findBlockedResources(pageHtml) : [];
+  const styleLine = injection ? injection.injected ? `
+\u5DF2\u5E94\u7528\u8BBE\u8BA1\u98CE\u683C\u300C${designStyleSummary(injection.styleId ?? "")?.name ?? injection.styleId}\u300D\uFF08${injection.styleId}\uFF09\uFF1A\u6CE8\u5165 token/\u7EC4\u4EF6\u6837\u5F0F${injection.usedIcons.length ? `\uFF0C\u5185\u8054 ${injection.usedIcons.length} \u4E2A\u56FE\u6807` : ""}\u3002` : "\n\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\uFF1B\u5982\u9700\u7EDF\u4E00\u89C6\u89C9\uFF0C\u5148 canvas_style\uFF08action=set\uFF09\u3002" : "";
+  const missingLine = injection?.missingIcons.length ? `
+\u6CE8\u610F\uFF1A\u8FD9\u4E9B\u56FE\u6807\u540D\u4E0D\u5728\u76EE\u5F55\u4E2D\uFF0C\u672A\u5185\u8054\uFF1A${injection.missingIcons.slice(0, 8).join("\u3001")}${injection.missingIcons.length > 8 ? ` \u7B49 ${injection.missingIcons.length} \u4E2A` : ""}\u3002\u53EF\u7528 canvas_style\uFF08action=get\uFF09\u67E5\u770B\u56FE\u6807\u6E05\u5355\u3002` : "";
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-` + (html !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join4(call.cwd, rel)}
+` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join5(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
-\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + (blocked.length ? `
+\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
 }
@@ -1443,6 +1904,15 @@ async function canvasGetState(call) {
   const sections = [];
   const issue = projectIssue(call.cwd);
   if (issue) sections.push(`\u8B66\u544A\uFF1A${issue}`);
+  const styleId = project.design?.styleId ?? null;
+  if (styleId === null) {
+    sections.push("\u8BBE\u8BA1\u98CE\u683C\uFF1A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\u3002\u751F\u6210\u539F\u578B\u524D\u5148\u4E0E\u7528\u6237\u786E\u8BA4\u98CE\u683C\uFF1B\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u7ED9\u51FA\u9009\u9879\u3002");
+  } else {
+    const summary = designStyleSummary(styleId);
+    sections.push(
+      summary ? `\u8BBE\u8BA1\u98CE\u683C\uFF1A${summary.name}\uFF08${styleId}\uFF0C\u5DF2\u9501\u5B9A\uFF09\u3002\u9875\u9762\u5FC5\u987B\u4F7F\u7528\u8BE5\u98CE\u683C\u7684 --ts-* \u53D8\u91CF\u4E0E ts-* \u7EC4\u4EF6\u7C7B\u3002` : `\u8BBE\u8BA1\u98CE\u683C\uFF1A\u672A\u77E5\uFF08${styleId}\uFF09\uFF1B\u8BF7\u91CD\u65B0\u7528 canvas_style\uFF08action=set\uFF09\u8BBE\u7F6E\u3002`
+    );
+  }
   if (project.nodes.length === 0) {
     sections.push("\u753B\u5E03\u4E0A\u6682\u65E0\u9875\u9762\u8282\u70B9\u3002\n\u7528 canvas_upsert_page \u6DFB\u52A0\u4E00\u4E2A HTML \u539F\u578B\u3002");
   } else {
@@ -1548,6 +2018,168 @@ async function canvasExport(call) {
 \u753B\u5E03 URL\uFF1A${url}` : "";
   return { content: `${head}
 ${lines.join("\n")}${pngNote}${linkNote}` };
+}
+function formatStyleList(cwd) {
+  let catalog;
+  try {
+    catalog = loadDesignCatalog();
+  } catch (err) {
+    return err.message;
+  }
+  if (catalog.styles.length === 0) return "\u5F53\u524D\u6784\u5EFA\u4E0D\u5305\u542B\u4EFB\u4F55\u8BBE\u8BA1\u98CE\u683C\u3002";
+  const current = currentStyleId(cwd);
+  const lines = catalog.styles.map((s) => {
+    const templates = s.templates.map((t) => t.name).join(" / ");
+    return `- ${s.name}\uFF08${s.id}\uFF09\uFF1A${s.tagline}
+  \u8272\u677F ${s.swatches.join(" ")}\uFF1B\u56FE\u6807 ${s.counts.icons} \u4E2A\u3001\u7EC4\u4EF6 ${s.counts.components} \u4E2A\uFF1B\u6A21\u677F ${templates || "\u65E0"}`;
+  });
+  return `${catalog.notice}
+
+\u53EF\u9009\u8BBE\u8BA1\u98CE\u683C\uFF08\u9879\u76EE\u7EA7\u9501\u5B9A\uFF09\uFF1A
+${lines.join("\n")}
+
+\u5F53\u524D\uFF1A${current ? `\u5DF2\u9501\u5B9A ${designStyleSummary(current)?.name ?? current}\uFF08${current}\uFF09` : "\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\uFF09"}
+\u9501\u5B9A/\u5207\u6362\uFF1Acanvas_style\uFF08action=set, style_id=<id>\uFF09\uFF1B\u56DE\u5230\u81EA\u7531\u53D1\u6325\uFF1Astyle_id=free\u3002
+\u7528\u6237\u6CA1\u6709\u6307\u5B9A\u98CE\u683C\u65F6\uFF0C\u628A\u4E0A\u9762\u7684\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\uFF08\u542B\u300C\u81EA\u7531\u53D1\u6325\u300D\uFF09\u3002`;
+}
+function formatStyleBrief(styleId) {
+  const style = resolveDesignStyle(styleId);
+  if (!style) return `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`;
+  const { manifest, summary } = style;
+  const group = (prefix) => manifest.vars.filter((v) => v.startsWith(prefix));
+  const semanticLines = Object.entries(manifest.resolvedSemantic).filter(([key]) => key.startsWith("color.")).map(([key, entry]) => {
+    const varName = `--ts-${key.replace(/^color\./, "color-").replace(/\./g, "-")}`;
+    const name = varName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    return `${name}=${entry.value}${entry.primitive ? ` (${entry.primitive})` : ""}`;
+  });
+  const primitives = group("--ts-color-").filter((v) => !Object.keys(manifest.resolvedSemantic).some((k) => {
+    const varName = `--ts-${k.replace(/^color\./, "color-").replace(/\./g, "-")}`.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    return varName === v;
+  }));
+  const families = group("--ts-font-");
+  const sizes = group("--ts-fs-");
+  const weights = group("--ts-weight-");
+  const lineHeights = group("--ts-lh-");
+  const spacing = group("--ts-space-");
+  const radiusVars = group("--ts-radius-");
+  const shadows = group("--ts-shadow-");
+  const sizesBox = group("--ts-size-");
+  const motion = group("--ts-motion-");
+  const icons = manifest.iconNames;
+  const iconLines = [];
+  for (let i = 0; i < icons.length; i += 10) iconLines.push(icons.slice(i, i + 10).join(" "));
+  return `\u8BBE\u8BA1\u98CE\u683C\u300C${summary.name}\u300D\uFF08${styleId}\uFF09
+${summary.description}
+
+\u8BED\u4E49\u8272\uFF08${semanticLines.length}\uFF09\uFF1A
+${semanticLines.join("\uFF1B")}
+
+\u539F\u8272\u9636\uFF08${primitives.length}\uFF09\uFF1A${primitives.join(" ")}
+
+\u5B57\u4F53\u65CF\uFF1A${families.join(" ")}
+\u5B57\u53F7\uFF1A${sizes.join(" ")}
+\u5B57\u91CD\uFF1A${weights.join(" ")}
+\u884C\u9AD8\uFF1A${lineHeights.join(" ")}
+
+\u95F4\u8DDD\uFF1A${spacing.join(" ")}
+\u5706\u89D2\uFF1A${radiusVars.join(" ")}
+\u9634\u5F71\uFF1A${shadows.join(" ")}
+\u5C3A\u5BF8\uFF1A${sizesBox.join(" ")}
+\u52A8\u6548\uFF1A${motion.join(" ")}
+
+\u7EC4\u4EF6\u7C7B\uFF08${manifest.componentClasses.length}\uFF09\uFF1A${manifest.componentClasses.join(" ")}
+
+\u56FE\u6807\uFF08${icons.length}\uFF09\uFF1A
+${iconLines.join("\n")}
+
+\u6A21\u677F\uFF1A${Object.keys(style.templates).join(" / ")}
+\u5199\u6CD5\uFF1A\u989C\u8272 var(--ts-color-*)\uFF1B\u56FE\u6807 <svg data-icon="\u540D\u5B57" class="ts-icon"></svg>\uFF08\u5199\u5165\u65F6\u81EA\u52A8\u5185\u8054\uFF09\u3002`;
+}
+async function canvasStyle(call) {
+  const action = str(call.args.action) ?? "list";
+  try {
+    if (action === "list") return { content: formatStyleList(call.cwd) };
+    if (action === "get") {
+      const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
+      if (!styleId || styleId === "free") {
+        return {
+          content: "\u5F53\u524D\u672A\u9501\u5B9A\u98CE\u683C\uFF08\u81EA\u7531\u53D1\u6325\uFF09\u3002\u5148\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\uFF0C\u518D\u7528 action=set \u9501\u5B9A\u3002"
+        };
+      }
+      return { content: formatStyleBrief(styleId) };
+    }
+    if (action === "set") {
+      const raw = str(call.args.style_id);
+      if (!raw) return { content: "set \u9700\u8981 style_id\uFF08\u98CE\u683C id\uFF0C\u6216 free \u8868\u793A\u89E3\u9664\u9501\u5B9A\uFF09\u3002", isError: true };
+      const styleId = raw === "free" ? null : raw;
+      const result = applyProjectStyle(call.cwd, styleId);
+      const { url } = await ensureServer(call.cwd);
+      const missing = result.missingIcons.length ? `
+\u6CE8\u610F\uFF1A\u8FD9\u4E9B\u56FE\u6807\u540D\u4E0D\u5728\u76EE\u5F55\u4E2D\uFF0C\u672A\u5185\u8054\uFF1A${result.missingIcons.slice(0, 8).join("\u3001")}\u3002` : "";
+      return {
+        content: styleId === null ? `\u5DF2\u89E3\u9664\u98CE\u683C\u9501\u5B9A\uFF1A\u56DE\u5230\u81EA\u7531\u53D1\u6325\uFF1B\u5DF2\u6709\u9875\u9762\u4FDD\u7559\u5F53\u524D\u6CE8\u5165\u7684\u6837\u5F0F\u5757\uFF0C\u65B0\u9875\u9762\u4E0D\u518D\u6CE8\u5165\u3002
+\u753B\u5E03 URL\uFF1A${url}` : `\u5DF2\u9501\u5B9A\u8BBE\u8BA1\u98CE\u683C\u300C${result.name}\u300D\uFF08${styleId}\uFF09\uFF1A\u91CD\u5199 ${result.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
+\u753B\u5E03 URL\uFF1A${url}${missing}`
+      };
+    }
+    if (action === "template") {
+      const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
+      if (!styleId || styleId === "free") {
+        return { content: "template \u9700\u8981\u5DF2\u9501\u5B9A\u7684\u98CE\u683C\uFF0C\u6216\u663E\u5F0F\u4F20 style_id\u3002", isError: true };
+      }
+      const templateId = str(call.args.template_id) ?? "dashboard";
+      const doc = templateDocument(styleId, templateId);
+      if (!doc) {
+        return { content: `\u53D6\u6A21\u677F\u5931\u8D25\uFF1A\u98CE\u683C ${styleId} \u6CA1\u6709\u6A21\u677F ${templateId}\u3002`, isError: true };
+      }
+      return {
+        content: `\u5DF2\u53D6\u5230\u6A21\u677F\u300C${doc.name}\u300D\uFF08\u98CE\u683C ${styleId}\uFF0C\u8BBE\u5907 ${doc.device}\uFF09\u3002
+\u76F4\u63A5\u628A\u4E0B\u9762\u7684 HTML \u4F5C\u4E3A canvas_upsert_page \u7684 html \u4F20\u5165\u5373\u53EF\uFF08\u6837\u5F0F\u5757\u4F1A\u5728\u5199\u5165\u65F6\u6CE8\u5165\uFF09\uFF1A
+
+` + doc.html
+      };
+    }
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template\u3002`, isError: true };
+  } catch (err) {
+    return { content: err.message, isError: true };
+  }
+}
+async function canvasCheckStyle(call) {
+  const inlineHtml = str(call.args.html);
+  const override = str(call.args.style_id);
+  const styleId = override ?? currentStyleId(call.cwd);
+  if (inlineHtml !== void 0) {
+    const report = lintHtml(inlineHtml, styleId);
+    return { content: formatLintReport(report, "\u76F4\u63A5\u68C0\u67E5\u4F20\u5165\u7684 HTML") };
+  }
+  const pageId = str(call.args.page_id);
+  if (pageId) {
+    const html = readPageHtml(call.cwd, pageId);
+    if (html === null) return { content: `\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}`, isError: true };
+    const report = lintHtml(html, styleId);
+    return { content: formatLintReport(report, `\u9875\u9762 id=${pageId}`) };
+  }
+  const project = readProject(call.cwd);
+  if (project.nodes.length === 0) return { content: "\u753B\u5E03\u4E0A\u6CA1\u6709\u9875\u9762\u53EF\u68C0\u67E5\u3002" };
+  const reports = [];
+  let total = 0;
+  for (const node of project.nodes) {
+    const html = readPageHtml(call.cwd, node.id);
+    if (html === null) continue;
+    const report = lintHtml(html, styleId);
+    total += report.total;
+    if (report.total > 0) reports.push(formatLintReport(report, `\u9875\u9762\u300C${node.title}\u300D(id=${node.id})`));
+  }
+  if (reports.length === 0) {
+    const name = styleId ? designStyleSummary(styleId)?.name ?? styleId : null;
+    return {
+      content: `\u98CE\u683C\u68C0\u67E5\uFF1A${name ? `${name}\uFF08${styleId}\uFF09` : "\u672A\u9501\u5B9A\u98CE\u683C"} \xB7 \u5168\u90E8 ${project.nodes.length} \u4E2A\u9875\u9762
+\u672A\u53D1\u73B0\u4E0D\u7B26\u5408\u9879\uFF080 \u5904\uFF09\u3002`
+    };
+  }
+  return { content: `${reports.join("\n\n")}
+
+\u5408\u8BA1\uFF1A${total} \u5904\u3002` };
 }
 var tools = [
   {
@@ -1655,6 +2287,54 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: canvasExport
+  },
+  {
+    definition: {
+      name: "canvas_style",
+      description: "\u67E5\u770B/\u9501\u5B9A/\u5207\u6362\u9879\u76EE\u7EA7\u8BBE\u8BA1\u98CE\u683C\uFF0C\u6216\u53D6\u4E00\u4EFD\u9875\u9762\u6A21\u677F HTML\u3002action=list \u5217\u51FA\u5168\u90E8\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF08\u7528\u6237\u6CA1\u6307\u5B9A\u98CE\u683C\u65F6\u636E\u6B64\u63D0\u95EE\uFF09\uFF1Bget \u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D\uFF1Bset \u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF08style_id=\u98CE\u683C id\uFF0Cfree \u8868\u793A\u89E3\u9664\u9501\u5B9A\uFF0C\u4F1A\u91CD\u5199\u6240\u6709\u9875\u9762\u5E76\u5237\u65B0\u753B\u5E03\uFF09\uFF1Btemplate \u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["list", "get", "set", "template"], description: "list=\u5217\u51FA\u98CE\u683C\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bset=\u9501\u5B9A/\u5207\u6362\uFF1Btemplate=\u53D6\u6A21\u677F" },
+          style_id: {
+            type: "string",
+            ...designStyleIds().length ? { enum: [...designStyleIds(), "free"] } : {},
+            description: "\u98CE\u683C id\uFF08set/get/template \u4F7F\u7528\uFF09\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
+          },
+          template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" }
+        },
+        required: ["action"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: withBackupNotice(canvasStyle)
+  },
+  {
+    definition: {
+      name: "canvas_check_style",
+      description: "\u53EA\u8BFB\u68C0\u67E5\u9875\u9762\u662F\u5426\u7B26\u5408\u5F53\u524D\u8BBE\u8BA1\u98CE\u683C\uFF08\u88F8\u8272\u503C\u3001\u975E token \u5B57\u4F53\u3001\u8D8A\u754C\u95F4\u8DDD/\u5706\u89D2\u3001\u76EE\u5F55\u5916\u56FE\u6807\u4E0E\u7EC4\u4EF6\u7C7B\u3001\u672A\u77E5\u53D8\u91CF\u3001\u4F1A\u88AB CSP \u62E6\u622A\u7684\u8D44\u6E90\uFF09\u3002\u6309 page_id \u68C0\u67E5\u5355\u9875\u3001\u7701\u7565\u5219\u68C0\u67E5\u5168\u90E8\u9875\u9762\uFF1B\u4E5F\u53EF\u7528 html \u76F4\u63A5\u68C0\u67E5\u4E00\u6BB5\u672A\u843D\u76D8\u7684 HTML\u3002\u53EA\u62A5\u544A\u3001\u4E0D\u4FEE\u6539\u6587\u4EF6\u3001\u4E0D\u963B\u585E\u5199\u5165\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          page_id: { type: "string", description: "\u8981\u68C0\u67E5\u7684\u9875\u9762 id\uFF1B\u7701\u7565\u5219\u68C0\u67E5\u5168\u90E8\u9875\u9762" },
+          html: { type: "string", description: "\u76F4\u63A5\u68C0\u67E5\u4E00\u6BB5 HTML\uFF08\u4F18\u5148\u4E8E page_id\uFF09\uFF0C\u7528\u4E8E\u5199\u5165\u524D\u81EA\u67E5" },
+          style_id: {
+            type: "string",
+            ...designStyleIds().length ? { enum: designStyleIds() } : {},
+            description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C"
+          }
+        },
+        required: []
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => true,
+    isEnabled: () => true,
+    execute: canvasCheckStyle
   }
 ];
 

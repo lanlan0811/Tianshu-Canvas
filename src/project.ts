@@ -62,11 +62,18 @@ export interface Selection {
   at: number
 }
 
+/** 项目级设计风格锁定；缺省表示「自由发挥」。 */
+export interface ProjectDesign {
+  styleId: string
+  updatedAt: number
+}
+
 export interface Project {
   version: 1
   viewport: Viewport
   nodes: PageNode[]
   edges: Edge[]
+  design?: ProjectDesign
 }
 
 /** 项目变更事件总线；服务端订阅后向浏览器广播。 */
@@ -119,8 +126,11 @@ function inspectProject(cwd: string): ProjectInspection {
   const rawEdges = Array.isArray(obj.edges) ? obj.edges : []
   const nodes = obj.nodes.filter(isPageNode)
   const edges = rawEdges.filter(isEdge)
+  const project: Project = { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges }
+  const design = normalizeDesign(obj.design)
+  if (design) project.design = design
   return {
-    project: { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges },
+    project,
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length,
   }
 }
@@ -182,6 +192,15 @@ function normalizeViewport(v: unknown): Viewport {
   return { x: 0, y: 0, zoom: 1 }
 }
 
+/** 归一化 design 字段：样式 id 必须是非空字符串，时间戳必须是有限数；否则丢弃。 */
+function normalizeDesign(v: unknown): ProjectDesign | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (typeof o.styleId !== 'string' || o.styleId.trim() === '') return null
+  const updatedAt = typeof o.updatedAt === 'number' && Number.isFinite(o.updatedAt) ? o.updatedAt : 0
+  return { styleId: o.styleId.trim(), updatedAt }
+}
+
 function isPageNode(n: unknown): n is PageNode {
   if (!n || typeof n !== 'object') return false
   const o = n as Record<string, unknown>
@@ -202,6 +221,10 @@ function writeProjectAtomic(cwd: string, project: Project): void {
   writeFileSync(tmp, JSON.stringify(project, null, 2) + '\n', 'utf8')
   renameSync(tmp, file)
   projectEvents.emit('change', { cwd })
+}
+
+export function writeProject(cwd: string, project: Project): void {
+  writeProjectAtomic(cwd, project)
 }
 
 export function writePageHtml(cwd: string, id: string, html: string): string {

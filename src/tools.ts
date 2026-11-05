@@ -11,8 +11,11 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
+import { designStyleIds, designStyleSummary, injectDesign, loadDesignCatalog, resolveDesignStyle } from './design.js'
+import { applyProjectStyle, currentStyleId, templateDocument } from './designOps.js'
 import { runExport, type ExportFile, type ExportKind } from './export.js'
 import { isSafeId, newPageId } from './ids.js'
+import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
 import {
   addEdge,
@@ -22,6 +25,7 @@ import {
   PROJECT_DIR_NAME,
   projectFile,
   projectIssue,
+  readPageHtml,
   readProject,
   readSelection,
   removeEdge,
@@ -188,7 +192,12 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     }
   }
 
-  const rel = html !== undefined ? writePageHtml(call.cwd, id, html) : (existing?.htmlPath ?? '')
+  // 设计系统是项目级锁定：写入时自动内联 token/组件样式并展开图标。
+  const styleId = currentStyleId(call.cwd)
+  const injection = html !== undefined ? injectDesign(html, styleId) : null
+  const pageHtml = injection ? injection.html : html
+
+  const rel = pageHtml !== undefined ? writePageHtml(call.cwd, id, pageHtml) : (existing?.htmlPath ?? '')
   const now = Date.now()
   const node: PageNode = {
     id,
@@ -200,7 +209,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     height: size.height,
     deviceType,
     htmlPath: rel,
-    htmlRev: html !== undefined ? now : existing?.htmlRev,
+    htmlRev: pageHtml !== undefined ? now : existing?.htmlRev,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
@@ -208,14 +217,24 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
 
   // 确保画布服务在跑，这样返回里一定带可点击的画布 URL（用户能看到）。
   const { url } = await ensureServer(call.cwd)
-  const blocked = html !== undefined ? findBlockedResources(html) : []
+  const blocked = pageHtml !== undefined ? findBlockedResources(pageHtml) : []
+  const styleLine = injection
+    ? injection.injected
+      ? `\n已应用设计风格「${designStyleSummary(injection.styleId ?? '')?.name ?? injection.styleId}」（${injection.styleId}）：注入 token/组件样式${injection.usedIcons.length ? `，内联 ${injection.usedIcons.length} 个图标` : ''}。`
+      : '\n当前为自由发挥（未锁定风格）；如需统一视觉，先 canvas_style（action=set）。'
+    : ''
+  const missingLine = injection?.missingIcons.length
+    ? `\n注意：这些图标名不在目录中，未内联：${injection.missingIcons.slice(0, 8).join('、')}${injection.missingIcons.length > 8 ? ` 等 ${injection.missingIcons.length} 个` : ''}。可用 canvas_style（action=get）查看图标清单。`
+    : ''
   return {
     content:
       `${existing ? '已更新' : '已添加'}页面节点「${node.title}」（id=${id}）。\n` +
       `位置：x=${node.x}, y=${node.y}；尺寸：${node.width}×${node.height}（${deviceType}）\n` +
-      (html !== undefined ? `原型文件：${join(call.cwd, rel)}\n` : `原型 HTML 未改动（仅更新了节点信息）。\n`) +
+      (pageHtml !== undefined ? `原型文件：${join(call.cwd, rel)}\n` : `原型 HTML 未改动（仅更新了节点信息）。\n`) +
       `画布 URL：${url}\n` +
       `项目：${projectHint(call.cwd)}` +
+      styleLine +
+      missingLine +
       (blocked.length
         ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
         : ''),
@@ -256,6 +275,18 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
 
   const issue = projectIssue(call.cwd)
   if (issue) sections.push(`警告：${issue}`)
+
+  const styleId = project.design?.styleId ?? null
+  if (styleId === null) {
+    sections.push('设计风格：自由发挥（未锁定风格）。生成原型前先与用户确认风格；可用 canvas_style（action=list）给出选项。')
+  } else {
+    const summary = designStyleSummary(styleId)
+    sections.push(
+      summary
+        ? `设计风格：${summary.name}（${styleId}，已锁定）。页面必须使用该风格的 --ts-* 变量与 ts-* 组件类。`
+        : `设计风格：未知（${styleId}）；请重新用 canvas_style（action=set）设置。`,
+    )
+  }
 
   if (project.nodes.length === 0) {
     sections.push('画布上暂无页面节点。\n用 canvas_upsert_page 添加一个 HTML 原型。')
@@ -371,6 +402,178 @@ async function canvasExport(call: ToolCall): Promise<ToolResult> {
   const pngNote = result.pngError ? `\n注意：PNG 导出未完成——${result.pngError}` : ''
   const linkNote = url ? `\n画布 URL：${url}` : ''
   return { content: `${head}\n${lines.join('\n')}${pngNote}${linkNote}` }
+}
+
+// ---------------------------------------------------------------------------
+// canvas_style（list / get / set / template）
+// ---------------------------------------------------------------------------
+
+function formatStyleList(cwd: string): string {
+  let catalog
+  try {
+    catalog = loadDesignCatalog()
+  } catch (err) {
+    return (err as Error).message
+  }
+  if (catalog.styles.length === 0) return '当前构建不包含任何设计风格。'
+  const current = currentStyleId(cwd)
+  const lines = catalog.styles.map((s) => {
+    const templates = s.templates.map((t) => t.name).join(' / ')
+    return (
+      `- ${s.name}（${s.id}）：${s.tagline}\n` +
+      `  色板 ${s.swatches.join(' ')}；图标 ${s.counts.icons} 个、组件 ${s.counts.components} 个；模板 ${templates || '无'}`
+    )
+  })
+  return (
+    `${catalog.notice}\n\n可选设计风格（项目级锁定）：\n${lines.join('\n')}\n\n` +
+    `当前：${current ? `已锁定 ${designStyleSummary(current)?.name ?? current}（${current}）` : '自由发挥（未锁定）'}\n` +
+    `锁定/切换：canvas_style（action=set, style_id=<id>）；回到自由发挥：style_id=free。\n` +
+    `用户没有指定风格时，把上面的风格名作为选项问用户一次（含「自由发挥」）。`
+  )
+}
+
+function formatStyleBrief(styleId: string): string {
+  const style = resolveDesignStyle(styleId)
+  if (!style) return `未知的设计风格：${styleId}`
+  const { manifest, summary } = style
+  const group = (prefix: string): string[] => manifest.vars.filter((v) => v.startsWith(prefix))
+
+  const semanticLines = Object.entries(manifest.resolvedSemantic)
+    .filter(([key]) => key.startsWith('color.'))
+    .map(([key, entry]) => {
+      const varName = `--ts-${key.replace(/^color\./, 'color-').replace(/\./g, '-')}`
+      const name = varName.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+      return `${name}=${entry.value}${entry.primitive ? ` (${entry.primitive})` : ''}`
+    })
+
+  const primitives = group('--ts-color-').filter((v) => !Object.keys(manifest.resolvedSemantic).some((k) => {
+    const varName = `--ts-${k.replace(/^color\./, 'color-').replace(/\./g, '-')}`.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+    return varName === v
+  }))
+
+  const families = group('--ts-font-')
+  const sizes = group('--ts-fs-')
+  const weights = group('--ts-weight-')
+  const lineHeights = group('--ts-lh-')
+  const spacing = group('--ts-space-')
+  const radiusVars = group('--ts-radius-')
+  const shadows = group('--ts-shadow-')
+  const sizesBox = group('--ts-size-')
+  const motion = group('--ts-motion-')
+  const icons = manifest.iconNames
+  const iconLines: string[] = []
+  for (let i = 0; i < icons.length; i += 10) iconLines.push(icons.slice(i, i + 10).join(' '))
+
+  return (
+    `设计风格「${summary.name}」（${styleId}）\n` +
+    `${summary.description}\n\n` +
+    `语义色（${semanticLines.length}）：\n${semanticLines.join('；')}\n\n` +
+    `原色阶（${primitives.length}）：${primitives.join(' ')}\n\n` +
+    `字体族：${families.join(' ')}\n字号：${sizes.join(' ')}\n字重：${weights.join(' ')}\n行高：${lineHeights.join(' ')}\n\n` +
+    `间距：${spacing.join(' ')}\n圆角：${radiusVars.join(' ')}\n阴影：${shadows.join(' ')}\n尺寸：${sizesBox.join(' ')}\n动效：${motion.join(' ')}\n\n` +
+    `组件类（${manifest.componentClasses.length}）：${manifest.componentClasses.join(' ')}\n\n` +
+    `图标（${icons.length}）：\n${iconLines.join('\n')}\n\n` +
+    `模板：${Object.keys(style.templates).join(' / ')}\n` +
+    `写法：颜色 var(--ts-color-*)；图标 <svg data-icon="名字" class="ts-icon"></svg>（写入时自动内联）。`
+  )
+}
+
+async function canvasStyle(call: ToolCall): Promise<ToolResult> {
+  const action = str(call.args.action) ?? 'list'
+  try {
+    if (action === 'list') return { content: formatStyleList(call.cwd) }
+
+    if (action === 'get') {
+      const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
+      if (!styleId || styleId === 'free') {
+        return {
+          content:
+            '当前未锁定风格（自由发挥）。先用 canvas_style（action=list）查看可选风格，再用 action=set 锁定。',
+        }
+      }
+      return { content: formatStyleBrief(styleId) }
+    }
+
+    if (action === 'set') {
+      const raw = str(call.args.style_id)
+      if (!raw) return { content: 'set 需要 style_id（风格 id，或 free 表示解除锁定）。', isError: true }
+      const styleId = raw === 'free' ? null : raw
+      const result = applyProjectStyle(call.cwd, styleId)
+      const { url } = await ensureServer(call.cwd)
+      const missing = result.missingIcons.length
+        ? `\n注意：这些图标名不在目录中，未内联：${result.missingIcons.slice(0, 8).join('、')}。`
+        : ''
+      return {
+        content: styleId === null
+          ? `已解除风格锁定：回到自由发挥；已有页面保留当前注入的样式块，新页面不再注入。\n画布 URL：${url}`
+          : `已锁定设计风格「${result.name}」（${styleId}）：重写 ${result.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}${missing}`,
+      }
+    }
+
+    if (action === 'template') {
+      const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
+      if (!styleId || styleId === 'free') {
+        return { content: 'template 需要已锁定的风格，或显式传 style_id。', isError: true }
+      }
+      const templateId = str(call.args.template_id) ?? 'dashboard'
+      const doc = templateDocument(styleId, templateId)
+      if (!doc) {
+        return { content: `取模板失败：风格 ${styleId} 没有模板 ${templateId}。`, isError: true }
+      }
+      return {
+        content:
+          `已取到模板「${doc.name}」（风格 ${styleId}，设备 ${doc.device}）。\n` +
+          `直接把下面的 HTML 作为 canvas_upsert_page 的 html 传入即可（样式块会在写入时注入）：\n\n` +
+          doc.html,
+      }
+    }
+
+    return { content: `未知的 action：${action}。可选：list / get / set / template。`, isError: true }
+  } catch (err) {
+    return { content: (err as Error).message, isError: true }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// canvas_check_style（只报告，不阻塞）
+// ---------------------------------------------------------------------------
+
+async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
+  const inlineHtml = str(call.args.html)
+  const override = str(call.args.style_id)
+  const styleId = override ?? currentStyleId(call.cwd)
+
+  if (inlineHtml !== undefined) {
+    const report = lintHtml(inlineHtml, styleId)
+    return { content: formatLintReport(report, '直接检查传入的 HTML') }
+  }
+
+  const pageId = str(call.args.page_id)
+  if (pageId) {
+    const html = readPageHtml(call.cwd, pageId)
+    if (html === null) return { content: `页面不存在：${pageId}`, isError: true }
+    const report = lintHtml(html, styleId)
+    return { content: formatLintReport(report, `页面 id=${pageId}`) }
+  }
+
+  const project = readProject(call.cwd)
+  if (project.nodes.length === 0) return { content: '画布上没有页面可检查。' }
+  const reports: string[] = []
+  let total = 0
+  for (const node of project.nodes) {
+    const html = readPageHtml(call.cwd, node.id)
+    if (html === null) continue
+    const report = lintHtml(html, styleId)
+    total += report.total
+    if (report.total > 0) reports.push(formatLintReport(report, `页面「${node.title}」(id=${node.id})`))
+  }
+  if (reports.length === 0) {
+    const name = styleId ? (designStyleSummary(styleId)?.name ?? styleId) : null
+    return {
+      content: `风格检查：${name ? `${name}（${styleId}）` : '未锁定风格'} · 全部 ${project.nodes.length} 个页面\n未发现不符合项（0 处）。`,
+    }
+  }
+  return { content: `${reports.join('\n\n')}\n\n合计：${total} 处。` }
 }
 
 // ---------------------------------------------------------------------------
@@ -493,5 +696,59 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: canvasExport,
+  },
+  {
+    definition: {
+      name: 'canvas_style',
+      description:
+        '查看/锁定/切换项目级设计风格，或取一份页面模板 HTML。' +
+        'action=list 列出全部可选风格与当前状态（用户没指定风格时据此提问）；get 查看某风格的 token/组件类/图标名；' +
+        'set 锁定或切换风格（style_id=风格 id，free 表示解除锁定，会重写所有页面并刷新画布）；' +
+        'template 取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page。',
+      input_schema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['list', 'get', 'set', 'template'], description: 'list=列出风格；get=查看细节；set=锁定/切换；template=取模板' },
+          style_id: {
+            type: 'string',
+            ...(designStyleIds().length ? { enum: [...designStyleIds(), 'free'] } : {}),
+            description: '风格 id（set/get/template 使用）；free 表示解除锁定',
+          },
+          template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
+        },
+        required: ['action'],
+      },
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: withBackupNotice(canvasStyle),
+  },
+  {
+    definition: {
+      name: 'canvas_check_style',
+      description:
+        '只读检查页面是否符合当前设计风格（裸色值、非 token 字体、越界间距/圆角、目录外图标与组件类、未知变量、会被 CSP 拦截的资源）。' +
+        '按 page_id 检查单页、省略则检查全部页面；也可用 html 直接检查一段未落盘的 HTML。只报告、不修改文件、不阻塞写入。',
+      input_schema: {
+        type: 'object',
+        properties: {
+          page_id: { type: 'string', description: '要检查的页面 id；省略则检查全部页面' },
+          html: { type: 'string', description: '直接检查一段 HTML（优先于 page_id），用于写入前自查' },
+          style_id: {
+            type: 'string',
+            ...(designStyleIds().length ? { enum: designStyleIds() } : {}),
+            description: '覆盖当前锁定的风格',
+          },
+        },
+        required: [],
+      },
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => true,
+    isEnabled: () => true,
+    execute: canvasCheckStyle,
   },
 ]

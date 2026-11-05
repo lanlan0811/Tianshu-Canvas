@@ -197,3 +197,31 @@ export function PlusIcon(p: IconProps) {
     </Svg>
   )
 }
+
+export function PaletteIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H13a1.5 1.5 0 0 1 0-3h3.5A4.5 4.5 0 0 0 21 9.5C21 5.9 17 3 12 3z" />
+      <circle cx="8" cy="9" r="1" />
+      <circle cx="12" cy="7" r="1" />
+      <circle cx="16" cy="9" r="1" />
+    </Svg>
+  )
+}
+
+export function CheckIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </Svg>
+  )
+}
+
+export function SparkIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+      <path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9z" />
+    </Svg>
+  )
+}

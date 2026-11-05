@@ -1,0 +1,68 @@
+<div class="ts-app">
+  <aside class="ts-sidebar">
+    <div class="ts-sidebar__brand">天枢工作台</div>
+    <nav class="ts-sidebar__nav">
+      <a class="ts-sidebar__item ts-sidebar__item--active" href="#"><svg data-icon="home" class="ts-icon"></svg>概览</a>
+      <a class="ts-sidebar__item" href="#"><svg data-icon="chart-line" class="ts-icon"></svg>分析</a>
+      <a class="ts-sidebar__item" href="#"><svg data-icon="users" class="ts-icon"></svg>团队</a>
+      <a class="ts-sidebar__item" href="#"><svg data-icon="settings" class="ts-icon"></svg>设置</a>
+    </nav>
+  </aside>
+  <main class="ts-main">
+    <header class="ts-main__header">
+      <span>概览</span>
+      <div class="ts-row">
+        <input class="ts-input ts-input--sm" style="width:200px" placeholder="搜索" aria-label="搜索" />
+        <button class="ts-icon-btn" aria-label="通知"><svg data-icon="bell" class="ts-icon"></svg></button>
+        <button class="ts-btn ts-btn--primary"><svg data-icon="plus" class="ts-icon"></svg><span>新建报表</span></button>
+      </div>
+    </header>
+    <div class="ts-main__body">
+      <div class="ts-grid ts-grid--4">
+        <div class="ts-card"><div class="ts-card__body ts-stat"><span class="ts-stat__label">活跃用户</span><strong class="ts-stat__value">12,480</strong><span class="ts-stat__delta ts-stat__delta--up">+8.2% 较上周</span></div></div>
+        <div class="ts-card"><div class="ts-card__body ts-stat"><span class="ts-stat__label">会话数</span><strong class="ts-stat__value">3,942</strong><span class="ts-stat__delta ts-stat__delta--up">+3.1%</span></div></div>
+        <div class="ts-card"><div class="ts-card__body ts-stat"><span class="ts-stat__label">平均时长</span><strong class="ts-stat__value">6m 24s</strong><span class="ts-stat__delta ts-stat__delta--down">-1.4%</span></div></div>
+        <div class="ts-card"><div class="ts-card__body ts-stat"><span class="ts-stat__label">转化率</span><strong class="ts-stat__value">4.7%</strong><span class="ts-stat__delta ts-stat__delta--up">+0.6pt</span></div></div>
+      </div>
+
+      <div class="ts-card">
+        <div class="ts-card__header">
+          <h3 class="ts-card__title">近 14 天访问趋势</h3>
+          <button class="ts-icon-btn" aria-label="更多"><svg data-icon="more-horizontal" class="ts-icon"></svg></button>
+        </div>
+        <div class="ts-card__body">
+          <svg viewBox="0 0 640 180" width="100%" height="180" role="img" aria-label="访问趋势折线图">
+            <defs>
+              <linearGradient id="ts-dash-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--ts-color-action-primary)" stop-opacity="0.22" />
+                <stop offset="1" stop-color="var(--ts-color-action-primary)" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <g stroke="var(--ts-color-border-subtle)" stroke-width="1">
+              <line x1="0" y1="45" x2="640" y2="45" />
+              <line x1="0" y1="90" x2="640" y2="90" />
+              <line x1="0" y1="135" x2="640" y2="135" />
+            </g>
+            <path d="M0 140 L50 128 L100 132 L150 104 L200 112 L250 88 L300 96 L350 74 L400 82 L450 60 L500 66 L550 44 L600 52 L640 38 L640 180 L0 180 Z" fill="url(#ts-dash-fill)" />
+            <path d="M0 140 L50 128 L100 132 L150 104 L200 112 L250 88 L300 96 L350 74 L400 82 L450 60 L500 66 L550 44 L600 52 L640 38" fill="none" stroke="var(--ts-color-action-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="640" cy="38" r="4" fill="var(--ts-color-action-primary)" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="ts-card">
+        <div class="ts-card__header"><h3 class="ts-card__title">最近记录</h3></div>
+        <table class="ts-table">
+          <thead>
+            <tr><th>名称</th><th>状态</th><th>负责人</th><th class="ts-table__num">使用量</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>季度增长报告</td><td><span class="ts-badge ts-badge--success">运行中</span></td><td>林知遥</td><td class="ts-table__num">1,204</td></tr>
+            <tr><td>用户留存分析</td><td><span class="ts-badge ts-badge--info">草稿</span></td><td>周野</td><td class="ts-table__num">862</td></tr>
+            <tr><td>渠道归因看板</td><td><span class="ts-badge ts-badge--warning">待审核</span></td><td>陈见山</td><td class="ts-table__num">517</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>

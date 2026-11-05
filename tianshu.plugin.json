@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.3.3",
-  "description": "无限画布设计工作台：写入前端原型、选中反馈、可视化编辑、编排与导出",
+  "version": "0.4.0-beta",
+  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、可视化编辑、编排与导出",
   "runtime": "agent",
   "entry": "dist/index.js",
   "capabilities": [
@@ -27,6 +27,14 @@
       {
         "name": "canvas_arrange",
         "description": "编排画布：删除/复制页面节点、页面间连线或取消连线"
+      },
+      {
+        "name": "canvas_style",
+        "description": "列出/查看/锁定/切换项目级设计风格，或取页面模板 HTML"
+      },
+      {
+        "name": "canvas_check_style",
+        "description": "只读检查页面是否符合当前设计风格，输出分级报告"
       },
       {
         "name": "canvas_export",

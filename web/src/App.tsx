@@ -29,9 +29,11 @@ import { CanvasActionsProvider, type CanvasActions } from './actions'
 import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
   exportFileUrl,
+  fetchDesignSystems,
   fetchPageSource,
   fetchProject,
   fetchSelection,
+  postDesignStyle,
   postEdge,
   postNodeOp,
   postPageHtml,
@@ -39,6 +41,7 @@ import {
   postViewport,
   requestExport,
   subscribeEvents,
+  type ApiDesignCatalog,
   type ApiProject,
   type ApiSelection,
 } from './api'
@@ -87,6 +90,9 @@ function Canvas() {
   const [selection, setSelection] = useState<ApiSelection | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [catalog, setCatalog] = useState<ApiDesignCatalog | null>(null)
+  const [design, setDesign] = useState<{ styleId: string; updatedAt: number } | null>(null)
+  const [styleBusy, setStyleBusy] = useState(false)
   const nodesRef = useRef<PageFlowNode[]>([])
   nodesRef.current = nodes
   // 高度只在页面加载时上报一次，项目刷新重建节点时不能丢。
@@ -99,6 +105,7 @@ function Canvas() {
       const project = await fetchProject(ws)
       setNodes(toFlowNodes(project, contentHeights.current))
       setEdges(toFlowEdges(project))
+      setDesign(project.design ?? null)
       setReady(true)
       setError(project.issue ?? null)
     } catch (err) {
@@ -258,6 +265,18 @@ function Canvas() {
     [],
   )
 
+  const pickStyle = useCallback(
+    async (styleId: string | null) => {
+      setStyleBusy(true)
+      setError(null)
+      const failure = await postDesignStyle(ws, styleId)
+      if (failure) setError(failure)
+      else await loadProject()
+      setStyleBusy(false)
+    },
+    [loadProject],
+  )
+
   const [exportingNow, setExportingNow] = useState(false)
 
   const doExport = useCallback(async (kind: 'png' | 'zip' | 'both') => {
@@ -305,6 +324,7 @@ function Canvas() {
     }
     void loadProject()
     void loadSelection()
+    void fetchDesignSystems().then(setCatalog)
     return subscribeEvents(ws, {
       onProject: () => void loadProject(),
       onSelection: () => void loadSelection(),
@@ -375,6 +395,10 @@ function Canvas() {
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
             onExport={doExport}
             busy={exportingNow}
+            catalog={catalog}
+            design={design}
+            onPickStyle={(id) => void pickStyle(id)}
+            styleBusy={styleBusy}
           />
         )}
         {!exporting && sidebarOpen && (

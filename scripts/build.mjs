@@ -11,6 +11,7 @@ import { build } from 'esbuild'
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { buildDesignSystems } from './build-design.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = resolve(root, 'dist')
@@ -18,6 +19,9 @@ const distWeb = resolve(dist, 'web')
 
 rmSync(dist, { recursive: true, force: true })
 mkdirSync(distWeb, { recursive: true })
+
+// (0) 设计系统：design-systems/ -> dist/design/（运行时不读源目录）
+await buildDesignSystems({ root, dist })
 
 // (a) Node 侧：src/index.ts -> dist/index.js（单文件 ESM bundle）
 // puppeteer-core 保持 external：运行时从 node_modules 动态 import（它体积大且非纯 JS 依赖树）。
@@ -56,10 +60,10 @@ await build({
 copyFileSync(resolve(root, 'web/index.html'), resolve(distWeb, 'index.html'))
 
 // 断言关键产物存在
-for (const f of ['index.js', 'web/index.html', 'web/canvas.js', 'web/canvas.css']) {
+for (const f of ['index.js', 'web/index.html', 'web/canvas.js', 'web/canvas.css', 'design/index.json']) {
   if (!existsSync(resolve(dist, f))) {
     console.error(`build: 缺少产物 dist/${f}`)
     process.exit(1)
   }
 }
-console.log('build: 完成 -> dist/index.js, dist/web/{index.html,canvas.js,canvas.css}')
+console.log('build: 完成 -> dist/index.js, dist/web/{index.html,canvas.js,canvas.css}, dist/design/**')

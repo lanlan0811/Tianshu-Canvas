@@ -28,6 +28,16 @@
 
 > **原型必须自包含**：画布 CSP 会拦截外链（CDN、字体、图片）和相对路径，资源请内联。`canvas_upsert_page` 检测到这类引用时会提示。
 
+### 设计风格
+
+项目可锁定一套**设计风格**，让所有页面视觉统一；未锁定时为「自由发挥」。
+
+- 风格由 AI 在对话里询问后确定（苹果风 / 谷歌风 / Claude 风 / 天枢原创 / 自由发挥），也可在画布顶栏直接切换。
+- `canvas_style` — `list` 列出可选风格、`get` 查看 token 与组件类、`set` 锁定/切换/解绑、`template` 取页面骨架 HTML。
+- `canvas_check_style` — 只读检查页面是否符合当前风格（裸色值、越界间距、目录外图标等），只报告不阻塞。
+- 锁定后写入页面时，工具会**自动内联** token 与组件样式，并把 `<svg data-icon="名字">` 展开为当前风格的内联 SVG。
+- 风格数据说明与无隶属声明见 [`design-systems/`](design-systems/README.md)。
+
 **画布操作**：空格/中键拖拽平移 · Ctrl+滚轮缩放 · 普通滚轮平移 · 顶栏缩放百分比 · 右下角缩略图（MiniMap）。
 界面为手绘白板/便签风：顶栏含品牌与导出，左侧页面列表点击定位，右下角缩放控件，节点右键菜单（重命名/复制/删除/置于顶层）。
 
@@ -68,12 +78,13 @@ npm run verify   # typecheck + build + test
 ### 目录
 
 ```
-src/        Node 侧（入口/工具/本地服务/项目模型/探针/导出）→ dist/index.js
-web/        画布前端（React + React Flow）→ dist/web/canvas.js
-dist/       构建产物（提交进仓库）
-test/       契约 / 项目 / 服务 / 选中 / 导出 / 探针 e2e 测试（node:test，跑构建产物）
-scripts/    build.mjs、verify-web.mjs、extract-release-notes.mjs
-release/    每个版本的发布详情文档（release-<版本>.md）
+src/             Node 侧（入口/工具/本地服务/项目模型/设计系统/校验/探针/导出）→ dist/index.js
+web/             画布前端（React + React Flow）→ dist/web/canvas.js
+design-systems/  设计系统源数据（风格 token / 组件 / 图标 / 模板）→ dist/design/
+dist/            构建产物（提交进仓库）
+test/            契约 / 项目 / 服务 / 设计系统 / 选中 / 导出 / 探针 e2e 测试（node:test，跑构建产物）
+scripts/         build.mjs、build-design.mjs、lib/、verify-web.mjs、extract-release-notes.mjs
+release/         每个版本的发布详情文档（release-<版本>.md）
 ```
 
 ### 端到端验证（真实浏览器）
