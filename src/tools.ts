@@ -87,6 +87,11 @@ function withBackupNotice(run: (call: ToolCall) => Promise<ToolResult>): (call: 
   }
 }
 
+function scriptIconNote(names: string[]): string {
+  if (names.length === 0) return ''
+  return `\n注意：脚本里的图标不会展开：${names.slice(0, 8).join('、')}。请把图标写在静态 HTML 的 <template> 里，由脚本克隆使用。`
+}
+
 function projectHint(cwd: string): string {
   return `${PROJECT_DIR_NAME}/（项目文件：${projectFile(cwd)}）`
 }
@@ -236,6 +241,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       `项目：${projectHint(call.cwd)}` +
       styleLine +
       missingLine +
+      scriptIconNote(injection?.scriptIcons ?? []) +
       (blocked.length
         ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
         : ''),
@@ -507,7 +513,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       return {
         content: styleId === null
           ? `已解除风格锁定：回到自由发挥；已有页面保留当前注入的样式块，新页面不再注入。\n画布 URL：${url}`
-          : `已锁定设计风格「${result.name}」（${styleId}）：重写 ${result.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}${missing}`,
+          : `已锁定设计风格「${result.name}」（${styleId}）：重写 ${result.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}${missing}${scriptIconNote(result.scriptIcons)}`,
       }
     }
 
