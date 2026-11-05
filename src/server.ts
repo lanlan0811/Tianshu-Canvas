@@ -227,6 +227,14 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     return sendJson(res, { selection: readSelection(cwd) })
   }
 
+  if (req.method === 'GET' && path === '/api/page-html') {
+    const cwd = resolveCwd(url.searchParams.get('ws'))
+    if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
+    const html = readPageHtml(cwd, url.searchParams.get('id') ?? '')
+    if (html === null) return send(res, 404, 'text/plain; charset=utf-8', 'page not found')
+    return send(res, 200, 'text/plain; charset=utf-8', html)
+  }
+
   if (req.method === 'GET' && path === '/api/export-file') {
     const cwd = resolveCwd(url.searchParams.get('ws'))
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
@@ -348,6 +356,7 @@ function handleSelection(req: http.IncomingMessage, res: http.ServerResponse): v
               xpath: String(raw.xpath ?? ''),
               tagName: String(raw.tagName ?? ''),
               textContent: typeof raw.textContent === 'string' ? raw.textContent : undefined,
+              editableText: typeof raw.editableText === 'string' ? raw.editableText : null,
               computedStyles:
                 raw.computedStyles && typeof raw.computedStyles === 'object'
                   ? (raw.computedStyles as Record<string, string>)
@@ -519,6 +528,7 @@ function sendUntrustedHtml(res: http.ServerResponse, html: string): void {
   res.writeHead(200, {
     'Content-Type': 'text/html; charset=utf-8',
     'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store',
     'Content-Security-Policy':
       "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; " +
       "script-src 'unsafe-inline' 'unsafe-eval'; font-src data:; connect-src 'none'; form-action 'none'",

@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
 import { runExport, type ExportFile, type ExportKind } from './export.js'
 import { isSafeId, newPageId } from './ids.js'
+import { findBlockedResources } from './resources.js'
 import {
   addEdge,
   autoLayoutPosition,
@@ -199,6 +200,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     height: size.height,
     deviceType,
     htmlPath: rel,
+    htmlRev: html !== undefined ? now : existing?.htmlRev,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
@@ -206,13 +208,17 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
 
   // 确保画布服务在跑，这样返回里一定带可点击的画布 URL（用户能看到）。
   const { url } = await ensureServer(call.cwd)
+  const blocked = html !== undefined ? findBlockedResources(html) : []
   return {
     content:
       `${existing ? '已更新' : '已添加'}页面节点「${node.title}」（id=${id}）。\n` +
       `位置：x=${node.x}, y=${node.y}；尺寸：${node.width}×${node.height}（${deviceType}）\n` +
       (html !== undefined ? `原型文件：${join(call.cwd, rel)}\n` : `原型 HTML 未改动（仅更新了节点信息）。\n`) +
       `画布 URL：${url}\n` +
-      `项目：${projectHint(call.cwd)}`,
+      `项目：${projectHint(call.cwd)}` +
+      (blocked.length
+        ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
+        : ''),
   }
 }
 
@@ -397,7 +403,7 @@ export const tools: TpiTool[] = [
     definition: {
       name: 'canvas_upsert_page',
       description:
-        '新增或更新画布上的页面节点。优先传 html（内联）写入 HTML 原型（原型自动保存到 .tianshu-canvas/pages/，无需也不要在工作区另建文件夹），html_path 仅用于导入已有文件；' +
+        '新增或更新画布上的页面节点。优先传 html（内联）写入 HTML 原型（原型自动保存到 .tianshu-canvas/pages/，无需也不要在工作区另建文件夹），html_path 仅用于导入已有文件。原型必须自包含：外链（CDN、字体、图片）和相对路径都会被画布 CSP 拦截，资源请内联；' +
         '对已有 id 可省略 html，仅更新标题/位置/尺寸/设备（即重命名、移动、调整尺寸，未指定的字段保持原值）。' +
         '返回里会带上画布 URL（若画布服务尚未启动会自动启动）。',
       input_schema: {

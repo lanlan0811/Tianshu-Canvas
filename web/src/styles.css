@@ -563,6 +563,13 @@ body {
   font-size: var(--fs-sm);
 }
 
+.selection-panel__note {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
 .selection-panel__xpath {
   margin-top: 6px;
   padding: 4px 6px;

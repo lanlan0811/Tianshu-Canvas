@@ -13,6 +13,7 @@ export interface ProbePayload {
   className: string
   domId: string | null
   textContent: string
+  editableText: string | null
   outerHtml: string
   rect: { x: number; y: number; width: number; height: number }
   computedStyles: Record<string, string>
@@ -24,7 +25,7 @@ export interface ProbeHandlers {
   onReady?: (pageId: string) => void
   onSelect?: (pageId: string, payload: ProbePayload) => void
   onHover?: (pageId: string, payload: ProbePayload | null) => void
-  onEditApplied?: (pageId: string, xpath: string, ok: boolean, html?: string, error?: string) => void
+  onEditApplied?: (pageId: string, ok: boolean, error?: string) => void
   onHeight?: (pageId: string, height: number) => void
   onWheel?: (
     pageId: string,
@@ -87,8 +88,9 @@ export function useProbeBridge(handlers: ProbeHandlers): void {
           h.onHover?.(pageId, (data.payload as ProbePayload | null) ?? null)
           break
         case '__vd_edit_applied': {
-          const p = data.payload as { xpath: string; ok: boolean; html?: string; error?: string }
-          h.onEditApplied?.(pageId, p.xpath, p.ok, p.html, p.error)
+          // 这里只反映即时预览结果。写文件不走这条消息，页面脚本无法借此改写原型。
+          const p = data.payload as { ok?: boolean; error?: string } | null
+          h.onEditApplied?.(pageId, p?.ok === true, p?.error)
           break
         }
         case '__vd_content_height': {
