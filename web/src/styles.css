@@ -264,6 +264,13 @@ body {
   font-size: 12px;
 }
 
+.selection-panel__note {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
 .selection-panel__xpath {
   margin-top: 6px;
   padding: 4px 6px;

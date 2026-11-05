@@ -22,6 +22,10 @@ export interface PageNodeData extends Record<string, unknown> {
   height: number
   deviceType: string
   ws: string
+  /** 原型内容版本，变化时 iframe 重新加载。 */
+  rev?: number
+  /** 测得的内容高度（含边框）；节点高度不低于设计高度。 */
+  contentHeight?: number
   /** 该页当前是否选中了页面内元素（标题栏显示徽标） */
   elementSelected?: boolean
 }
@@ -34,7 +38,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
   const zoom = useStore((s) => s.transform[2])
   const inv = 1 / zoom
   const width = data.width
-  const height = data.height
+  const height = Math.max(data.height, data.contentHeight ?? 0)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const actions = useCanvasActions()
 
@@ -81,7 +85,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
           ref={iframeRef}
           className="page-node__iframe"
           title={data.title}
-          src={`/page/${encodeURIComponent(id)}?ws=${encodeURIComponent(data.ws)}`}
+          src={`/page/${encodeURIComponent(id)}?ws=${encodeURIComponent(data.ws)}${data.rev ? `&v=${data.rev}` : ''}`}
           sandbox="allow-scripts"
           loading="lazy"
           onLoad={() => registerIframe(id, iframeRef.current?.contentWindow ?? null)}

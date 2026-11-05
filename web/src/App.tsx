@@ -23,6 +23,7 @@ import { CanvasActionsProvider, type CanvasActions } from './actions'
 import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
   exportFileUrl,
+  fetchPageSource,
   fetchProject,
   fetchSelection,
   postEdge,
@@ -36,17 +37,29 @@ import {
   type ApiSelection,
 } from './api'
 import { EmptyState } from './icons'
+import { applyEditToSource, textFingerprint, type SourceEdits } from './sourceEdit'
 
 const params = new URLSearchParams(location.search)
 const ws = params.get('ws') ?? ''
 const exporting = params.get('export') === '1'
 
-function toFlowNodes(project: ApiProject): PageFlowNode[] {
+/** .page-node 上下边框之和：节点高度要多出这一点，iframe 视口才等于内容高度。 */
+const NODE_BORDER = 2
+
+function toFlowNodes(project: ApiProject, contentHeights: Map<string, number>): PageFlowNode[] {
   return project.nodes.map((n) => ({
     id: n.id,
     type: 'page',
     position: { x: n.x, y: n.y },
-    data: { title: n.title, width: n.width, height: n.height, deviceType: n.deviceType, ws },
+    data: {
+      title: n.title,
+      width: n.width,
+      height: n.height,
+      deviceType: n.deviceType,
+      ws,
+      rev: n.htmlRev,
+      contentHeight: contentHeights.get(n.id),
+    },
   }))
 }
 
@@ -62,13 +75,15 @@ function Canvas() {
   const [selection, setSelection] = useState<ApiSelection | null>(null)
   const nodesRef = useRef<PageFlowNode[]>([])
   nodesRef.current = nodes
+  // 高度只在页面加载时上报一次，项目刷新重建节点时不能丢。
+  const contentHeights = useRef(new Map<string, number>())
 
   const { setViewport, getViewport, fitView } = useReactFlow()
 
   const loadProject = useCallback(async () => {
     try {
       const project = await fetchProject(ws)
-      setNodes(toFlowNodes(project))
+      setNodes(toFlowNodes(project, contentHeights.current))
       setEdges(toFlowEdges(project))
       setReady(true)
       setError(null)
@@ -117,6 +132,7 @@ function Canvas() {
           xpath: payload.xpath,
           tagName: payload.tagName,
           textContent: payload.textContent,
+          editableText: payload.editableText,
           computedStyles: payload.computedStyles,
         },
       }
@@ -124,14 +140,14 @@ function Canvas() {
       markElementSelected(sel)
       void postSelection(ws, pageId, 'element', { ...payload } as Record<string, unknown>)
     },
-    onEditApplied: (_pageId, _xpath, ok, html, err) => {
-      if (ok && html) void postPageHtml(ws, _pageId, html)
-      else if (!ok) setError(`编辑失败：${err ?? '未知错误'}`)
+    onEditApplied: (_pageId, ok, err) => {
+      if (!ok) setError(`修改已保存，但画布预览未更新，刷新页面可查看：${err ?? '未知错误'}`)
     },
     onHeight: (pageId, height) => {
-      setNodes((nds) =>
-        nds.map((n) => (n.id === pageId && height > 0 ? { ...n, data: { ...n.data, height } } : n)),
-      )
+      if (height <= 0) return
+      const contentHeight = height + NODE_BORDER
+      contentHeights.current.set(pageId, contentHeight)
+      setNodes((nds) => nds.map((n) => (n.id === pageId ? { ...n, data: { ...n.data, contentHeight } } : n)))
     },
     onWheel: (_pageId, e) => {
       const vp = getViewport()
@@ -164,10 +180,30 @@ function Canvas() {
     [],
   )
 
+  // 先改源文件并确认保存成功，再更新画布预览，保证两边一致。
   const applyEdits = useCallback(
-    (pageId: string, xpath: string, edits: { text?: string; styles?: Record<string, string> }) => {
-      const ok = postToPage(pageId, '__vd_apply_edits', { xpath, ...edits })
-      if (!ok) setError('无法向该页面发送编辑：iframe 未就绪。')
+    async (pageId: string, element: NonNullable<ApiSelection['element']>, edits: SourceEdits) => {
+      try {
+        const source = await fetchPageSource(ws, pageId)
+        const result = applyEditToSource(source, element.xpath, element.textContent ?? '', edits)
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        if (!(await postPageHtml(ws, pageId, result.html))) {
+          setError('保存失败，修改没有写入文件。')
+          return
+        }
+        setError(null)
+        postToPage(pageId, '__vd_apply_edits', { xpath: element.xpath, ...edits })
+        if (edits.text !== undefined) {
+          const next = { ...element, textContent: textFingerprint(edits.text), editableText: edits.text }
+          setSelection({ pageId, kind: 'element', at: Date.now(), element: next })
+          void postSelection(ws, pageId, 'element', next)
+        }
+      } catch (err) {
+        setError(`保存失败：${(err as Error).message}`)
+      }
     },
     [],
   )

@@ -27,6 +27,8 @@ export interface PageNode {
   deviceType: DeviceType
   /** 相对 cwd 的路径，如 `.tianshu-canvas/pages/page-3f2a91c4.html` */
   htmlPath: string
+  /** 原型内容版本：AI 写入新 HTML 时更新，画布据此刷新 iframe。 */
+  htmlRev?: number
   createdAt: number
   updatedAt: number
 }
@@ -53,6 +55,8 @@ export interface Selection {
     xpath: string
     tagName: string
     textContent?: string
+    /** 可编辑的完整文案；元素含子元素或没有文本时为 null。 */
+    editableText?: string | null
     computedStyles?: Record<string, string>
   }
   at: number

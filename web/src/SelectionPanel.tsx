@@ -8,7 +8,11 @@ export interface SelectionPanelProps {
   selection: ApiSelection | null
   pageTitle: string | null
   /** 应用编辑（M3 接入探针 __vd_apply_edits） */
-  onApplyEdits?: (pageId: string, xpath: string, edits: { text?: string; styles?: Record<string, string> }) => void
+  onApplyEdits?: (
+    pageId: string,
+    element: NonNullable<ApiSelection['element']>,
+    edits: { text?: string; styles?: Record<string, string> },
+  ) => void
 }
 
 const EDITABLE_STYLES: Array<{ key: string; label: string }> = [
@@ -46,7 +50,7 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
   useEffect(() => {
     setCopied(false)
     setCollapsed(false)
-    setText(selection?.element?.textContent ?? '')
+    setText(selection?.element?.editableText ?? '')
     // 样式输入留空：仅应用用户实际填写的项，避免把当前计算样式整体写成内联样式污染原型。
     setStyles({})
   }, [selection])
@@ -83,10 +87,10 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
     const stylesOut: Record<string, string> = {}
     for (const [k, v] of Object.entries(styles)) if (v) stylesOut[k] = v
     const edits: { text?: string; styles?: Record<string, string> } = {}
-    if (text && text !== el.textContent) edits.text = text
+    if (typeof el.editableText === 'string' && text !== el.editableText) edits.text = text
     if (Object.keys(stylesOut).length) edits.styles = stylesOut
-    if (!edits.text && !edits.styles) return
-    onApplyEdits(selection.pageId, el.xpath, edits)
+    if (edits.text === undefined && !edits.styles) return
+    onApplyEdits(selection.pageId, el, edits)
   }
 
   return (
@@ -117,10 +121,14 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
           <div className="selection-panel__xpath" title={el.xpath}>
             {el.xpath}
           </div>
-          <label className="field">
-            <span>文案</span>
-            <textarea value={text} rows={2} onChange={(e) => setText(e.target.value)} />
-          </label>
+          {typeof el.editableText === 'string' ? (
+            <label className="field">
+              <span>文案</span>
+              <textarea value={text} rows={2} onChange={(e) => setText(e.target.value)} />
+            </label>
+          ) : (
+            <p className="selection-panel__note">这个元素包含子元素，不能整体改文案。按住 Ctrl 点击具体的文字可单独修改。</p>
+          )}
           <div className="selection-panel__styles">
             {EDITABLE_STYLES.map(({ key, label }) => (
               <label className="field field--inline" key={key}>
