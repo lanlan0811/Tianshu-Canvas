@@ -20,10 +20,12 @@ import {
   nextLayoutIndex,
   PROJECT_DIR_NAME,
   projectFile,
+  projectIssue,
   readProject,
   readSelection,
   removeEdge,
   removeNode,
+  takeProjectBackup,
   upsertNode,
   writePageHtml,
   type PageNode,
@@ -68,6 +70,16 @@ function num(v: unknown): number | undefined {
 
 function positive(v: number | undefined): number | undefined {
   return v !== undefined && v > 0 ? Math.round(v) : undefined
+}
+
+/** 写入前若备份过有问题的项目文件，把备份路径告诉调用方（宿主只透传 content）。 */
+function withBackupNotice(run: (call: ToolCall) => Promise<ToolResult>): (call: ToolCall) => Promise<ToolResult> {
+  return async (call) => {
+    const result = await run(call)
+    const backup = takeProjectBackup(call.cwd)
+    if (!backup) return result
+    return { ...result, content: `${result.content}\n注意：project.json 曾损坏或含无效条目，覆盖前已备份到 ${backup}` }
+  }
 }
 
 function projectHint(cwd: string): string {
@@ -236,6 +248,9 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
   const url = currentUrl(call.cwd)
   const sections: string[] = []
 
+  const issue = projectIssue(call.cwd)
+  if (issue) sections.push(`警告：${issue}`)
+
   if (project.nodes.length === 0) {
     sections.push('画布上暂无页面节点。\n用 canvas_upsert_page 添加一个 HTML 原型。')
   } else {
@@ -314,12 +329,10 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
       const source = str(call.args.source)
       const target = str(call.args.target)
       if (!source || !target) return { content: 'unlink 需要 source 和 target。', isError: true }
-      try {
-        removeEdge(call.cwd, source, target)
-        return { content: `已取消连线 ${source} → ${target}。` }
-      } catch (err) {
-        return { content: (err as Error).message, isError: true }
-      }
+      const before = readProject(call.cwd).edges.length
+      const next = removeEdge(call.cwd, source, target)
+      if (next.edges.length === before) return { content: `没有匹配的连线 ${source} → ${target}，未作改动。` }
+      return { content: `已取消连线 ${source} → ${target}。` }
     }
     default:
       return {
@@ -411,7 +424,7 @@ export const tools: TpiTool[] = [
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasUpsertPage,
+    execute: withBackupNotice(canvasUpsertPage),
   },
   {
     definition: {
@@ -426,7 +439,7 @@ export const tools: TpiTool[] = [
     requiresApproval: () => false,
     isConcurrencySafe: () => true,
     isEnabled: () => true,
-    execute: canvasGetState,
+    execute: withBackupNotice(canvasGetState),
   },
   {
     definition: {
@@ -455,7 +468,7 @@ export const tools: TpiTool[] = [
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasArrange,
+    execute: withBackupNotice(canvasArrange),
   },
   {
     definition: {

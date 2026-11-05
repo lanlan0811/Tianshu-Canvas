@@ -5,6 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import net from 'node:net'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -125,26 +126,34 @@ describe('回归', { concurrency: false }, () => {
       )
       assert.equal(readFileSync(file, 'utf8'), valid)
 
+      const backupsOf = () => readdirSync(projDir).filter((name) => name.startsWith('project.json.corrupt-'))
+
+      // 只读不动盘：文件可能处于 git 冲突中，修好后画布应自动恢复。
       writeFileSync(file, original)
       const state = await tools.canvas_get_state.execute({ input: {}, cwd: dir })
       assert.ok(!state.isError, state.content)
       assert.match(state.content, /暂无页面节点/)
+      assert.match(state.content, /已损坏/, '损坏必须告知调用方')
+      assert.equal(backupsOf().length, 0, '读取不应产生备份')
+      assert.equal(readFileSync(file, 'utf8'), original, '读取不应改动原文件')
 
-      const backups = readdirSync(projDir).filter((name) => name.startsWith('project.json.corrupt-'))
-      assert.equal(backups.length, 1)
-      assert.match(backups[0], /^project\.json\.corrupt-\d+$/)
-      assert.equal(readFileSync(join(projDir, backups[0]), 'utf8'), original)
-      assert.equal(existsSync(file), false, '损坏文件应被挪走，避免随后写入覆盖')
-
-      await tools.canvas_get_state.execute({ input: {}, cwd: dir })
-      assert.equal(readdirSync(projDir).filter((name) => name.startsWith('project.json.corrupt-')).length, 1)
-
+      // 写入前备份：原始字节保留，并把备份路径告诉调用方。
       const add = await tools.canvas_upsert_page.execute({ input: { html: '<p>new</p>', title: 'N' }, cwd: dir })
       assert.ok(!add.isError, add.content)
+      const backups = backupsOf()
+      assert.equal(backups.length, 1)
+      assert.match(backups[0], /^project\.json\.corrupt-\d+$/)
+      assert.ok(add.content.includes(backups[0]), `写入结果应带备份路径：${add.content}`)
       assert.equal(readFileSync(join(projDir, backups[0]), 'utf8'), original)
       const saved = JSON.parse(readFileSync(file, 'utf8'))
       assert.equal(saved.nodes.length, 1)
       assert.equal(saved.nodes[0].title, 'N')
+
+      // 项目恢复健康后不再告警，也不再产生备份。
+      const healthy = await tools.canvas_get_state.execute({ input: {}, cwd: dir })
+      assert.doesNotMatch(healthy.content, /已损坏/)
+      await tools.canvas_upsert_page.execute({ input: { html: '<p>2</p>', title: 'M' }, cwd: dir })
+      assert.equal(backupsOf().length, 1)
     }
 
     const badJson = mkdtempSync(join(tmpdir(), 'tsc-corrupt-json-'))
@@ -196,8 +205,8 @@ describe('回归', { concurrency: false }, () => {
     assert.equal(toolSelf.isError, true)
     assert.match(toolSelf.content, /自身/)
     const toolUnsafe = await tools.canvas_arrange.execute({ input: { action: 'unlink', source: '../evil', target: idB }, cwd })
-    assert.equal(toolUnsafe.isError, true)
-    assert.match(toolUnsafe.content, /invalid page id/)
+    assert.ok(!toolUnsafe.isError, toolUnsafe.content)
+    assert.match(toolUnsafe.content, /没有匹配的连线/)
 
     const past = new Date(Date.now() - 120_000)
     utimesSync(file, past, past)
@@ -278,19 +287,39 @@ describe('回归', { concurrency: false }, () => {
     assert.equal(saved.viewport.zoom, 2)
   })
 
-  test('Host 正确解析方括号 IPv6，::1 视为本机', async () => {
+  test('超限后不再发送的客户端先收到 413，随后连接被断开', async () => {
+    const started = Date.now()
+    const { text, closedAfter } = await new Promise((resolve, reject) => {
+      const socket = net.connect(port, '127.0.0.1', () => {
+        socket.write(
+          'POST /api/viewport HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Tianshu-Canvas: 1\r\n' +
+            `Content-Type: application/json\r\nContent-Length: ${MAX_VIEWPORT_BODY * 10}\r\n\r\n` +
+            'x'.repeat(MAX_VIEWPORT_BODY + 1),
+        )
+      })
+      let received = ''
+      socket.setEncoding('utf8')
+      socket.on('data', (chunk) => (received += chunk))
+      socket.on('close', () => resolve({ text: received, closedAfter: Date.now() - started }))
+      socket.on('error', reject)
+      socket.setTimeout(10000, () => reject(new Error('连接未被断开')))
+    })
+    assert.match(text, /^HTTP\/1\.1 413 /)
+    assert.match(text, /body too large/)
+    assert.ok(closedAfter < 8000, `连接应在排空超时后断开，实际 ${closedAfter}ms`)
+    assert.equal((await fetch(`${base}/healthz`)).status, 200)
+  })
+
+  test('Host 只接受 127.0.0.1 与 localhost', async () => {
     const cases = [
-      [`[::1]:${port}`, 200],
-      ['::1', 200],
-      ['[::1]', 200],
       [`127.0.0.1:${port}`, 200],
       ['127.0.0.1', 200],
       ['localhost', 200],
       [`localhost:${port}`, 200],
       ['evil.example', 403],
       [`evil.example:${port}`, 403],
-      [`[::2]:${port}`, 403],
-      ['[::1', 403],
+      [`[::1]:${port}`, 403],
+      ['::1', 403],
     ]
     for (const [host, status] of cases) {
       const res = await rawRequest({ port, path: '/healthz', headers: { Host: host } })
@@ -298,5 +327,118 @@ describe('回归', { concurrency: false }, () => {
       if (status === 200) assert.equal(res.body, 'ok')
     }
     assert.equal((await fetch(`${base}/healthz`)).status, 200)
+  })
+
+  test('畸形路径、目录导出名和非对象请求体都不会崩溃或挂起', async () => {
+    const slashes = await rawRequest({ port, path: '//' })
+    assert.equal(slashes.status, 400, slashes.body)
+
+    mkdirSync(join(cwd, '.tianshu-canvas', 'exports'), { recursive: true })
+    const dirName = await rawRequest({ port, path: `/api/export-file?ws=${token}&name=.` })
+    assert.equal(dirName.status, 404, dirName.body)
+
+    const headers = { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' }
+    for (const path of ['/api/viewport', '/api/nodes', '/api/edges', '/api/selection', '/api/page-html', '/api/export']) {
+      for (const body of ['null', '[]', '1']) {
+        const res = await rawRequest({ port, method: 'POST', path, headers, body })
+        assert.equal(res.status, 400, `${path} ${body} -> ${res.status} ${res.body}`)
+      }
+    }
+    assert.equal((await fetch(`${base}/healthz`)).status, 200)
+  })
+
+  test('旧版本留下的悬空连线和自环可以删除', async () => {
+    const a = await tools.canvas_upsert_page.execute({ input: { html: '<p>A</p>', title: 'A' }, cwd })
+    const idA = pageIdFrom(a.content)
+    const file = join(cwd, '.tianshu-canvas', 'project.json')
+    const project = JSON.parse(readFileSync(file, 'utf8'))
+    project.edges = [
+      { id: 'edge-gone', source: 'page-gone', target: idA },
+      { id: 'edge-self', source: idA, target: idA },
+    ]
+    writeFileSync(file, JSON.stringify(project))
+
+    const viaTool = await tools.canvas_arrange.execute({ input: { action: 'unlink', source: 'page-gone', target: idA }, cwd })
+    assert.ok(!viaTool.isError, viaTool.content)
+    assert.match(viaTool.content, /已取消连线/)
+
+    const viaApi = await rawRequest({
+      port,
+      method: 'POST',
+      path: '/api/edges',
+      headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+      body: JSON.stringify({ ws: token, op: 'remove', source: idA, target: idA }),
+    })
+    assert.equal(viaApi.status, 200, viaApi.body)
+    assert.equal(JSON.parse(readFileSync(file, 'utf8')).edges.length, 0)
+  })
+
+  test('含无效条目的项目先备份再写；视口保存不改写有问题的文件', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsc-partial-'))
+    try {
+      const open = await tools.canvas_open.execute({ input: {}, cwd: dir })
+      const ws = open.content.match(/ws=([0-9a-f]{16})/)[1]
+      const projDir = join(dir, '.tianshu-canvas')
+      mkdirSync(projDir, { recursive: true })
+      const file = join(projDir, 'project.json')
+      const original = JSON.stringify({
+        version: 1,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        nodes: [
+          { id: 'page-good', type: 'page', title: 'Good', x: 0, y: 0, width: 10, height: 10, deviceType: 'free', htmlPath: '' },
+          { id: 'bad id!', type: 'page', title: 'Bad' },
+        ],
+        edges: [],
+      })
+      writeFileSync(file, original)
+      const backupsOf = () => readdirSync(projDir).filter((name) => name.startsWith('project.json.corrupt-'))
+
+      const state = await tools.canvas_get_state.execute({ input: {}, cwd: dir })
+      assert.match(state.content, /1 条无效/)
+
+      const vp = await rawRequest({
+        port,
+        method: 'POST',
+        path: '/api/viewport',
+        headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+        body: JSON.stringify({ ws, x: 1, y: 2, zoom: 1 }),
+      })
+      assert.equal(vp.status, 200, vp.body)
+      assert.equal(readFileSync(file, 'utf8'), original, '视口保存不应改写有问题的文件')
+      assert.equal(backupsOf().length, 0)
+
+      const apiProject = JSON.parse((await rawRequest({ port, path: `/api/project?ws=${ws}` })).body)
+      assert.match(apiProject.issue, /1 条无效/, '画布前端应能拿到提示')
+
+      const add = await tools.canvas_upsert_page.execute({ input: { html: '<p>x</p>', title: 'New' }, cwd: dir })
+      assert.ok(!add.isError, add.content)
+      assert.equal(backupsOf().length, 1)
+      assert.equal(readFileSync(join(projDir, backupsOf()[0]), 'utf8'), original)
+      assert.equal(JSON.parse(readFileSync(file, 'utf8')).nodes.length, 2)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('服务端故障返回 500 且不泄露路径，输入错误返回 400', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsc-fault-'))
+    try {
+      const open = await tools.canvas_open.execute({ input: {}, cwd: dir })
+      const ws = open.content.match(/ws=([0-9a-f]{16})/)[1]
+      // project.json 是目录：读取抛 EISDIR，属于服务端故障。
+      mkdirSync(join(dir, '.tianshu-canvas', 'project.json'), { recursive: true })
+      const res = await rawRequest({
+        port,
+        method: 'POST',
+        path: '/api/edges',
+        headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+        body: JSON.stringify({ ws, op: 'add', source: 'page-a', target: 'page-b' }),
+      })
+      assert.equal(res.status, 500, res.body)
+      assert.deepEqual(JSON.parse(res.body), { error: 'internal error' })
+      assert.equal((await fetch(`${base}/healthz`)).status, 200)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

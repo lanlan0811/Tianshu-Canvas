@@ -15,16 +15,17 @@
  */
 import http from 'node:http'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertSafeId } from './ids.js'
+import { assertSafeId, InvalidInputError } from './ids.js'
 import { injectProbe } from './probe.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
   addEdge,
   moveNode,
   projectEvents,
+  projectIssue,
   readPageHtml,
   readProject,
   readSelection,
@@ -45,6 +46,8 @@ const MUTATION_HEADER = 'x-tianshu-canvas'
 const MAX_BODY = 4 * 1024 * 1024
 /** 视口请求体很小，沿用比通用 JSON 更紧的上限。 */
 const MAX_VIEWPORT_BODY = 4096
+/** 超限响应发出后，最多再等这么久让客户端发完请求体。 */
+const BODY_DRAIN_MS = 2000
 
 interface ServerState {
   server: http.Server
@@ -151,14 +154,12 @@ const ASSET_TYPES: Record<string, string> = {
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   try {
     routeRequest(req, res)
-  } catch {
+  } catch (err) {
     // 同步异常（例如读页面文件失败）不能打垮进程。
-    if (res.headersSent || res.writableEnded) return
-    try {
-      send(res, 500, 'text/plain; charset=utf-8', 'internal error')
-    } catch {
-      /* 响应已结束 */
-    }
+    console.error('[tianshu-canvas] 请求处理失败：', err)
+    // 响应头已发出时无法再改状态码，只能断开，否则客户端会一直挂起。
+    if (res.headersSent) res.destroy()
+    else send(res, 500, 'text/plain; charset=utf-8', 'internal error')
   }
 }
 
@@ -167,7 +168,13 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   if (!host || !isLocalHost(host)) {
     return send(res, 403, 'text/plain; charset=utf-8', 'forbidden host')
   }
-  const url = new URL(req.url ?? '/', `http://${urlHost(host)}`)
+  // 基址只用于解析路径和查询串。'//' 这样的请求路径会让 new URL 抛错。
+  let url: URL
+  try {
+    url = new URL(req.url ?? '/', 'http://127.0.0.1')
+  } catch {
+    return send(res, 400, 'text/plain; charset=utf-8', 'bad request')
+  }
   const path = url.pathname
 
   if (req.method === 'GET' && path === '/healthz') {
@@ -187,7 +194,8 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   if (req.method === 'GET' && path === '/api/project') {
     const cwd = resolveCwd(url.searchParams.get('ws'))
     if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
-    return sendJson(res, readProject(cwd))
+    const issue = projectIssue(cwd)
+    return sendJson(res, { ...readProject(cwd), ...(issue ? { issue } : {}) })
   }
 
   if (req.method === 'GET' && path === '/api/events') {
@@ -228,10 +236,12 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
       return send(res, 400, 'text/plain; charset=utf-8', 'bad name')
     }
     const file = join(exportsDir(cwd), name)
-    if (!existsSync(file)) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+    // name='.' 能通过上面的过滤并指向 exports 目录本身。
+    if (!existsSync(file) || !statSync(file).isFile()) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
     const type = name.endsWith('.png') ? 'image/png' : 'application/zip'
+    const data = readFileSync(file)
     res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' })
-    res.end(readFileSync(file))
+    res.end(data)
     return
   }
 
@@ -283,24 +293,40 @@ function readJsonBody(
     if (raw.length > maxBytes) {
       rejected = true
       raw = ''
-      // 先把 413 写完再拆连接，避免客户端只看到连接被重置。
-      res.once('finish', () => {
-        req.destroy()
-      })
+      // 带着未读数据断开时系统会发 RST，客户端读不到 413（Windows 上必现）。
+      // 所以继续读取并丢弃剩余数据；对方迟迟发不完才断开，避免连接被无限占用。
+      const drain = setTimeout(() => req.destroy(), BODY_DRAIN_MS)
+      drain.unref()
+      req.once('close', () => clearTimeout(drain))
       send(res, 413, 'application/json; charset=utf-8', JSON.stringify({ error: 'body too large' }))
     }
   })
   req.on('end', () => {
     if (rejected || res.writableEnded || res.headersSent) return
-    let parsed: Record<string, unknown>
+    let parsed: unknown
     try {
-      parsed = JSON.parse(raw || '{}') as Record<string, unknown>
+      parsed = JSON.parse(raw || '{}')
     } catch {
       return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad json' }))
     }
-    const cwd = resolveCwd(typeof parsed.ws === 'string' ? parsed.ws : null)
-    if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
-    onBody({ ...parsed, __cwd: cwd })
+    // JSON 合法不代表是对象：字面量 null 会让后面的属性读取抛错。
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad json' }))
+    }
+    const body = parsed as Record<string, unknown>
+    // 这里运行在 end 事件回调内，handleRequest 的 try/catch 接不住，所有变更路由在此统一兜底。
+    try {
+      const cwd = resolveCwd(typeof body.ws === 'string' ? body.ws : null)
+      if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
+      onBody({ ...body, __cwd: cwd })
+    } catch (err) {
+      if (err instanceof InvalidInputError) {
+        return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
+      }
+      console.error('[tianshu-canvas] 请求处理失败：', err)
+      if (res.headersSent) res.destroy()
+      else send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: 'internal error' }))
+    }
   })
 }
 
@@ -310,32 +336,28 @@ function handleSelection(req: http.IncomingMessage, res: http.ServerResponse): v
     const pageId = typeof body.pageId === 'string' ? body.pageId : ''
     const kind = body.kind === 'page' ? 'page' : 'element'
     if (!pageId) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing pageId' }))
-    try {
-      assertSafeId(pageId)
-      const raw = body.payload as Record<string, unknown> | undefined
-      const selection: Selection = {
-        pageId,
-        kind,
-        at: Date.now(),
-        ...(kind === 'element' && raw
-          ? {
-              element: {
-                xpath: String(raw.xpath ?? ''),
-                tagName: String(raw.tagName ?? ''),
-                textContent: typeof raw.textContent === 'string' ? raw.textContent : undefined,
-                computedStyles:
-                  raw.computedStyles && typeof raw.computedStyles === 'object'
-                    ? (raw.computedStyles as Record<string, string>)
-                    : undefined,
-              },
-            }
-          : {}),
-      }
-      writeSelection(cwd, selection)
-      return sendJson(res, { ok: true })
-    } catch (err) {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
+    assertSafeId(pageId)
+    const raw = body.payload as Record<string, unknown> | undefined
+    const selection: Selection = {
+      pageId,
+      kind,
+      at: Date.now(),
+      ...(kind === 'element' && raw
+        ? {
+            element: {
+              xpath: String(raw.xpath ?? ''),
+              tagName: String(raw.tagName ?? ''),
+              textContent: typeof raw.textContent === 'string' ? raw.textContent : undefined,
+              computedStyles:
+                raw.computedStyles && typeof raw.computedStyles === 'object'
+                  ? (raw.computedStyles as Record<string, string>)
+                  : undefined,
+            },
+          }
+        : {}),
     }
+    writeSelection(cwd, selection)
+    return sendJson(res, { ok: true })
   })
 }
 
@@ -346,13 +368,9 @@ function handlePageHtml(req: http.IncomingMessage, res: http.ServerResponse): vo
     const html = typeof body.html === 'string' ? body.html : ''
     if (!id || !html) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing id or html' }))
     if (html.length > 2 * 1024 * 1024) return send(res, 413, 'application/json; charset=utf-8', JSON.stringify({ error: 'html too large' }))
-    try {
-      writePageHtml(cwd, id, html)
-      projectEvents.emit('change', { cwd })
-      return sendJson(res, { ok: true })
-    } catch (err) {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
-    }
+    writePageHtml(cwd, id, html)
+    projectEvents.emit('change', { cwd })
+    return sendJson(res, { ok: true })
   })
 }
 
@@ -361,31 +379,27 @@ function handleNodes(req: http.IncomingMessage, res: http.ServerResponse): void 
     const cwd = String(body.__cwd)
     const op = String(body.op ?? '')
     const id = typeof body.id === 'string' ? body.id : ''
-    try {
-      if (op === 'remove') {
-        if (!id) throw new Error('missing id')
-        removeNode(cwd, id)
-        return sendJson(res, { ok: true, id })
-      }
-      if (op === 'rename') {
-        if (!id || typeof body.title !== 'string') throw new Error('missing id or title')
-        renameNode(cwd, id, body.title)
-        return sendJson(res, { ok: true, id, title: body.title })
-      }
-      if (op === 'move') {
-        if (!id) throw new Error('missing id')
-        moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0)
-        return sendJson(res, { ok: true, id })
-      }
-      if (op === 'duplicate') {
-        if (!id) throw new Error('missing id')
-        const node = duplicateNode(cwd, id, typeof body.title === 'string' ? body.title : undefined)
-        return sendJson(res, { ok: true, node })
-      }
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
-    } catch (err) {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
+    if (op === 'remove') {
+      if (!id) throw new InvalidInputError('missing id')
+      removeNode(cwd, id)
+      return sendJson(res, { ok: true, id })
     }
+    if (op === 'rename') {
+      if (!id || typeof body.title !== 'string') throw new InvalidInputError('missing id or title')
+      renameNode(cwd, id, body.title)
+      return sendJson(res, { ok: true, id, title: body.title })
+    }
+    if (op === 'move') {
+      if (!id) throw new InvalidInputError('missing id')
+      moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0)
+      return sendJson(res, { ok: true, id })
+    }
+    if (op === 'duplicate') {
+      if (!id) throw new InvalidInputError('missing id')
+      const node = duplicateNode(cwd, id, typeof body.title === 'string' ? body.title : undefined)
+      return sendJson(res, { ok: true, node })
+    }
+    return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
   })
 }
 
@@ -396,19 +410,15 @@ function handleEdges(req: http.IncomingMessage, res: http.ServerResponse): void 
     const source = typeof body.source === 'string' ? body.source : ''
     const target = typeof body.target === 'string' ? body.target : ''
     if (!source || !target) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing source or target' }))
-    try {
-      if (op === 'add') {
-        const edge = addEdge(cwd, source, target, typeof body.label === 'string' ? body.label : undefined)
-        return sendJson(res, { ok: true, edge })
-      }
-      if (op === 'remove') {
-        removeEdge(cwd, source, target)
-        return sendJson(res, { ok: true })
-      }
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
-    } catch (err) {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
+    if (op === 'add') {
+      const edge = addEdge(cwd, source, target, typeof body.label === 'string' ? body.label : undefined)
+      return sendJson(res, { ok: true, edge })
     }
+    if (op === 'remove') {
+      removeEdge(cwd, source, target)
+      return sendJson(res, { ok: true })
+    }
+    return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
   })
 }
 
@@ -417,20 +427,16 @@ function handleViewport(req: http.IncomingMessage, res: http.ServerResponse): vo
     req,
     res,
     (body) => {
-      try {
-        const cwd = String(body.__cwd)
-        const x = Number(body.x)
-        const y = Number(body.y)
-        const zoom = Number(body.zoom)
-        setViewport(cwd, {
-          x: Number.isFinite(x) ? x : 0,
-          y: Number.isFinite(y) ? y : 0,
-          zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
-        })
-        return sendJson(res, { ok: true })
-      } catch (err) {
-        return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
-      }
+      const cwd = String(body.__cwd)
+      const x = Number(body.x)
+      const y = Number(body.y)
+      const zoom = Number(body.zoom)
+      setViewport(cwd, {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0,
+        zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
+      })
+      return sendJson(res, { ok: true })
     },
     MAX_VIEWPORT_BODY,
   )
@@ -492,35 +498,9 @@ function resolveCwd(token: string | null): string | null {
   return state.tokens.get(token) ?? null
 }
 
-/**
- * Host 头里的主机名。
- * 不能用 split(':')[0]：`[::1]:43117` 会被切成 `[`，本机 IPv6 会被误拒。
- */
-function hostName(host: string): string {
-  const value = host.trim().toLowerCase()
-  if (value.startsWith('[')) {
-    const end = value.indexOf(']')
-    return end > 1 ? value.slice(1, end) : value
-  }
-  const firstColon = value.indexOf(':')
-  if (firstColon === -1) return value
-  // 多个冒号是无方括号的 IPv6（如 ::1）。端口只出现在 [addr]:port 形式里。
-  if (value.lastIndexOf(':') !== firstColon) return value
-  return value.slice(0, firstColon)
-}
-
 function isLocalHost(host: string): boolean {
-  const name = hostName(host)
-  return name === '127.0.0.1' || name === 'localhost' || name === '::1'
-}
-
-/** 给 URL 构造器用。裸 IPv6（::1）必须补上方括号，否则 new URL 抛 TypeError。 */
-function urlHost(host: string): string {
-  const value = host.trim()
-  if (value.startsWith('[')) return value
-  const name = hostName(value)
-  if (name.includes(':')) return `[${name}]`
-  return value
+  const name = host.split(':')[0]?.toLowerCase()
+  return name === '127.0.0.1' || name === 'localhost'
 }
 
 function serveStatic(res: http.ServerResponse, name: string, type = 'text/html; charset=utf-8'): void {
