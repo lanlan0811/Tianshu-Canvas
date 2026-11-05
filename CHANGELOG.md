@@ -3,6 +3,26 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.2.5] - 2026-11-05
+
+修复 PNG 导出在 Windows 上稳定失败（`Failed to launch the browser process: Code: 0`，stderr 为空）。详细说明见 [release-0.2.5.md](release/release-0.2.5.md)。
+
+### 修复
+
+- PNG 导出不再依赖 puppeteer 对 Chromium stdout 那一行 `DevTools listening on ws://…` 的等待——改为自己启动浏览器、读 `DevToolsActivePort` 拿调试端点再 `puppeteer.connect` 接入，宿主进程内拿不到该行也能正常导出。
+- 启动失败时把浏览器 stderr 带进错误信息，不再出现「stderr 为空」这种无法诊断的失败。
+- 失败路径强杀浏览器进程树（Windows `taskkill /T`），临时 profile 清理失败改为记日志，不再静默吞掉、不再堆积孤儿进程。
+- 导出前清理超过 2 小时的陈旧 `tsc-png-*` 临时目录（旧版本失败遗留）。
+
+## [v0.2.4] - 2026-11-05
+
+选中面板可收起，不再常驻遮挡画布。详细说明见 [release-0.2.4.md](release/release-0.2.4.md)。
+
+### 新增
+
+- 选中面板头部新增「×」收起按钮：收起后缩为右上角浮动小标签「选中面板」，点击即可展开，已填写的文案/样式不丢失。
+- 切换选中项时自动展开面板，避免收起后误以为点击元素无反应。
+
 ## [v0.2.3] - 2026-11-04
 
 不再在工作区产生多余的原型文件夹。详细说明见 [release-0.2.3.md](release/release-0.2.3.md)。

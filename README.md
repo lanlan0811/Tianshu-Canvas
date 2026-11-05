@@ -32,7 +32,7 @@
 
 - **选中反馈**：在画布上点击页面/元素（Ctrl 点击选最内层），用 `canvas_get_state` 读回；
   或点面板「复制修改请求」粘给 AI。
-- **可视化编辑**：选中元素后直接改文案/样式，回写原型 HTML。
+- **可视化编辑**：选中元素后直接改文案/样式，回写原型 HTML；面板可用头部「×」收起为右上角小标签，点击再展开。
 - **编排**：节点工具栏重命名/复制/删除；页面间连线。AI 侧用 `canvas_arrange`（`action`: remove / duplicate / link / unlink）。
 - **导出**：`canvas_export` 产出画布截图 PNG 与/或原型打包 ZIP。
 
@@ -83,13 +83,6 @@ node scripts/verify-web.mjs <chrome.exe>
 
 用无头浏览器打开画布，断言 React Flow 真正渲染、节点出现、iframe 指向原型页、无 JS 报错。
 
-## 参与贡献
-
-- [贡献指南](CONTRIBUTING.md)（English: [CONTRIBUTING.en.md](CONTRIBUTING.en.md)）
-- [安全策略](SECURITY.md)（English: [SECURITY.en.md](SECURITY.en.md)）——漏洞请勿公开报告，发邮件至 lanaiw2025@163.com
-- [贡献者行为准则](CODE_OF_CONDUCT.md)（English: [CODE_OF_CONDUCT.en.md](CODE_OF_CONDUCT.en.md)）
-- [更新日志](CHANGELOG.md)
-
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。
+Apache License 2.0（见 [LICENSE](LICENSE)）。

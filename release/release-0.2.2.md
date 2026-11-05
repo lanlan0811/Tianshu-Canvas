@@ -1,6 +1,6 @@
 # 天枢画布设计 v0.2.2
 
-> 2026-11-04 · MIT
+> 2026-11-04 · Apache-2.0
 
 修复**画布导出 PNG 偶发失败**的问题。
 
@@ -51,4 +51,4 @@ ZIP 导出不受影响。
 
 ## 许可
 
-MIT（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。
+Apache License 2.0（见 [LICENSE](../LICENSE)）。工具与用法见 [release-0.2.0.md](release-0.2.0.md)。

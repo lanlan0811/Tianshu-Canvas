@@ -39,11 +39,13 @@ function buildRequestText(selection: ApiSelection, pageTitle: string | null): st
 
 export function SelectionPanel({ selection, pageTitle, onApplyEdits }: SelectionPanelProps) {
   const [copied, setCopied] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const [text, setText] = useState('')
   const [styles, setStyles] = useState<Record<string, string>>({})
 
   useEffect(() => {
     setCopied(false)
+    setCollapsed(false)
     setText(selection?.element?.textContent ?? '')
     // 样式输入留空：仅应用用户实际填写的项，避免把当前计算样式整体写成内联样式污染原型。
     setStyles({})
@@ -51,6 +53,19 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
 
   if (!selection) return null
   const el = selection.element
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        className="selection-panel__tab"
+        title="展开选中面板"
+        onClick={() => setCollapsed(false)}
+      >
+        选中面板
+      </button>
+    )
+  }
 
   async function copyRequest(): Promise<void> {
     const content = buildRequestText(selection!, pageTitle)
@@ -78,9 +93,20 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
     <div className="selection-panel">
       <div className="selection-panel__head">
         <span className="selection-panel__title">选中：{selection.kind === 'element' ? '页面内元素' : '页面节点'}</span>
-        <button type="button" className="btn btn--primary" onClick={copyRequest}>
-          {copied ? '已复制' : '复制修改请求'}
-        </button>
+        <div className="selection-panel__actions">
+          <button type="button" className="btn btn--primary" onClick={copyRequest}>
+            {copied ? '已复制' : '复制修改请求'}
+          </button>
+          <button
+            type="button"
+            className="selection-panel__collapse"
+            title="收起面板"
+            aria-label="收起面板"
+            onClick={() => setCollapsed(true)}
+          >
+            ×
+          </button>
+        </div>
       </div>
       <div className="selection-panel__meta">
         {pageTitle ? `${pageTitle} · ` : ''}

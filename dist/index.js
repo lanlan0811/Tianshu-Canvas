@@ -6,7 +6,7 @@ function defineTianshuPlugin(spec) {
 }
 
 // src/tools.ts
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync3 } from "node:fs";
 import { join as join4 } from "node:path";
 
@@ -31,7 +31,8 @@ function positiveOr(value, fallback) {
 }
 
 // src/export.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, readdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as join3 } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -1009,37 +1010,110 @@ function exportPng(cwd) {
   });
   return run;
 }
+var LAUNCH_ARGS = [
+  "--remote-debugging-port=0",
+  "--no-sandbox",
+  "--disable-gpu",
+  "--disable-dev-shm-usage",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--disable-extensions",
+  "--headless=new",
+  "--hide-scrollbars",
+  "--mute-audio",
+  "--disable-background-networking",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
+  "--disable-breakpad",
+  "--disable-crash-reporter"
+];
+async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
+  const portFile = join3(userDataDir, "DevToolsActivePort");
+  const deadline = Date.now() + timeoutMs;
+  let stderr = "";
+  proc.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+  let exitCode = null;
+  proc.once("exit", (code) => {
+    exitCode = code;
+  });
+  while (Date.now() < deadline) {
+    if (exitCode !== null) {
+      throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
+    }
+    if (existsSync3(portFile)) {
+      const lines = readFileSync3(portFile, "utf8").split("\n");
+      const port = lines[0]?.trim();
+      const wsPath = lines[1]?.trim();
+      if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`\u7B49\u5F85\u6D4F\u89C8\u5668\u8C03\u8BD5\u7AEF\u53E3\u8D85\u65F6\uFF08${timeoutMs}ms\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
+}
+function killTree(proc) {
+  if (proc.exitCode !== null || !proc.pid) return;
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+    } else {
+      process.kill(-proc.pid, "SIGKILL");
+    }
+  } catch {
+  }
+}
+function removeProfile(userDataDir) {
+  try {
+    rmSync2(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+  } catch (err) {
+    console.error(`[tianshu-canvas] \u4E34\u65F6 profile \u672A\u80FD\u5220\u9664\uFF1A${userDataDir}\uFF08${err.message}\uFF09`);
+  }
+}
+function cleanStaleProfiles() {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1e3;
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith("tsc-png-")) continue;
+      const dir = join3(tmpdir(), entry);
+      try {
+        if (statSync2(dir).mtimeMs < cutoff) rmSync2(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
+      } catch {
+      }
+    }
+  } catch {
+  }
+}
 async function launchBrowser(exe) {
   const puppeteer = (await import("puppeteer-core")).default;
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
     const userDataDir = mkdtempSync(join3(tmpdir(), "tsc-png-"));
+    const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, "about:blank"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      detached: process.platform !== "win32"
+    });
     try {
-      const browser = await puppeteer.launch({
-        executablePath: exe,
-        headless: true,
-        userDataDir,
-        timeout: 6e4,
+      const wsEndpoint = await readDevToolsEndpoint(userDataDir, proc, 6e4);
+      const browser = await puppeteer.connect({
+        browserWSEndpoint: wsEndpoint,
         protocolTimeout: 12e4,
-        args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run", "--no-default-browser-check", "--disable-extensions"]
+        defaultViewport: null
       });
       const dispose = async () => {
-        const proc = browser.process();
         await Promise.race([browser.close().catch(() => {
         }), new Promise((r) => setTimeout(r, 1e4))]);
-        if (proc && proc.exitCode === null) proc.kill("SIGKILL");
-        try {
-          rmSync2(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
-        } catch {
-        }
+        killTree(proc);
+        await new Promise((r) => setTimeout(r, 500));
+        removeProfile(userDataDir);
       };
       return { browser, dispose };
     } catch (err) {
       lastErr = err;
-      try {
-        rmSync2(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
-      } catch {
-      }
+      killTree(proc);
+      await new Promise((r) => setTimeout(r, 500));
+      removeProfile(userDataDir);
       await new Promise((r) => setTimeout(r, 1e3 * (attempt + 1)));
     }
   }
@@ -1053,6 +1127,7 @@ async function exportPngOnce(cwd) {
     );
   }
   const { url } = await ensureServer(cwd);
+  cleanStaleProfiles();
   const { browser, dispose } = await launchBrowser(exe);
   try {
     const page = await browser.newPage();
@@ -1246,7 +1321,7 @@ function openBrowser(url) {
   try {
     const cmd = process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
     const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
-    const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+    const child = spawn2(cmd, args, { detached: true, stdio: "ignore" });
     child.unref();
   } catch {
   }

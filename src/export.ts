@@ -4,7 +4,8 @@
  * PNG 依赖 puppeteer-core + 系统 Chrome/Edge（与 design 插件同款做法）。
  * ZIP 用 node:zlib 自写最小 zip，零依赖。
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { Browser } from 'puppeteer-core'
 import { join } from 'node:path'
@@ -60,42 +61,132 @@ export function exportPng(cwd: string): Promise<ExportFile> {
   return run
 }
 
+const LAUNCH_ARGS = [
+  '--remote-debugging-port=0',
+  '--no-sandbox',
+  '--disable-gpu',
+  '--disable-dev-shm-usage',
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--disable-extensions',
+  '--headless=new',
+  '--hide-scrollbars',
+  '--mute-audio',
+  '--disable-background-networking',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-renderer-backgrounding',
+  '--disable-breakpad',
+  '--disable-crash-reporter',
+]
+
+/** 等待 DevToolsActivePort 出现并读出 `端口 + ws 路径`（Chromium 成功绑定调试端口后才会写此文件）。 */
+async function readDevToolsEndpoint(userDataDir: string, proc: ChildProcess, timeoutMs: number): Promise<string> {
+  const portFile = join(userDataDir, 'DevToolsActivePort')
+  const deadline = Date.now() + timeoutMs
+  let stderr = ''
+  proc.stderr?.on('data', (chunk: Buffer) => {
+    stderr += chunk.toString()
+  })
+  let exitCode: number | null = null
+  proc.once('exit', (code) => {
+    exitCode = code
+  })
+  while (Date.now() < deadline) {
+    if (exitCode !== null) {
+      throw new Error(`浏览器进程已退出（exit code ${exitCode}）${stderr ? `：${stderr.trim()}` : ''}`)
+    }
+    if (existsSync(portFile)) {
+      const lines = readFileSync(portFile, 'utf8').split('\n')
+      const port = lines[0]?.trim()
+      const wsPath = lines[1]?.trim()
+      if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`等待浏览器调试端口超时（${timeoutMs}ms）${stderr ? `：${stderr.trim()}` : ''}`)
+}
+
+/** 强杀浏览器进程树（Windows 用 taskkill /T，其余平台用进程组）。 */
+function killTree(proc: ChildProcess): void {
+  if (proc.exitCode !== null || !proc.pid) return
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    } else {
+      process.kill(-proc.pid, 'SIGKILL')
+    }
+  } catch {
+    /* 进程可能已自行退出 */
+  }
+}
+
+/** 清理临时 profile：进程占用文件时重试若干次，最终失败则记日志而非静默吞掉。 */
+function removeProfile(userDataDir: string): void {
+  try {
+    rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
+  } catch (err) {
+    console.error(`[tianshu-canvas] 临时 profile 未能删除：${userDataDir}（${(err as Error).message}）`)
+  }
+}
+
+/** 清理陈旧的 tsc-png-* 临时目录（历史失败遗留），只动超过 2 小时的，避免误删正在使用的 profile。 */
+function cleanStaleProfiles(): void {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000
+  try {
+    for (const entry of readdirSync(tmpdir())) {
+      if (!entry.startsWith('tsc-png-')) continue
+      const dir = join(tmpdir(), entry)
+      try {
+        if (statSync(dir).mtimeMs < cutoff) rmSync(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 })
+      } catch {
+        /* 目录可能正被其它进程占用，跳过 */
+      }
+    }
+  } catch {
+    /* 读不到临时目录不影响导出 */
+  }
+}
+
 /**
- * 启动无头浏览器：每次尝试使用独立的临时 profile，启动失败自动清理并重试（最多 3 次）。
- * dispose 带超时：close 卡住时强杀进程，并清理 profile，不留孤儿进程。
+ * 启动无头浏览器：**自己 spawn Chromium，读 DevToolsActivePort 拿调试端点，再用 puppeteer.connect 接入**。
+ *
+ * 为什么不直接用 puppeteer.launch：它靠等 Chromium 往 stdout 打印 `DevTools listening on ws://…`
+ * 来判断启动成功（@puppeteer/browsers launch.js 的 CDP_WEBSOCKET_ENDPOINT_REGEX）。在天枢宿主进程内
+ * 该行拿不到，于是 Chromium 明明已启动（profile 里写下了 DevToolsActivePort）却抛出
+ * `Failed to launch the browser process: Code: 0` 且 stderr 为空。
+ * 走 DevToolsActivePort 则不依赖任何 stdout 文本。
+ *
+ * 每次尝试使用独立临时 profile，失败自动强杀进程树并清理，最多重试 3 次。
  */
 async function launchBrowser(exe: string): Promise<{ browser: Browser; dispose: () => Promise<void> }> {
   const puppeteer = (await import('puppeteer-core')).default
   let lastErr: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
     const userDataDir = mkdtempSync(join(tmpdir(), 'tsc-png-'))
+    const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, 'about:blank'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      detached: process.platform !== 'win32',
+    })
     try {
-      const browser = await puppeteer.launch({
-        executablePath: exe,
-        headless: true,
-        userDataDir,
-        timeout: 60000,
+      const wsEndpoint = await readDevToolsEndpoint(userDataDir, proc, 60000)
+      const browser = await puppeteer.connect({
+        browserWSEndpoint: wsEndpoint,
         protocolTimeout: 120000,
-        args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-extensions'],
+        defaultViewport: null,
       })
       const dispose = async (): Promise<void> => {
-        const proc = browser.process()
         await Promise.race([browser.close().catch(() => {}), new Promise<void>((r) => setTimeout(r, 10000))])
-        if (proc && proc.exitCode === null) proc.kill('SIGKILL')
-        try {
-          rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
-        } catch {
-          /* 进程刚退出时文件可能仍被占用，忽略 */
-        }
+        killTree(proc)
+        await new Promise<void>((r) => setTimeout(r, 500))
+        removeProfile(userDataDir)
       }
       return { browser, dispose }
     } catch (err) {
       lastErr = err
-      try {
-        rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
-      } catch {
-        /* 忽略 */
-      }
+      killTree(proc)
+      await new Promise<void>((r) => setTimeout(r, 500))
+      removeProfile(userDataDir)
       await new Promise<void>((r) => setTimeout(r, 1000 * (attempt + 1)))
     }
   }
@@ -110,6 +201,7 @@ async function exportPngOnce(cwd: string): Promise<ExportFile> {
     )
   }
   const { url } = await ensureServer(cwd)
+  cleanStaleProfiles()
   const { browser, dispose } = await launchBrowser(exe)
   try {
     const page = await browser.newPage()
