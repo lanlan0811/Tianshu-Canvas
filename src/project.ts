@@ -213,14 +213,14 @@ function isEdge(e: unknown): e is Edge {
   return typeof o.id === 'string' && typeof o.source === 'string' && typeof o.target === 'string'
 }
 
-function writeProjectAtomic(cwd: string, project: Project): void {
+function writeProjectAtomic(cwd: string, project: Project, notify = true): void {
   mkdirSync(pagesDir(cwd), { recursive: true })
   backupDamagedProject(cwd)
   const file = projectFile(cwd)
   const tmp = file + '.tmp'
   writeFileSync(tmp, JSON.stringify(project, null, 2) + '\n', 'utf8')
   renameSync(tmp, file)
-  projectEvents.emit('change', { cwd })
+  if (notify) projectEvents.emit('change', { cwd })
 }
 
 export function writeProject(cwd: string, project: Project): void {
@@ -279,7 +279,8 @@ export function setViewport(cwd: string, viewport: Viewport): Project {
   // 平移画布不是用户的写入意图，不能因此备份并改写有问题的项目文件。
   if (problem || dropped > 0) return project
   project.viewport = normalizeViewport(viewport)
-  writeProjectAtomic(cwd, project)
+  // 视口就来自浏览器本身，不需要广播；广播会让画布全量重载节点。
+  writeProjectAtomic(cwd, project, false)
   return project
 }
 

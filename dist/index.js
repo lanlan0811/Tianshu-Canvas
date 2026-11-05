@@ -294,14 +294,14 @@ function isEdge(e) {
   const o = e;
   return typeof o.id === "string" && typeof o.source === "string" && typeof o.target === "string";
 }
-function writeProjectAtomic(cwd, project) {
+function writeProjectAtomic(cwd, project, notify = true) {
   mkdirSync(pagesDir(cwd), { recursive: true });
   backupDamagedProject(cwd);
   const file = projectFile(cwd);
   const tmp = file + ".tmp";
   writeFileSync(tmp, JSON.stringify(project, null, 2) + "\n", "utf8");
   renameSync(tmp, file);
-  projectEvents.emit("change", { cwd });
+  if (notify) projectEvents.emit("change", { cwd });
 }
 function writeProject(cwd, project) {
   writeProjectAtomic(cwd, project);
@@ -348,7 +348,7 @@ function setViewport(cwd, viewport) {
   const { project, problem, dropped } = inspectProject(cwd);
   if (problem || dropped > 0) return project;
   project.viewport = normalizeViewport(viewport);
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, false);
   return project;
 }
 function nextLayoutIndex(cwd) {
@@ -1260,6 +1260,8 @@ var LAUNCH_ARGS = [
   "--disable-breakpad",
   "--disable-crash-reporter"
 ];
+var BrowserSpawnError = class extends Error {
+};
 async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
   const portFile = join4(userDataDir, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
@@ -1271,7 +1273,12 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
   proc.once("exit", (code) => {
     exitCode = code;
   });
+  let spawnError = null;
+  proc.on("error", (err) => {
+    spawnError = err;
+  });
   while (Date.now() < deadline) {
+    if (spawnError) throw new BrowserSpawnError(`\u65E0\u6CD5\u542F\u52A8\u6D4F\u89C8\u5668 ${proc.spawnfile}\uFF1A${spawnError.message}`);
     if (exitCode !== null) {
       throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
     }
@@ -1289,7 +1296,8 @@ function killTree(proc) {
   if (proc.exitCode !== null || !proc.pid) return;
   try {
     if (process.platform === "win32") {
-      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => {
+      });
     } else {
       process.kill(-proc.pid, "SIGKILL");
     }
@@ -1347,6 +1355,7 @@ async function launchBrowser(exe) {
       killTree(proc);
       await new Promise((r) => setTimeout(r, 500));
       removeProfile(userDataDir);
+      if (err instanceof BrowserSpawnError) break;
       await new Promise((r) => setTimeout(r, 1e3 * (attempt + 1)));
     }
   }
@@ -1527,19 +1536,24 @@ function findBlockedResources(html) {
 var MAX_FINDINGS = 40;
 var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
 var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
-var FUNC_COLOR = /\b(?:rgb|rgba|hsl|hsla)\([^)]*\)/gi;
+var FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi;
+var COLOR_PROP = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline))*(?:-color)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)$/;
+var NAMED_COLORS = new Set(
+  "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen".split(" ")
+);
+var CSS_WORD = /(?<![\w-])[a-z]+(?![\w-])/gi;
 var VAR_REF = /var\(\s*(--ts-[A-Za-z0-9-]+)\s*\)/g;
 var CLASS_ATTR = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 var DATA_ICON = /data-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 var EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi;
-var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left))?$/;
+var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/;
 var RADIUS_PROP = /^border(?:-[a-z]+)*-radius$/;
 var FONT_PROP = /^font-family$/;
 function mask(text) {
   return text.replace(/[^\n]/g, " ");
 }
 function maskBalanced(text, pattern) {
-  const out = [...text];
+  const out = text.split("");
   pattern.lastIndex = 0;
   for (const match of text.matchAll(pattern)) {
     const start = match.index ?? 0;
@@ -1557,9 +1571,9 @@ function styleSegments(maskedHtml) {
   for (const match of maskedHtml.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
     const inner = match[1] ?? "";
     const start = (match.index ?? 0) + match[0].indexOf(inner);
-    segments.push({ start, text: inner });
+    segments.push({ start, text: inner.replace(/\/\*[\s\S]*?\*\//g, mask) });
   }
-  for (const match of maskedHtml.matchAll(/style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+  for (const match of maskedHtml.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
     const inner = match[1] ?? match[2] ?? "";
     const start = (match.index ?? 0) + match[0].indexOf(inner);
     segments.push({ start, text: inner });
@@ -1576,8 +1590,9 @@ function declarations(text) {
     const colon = body.indexOf(":");
     if (colon > 0) {
       const prop = body.slice(0, colon).trim().toLowerCase();
-      const value = body.slice(colon + 1).replace(/\}+\s*$/, "").trim();
-      if (prop && value) out.push({ prop, value, offset: start + colon + 1 });
+      const raw = body.slice(colon + 1);
+      const value = raw.replace(/\}+\s*$/, "").trim();
+      if (prop && value) out.push({ prop, value, raw, offset: start + colon + 1 });
     }
   };
   for (let i = 0; i < text.length; i++) {
@@ -1654,7 +1669,7 @@ function lintHtml(html, styleId) {
   }
   const style = styleId ? resolveDesignStyle(styleId) : null;
   if (!style) {
-    return { styleId, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
+    return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
   }
   const manifest = style.manifest;
   const varSet = new Set(manifest.vars);
@@ -1680,26 +1695,36 @@ function lintHtml(html, styleId) {
         continue;
       }
       if (RADIUS_PROP.test(decl.prop)) {
-        const px = pxValue(decl.value);
-        if (px !== null && !radius.has(px) && px !== 0 && !/calc\(|var\(|%/.test(decl.value)) {
-          add("radius", offset, `\u5706\u89D2 ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("radius", px, manifest)}`);
+        for (const px of pxValues(decl.value)) {
+          if (px !== 0 && !radius.has(px)) {
+            add("radius", offset, `\u5706\u89D2 ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("radius", px, manifest)}`);
+          }
         }
         continue;
       }
       if (SPACING_PROPS.test(decl.prop)) {
-        const px = pxValue(decl.value);
-        if (px !== null && !spacing.has(px) && px !== 0 && px !== 1 && !/calc\(|var\(|%|em\b|rem\b|auto/.test(decl.value)) {
-          add("spacing", offset, `\u95F4\u8DDD ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("space", px, manifest)}`);
+        for (const px of pxValues(decl.value)) {
+          if (px !== 0 && px !== 1 && !spacing.has(px)) {
+            add("spacing", offset, `\u95F4\u8DDD ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("space", px, manifest)}`);
+          }
         }
       }
     }
   }
   for (const segment of styleSegments(masked)) {
-    for (const match of segment.text.matchAll(HEX_COLOR)) {
-      add("color", segment.start + (match.index ?? 0), `\u88F8\u8272\u503C ${match[0]}\uFF0C\u6539\u7528 var(--ts-color-*)`);
-    }
-    for (const match of segment.text.matchAll(FUNC_COLOR)) {
-      add("color", segment.start + (match.index ?? 0), `\u88F8\u8272\u503C ${match[0]}\uFF0C\u6539\u7528 var(--ts-color-*)`);
+    for (const decl of declarations(segment.text)) {
+      const offset = segment.start + decl.offset;
+      const reportColor = (index2, color) => add("color", offset + index2, `\u88F8\u8272\u503C ${color}\uFF0C\u6539\u7528 var(--ts-color-*)`);
+      for (const match of decl.raw.matchAll(HEX_COLOR)) reportColor(match.index ?? 0, match[0]);
+      for (const match of decl.raw.matchAll(FUNC_COLOR)) {
+        if (!match[0].includes("var(")) reportColor(match.index ?? 0, match[0]);
+      }
+      if (COLOR_PROP.test(decl.prop)) {
+        const words = decl.raw.replace(/var\([^)]*\)/gi, mask);
+        for (const match of words.matchAll(CSS_WORD)) {
+          if (NAMED_COLORS.has(match[0].toLowerCase())) reportColor(match.index ?? 0, match[0]);
+        }
+      }
     }
   }
   for (const match of masked.matchAll(DATA_ICON)) {
@@ -1721,9 +1746,12 @@ function lintHtml(html, styleId) {
   findings.sort((a, b) => a.line - b.line);
   return { styleId, findings, counts, truncated: total > MAX_FINDINGS, total };
 }
-function pxValue(value) {
-  const match = /^(-?\d+(?:\.\d+)?)px$/.exec(value.trim());
-  return match ? Number(match[1]) : null;
+function pxValues(value) {
+  if (/calc\(/i.test(value)) return [];
+  const literal = value.replace(/var\([^)]*\)/gi, " ");
+  const found = /* @__PURE__ */ new Set();
+  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
+  return [...found];
 }
 function formatLintReport(report, label) {
   const styleName = report.styleId ? designStyleSummary(report.styleId)?.name ?? report.styleId : null;
@@ -1791,6 +1819,9 @@ function openBrowser(url) {
     const cmd = process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
     const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
     const child = spawn2(cmd, args, { detached: true, stdio: "ignore" });
+    child.on("error", (err) => {
+      console.error(`[tianshu-canvas] \u65E0\u6CD5\u6253\u5F00\u7CFB\u7EDF\u6D4F\u89C8\u5668\uFF1A${err.message}`);
+    });
     child.unref();
   } catch {
   }
@@ -2107,6 +2138,7 @@ async function canvasStyle(call) {
           content: "\u5F53\u524D\u672A\u9501\u5B9A\u98CE\u683C\uFF08\u81EA\u7531\u53D1\u6325\uFF09\u3002\u5148\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\uFF0C\u518D\u7528 action=set \u9501\u5B9A\u3002"
         };
       }
+      if (!designStyleExists(styleId)) return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`, isError: true };
       return { content: formatStyleBrief(styleId) };
     }
     if (action === "set") {
@@ -2148,7 +2180,10 @@ async function canvasStyle(call) {
 async function canvasCheckStyle(call) {
   const inlineHtml = str(call.args.html);
   const override = str(call.args.style_id);
-  const styleId = override ?? currentStyleId(call.cwd);
+  if (override && override !== "free" && !designStyleExists(override)) {
+    return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${override}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`, isError: true };
+  }
+  const styleId = override === "free" ? null : override ?? currentStyleId(call.cwd);
   if (inlineHtml !== void 0) {
     const report = lintHtml(inlineHtml, styleId);
     return { content: formatLintReport(report, "\u76F4\u63A5\u68C0\u67E5\u4F20\u5165\u7684 HTML") };
@@ -2324,8 +2359,8 @@ var tools = [
           html: { type: "string", description: "\u76F4\u63A5\u68C0\u67E5\u4E00\u6BB5 HTML\uFF08\u4F18\u5148\u4E8E page_id\uFF09\uFF0C\u7528\u4E8E\u5199\u5165\u524D\u81EA\u67E5" },
           style_id: {
             type: "string",
-            ...designStyleIds().length ? { enum: designStyleIds() } : {},
-            description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C"
+            ...designStyleIds().length ? { enum: [...designStyleIds(), "free"] } : {},
+            description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF1Bfree \u8868\u793A\u53EA\u68C0\u67E5\u8D44\u6E90\u5F15\u7528"
           }
         },
         required: []

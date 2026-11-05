@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
-import { designStyleIds, designStyleSummary, injectDesign, loadDesignCatalog, resolveDesignStyle } from './design.js'
+import { designStyleExists, designStyleIds, designStyleSummary, injectDesign, loadDesignCatalog, resolveDesignStyle } from './design.js'
 import { applyProjectStyle, currentStyleId, templateDocument } from './designOps.js'
 import { runExport, type ExportFile, type ExportKind } from './export.js'
 import { isSafeId, newPageId } from './ids.js'
@@ -125,6 +125,10 @@ function openBrowser(url: string): void {
     const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open'
     const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url]
     const child = spawn(cmd, args, { detached: true, stdio: 'ignore' })
+    // 命令不存在时走异步 error 事件，外层 try/catch 接不住，不监听会打垮宿主。
+    child.on('error', (err) => {
+      console.error(`[tianshu-canvas] 无法打开系统浏览器：${err.message}`)
+    })
     child.unref()
   } catch {
     /* best-effort */
@@ -492,6 +496,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
             '当前未锁定风格（自由发挥）。先用 canvas_style（action=list）查看可选风格，再用 action=set 锁定。',
         }
       }
+      if (!designStyleExists(styleId)) return { content: `未知的设计风格：${styleId}`, isError: true }
       return { content: formatStyleBrief(styleId) }
     }
 
@@ -542,7 +547,10 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
 async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   const inlineHtml = str(call.args.html)
   const override = str(call.args.style_id)
-  const styleId = override ?? currentStyleId(call.cwd)
+  if (override && override !== 'free' && !designStyleExists(override)) {
+    return { content: `未知的设计风格：${override}。可用 canvas_style（action=list）查看可选风格。`, isError: true }
+  }
+  const styleId = override === 'free' ? null : (override ?? currentStyleId(call.cwd))
 
   if (inlineHtml !== undefined) {
     const report = lintHtml(inlineHtml, styleId)
@@ -739,8 +747,8 @@ export const tools: TpiTool[] = [
           html: { type: 'string', description: '直接检查一段 HTML（优先于 page_id），用于写入前自查' },
           style_id: {
             type: 'string',
-            ...(designStyleIds().length ? { enum: designStyleIds() } : {}),
-            description: '覆盖当前锁定的风格',
+            ...(designStyleIds().length ? { enum: [...designStyleIds(), 'free'] } : {}),
+            description: '覆盖当前锁定的风格；free 表示只检查资源引用',
           },
         },
         required: [],

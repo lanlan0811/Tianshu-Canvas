@@ -79,6 +79,9 @@ const LAUNCH_ARGS = [
   '--disable-crash-reporter',
 ]
 
+/** 浏览器程序本身无法启动（路径错误、不可执行），重试没有意义。 */
+class BrowserSpawnError extends Error {}
+
 /** 等待 DevToolsActivePort 出现并读出 `端口 + ws 路径`（Chromium 成功绑定调试端口后才会写此文件）。 */
 async function readDevToolsEndpoint(userDataDir: string, proc: ChildProcess, timeoutMs: number): Promise<string> {
   const portFile = join(userDataDir, 'DevToolsActivePort')
@@ -91,7 +94,13 @@ async function readDevToolsEndpoint(userDataDir: string, proc: ChildProcess, tim
   proc.once('exit', (code) => {
     exitCode = code
   })
+  // 启动失败只触发 error、不触发 exit；不监听会变成未捕获异常打垮宿主。
+  let spawnError: Error | null = null
+  proc.on('error', (err) => {
+    spawnError = err
+  })
   while (Date.now() < deadline) {
+    if (spawnError) throw new BrowserSpawnError(`无法启动浏览器 ${proc.spawnfile}：${(spawnError as Error).message}`)
     if (exitCode !== null) {
       throw new Error(`浏览器进程已退出（exit code ${exitCode}）${stderr ? `：${stderr.trim()}` : ''}`)
     }
@@ -111,7 +120,9 @@ function killTree(proc: ChildProcess): void {
   if (proc.exitCode !== null || !proc.pid) return
   try {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+      spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }).on('error', () => {
+        /* 系统里没有 taskkill 时无法强杀，不影响后续清理 */
+      })
     } else {
       process.kill(-proc.pid, 'SIGKILL')
     }
@@ -187,6 +198,7 @@ async function launchBrowser(exe: string): Promise<{ browser: Browser; dispose: 
       killTree(proc)
       await new Promise<void>((r) => setTimeout(r, 500))
       removeProfile(userDataDir)
+      if (err instanceof BrowserSpawnError) break
       await new Promise<void>((r) => setTimeout(r, 1000 * (attempt + 1)))
     }
   }

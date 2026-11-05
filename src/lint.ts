@@ -3,6 +3,9 @@
  *
  * 服务端没有 DOM，因此用「等长掩码 + 正则」做轻量解析：把脚本、注释、注入块、
  * url(...) 与 data: 值替换成等长空白，保证报告里的行号与原文件一致。
+ *
+ * 已知限制：font 简写里的字体族不检查；颜色只在声明的值里查，
+ * 其中命名色只查 color/background/border 等颜色相关属性。
  */
 import { findBlockedResources } from './resources.js'
 import { designStyleSummary, resolveDesignStyle, type DesignManifest } from './design.js'
@@ -29,13 +32,32 @@ const MAX_FINDINGS = 40
 const RULES: LintRule[] = ['color', 'font', 'spacing', 'radius', 'icon', 'component', 'token', 'resource']
 
 const HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g
-const FUNC_COLOR = /\b(?:rgb|rgba|hsl|hsla)\([^)]*\)/gi
+const FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi
+const COLOR_PROP = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline))*(?:-color)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)$/
+/** CSS 命名色（不含 transparent、currentColor 这类不属于裸色值的关键字）。 */
+const NAMED_COLORS = new Set(
+  (
+    'aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue ' +
+    'chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey ' +
+    'darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray ' +
+    'darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen ' +
+    'fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender ' +
+    'lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey ' +
+    'lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen ' +
+    'magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen ' +
+    'mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange ' +
+    'orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple ' +
+    'rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray ' +
+    'slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen'
+  ).split(' '),
+)
+const CSS_WORD = /(?<![\w-])[a-z]+(?![\w-])/gi
 const VAR_REF = /var\(\s*(--ts-[A-Za-z0-9-]+)\s*\)/g
 const CLASS_ATTR = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g
 const DATA_ICON = /data-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/g
 const EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi
 
-const SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left))?$/
+const SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/
 const RADIUS_PROP = /^border(?:-[a-z]+)*-radius$/
 const FONT_PROP = /^font-family$/
 
@@ -44,7 +66,8 @@ function mask(text: string): string {
 }
 
 function maskBalanced(text: string, pattern: RegExp): string {
-  const out = [...text]
+  // 按 UTF-16 单元拆分，才能和 matchAll 的下标对应；展开运算符按码点拆，遇到 emoji 会错位。
+  const out = text.split('')
   pattern.lastIndex = 0
   for (const match of text.matchAll(pattern)) {
     const start = match.index ?? 0
@@ -71,9 +94,10 @@ function styleSegments(maskedHtml: string): Segment[] {
   for (const match of maskedHtml.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
     const inner = match[1] ?? ''
     const start = (match.index ?? 0) + match[0].indexOf(inner)
-    segments.push({ start, text: inner })
+    segments.push({ start, text: inner.replace(/\/\*[\s\S]*?\*\//g, mask) })
   }
-  for (const match of maskedHtml.matchAll(/style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+  // 前面不能紧贴单词字符或连字符，否则 data-style 也会被当成样式。
+  for (const match of maskedHtml.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
     const inner = match[1] ?? match[2] ?? ''
     const start = (match.index ?? 0) + match[0].indexOf(inner)
     segments.push({ start, text: inner })
@@ -82,8 +106,8 @@ function styleSegments(maskedHtml: string): Segment[] {
 }
 
 /** 把 CSS 文本按 ; 切成声明，跳过括号与引号内部的 ;；遇到 { 进入规则体、遇到 } 结束当前声明。 */
-function declarations(text: string): Array<{ prop: string; value: string; offset: number }> {
-  const out: Array<{ prop: string; value: string; offset: number }> = []
+function declarations(text: string): Array<{ prop: string; value: string; raw: string; offset: number }> {
+  const out: Array<{ prop: string; value: string; raw: string; offset: number }> = []
   let depth = 0
   let quote = ''
   let start = 0
@@ -92,8 +116,9 @@ function declarations(text: string): Array<{ prop: string; value: string; offset
     const colon = body.indexOf(':')
     if (colon > 0) {
       const prop = body.slice(0, colon).trim().toLowerCase()
-      const value = body.slice(colon + 1).replace(/\}+\s*$/, '').trim()
-      if (prop && value) out.push({ prop, value, offset: start + colon + 1 })
+      const raw = body.slice(colon + 1)
+      const value = raw.replace(/\}+\s*$/, '').trim()
+      if (prop && value) out.push({ prop, value, raw, offset: start + colon + 1 })
     }
   }
   for (let i = 0; i < text.length; i++) {
@@ -187,7 +212,8 @@ export function lintHtml(html: string, styleId: string | null): LintReport {
 
   const style = styleId ? resolveDesignStyle(styleId) : null
   if (!style) {
-    return { styleId, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource }
+    // 风格不可用时只查了资源，报告里不能显示成按某个风格检查过。
+    return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource }
   }
 
   const manifest = style.manifest
@@ -223,28 +249,40 @@ export function lintHtml(html: string, styleId: string | null): LintReport {
         continue
       }
       if (RADIUS_PROP.test(decl.prop)) {
-        const px = pxValue(decl.value)
-        if (px !== null && !radius.has(px) && px !== 0 && !/calc\(|var\(|%/.test(decl.value)) {
-          add('radius', offset, `圆角 ${px}px 不在尺度上，最近：${nearestTokenHint('radius', px, manifest)}`)
+        for (const px of pxValues(decl.value)) {
+          if (px !== 0 && !radius.has(px)) {
+            add('radius', offset, `圆角 ${px}px 不在尺度上，最近：${nearestTokenHint('radius', px, manifest)}`)
+          }
         }
         continue
       }
       if (SPACING_PROPS.test(decl.prop)) {
-        const px = pxValue(decl.value)
-        if (px !== null && !spacing.has(px) && px !== 0 && px !== 1 && !/calc\(|var\(|%|em\b|rem\b|auto/.test(decl.value)) {
-          add('spacing', offset, `间距 ${px}px 不在尺度上，最近：${nearestTokenHint('space', px, manifest)}`)
+        for (const px of pxValues(decl.value)) {
+          if (px !== 0 && px !== 1 && !spacing.has(px)) {
+            add('spacing', offset, `间距 ${px}px 不在尺度上，最近：${nearestTokenHint('space', px, manifest)}`)
+          }
         }
       }
     }
   }
 
-  // 3) 裸色值（只查 CSS 片段，避免误报 SVG 属性里的 brand 色）
+  // 3) 裸色值：只查声明的值。整段匹配会把 #face 这样的 id 选择器也当成颜色。
   for (const segment of styleSegments(masked)) {
-    for (const match of segment.text.matchAll(HEX_COLOR)) {
-      add('color', segment.start + (match.index ?? 0), `裸色值 ${match[0]}，改用 var(--ts-color-*)`)
-    }
-    for (const match of segment.text.matchAll(FUNC_COLOR)) {
-      add('color', segment.start + (match.index ?? 0), `裸色值 ${match[0]}，改用 var(--ts-color-*)`)
+    for (const decl of declarations(segment.text)) {
+      const offset = segment.start + decl.offset
+      const reportColor = (index: number, color: string): void =>
+        add('color', offset + index, `裸色值 ${color}，改用 var(--ts-color-*)`)
+      for (const match of decl.raw.matchAll(HEX_COLOR)) reportColor(match.index ?? 0, match[0])
+      for (const match of decl.raw.matchAll(FUNC_COLOR)) {
+        if (!match[0].includes('var(')) reportColor(match.index ?? 0, match[0])
+      }
+      if (COLOR_PROP.test(decl.prop)) {
+        // var() 里的名字（如 --ts-color-red）不是颜色；等长替换以保持下标。
+        const words = decl.raw.replace(/var\([^)]*\)/gi, mask)
+        for (const match of words.matchAll(CSS_WORD)) {
+          if (NAMED_COLORS.has(match[0].toLowerCase())) reportColor(match.index ?? 0, match[0])
+        }
+      }
     }
   }
 
@@ -272,9 +310,13 @@ export function lintHtml(html: string, styleId: string | null): LintReport {
   return { styleId, findings, counts, truncated: total > MAX_FINDINGS, total }
 }
 
-function pxValue(value: string): number | null {
-  const match = /^(-?\d+(?:\.\d+)?)px$/.exec(value.trim())
-  return match ? Number(match[1]) : null
+/** 取出值里的每个像素长度（负值取绝对值）；calc() 无法静态判断，var() 不属于字面量。 */
+function pxValues(value: string): number[] {
+  if (/calc\(/i.test(value)) return []
+  const literal = value.replace(/var\([^)]*\)/gi, ' ')
+  const found = new Set<number>()
+  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]))
+  return [...found]
 }
 
 export function formatLintReport(report: LintReport, label: string): string {

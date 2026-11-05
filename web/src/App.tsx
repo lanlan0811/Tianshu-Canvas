@@ -14,6 +14,7 @@ import {
   type Connection,
   type Edge,
   type NodeChange,
+  type Viewport,
 } from '@xyflow/react'
 import { canvasConfig } from './canvasConfig'
 import { nodeTypes, type PageFlowNode } from './PageNode'
@@ -61,21 +62,45 @@ const defaultEdgeOptions = {
 /** .page-node 上下边框之和：节点高度要多出这一点，iframe 视口才等于内容高度。 */
 const NODE_BORDER = 2
 
-function toFlowNodes(project: ApiProject, contentHeights: Map<string, number>): PageFlowNode[] {
-  return project.nodes.map((n) => ({
-    id: n.id,
-    type: 'page',
-    position: { x: n.x, y: n.y },
-    data: {
-      title: n.title,
-      width: n.width,
-      height: n.height,
-      deviceType: n.deviceType,
-      ws,
-      rev: n.htmlRev,
-      contentHeight: contentHeights.get(n.id),
-    },
-  }))
+function toFlowNodes(
+  project: ApiProject,
+  contentHeights: Map<string, number>,
+  previous: PageFlowNode[],
+): PageFlowNode[] {
+  const byId = new Map(previous.map((n) => [n.id, n]))
+  return project.nodes.map((n) => {
+    const prev = byId.get(n.id)
+    return {
+      // 项目刷新只更新服务端数据；选中、置顶、尺寸测量等客户端状态要保留。
+      ...prev,
+      id: n.id,
+      type: 'page' as const,
+      // 正在拖拽的节点以本地位置为准，否则会被刷新拉回去。
+      position: prev?.dragging ? prev.position : { x: n.x, y: n.y },
+      data: {
+        title: n.title,
+        width: n.width,
+        height: n.height,
+        deviceType: n.deviceType,
+        ws,
+        rev: n.htmlRev,
+        contentHeight: contentHeights.get(n.id),
+        elementSelected: prev?.data.elementSelected,
+      },
+    }
+  })
+}
+
+/** 可以恢复的视口：从未保存过、导出模式或看不到任何节点时返回 null，交给适应视图。 */
+function restorableViewport(project: ApiProject): Viewport | null {
+  const { x, y, zoom } = project.viewport
+  if (exporting || (x === 0 && y === 0 && zoom === 1)) return null
+  const visible = project.nodes.some((n) => {
+    const left = n.x * zoom + x
+    const top = n.y * zoom + y
+    return left < window.innerWidth && left + n.width * zoom > 0 && top < window.innerHeight && top + n.height * zoom > 0
+  })
+  return visible ? { x, y, zoom } : null
 }
 
 function toFlowEdges(project: ApiProject): Edge[] {
@@ -86,6 +111,8 @@ function Canvas() {
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<PageFlowNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [ready, setReady] = useState(false)
+  // 首次拉到项目后才知道怎么定位：undefined=加载中，null=适应视图。
+  const [initialViewport, setInitialViewport] = useState<Viewport | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [selection, setSelection] = useState<ApiSelection | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -103,13 +130,15 @@ function Canvas() {
   const loadProject = useCallback(async () => {
     try {
       const project = await fetchProject(ws)
-      setNodes(toFlowNodes(project, contentHeights.current))
+      setNodes((prev) => toFlowNodes(project, contentHeights.current, prev))
+      setInitialViewport((current) => (current === undefined ? restorableViewport(project) : current))
       setEdges(toFlowEdges(project))
       setDesign(project.design ?? null)
       setReady(true)
       setError(project.issue ?? null)
     } catch (err) {
       setError((err as Error).message)
+      setInitialViewport((current) => (current === undefined ? null : current))
       setReady(true)
     }
   }, [setNodes, setEdges])
@@ -172,13 +201,14 @@ function Canvas() {
     },
     onWheel: (_pageId, e) => {
       const vp = getViewport()
+      let next = { ...vp, x: vp.x - e.deltaX, y: vp.y - e.deltaY }
       if (e.ctrlKey || e.metaKey) {
         const factor = Math.exp(-e.deltaY / 500)
-        const zoom = Math.min(5, Math.max(0.1, vp.zoom * factor))
-        void setViewport({ ...vp, zoom })
-      } else {
-        void setViewport({ ...vp, x: vp.x - e.deltaX, y: vp.y - e.deltaY })
+        next = { ...vp, zoom: Math.min(5, Math.max(0.1, vp.zoom * factor)) }
       }
+      void setViewport(next)
+      // 程序设置视口时 onMove 没有事件对象，不会保存，这里补上。
+      if (!exporting) postViewport(ws, next)
     },
   })
 
@@ -218,7 +248,7 @@ function Canvas() {
     setMenu({ kind: 'pane', x: e.clientX, y: e.clientY })
   }, [])
 
-  // 置顶：客户端 zIndex，不持久化（重载/SSE 刷新后复位）
+  // 置顶：客户端 zIndex，不持久化（刷新页面后复位）
   const bringToFront = useCallback(
     (id: string) => {
       setNodes((nds) => {
@@ -319,6 +349,7 @@ function Canvas() {
   useEffect(() => {
     if (!ws) {
       setError('缺少 ws 参数：请通过 canvas_open 返回的 URL 打开本页。')
+      setInitialViewport(null)
       setReady(true)
       return
     }
@@ -332,8 +363,9 @@ function Canvas() {
   }, [loadProject, loadSelection])
 
   const onMove = useCallback(
-    (_evt: unknown, viewport: { x: number; y: number; zoom: number }) => {
-      if (ws && !exporting) postViewport(ws, viewport)
+    (evt: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      // 只保存用户操作。初次适应视图等程序调用没有事件对象，保存了会盖掉真正的视口。
+      if (evt && ws && !exporting) postViewport(ws, viewport)
     },
     [],
   )
@@ -356,6 +388,7 @@ function Canvas() {
       <div className={`app${exporting ? ' app--exporting' : ''}`}>
         <GridLayer />
         <SketchDefs />
+        {initialViewport !== undefined && (
         <ReactFlow<PageFlowNode, Edge>
           {...canvasConfig}
           nodes={nodes}
@@ -371,7 +404,8 @@ function Canvas() {
           edgeTypes={edgeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           onMove={onMove}
-          fitView
+          defaultViewport={initialViewport ?? undefined}
+          fitView={initialViewport === null}
           fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
         >
           <MiniMap
@@ -387,6 +421,7 @@ function Canvas() {
             nodeBorderRadius={3}
           />
         </ReactFlow>
+        )}
         {showIdle && <EmptyState />}
         {error && <div className="app-error">{error}</div>}
         {!exporting && (
