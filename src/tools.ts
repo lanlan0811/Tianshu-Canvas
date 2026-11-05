@@ -102,9 +102,10 @@ async function canvasOpen(call: ToolCall): Promise<ToolResult> {
   if (call.args.open === true) openBrowser(url)
   return {
     content:
-      `画布服务已就绪。\n` +
-      `画布 URL：${url}\n` +
-      `在浏览器打开上面的 URL 即可看到无限画布。\n` +
+      `画布服务已就绪。请立刻把下面这一行原样发给用户（单独一行，便于点击）：\n` +
+      `${url}\n` +
+      `在用户拿到链接后，先确认设计风格（canvas_get_state 看「设计风格」段；若为「自由发挥」且用户没指定过风格，\n` +
+      `用 canvas_style（action=list）把风格名作为选项问用户一次并等回答），再开始写原型。\n` +
       `工作区：${call.cwd}\n` +
       `项目文件：${projectFile(call.cwd)}\n` +
       `操作提示：空格+拖拽 或 中键拖拽 平移；Ctrl+滚轮 缩放；普通滚轮 平移。`,

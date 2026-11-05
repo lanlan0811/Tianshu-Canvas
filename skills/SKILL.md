@@ -16,29 +16,41 @@ triggers:
 把前端设计原型放到一块可平移缩放的**无限画布**上。画布在浏览器中打开（本地服务），
 每个原型是一个画布节点，节点内以 iframe 渲染真实 HTML。
 
-## 执行顺序（必须遵守）
+## 执行顺序（严格按序，不得跳步）
 
-> **必须先启动画布并把链接给用户，再开始做原型设计。**
+> **顺序是硬约束**：① 先把画布链接给用户 → ② 再确认设计风格 → ③ 最后才写原型。
+> 跳步的后果：用户看不到画布，或者看到一套他从未选过的风格。
 
-1. **第一步永远是 `canvas_open`**：启动/复用画布服务，拿到画布 URL，
-   **立刻把 URL 明确地发给用户**（单独一行，便于点击）。
-   在用户拿到链接之前，**不要**开始写原型、也不要调用 `canvas_upsert_page`。
-2. 用户拿到链接后，再生成原型 → 写入画布。
+**第 1 步 · `canvas_open`**：启动/复用画布服务，拿到画布 URL。
+把 URL **单独一行**发给用户，让他用浏览器打开。
 
-**禁止**：跳过 `canvas_open` 直接生成原型或 `canvas_upsert_page`——那样用户看不到画布。
+**第 2 步 · 确认设计风格**：先 `canvas_get_state`，看「设计风格」段。
+
+- 已锁定 → 直接用，进第 3 步。
+- **自由发挥**，且用户**没有**在需求里给出风格 / 参考产品 / 品牌色 → 调 `canvas_style`（action=list），
+  把返回的风格名作为选项**问用户一次**，然后**停下来等回答**：
+
+  > 这次用哪种风格？A 苹果风　B 谷歌风　C Claude 风　D 天枢原创　E 自由发挥
+
+  用户答 A–D → `canvas_style`（action=set，style_id 依次为 apple / google / claude / tianshu-original）；
+  答 E 或「你决定」→ 保持自由发挥，**不要** set。
+- 用户已在需求里给出风格 / 参考产品 / 品牌色 → **不要问**；能对应到四大风格时先 `canvas_style set`，否则保持自由发挥。
+
+**第 3 步 · 生成并写入原型**：按第 2 步确定的风格写页面，`canvas_upsert_page` 每页一次。
+
+**第 4 步 · 自查**：`canvas_check_style`，修掉命中项后再交付。
+
+### 禁止（违反即为流程错误）
+
+- 在把画布 URL 发给用户之前，生成原型、调用 `canvas_upsert_page`、或开始查风格 / 模板。
+- **在用户选定风格之前**，调用 `canvas_style` 的 `set` / `get` / `template`（此时只允许 `action=list`），
+  或自行替用户挑一套风格——**即使你觉得某套「更合适」，也必须先问**。
+- 问完不停下来：把风格选项抛给用户后，必须等回答再继续，不得同时往下写页面。
 
 ## 设计风格（项目级）
 
-生成原型前先看 `canvas_get_state` 的「设计风格」段：
-
-- **已锁定** → 必须用该风格的 token 与组件类写页面，不要另造配色 / 字体。
-- **自由发挥** 且用户**没有**指定风格 → 先 `canvas_style`（action=list），把返回的风格名作为选项**问用户一次**：
-  「这次用哪种风格？A 苹果风　B 谷歌风　C Claude 风　D 天枢原创　E 自由发挥」
-  用户选 A–D 后调用 `canvas_style`（action=set，style_id 分别为 apple / google / claude / tianshu-original）；
-  选 E 或「你决定」→ 保持自由发挥，不要锁定。
-- 用户已在需求里给出风格、参考产品、品牌色或设计规范 → **不要问**；能对应到四大风格时先 `canvas_style set`，否则保持自由发挥。
-
-锁定后这么写（工具会在写入时自动注入 token 与组件 CSS，**不要自己写一套变量**）：
+风格由「执行顺序」第 2 步确定，锁定后按下面的写法生成页面。
+工具会在写入时自动注入 token 与组件 CSS，**不要自己写一套变量**：
 
 - 颜色 `var(--ts-color-*)`；字体 `var(--ts-font-*)`；字号 `var(--ts-fs-*)`；字重 `var(--ts-weight-*)`；
   间距 `var(--ts-space-*)`；圆角 `var(--ts-radius-*)`；阴影 `var(--ts-shadow-*)`；尺寸 `var(--ts-size-*)`。
@@ -51,18 +63,18 @@ triggers:
 - 换风格用 `canvas_style set`：所有页面会被重写、画布自动刷新；告知用户即可。
   v1 只有项目级风格，不要给单页单独设风格。
 
-## 工作流
+## 工作流（第 3 步的写法细节）
 
-1. **`canvas_open`（必做第一步）**：拿到画布 URL，把 URL 发给用户让其用浏览器打开。
-   - 若用户已在本会话拿到过链接，可复用（`canvas_open` 会返回同一个服务地址）。
-2. **生成原型**：直接写好完整 HTML，**不要**在工作区里新建 `design/`、`prototype/` 等文件夹或 HTML 文件——原型只存放在 `.tianshu-canvas/pages/`。
-   - 用真实 HTML/CSS，可用现代布局（flex/grid）、渐变、圆角、阴影。
-   - **必须单页自包含**：外链（CDN、Google Fonts、图片）和相对路径都会被画布 CSP 拦截，加载不到。样式和脚本写进 `<style>`、`<script>`，图片用 `data:` URI 或 CSS/SVG 绘制；不要依赖 Tailwind CDN 这类外部脚本。
-3. **写入画布**：调用 `canvas_upsert_page`，用 `html` 参数直接传入完整内联 HTML（不要先写文件再用 `html_path`），
-   再给 `title`、可选 `device_type`（desktop/tablet/mobile/free）与 `x`/`y`。
-   - 每次写入后，把画布 URL 一并回给用户，方便其刷新查看。
-4. **多页设计**：重复 2–3，每页一个节点，画布会自动排布。
-5. **查看/确认**：`canvas_get_state` 一次返回所有页面节点、连线、用户当前选中项和画布 URL。
+> 步骤顺序见上面的「执行顺序」。本节只讲原型怎么写、怎么写入。
+
+- **原型内容**：直接写好完整 HTML，**不要**在工作区里新建 `design/`、`prototype/` 等文件夹或 HTML 文件——原型只存放在 `.tianshu-canvas/pages/`。
+  - 用真实 HTML/CSS，可用现代布局（flex/grid）、渐变、圆角、阴影。
+  - **必须单页自包含**：外链（CDN、Google Fonts、图片）和相对路径都会被画布 CSP 拦截，加载不到。样式和脚本写进 `<style>`、`<script>`，图片用 `data:` URI 或 CSS/SVG 绘制；不要依赖 Tailwind CDN 这类外部脚本。
+- **写入**：调用 `canvas_upsert_page`，用 `html` 参数直接传入完整内联 HTML（不要先写文件再用 `html_path`），
+  再给 `title`、可选 `device_type`（desktop/tablet/mobile/free）与 `x`/`y`。
+  - 每次写入后，把画布 URL 一并回给用户，方便其刷新查看。
+- **多页**：每页一个节点，画布会自动排布；重复「写 HTML → 写入」即可。
+- **查看 / 确认**：`canvas_get_state` 一次返回所有页面节点、连线、用户当前选中项和画布 URL。
 
 ## 迭代与交付（v0.2.0）
 
