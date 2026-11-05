@@ -11,6 +11,8 @@
  * 复刻自 Trae SOLO 的探针（见 .claude/trae-solo-analysis/），取其最小可用子集。
  */
 
+import { afterDoctype } from './html.js'
+
 /** 探针运行时标记，防止重复注入。 */
 export const PROBE_MARKER = 'data-tianshu-probe'
 
@@ -254,7 +256,7 @@ export const PROBE_SCRIPT = [
 ].join('\n')
 
 /**
- * 把探针注入到原型 HTML：在 `</head>` 前插入内联脚本（无 `</head>` 则前置）。
+ * 把探针注入到原型 HTML：在 `</head>` 前插入内联脚本（无 `</head>` 则紧跟 doctype）。
  * 已注入过则原样返回。
  */
 export function injectProbe(html: string): string {
@@ -264,5 +266,6 @@ export function injectProbe(html: string): string {
   const tag = `<script ${PROBE_MARKER}="1">\n${safe}\n</script>\n`
   const idx = html.search(/<\/head\s*>/i)
   if (idx >= 0) return html.slice(0, idx) + tag + html.slice(idx)
-  return tag + html
+  const at = afterDoctype(html)
+  return html.slice(0, at) + tag + html.slice(at)
 }

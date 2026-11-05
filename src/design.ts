@@ -10,13 +10,15 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { afterDoctype } from './html.js'
 
 /** dist/index.js 与 dist/design/ 同级。 */
 const DESIGN_DIR = fileURLToPath(new URL('./design/', import.meta.url))
 
 const BLOCK_START = '<!--tianshu-ds:start'
 const BLOCK_END = '<!--tianshu-ds:end-->'
-const START_RE = /<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\s*/g
+// 只连带插入时加上的两个换行，保证剥离后能还原原始字节。
+const START_RE = /\n?<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\n?/g
 
 export interface DesignTemplateSummary {
   id: string
@@ -91,6 +93,8 @@ export interface InjectResult {
   injected: boolean
   usedIcons: string[]
   missingIcons: string[]
+  /** 写在脚本里、因此没有展开的图标名。 */
+  scriptIcons: string[]
 }
 
 let catalogCache: DesignCatalog | null = null
@@ -188,7 +192,7 @@ export function readDesignMarker(html: string): { styleId: string; version: stri
   return { styleId: match[1]!, version: match[2]! }
 }
 
-/** 删除所有已注入块（含尾随空白），用于重写与幂等注入。 */
+/** 删除所有已注入块，用于重写与幂等注入。 */
 export function stripDesign(html: string): string {
   return html.replace(START_RE, '')
 }
@@ -207,16 +211,23 @@ function findInsertOffset(html: string): number {
   if (head) return head.index + head[0].length
   const htmlTag = /<html\b[^>]*>/i.exec(masked)
   if (htmlTag) return htmlTag.index + htmlTag[0].length
-  return 0
+  return afterDoctype(html)
 }
 
 function escapeStyleText(css: string): string {
   return css.replace(/<\/style/gi, '<\\/style')
 }
 
+/**
+ * 图标的描边外观归当前风格所有。再次注入时必须先移除旧值：
+ * HTML 解析器遇到重复属性只认第一个，直接追加会让切换后的风格不生效。
+ */
+const STYLE_OWNED_ICON_ATTRS = /\s(?:fill|stroke|stroke-width|stroke-linecap|stroke-linejoin)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi
+
 /** 生成标准 SVG 属性串：保留调用方已有属性（含 data-icon），补齐当前风格所需。 */
 function buildIconSvg(attrs: string, body: string, set: DesignIconSet, viewBox: string): string {
   const kept = attrs
+    .replace(STYLE_OWNED_ICON_ATTRS, '')
     .replace(/\s*\/\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -228,32 +239,43 @@ function buildIconSvg(attrs: string, body: string, set: DesignIconSet, viewBox: 
   return `<svg ${parts.join(' ')}>${body}</svg>`
 }
 
+/**
+ * 依次匹配脚本、样式、注释和 svg 元素。前三者整段跳过：
+ * 其中的 data-icon 只是文本，展开时插入的引号可能截断 JS 字符串，让整段脚本失效。
+ */
+const ICON_SCAN =
+  /<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<!--[\s\S]*?-->|<svg\b([^>]*?)(?:\/>|>[\s\S]*?<\/svg\s*>)/gi
+const ICON_ATTR = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i
+const SCRIPT_ICON = /\bdata-icon\s*=\s*\\?["']([^"'\\]*)/gi
+
 /** 展开页面里的 <svg data-icon="x"></svg>（含自闭合写法）。data-icon 原样保留，便于再次注入与 lint。 */
 function expandIcons(
   html: string,
   set: DesignIconSet,
-): { html: string; usedIcons: string[]; missingIcons: string[] } {
+): { html: string; usedIcons: string[]; missingIcons: string[]; scriptIcons: string[] } {
   const used = new Set<string>()
   const missing = new Set<string>()
+  const inScripts = new Set<string>()
   const viewBox = set.viewBox || '0 0 24 24'
-  // 先统一成开放/闭合形式，再整体替换元素（图标体内不含嵌套 <svg>）。
-  const normalized = html.replace(/<svg\b([^>]*?)\/>/gi, '<svg$1></svg>')
-  const expanded = normalized.replace(
-    /<svg\b([^>]*?)>([\s\S]*?)<\/svg>/gi,
-    (whole, attrs: string) => {
-      const iconMatch = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs)
-      if (!iconMatch) return whole
-      const name = (iconMatch[1] ?? iconMatch[2] ?? '').trim()
-      const body = set.icons[name]
-      if (!body) {
-        missing.add(name)
-        return whole
+  const expanded = html.replace(ICON_SCAN, (whole, attrs: string | undefined) => {
+    if (attrs === undefined) {
+      if (/^<script/i.test(whole)) {
+        for (const match of whole.matchAll(SCRIPT_ICON)) if (match[1]) inScripts.add(match[1])
       }
-      used.add(name)
-      return buildIconSvg(attrs, body, set, viewBox)
-    },
-  )
-  return { html: expanded, usedIcons: [...used], missingIcons: [...missing] }
+      return whole
+    }
+    const iconMatch = ICON_ATTR.exec(attrs)
+    if (!iconMatch) return whole
+    const name = (iconMatch[1] ?? iconMatch[2] ?? '').trim()
+    const body = set.icons[name]
+    if (!body) {
+      missing.add(name)
+      return whole
+    }
+    used.add(name)
+    return buildIconSvg(attrs, body, set, viewBox)
+  })
+  return { html: expanded, usedIcons: [...used], missingIcons: [...missing], scriptIcons: [...inScripts] }
 }
 
 /**
@@ -263,11 +285,11 @@ function expandIcons(
 export function injectDesign(html: string, styleId: string | null): InjectResult {
   const stripped = stripDesign(html)
   if (styleId === null) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [] }
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] }
   }
   const style = resolveDesignStyle(styleId)
   if (!style) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [] }
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] }
   }
 
   const icons = expandIcons(stripped, style.icons)
@@ -285,6 +307,7 @@ export function injectDesign(html: string, styleId: string | null): InjectResult
     injected: true,
     usedIcons: icons.usedIcons,
     missingIcons: icons.missingIcons,
+    scriptIcons: icons.scriptIcons,
   }
 }
 

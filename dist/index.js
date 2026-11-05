@@ -34,10 +34,18 @@ function positiveOr(value, fallback) {
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// src/html.ts
+function afterDoctype(html) {
+  const match = /^(?:\s|<!--[\s\S]*?-->)*<!doctype\b[^>]*>/i.exec(html);
+  return match ? match[0].length : 0;
+}
+
+// src/design.ts
 var DESIGN_DIR = fileURLToPath(new URL("./design/", import.meta.url));
 var BLOCK_START = "<!--tianshu-ds:start";
 var BLOCK_END = "<!--tianshu-ds:end-->";
-var START_RE = /<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\s*/g;
+var START_RE = /\n?<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\n?/g;
 var catalogCache = null;
 var catalogFailed = null;
 var styleCache = /* @__PURE__ */ new Map();
@@ -110,48 +118,55 @@ function findInsertOffset(html) {
   if (head) return head.index + head[0].length;
   const htmlTag = /<html\b[^>]*>/i.exec(masked);
   if (htmlTag) return htmlTag.index + htmlTag[0].length;
-  return 0;
+  return afterDoctype(html);
 }
 function escapeStyleText(css) {
   return css.replace(/<\/style/gi, "<\\/style");
 }
+var STYLE_OWNED_ICON_ATTRS = /\s(?:fill|stroke|stroke-width|stroke-linecap|stroke-linejoin)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 function buildIconSvg(attrs, body, set, viewBox) {
-  const kept = attrs.replace(/\s*\/\s*$/g, "").replace(/\s+/g, " ").trim();
+  const kept = attrs.replace(STYLE_OWNED_ICON_ATTRS, "").replace(/\s*\/\s*$/g, "").replace(/\s+/g, " ").trim();
   const hasViewBox = /\bviewBox\s*=/.test(kept);
   const stroke = `fill="none" stroke="currentColor" stroke-width="${set.stroke.strokeWidth}"` + (set.stroke.linecap ? ` stroke-linecap="${set.stroke.linecap}"` : "") + (set.stroke.linejoin ? ` stroke-linejoin="${set.stroke.linejoin}"` : "");
   const parts = [kept, hasViewBox ? "" : `viewBox="${viewBox}"`, stroke].filter(Boolean);
   return `<svg ${parts.join(" ")}>${body}</svg>`;
 }
+var ICON_SCAN = /<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<!--[\s\S]*?-->|<svg\b([^>]*?)(?:\/>|>[\s\S]*?<\/svg\s*>)/gi;
+var ICON_ATTR = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
+var SCRIPT_ICON = /\bdata-icon\s*=\s*\\?["']([^"'\\]*)/gi;
 function expandIcons(html, set) {
   const used = /* @__PURE__ */ new Set();
   const missing = /* @__PURE__ */ new Set();
+  const inScripts = /* @__PURE__ */ new Set();
   const viewBox = set.viewBox || "0 0 24 24";
-  const normalized = html.replace(/<svg\b([^>]*?)\/>/gi, "<svg$1></svg>");
-  const expanded = normalized.replace(
-    /<svg\b([^>]*?)>([\s\S]*?)<\/svg>/gi,
-    (whole, attrs) => {
-      const iconMatch = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
-      if (!iconMatch) return whole;
-      const name = (iconMatch[1] ?? iconMatch[2] ?? "").trim();
-      const body = set.icons[name];
-      if (!body) {
-        missing.add(name);
-        return whole;
+  const expanded = html.replace(ICON_SCAN, (whole, attrs) => {
+    if (attrs === void 0) {
+      if (/^<script/i.test(whole)) {
+        for (const match of whole.matchAll(SCRIPT_ICON)) if (match[1]) inScripts.add(match[1]);
       }
-      used.add(name);
-      return buildIconSvg(attrs, body, set, viewBox);
+      return whole;
     }
-  );
-  return { html: expanded, usedIcons: [...used], missingIcons: [...missing] };
+    const iconMatch = ICON_ATTR.exec(attrs);
+    if (!iconMatch) return whole;
+    const name = (iconMatch[1] ?? iconMatch[2] ?? "").trim();
+    const body = set.icons[name];
+    if (!body) {
+      missing.add(name);
+      return whole;
+    }
+    used.add(name);
+    return buildIconSvg(attrs, body, set, viewBox);
+  });
+  return { html: expanded, usedIcons: [...used], missingIcons: [...missing], scriptIcons: [...inScripts] };
 }
 function injectDesign(html, styleId) {
   const stripped = stripDesign(html);
   if (styleId === null) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [] };
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
   }
   const style = resolveDesignStyle(styleId);
   if (!style) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [] };
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
   }
   const icons = expandIcons(stripped, style.icons);
   const block = `${BLOCK_START} style=${style.summary.id} version=${style.manifest.version}-->
@@ -166,7 +181,8 @@ ${BLOCK_END}
     styleId: style.summary.id,
     injected: true,
     usedIcons: icons.usedIcons,
-    missingIcons: icons.missingIcons
+    missingIcons: icons.missingIcons,
+    scriptIcons: icons.scriptIcons
   };
 }
 
@@ -486,6 +502,7 @@ function applyProjectStyle(cwd, styleId) {
     project.design = design;
   }
   const missing = /* @__PURE__ */ new Set();
+  const scriptIcons = /* @__PURE__ */ new Set();
   let pagesUpdated = 0;
   const now = Date.now();
   if (styleId !== null) {
@@ -494,6 +511,7 @@ function applyProjectStyle(cwd, styleId) {
       if (html === null || html.trim() === "") continue;
       const injected = injectDesign(html, styleId);
       for (const name of injected.missingIcons) missing.add(name);
+      for (const name of injected.scriptIcons) scriptIcons.add(name);
       if (injected.html === html) continue;
       writePageHtml(cwd, node.id, injected.html);
       node.htmlRev = now;
@@ -505,7 +523,8 @@ function applyProjectStyle(cwd, styleId) {
     styleId,
     name: styleId === null ? null : designStyleSummary(styleId)?.name ?? styleId,
     pagesUpdated,
-    missingIcons: [...missing]
+    missingIcons: [...missing],
+    scriptIcons: [...scriptIcons]
   };
 }
 function templateDocument(styleId, templateId) {
@@ -790,7 +809,8 @@ ${safe}
 `;
   const idx = html.search(/<\/head\s*>/i);
   if (idx >= 0) return html.slice(0, idx) + tag + html.slice(idx);
-  return tag + html;
+  const at = afterDoctype(html);
+  return html.slice(0, at) + tag + html.slice(at);
 }
 
 // src/server.ts
@@ -1762,6 +1782,11 @@ function withBackupNotice(run) {
 \u6CE8\u610F\uFF1Aproject.json \u66FE\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8986\u76D6\u524D\u5DF2\u5907\u4EFD\u5230 ${backup}` };
   };
 }
+function scriptIconNote(names) {
+  if (names.length === 0) return "";
+  return `
+\u6CE8\u610F\uFF1A\u811A\u672C\u91CC\u7684\u56FE\u6807\u4E0D\u4F1A\u5C55\u5F00\uFF1A${names.slice(0, 8).join("\u3001")}\u3002\u8BF7\u628A\u56FE\u6807\u5199\u5728\u9759\u6001 HTML \u7684 <template> \u91CC\uFF0C\u7531\u811A\u672C\u514B\u9686\u4F7F\u7528\u3002`;
+}
 function projectHint(cwd) {
   return `${PROJECT_DIR_NAME}/\uFF08\u9879\u76EE\u6587\u4EF6\uFF1A${projectFile(cwd)}\uFF09`;
 }
@@ -1875,7 +1900,7 @@ async function canvasUpsertPage(call) {
 ` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join5(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
-\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + (blocked.length ? `
+\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
 }
@@ -2120,7 +2145,7 @@ async function canvasStyle(call) {
       return {
         content: styleId === null ? `\u5DF2\u89E3\u9664\u98CE\u683C\u9501\u5B9A\uFF1A\u56DE\u5230\u81EA\u7531\u53D1\u6325\uFF1B\u5DF2\u6709\u9875\u9762\u4FDD\u7559\u5F53\u524D\u6CE8\u5165\u7684\u6837\u5F0F\u5757\uFF0C\u65B0\u9875\u9762\u4E0D\u518D\u6CE8\u5165\u3002
 \u753B\u5E03 URL\uFF1A${url}` : `\u5DF2\u9501\u5B9A\u8BBE\u8BA1\u98CE\u683C\u300C${result.name}\u300D\uFF08${styleId}\uFF09\uFF1A\u91CD\u5199 ${result.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
-\u753B\u5E03 URL\uFF1A${url}${missing}`
+\u753B\u5E03 URL\uFF1A${url}${missing}${scriptIconNote(result.scriptIcons)}`
       };
     }
     if (action === "template") {

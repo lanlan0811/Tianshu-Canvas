@@ -21,6 +21,7 @@ export interface StyleChangeResult {
   name: string | null
   pagesUpdated: number
   missingIcons: string[]
+  scriptIcons: string[]
 }
 
 export function currentStyleId(cwd: string): string | null {
@@ -45,6 +46,7 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
   }
 
   const missing = new Set<string>()
+  const scriptIcons = new Set<string>()
   let pagesUpdated = 0
   const now = Date.now()
   // 解绑（styleId=null）不重写页面：已有样式块保留，避免页面突然失去样式。
@@ -54,6 +56,7 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
       if (html === null || html.trim() === '') continue
       const injected = injectDesign(html, styleId)
       for (const name of injected.missingIcons) missing.add(name)
+      for (const name of injected.scriptIcons) scriptIcons.add(name)
       if (injected.html === html) continue
       writePageHtml(cwd, node.id, injected.html)
       node.htmlRev = now
@@ -67,6 +70,7 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
     name: styleId === null ? null : (designStyleSummary(styleId)?.name ?? styleId),
     pagesUpdated,
     missingIcons: [...missing],
+    scriptIcons: [...scriptIcons],
   }
 }
 

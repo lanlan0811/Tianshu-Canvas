@@ -57,6 +57,7 @@ triggers:
 - 组件用 `canvas_style`（action=get）列出的 `ts-*` 类；不要发明带 `ts-` 前缀的新类。
 - 图标写 `<svg data-icon="search" class="ts-icon"></svg>`，名字取自图标清单；写入时工具会内联为当前风格 SVG。
   不要用 emoji 当图标，不要外链图标库 / 字体。
+  只有静态 HTML 里的图标会展开；脚本要用图标时，把它写在 `<template>` 里再克隆，不要写在 JS 字符串中。
 - 需要骨架：`canvas_style`（action=template，template_id=dashboard|landing）取完整 HTML，改内容后交给 `canvas_upsert_page`。
 - 每次写完页面调用 `canvas_check_style`（只报告）；有 color / font / spacing / icon / component 命中就修掉再交付。
   **不要**把检查清单原样念给用户，除非用户问。
