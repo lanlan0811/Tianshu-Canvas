@@ -85,7 +85,7 @@ function Canvas() {
       setNodes(toFlowNodes(project))
       setEdges(toFlowEdges(project))
       setReady(true)
-      setError(null)
+      setError(project.issue ?? null)
     } catch (err) {
       setError((err as Error).message)
       setReady(true)

@@ -25,6 +25,8 @@ export interface ApiProject {
   viewport: { x: number; y: number; zoom: number }
   nodes: ApiPageNode[]
   edges: ApiEdge[]
+  /** 项目文件有问题时的提示。 */
+  issue?: string
 }
 
 export interface ApiSelection {

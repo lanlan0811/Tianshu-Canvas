@@ -9,12 +9,15 @@ import { randomUUID } from 'node:crypto'
 /** 合法的 id：字母数字下划线连字符，1–64 位。 */
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
+/** 调用方输入不合法（HTTP 400）；其它异常都视为服务端故障（HTTP 500）。 */
+export class InvalidInputError extends Error {}
+
 export function isSafeId(id: unknown): id is string {
   return typeof id === 'string' && ID_RE.test(id)
 }
 
 export function assertSafeId(id: unknown): asserts id is string {
-  if (!isSafeId(id)) throw new Error(`invalid page id: ${String(id)}`)
+  if (!isSafeId(id)) throw new InvalidInputError(`invalid page id: ${String(id)}`)
 }
 
 /** 生成形如 `page-3f2a91c4` 的页面 id。 */

@@ -32,24 +32,26 @@ function positiveOr(value, fallback) {
 
 // src/export.ts
 import { spawn } from "node:child_process";
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, readdirSync, rmSync as rmSync2, statSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, readdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as join3 } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
 // src/project.ts
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // src/ids.ts
 import { randomUUID } from "node:crypto";
 var ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+var InvalidInputError = class extends Error {
+};
 function isSafeId(id) {
   return typeof id === "string" && ID_RE.test(id);
 }
 function assertSafeId(id) {
-  if (!isSafeId(id)) throw new Error(`invalid page id: ${String(id)}`);
+  if (!isSafeId(id)) throw new InvalidInputError(`invalid page id: ${String(id)}`);
 }
 function newPageId() {
   return "page-" + randomUUID().replace(/-/g, "").slice(0, 8);
@@ -71,21 +73,65 @@ function pagesDir(cwd) {
 function emptyProject() {
   return { version: 1, viewport: { x: 0, y: 0, zoom: 1 }, nodes: [], edges: [] };
 }
-function readProject(cwd) {
+function inspectProject(cwd) {
   const file = projectFile(cwd);
-  if (!existsSync(file)) return emptyProject();
+  if (!existsSync(file)) return { project: emptyProject(), dropped: 0 };
+  const raw = readFileSync(file, "utf8");
+  let parsed;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
-    if (!parsed || !Array.isArray(parsed.nodes)) return emptyProject();
-    return {
-      version: 1,
-      viewport: normalizeViewport(parsed.viewport),
-      nodes: parsed.nodes.filter(isPageNode),
-      edges: Array.isArray(parsed.edges) ? parsed.edges.filter(isEdge) : []
-    };
-  } catch {
-    return emptyProject();
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    return { project: emptyProject(), problem: err.message, dropped: 0 };
   }
+  const obj = parsed;
+  if (!obj || !Array.isArray(obj.nodes)) {
+    return { project: emptyProject(), problem: "\u7F3A\u5C11 nodes \u6570\u7EC4", dropped: 0 };
+  }
+  const rawEdges = Array.isArray(obj.edges) ? obj.edges : [];
+  const nodes = obj.nodes.filter(isPageNode);
+  const edges = rawEdges.filter(isEdge);
+  return {
+    project: { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges },
+    dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length
+  };
+}
+function readProject(cwd) {
+  return inspectProject(cwd).project;
+}
+function projectIssue(cwd) {
+  const { problem, dropped } = inspectProject(cwd);
+  if (problem) {
+    return `project.json \u5DF2\u635F\u574F\uFF08${problem}\uFF09\u3002\u753B\u5E03\u6682\u6309\u7A7A\u9879\u76EE\u663E\u793A\uFF0C\u539F\u6587\u4EF6\u672A\u6539\u52A8\uFF0C\u4FEE\u590D\u540E\u4F1A\u81EA\u52A8\u6062\u590D\uFF1B\u7EE7\u7EED\u5199\u5165\u524D\u4F1A\u5148\u5907\u4EFD\u4E3A project.json.corrupt-*\u3002`;
+  }
+  if (dropped > 0) {
+    return `project.json \u4E2D\u6709 ${dropped} \u6761\u65E0\u6548\u7684\u8282\u70B9\u6216\u8FDE\u7EBF\uFF0C\u8BFB\u53D6\u65F6\u5DF2\u5FFD\u7565\u3002\u539F\u6587\u4EF6\u672A\u6539\u52A8\uFF0C\u4E0B\u6B21\u5199\u5165\u524D\u4F1A\u5148\u5907\u4EFD\u4E3A project.json.corrupt-*\u3002`;
+  }
+  return null;
+}
+var pendingBackups = /* @__PURE__ */ new Map();
+function takeProjectBackup(cwd) {
+  const path = pendingBackups.get(cwd) ?? null;
+  pendingBackups.delete(cwd);
+  return path;
+}
+function backupDamagedProject(cwd) {
+  const { problem, dropped } = inspectProject(cwd);
+  if (!problem && dropped === 0) return;
+  const file = projectFile(cwd);
+  const stamp2 = Date.now();
+  for (let n = 0; n < 1e3; n++) {
+    const dest = n === 0 ? `${file}.corrupt-${stamp2}` : `${file}.corrupt-${stamp2}-${n}`;
+    try {
+      copyFileSync(file, dest, constants.COPYFILE_EXCL);
+    } catch (err) {
+      if (err.code === "EEXIST") continue;
+      throw err;
+    }
+    pendingBackups.set(cwd, dest);
+    console.error(`[tianshu-canvas] project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8986\u76D6\u524D\u5DF2\u5907\u4EFD\u5230 ${dest}`);
+    return;
+  }
+  throw new Error(`\u65E0\u6CD5\u5907\u4EFD\u635F\u574F\u7684\u9879\u76EE\u6587\u4EF6\uFF1A${file}`);
 }
 function normalizeViewport(v) {
   if (v && typeof v === "object") {
@@ -109,6 +155,7 @@ function isEdge(e) {
 }
 function writeProjectAtomic(cwd, project) {
   mkdirSync(pagesDir(cwd), { recursive: true });
+  backupDamagedProject(cwd);
   const file = projectFile(cwd);
   const tmp = file + ".tmp";
   writeFileSync(tmp, JSON.stringify(project, null, 2) + "\n", "utf8");
@@ -154,7 +201,8 @@ function autoLayoutPosition(cwd, index, size) {
   };
 }
 function setViewport(cwd, viewport) {
-  const project = readProject(cwd);
+  const { project, problem, dropped } = inspectProject(cwd);
+  if (problem || dropped > 0) return project;
   project.viewport = normalizeViewport(viewport);
   writeProjectAtomic(cwd, project);
   return project;
@@ -178,7 +226,7 @@ function renameNode(cwd, id, title) {
   assertSafeId(id);
   const project = readProject(cwd);
   const node = project.nodes.find((n) => n.id === id);
-  if (!node) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  if (!node) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
   node.title = title;
   node.updatedAt = Date.now();
   writeProjectAtomic(cwd, project);
@@ -188,7 +236,7 @@ function moveNode(cwd, id, x, y) {
   assertSafeId(id);
   const project = readProject(cwd);
   const node = project.nodes.find((n) => n.id === id);
-  if (!node) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  if (!node) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
   node.x = x;
   node.y = y;
   node.updatedAt = Date.now();
@@ -199,7 +247,7 @@ function duplicateNode(cwd, id, title) {
   assertSafeId(id);
   const project = readProject(cwd);
   const src = project.nodes.find((n) => n.id === id);
-  if (!src) throw new Error(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  if (!src) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
   const newId = newPageId();
   const html = readPageHtml(cwd, id) ?? "";
   const rel = writePageHtml(cwd, newId, html);
@@ -218,8 +266,19 @@ function duplicateNode(cwd, id, title) {
   writeProjectAtomic(cwd, project);
   return node;
 }
+function assertEdgeEnds(source, target) {
+  assertSafeId(source);
+  assertSafeId(target);
+  if (source === target) throw new InvalidInputError(`\u4E0D\u80FD\u5C06\u8282\u70B9\u8FDE\u63A5\u5230\u81EA\u8EAB\uFF1A${source}`);
+}
+function assertEdgeNodes(project, source, target) {
+  if (!project.nodes.some((n) => n.id === source)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${source}`);
+  if (!project.nodes.some((n) => n.id === target)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${target}`);
+}
 function addEdge(cwd, source, target, label) {
+  assertEdgeEnds(source, target);
   const project = readProject(cwd);
+  assertEdgeNodes(project, source, target);
   const exists = project.edges.find((e) => e.source === source && e.target === target);
   if (exists) {
     if (label !== void 0 && exists.label !== label) {
@@ -235,7 +294,9 @@ function addEdge(cwd, source, target, label) {
 }
 function removeEdge(cwd, source, target) {
   const project = readProject(cwd);
-  project.edges = project.edges.filter((e) => !(e.source === source && e.target === target));
+  const edges = project.edges.filter((e) => !(e.source === source && e.target === target));
+  if (edges.length === project.edges.length) return project;
+  project.edges = edges;
   writeProjectAtomic(cwd, project);
   return project;
 }
@@ -265,7 +326,7 @@ function writeSelection(cwd, selection) {
 // src/server.ts
 import http from "node:http";
 import { createHash } from "node:crypto";
-import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, statSync } from "node:fs";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -535,6 +596,8 @@ var WEB_DIR = fileURLToPath(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
 var MUTATION_HEADER = "x-tianshu-canvas";
 var MAX_BODY = 4 * 1024 * 1024;
+var MAX_VIEWPORT_BODY = 4096;
+var BODY_DRAIN_MS = 2e3;
 var state = null;
 function tokenFor(cwd) {
   return createHash("sha256").update(cwd).digest("hex").slice(0, 16);
@@ -597,11 +660,25 @@ var ASSET_TYPES = {
   "canvas.js.map": "application/json; charset=utf-8"
 };
 function handleRequest(req, res) {
+  try {
+    routeRequest(req, res);
+  } catch (err) {
+    console.error("[tianshu-canvas] \u8BF7\u6C42\u5904\u7406\u5931\u8D25\uFF1A", err);
+    if (res.headersSent) res.destroy();
+    else send(res, 500, "text/plain; charset=utf-8", "internal error");
+  }
+}
+function routeRequest(req, res) {
   const host = req.headers.host;
   if (!host || !isLocalHost(host)) {
     return send(res, 403, "text/plain; charset=utf-8", "forbidden host");
   }
-  const url = new URL(req.url ?? "/", `http://${host}`);
+  let url;
+  try {
+    url = new URL(req.url ?? "/", "http://127.0.0.1");
+  } catch {
+    return send(res, 400, "text/plain; charset=utf-8", "bad request");
+  }
   const path = url.pathname;
   if (req.method === "GET" && path === "/healthz") {
     return send(res, 200, "text/plain; charset=utf-8", "ok");
@@ -617,7 +694,8 @@ function handleRequest(req, res) {
   if (req.method === "GET" && path === "/api/project") {
     const cwd = resolveCwd(url.searchParams.get("ws"));
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
-    return sendJson(res, readProject(cwd));
+    const issue = projectIssue(cwd);
+    return sendJson(res, { ...readProject(cwd), ...issue ? { issue } : {} });
   }
   if (req.method === "GET" && path === "/api/events") {
     const cwd = resolveCwd(url.searchParams.get("ws"));
@@ -627,7 +705,13 @@ function handleRequest(req, res) {
   if (req.method === "GET" && path.startsWith("/page/")) {
     const cwd = resolveCwd(url.searchParams.get("ws"));
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
-    const id = decodeURIComponent(path.slice("/page/".length));
+    let id;
+    try {
+      id = decodeURIComponent(path.slice("/page/".length));
+    } catch (err) {
+      if (err instanceof URIError) return send(res, 400, "text/plain; charset=utf-8", "bad page id");
+      throw err;
+    }
     const html = readPageHtml(cwd, id);
     if (html === null) return send(res, 404, "text/plain; charset=utf-8", "page not found");
     return sendUntrustedHtml(res, injectProbe(html));
@@ -645,10 +729,11 @@ function handleRequest(req, res) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
     const file = join2(exportsDir(cwd), name);
-    if (!existsSync2(file)) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    if (!existsSync2(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
+    const data = readFileSync2(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
-    res.end(readFileSync2(file));
+    res.end(data);
     return;
   }
   if (req.method === "POST") {
@@ -672,23 +757,48 @@ function handleExport(req, res) {
     void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result })).catch((err) => send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message })));
   });
 }
-function readJsonBody(req, res, onBody) {
+function readJsonBody(req, res, onBody, maxBytes = MAX_BODY) {
   let raw = "";
+  let rejected = false;
   req.setEncoding("utf8");
+  req.on("error", () => {
+  });
   req.on("data", (chunk) => {
+    if (rejected) return;
     raw += chunk;
-    if (raw.length > MAX_BODY) req.destroy();
+    if (raw.length > maxBytes) {
+      rejected = true;
+      raw = "";
+      const drain = setTimeout(() => req.destroy(), BODY_DRAIN_MS);
+      drain.unref();
+      req.once("close", () => clearTimeout(drain));
+      send(res, 413, "application/json; charset=utf-8", JSON.stringify({ error: "body too large" }));
+    }
   });
   req.on("end", () => {
+    if (rejected || res.writableEnded || res.headersSent) return;
     let parsed;
     try {
       parsed = JSON.parse(raw || "{}");
     } catch {
       return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "bad json" }));
     }
-    const cwd = resolveCwd(typeof parsed.ws === "string" ? parsed.ws : null);
-    if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
-    onBody({ ...parsed, __cwd: cwd });
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "bad json" }));
+    }
+    const body = parsed;
+    try {
+      const cwd = resolveCwd(typeof body.ws === "string" ? body.ws : null);
+      if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
+      onBody({ ...body, __cwd: cwd });
+    } catch (err) {
+      if (err instanceof InvalidInputError) {
+        return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+      }
+      console.error("[tianshu-canvas] \u8BF7\u6C42\u5904\u7406\u5931\u8D25\uFF1A", err);
+      if (res.headersSent) res.destroy();
+      else send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: "internal error" }));
+    }
   });
 }
 function handleSelection(req, res) {
@@ -697,6 +807,7 @@ function handleSelection(req, res) {
     const pageId = typeof body.pageId === "string" ? body.pageId : "";
     const kind = body.kind === "page" ? "page" : "element";
     if (!pageId) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing pageId" }));
+    assertSafeId(pageId);
     const raw = body.payload;
     const selection = {
       pageId,
@@ -722,13 +833,9 @@ function handlePageHtml(req, res) {
     const html = typeof body.html === "string" ? body.html : "";
     if (!id || !html) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing id or html" }));
     if (html.length > 2 * 1024 * 1024) return send(res, 413, "application/json; charset=utf-8", JSON.stringify({ error: "html too large" }));
-    try {
-      writePageHtml(cwd, id, html);
-      projectEvents.emit("change", { cwd });
-      return sendJson(res, { ok: true });
-    } catch (err) {
-      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
-    }
+    writePageHtml(cwd, id, html);
+    projectEvents.emit("change", { cwd });
+    return sendJson(res, { ok: true });
   });
 }
 function handleNodes(req, res) {
@@ -736,31 +843,27 @@ function handleNodes(req, res) {
     const cwd = String(body.__cwd);
     const op = String(body.op ?? "");
     const id = typeof body.id === "string" ? body.id : "";
-    try {
-      if (op === "remove") {
-        if (!id) throw new Error("missing id");
-        removeNode(cwd, id);
-        return sendJson(res, { ok: true, id });
-      }
-      if (op === "rename") {
-        if (!id || typeof body.title !== "string") throw new Error("missing id or title");
-        renameNode(cwd, id, body.title);
-        return sendJson(res, { ok: true, id, title: body.title });
-      }
-      if (op === "move") {
-        if (!id) throw new Error("missing id");
-        moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0);
-        return sendJson(res, { ok: true, id });
-      }
-      if (op === "duplicate") {
-        if (!id) throw new Error("missing id");
-        const node = duplicateNode(cwd, id, typeof body.title === "string" ? body.title : void 0);
-        return sendJson(res, { ok: true, node });
-      }
-      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
-    } catch (err) {
-      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+    if (op === "remove") {
+      if (!id) throw new InvalidInputError("missing id");
+      removeNode(cwd, id);
+      return sendJson(res, { ok: true, id });
     }
+    if (op === "rename") {
+      if (!id || typeof body.title !== "string") throw new InvalidInputError("missing id or title");
+      renameNode(cwd, id, body.title);
+      return sendJson(res, { ok: true, id, title: body.title });
+    }
+    if (op === "move") {
+      if (!id) throw new InvalidInputError("missing id");
+      moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0);
+      return sendJson(res, { ok: true, id });
+    }
+    if (op === "duplicate") {
+      if (!id) throw new InvalidInputError("missing id");
+      const node = duplicateNode(cwd, id, typeof body.title === "string" ? body.title : void 0);
+      return sendJson(res, { ok: true, node });
+    }
+    return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
   });
 }
 function handleEdges(req, res) {
@@ -782,30 +885,23 @@ function handleEdges(req, res) {
   });
 }
 function handleViewport(req, res) {
-  let body = "";
-  req.setEncoding("utf8");
-  req.on("data", (chunk) => {
-    body += chunk;
-    if (body.length > 4096) req.destroy();
-  });
-  req.on("end", () => {
-    try {
-      const parsed = JSON.parse(body);
-      const cwd = resolveCwd(typeof parsed.ws === "string" ? parsed.ws : null);
-      if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
-      const x = Number(parsed.x);
-      const y = Number(parsed.y);
-      const zoom = Number(parsed.zoom);
+  readJsonBody(
+    req,
+    res,
+    (body) => {
+      const cwd = String(body.__cwd);
+      const x = Number(body.x);
+      const y = Number(body.y);
+      const zoom = Number(body.zoom);
       setViewport(cwd, {
         x: Number.isFinite(x) ? x : 0,
         y: Number.isFinite(y) ? y : 0,
         zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1
       });
       return sendJson(res, { ok: true });
-    } catch {
-      return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "bad json" }));
-    }
-  });
+    },
+    MAX_VIEWPORT_BODY
+  );
 }
 function handleSse(res, token) {
   res.writeHead(200, {
@@ -981,7 +1077,7 @@ function cleanStaleProfiles() {
       if (!entry.startsWith("tsc-png-")) continue;
       const dir = join3(tmpdir(), entry);
       try {
-        if (statSync(dir).mtimeMs < cutoff) rmSync2(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
+        if (statSync2(dir).mtimeMs < cutoff) rmSync2(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
       } catch {
       }
     }
@@ -1189,6 +1285,15 @@ function num(v) {
 function positive(v) {
   return v !== void 0 && v > 0 ? Math.round(v) : void 0;
 }
+function withBackupNotice(run) {
+  return async (call) => {
+    const result = await run(call);
+    const backup = takeProjectBackup(call.cwd);
+    if (!backup) return result;
+    return { ...result, content: `${result.content}
+\u6CE8\u610F\uFF1Aproject.json \u66FE\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8986\u76D6\u524D\u5DF2\u5907\u4EFD\u5230 ${backup}` };
+  };
+}
 function projectHint(cwd) {
   return `${PROJECT_DIR_NAME}/\uFF08\u9879\u76EE\u6587\u4EF6\uFF1A${projectFile(cwd)}\uFF09`;
 }
@@ -1319,6 +1424,8 @@ async function canvasGetState(call) {
   const selection = readSelection(call.cwd);
   const url = currentUrl(call.cwd);
   const sections = [];
+  const issue = projectIssue(call.cwd);
+  if (issue) sections.push(`\u8B66\u544A\uFF1A${issue}`);
   if (project.nodes.length === 0) {
     sections.push("\u753B\u5E03\u4E0A\u6682\u65E0\u9875\u9762\u8282\u70B9\u3002\n\u7528 canvas_upsert_page \u6DFB\u52A0\u4E00\u4E2A HTML \u539F\u578B\u3002");
   } else {
@@ -1378,14 +1485,20 @@ async function canvasArrange(call) {
       const source = str(call.args.source);
       const target = str(call.args.target);
       if (!source || !target) return { content: "link \u9700\u8981 source \u548C target\u3002", isError: true };
-      const edge = addEdge(call.cwd, source, target, str(call.args.label));
-      return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+      try {
+        const edge = addEdge(call.cwd, source, target, str(call.args.label));
+        return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
+      } catch (err) {
+        return { content: err.message, isError: true };
+      }
     }
     case "unlink": {
       const source = str(call.args.source);
       const target = str(call.args.target);
       if (!source || !target) return { content: "unlink \u9700\u8981 source \u548C target\u3002", isError: true };
-      removeEdge(call.cwd, source, target);
+      const before = readProject(call.cwd).edges.length;
+      const next = removeEdge(call.cwd, source, target);
+      if (next.edges.length === before) return { content: `\u6CA1\u6709\u5339\u914D\u7684\u8FDE\u7EBF ${source} \u2192 ${target}\uFF0C\u672A\u4F5C\u6539\u52A8\u3002` };
       return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source} \u2192 ${target}\u3002` };
     }
     default:
@@ -1467,7 +1580,7 @@ var tools = [
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasUpsertPage
+    execute: withBackupNotice(canvasUpsertPage)
   },
   {
     definition: {
@@ -1479,7 +1592,7 @@ var tools = [
     requiresApproval: () => false,
     isConcurrencySafe: () => true,
     isEnabled: () => true,
-    execute: canvasGetState
+    execute: withBackupNotice(canvasGetState)
   },
   {
     definition: {
@@ -1506,7 +1619,7 @@ var tools = [
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
-    execute: canvasArrange
+    execute: withBackupNotice(canvasArrange)
   },
   {
     definition: {

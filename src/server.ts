@@ -15,15 +15,17 @@
  */
 import http from 'node:http'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertSafeId, InvalidInputError } from './ids.js'
 import { injectProbe } from './probe.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
   addEdge,
   moveNode,
   projectEvents,
+  projectIssue,
   readPageHtml,
   readProject,
   readSelection,
@@ -42,6 +44,10 @@ const WEB_DIR = fileURLToPath(new URL('./web/', import.meta.url))
 const DEFAULT_PORT = 43117
 const MUTATION_HEADER = 'x-tianshu-canvas'
 const MAX_BODY = 4 * 1024 * 1024
+/** 视口请求体很小，沿用比通用 JSON 更紧的上限。 */
+const MAX_VIEWPORT_BODY = 4096
+/** 超限响应发出后，最多再等这么久让客户端发完请求体。 */
+const BODY_DRAIN_MS = 2000
 
 interface ServerState {
   server: http.Server
@@ -146,11 +152,29 @@ const ASSET_TYPES: Record<string, string> = {
 }
 
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  try {
+    routeRequest(req, res)
+  } catch (err) {
+    // 同步异常（例如读页面文件失败）不能打垮进程。
+    console.error('[tianshu-canvas] 请求处理失败：', err)
+    // 响应头已发出时无法再改状态码，只能断开，否则客户端会一直挂起。
+    if (res.headersSent) res.destroy()
+    else send(res, 500, 'text/plain; charset=utf-8', 'internal error')
+  }
+}
+
+function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   const host = req.headers.host
   if (!host || !isLocalHost(host)) {
     return send(res, 403, 'text/plain; charset=utf-8', 'forbidden host')
   }
-  const url = new URL(req.url ?? '/', `http://${host}`)
+  // 基址只用于解析路径和查询串。'//' 这样的请求路径会让 new URL 抛错。
+  let url: URL
+  try {
+    url = new URL(req.url ?? '/', 'http://127.0.0.1')
+  } catch {
+    return send(res, 400, 'text/plain; charset=utf-8', 'bad request')
+  }
   const path = url.pathname
 
   if (req.method === 'GET' && path === '/healthz') {
@@ -170,7 +194,8 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   if (req.method === 'GET' && path === '/api/project') {
     const cwd = resolveCwd(url.searchParams.get('ws'))
     if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
-    return sendJson(res, readProject(cwd))
+    const issue = projectIssue(cwd)
+    return sendJson(res, { ...readProject(cwd), ...(issue ? { issue } : {}) })
   }
 
   if (req.method === 'GET' && path === '/api/events') {
@@ -182,7 +207,14 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   if (req.method === 'GET' && path.startsWith('/page/')) {
     const cwd = resolveCwd(url.searchParams.get('ws'))
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
-    const id = decodeURIComponent(path.slice('/page/'.length))
+    let id: string
+    try {
+      id = decodeURIComponent(path.slice('/page/'.length))
+    } catch (err) {
+      // 畸形百分号编码会抛 URIError；不能让它变成未捕获异常。
+      if (err instanceof URIError) return send(res, 400, 'text/plain; charset=utf-8', 'bad page id')
+      throw err
+    }
     const html = readPageHtml(cwd, id)
     if (html === null) return send(res, 404, 'text/plain; charset=utf-8', 'page not found')
     // 注入探针：iframe 内做元素命中/选择/编辑（CSP 已允许内联脚本）
@@ -204,10 +236,12 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       return send(res, 400, 'text/plain; charset=utf-8', 'bad name')
     }
     const file = join(exportsDir(cwd), name)
-    if (!existsSync(file)) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+    // name='.' 能通过上面的过滤并指向 exports 目录本身。
+    if (!existsSync(file) || !statSync(file).isFile()) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
     const type = name.endsWith('.png') ? 'image/png' : 'application/zip'
+    const data = readFileSync(file)
     res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' })
-    res.end(readFileSync(file))
+    res.end(data)
     return
   }
 
@@ -241,23 +275,58 @@ function handleExport(req: http.IncomingMessage, res: http.ServerResponse): void
 // 变更路由（body 读取 + 分发）
 // ---------------------------------------------------------------------------
 
-function readJsonBody(req: http.IncomingMessage, res: http.ServerResponse, onBody: (body: Record<string, unknown>) => void): void {
+function readJsonBody(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  onBody: (body: Record<string, unknown>) => void,
+  maxBytes = MAX_BODY,
+): void {
   let raw = ''
+  let rejected = false
   req.setEncoding('utf8')
+  req.on('error', () => {
+    /* 客户端断开，或超限后 destroy */
+  })
   req.on('data', (chunk: string) => {
+    if (rejected) return
     raw += chunk
-    if (raw.length > MAX_BODY) req.destroy()
+    if (raw.length > maxBytes) {
+      rejected = true
+      raw = ''
+      // 带着未读数据断开时系统会发 RST，客户端读不到 413（Windows 上必现）。
+      // 所以继续读取并丢弃剩余数据；对方迟迟发不完才断开，避免连接被无限占用。
+      const drain = setTimeout(() => req.destroy(), BODY_DRAIN_MS)
+      drain.unref()
+      req.once('close', () => clearTimeout(drain))
+      send(res, 413, 'application/json; charset=utf-8', JSON.stringify({ error: 'body too large' }))
+    }
   })
   req.on('end', () => {
-    let parsed: Record<string, unknown>
+    if (rejected || res.writableEnded || res.headersSent) return
+    let parsed: unknown
     try {
-      parsed = JSON.parse(raw || '{}') as Record<string, unknown>
+      parsed = JSON.parse(raw || '{}')
     } catch {
       return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad json' }))
     }
-    const cwd = resolveCwd(typeof parsed.ws === 'string' ? parsed.ws : null)
-    if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
-    onBody({ ...parsed, __cwd: cwd })
+    // JSON 合法不代表是对象：字面量 null 会让后面的属性读取抛错。
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad json' }))
+    }
+    const body = parsed as Record<string, unknown>
+    // 这里运行在 end 事件回调内，handleRequest 的 try/catch 接不住，所有变更路由在此统一兜底。
+    try {
+      const cwd = resolveCwd(typeof body.ws === 'string' ? body.ws : null)
+      if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
+      onBody({ ...body, __cwd: cwd })
+    } catch (err) {
+      if (err instanceof InvalidInputError) {
+        return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
+      }
+      console.error('[tianshu-canvas] 请求处理失败：', err)
+      if (res.headersSent) res.destroy()
+      else send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: 'internal error' }))
+    }
   })
 }
 
@@ -267,6 +336,7 @@ function handleSelection(req: http.IncomingMessage, res: http.ServerResponse): v
     const pageId = typeof body.pageId === 'string' ? body.pageId : ''
     const kind = body.kind === 'page' ? 'page' : 'element'
     if (!pageId) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing pageId' }))
+    assertSafeId(pageId)
     const raw = body.payload as Record<string, unknown> | undefined
     const selection: Selection = {
       pageId,
@@ -298,13 +368,9 @@ function handlePageHtml(req: http.IncomingMessage, res: http.ServerResponse): vo
     const html = typeof body.html === 'string' ? body.html : ''
     if (!id || !html) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing id or html' }))
     if (html.length > 2 * 1024 * 1024) return send(res, 413, 'application/json; charset=utf-8', JSON.stringify({ error: 'html too large' }))
-    try {
-      writePageHtml(cwd, id, html)
-      projectEvents.emit('change', { cwd })
-      return sendJson(res, { ok: true })
-    } catch (err) {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
-    }
+    writePageHtml(cwd, id, html)
+    projectEvents.emit('change', { cwd })
+    return sendJson(res, { ok: true })
   })
 }
 
@@ -313,31 +379,27 @@ function handleNodes(req: http.IncomingMessage, res: http.ServerResponse): void 
     const cwd = String(body.__cwd)
     const op = String(body.op ?? '')
     const id = typeof body.id === 'string' ? body.id : ''
-    try {
-      if (op === 'remove') {
-        if (!id) throw new Error('missing id')
-        removeNode(cwd, id)
-        return sendJson(res, { ok: true, id })
-      }
-      if (op === 'rename') {
-        if (!id || typeof body.title !== 'string') throw new Error('missing id or title')
-        renameNode(cwd, id, body.title)
-        return sendJson(res, { ok: true, id, title: body.title })
-      }
-      if (op === 'move') {
-        if (!id) throw new Error('missing id')
-        moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0)
-        return sendJson(res, { ok: true, id })
-      }
-      if (op === 'duplicate') {
-        if (!id) throw new Error('missing id')
-        const node = duplicateNode(cwd, id, typeof body.title === 'string' ? body.title : undefined)
-        return sendJson(res, { ok: true, node })
-      }
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
-    } catch (err) {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
+    if (op === 'remove') {
+      if (!id) throw new InvalidInputError('missing id')
+      removeNode(cwd, id)
+      return sendJson(res, { ok: true, id })
     }
+    if (op === 'rename') {
+      if (!id || typeof body.title !== 'string') throw new InvalidInputError('missing id or title')
+      renameNode(cwd, id, body.title)
+      return sendJson(res, { ok: true, id, title: body.title })
+    }
+    if (op === 'move') {
+      if (!id) throw new InvalidInputError('missing id')
+      moveNode(cwd, id, Number(body.x) || 0, Number(body.y) || 0)
+      return sendJson(res, { ok: true, id })
+    }
+    if (op === 'duplicate') {
+      if (!id) throw new InvalidInputError('missing id')
+      const node = duplicateNode(cwd, id, typeof body.title === 'string' ? body.title : undefined)
+      return sendJson(res, { ok: true, node })
+    }
+    return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
   })
 }
 
@@ -361,30 +423,23 @@ function handleEdges(req: http.IncomingMessage, res: http.ServerResponse): void 
 }
 
 function handleViewport(req: http.IncomingMessage, res: http.ServerResponse): void {
-  let body = ''
-  req.setEncoding('utf8')
-  req.on('data', (chunk: string) => {
-    body += chunk
-    if (body.length > 4096) req.destroy()
-  })
-  req.on('end', () => {
-    try {
-      const parsed = JSON.parse(body) as { ws?: unknown; x?: unknown; y?: unknown; zoom?: unknown }
-      const cwd = resolveCwd(typeof parsed.ws === 'string' ? parsed.ws : null)
-      if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
-      const x = Number(parsed.x)
-      const y = Number(parsed.y)
-      const zoom = Number(parsed.zoom)
+  readJsonBody(
+    req,
+    res,
+    (body) => {
+      const cwd = String(body.__cwd)
+      const x = Number(body.x)
+      const y = Number(body.y)
+      const zoom = Number(body.zoom)
       setViewport(cwd, {
         x: Number.isFinite(x) ? x : 0,
         y: Number.isFinite(y) ? y : 0,
         zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
       })
       return sendJson(res, { ok: true })
-    } catch {
-      return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad json' }))
-    }
-  })
+    },
+    MAX_VIEWPORT_BODY,
+  )
 }
 
 // ---------------------------------------------------------------------------
