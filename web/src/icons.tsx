@@ -1,5 +1,6 @@
 /**
- * 内联 SVG 图标与空态。项目规则：不使用 emoji 作为图标，一律用 SVG。
+ * 内联 SVG 图标。项目规则：不使用 emoji 作为图标，一律用 SVG。
+ * 画布空态见 ./EmptyState.tsx。
  */
 import type { CSSProperties } from 'react'
 
@@ -194,17 +195,5 @@ export function PlusIcon(p: IconProps) {
     <Svg {...p}>
       <path d="M12 5v14M5 12h14" />
     </Svg>
-  )
-}
-
-export function EmptyState() {
-  return (
-    <div className="empty-state">
-      <div className="empty-state__art">
-        <CanvasIcon size={44} style={{ filter: 'url(#sketch)' }} />
-      </div>
-      <p className="empty-state__title">画布还是空白的</p>
-      <p className="empty-state__desc">让天枢生成一个前端原型页面，再调用 canvas_upsert_page 贴到这块白板上。</p>
-    </div>
   )
 }

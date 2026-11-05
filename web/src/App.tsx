@@ -42,7 +42,7 @@ import {
   type ApiProject,
   type ApiSelection,
 } from './api'
-import { EmptyState } from './icons'
+import { EmptyState } from './EmptyState'
 import { applyEditToSource, textFingerprint, type SourceEdits } from './sourceEdit'
 
 const params = new URLSearchParams(location.search)
@@ -328,6 +328,9 @@ function Canvas() {
   const selectedNode = selection ? nodes.find((n) => n.id === selection.pageId) : null
   const pageTitle = selectedNode ? selectedNode.data.title : null
 
+  // 待机态（等原型出现前的空态）：空态时隐藏左下角 .hint，避免与空态里的快捷键重复
+  const showIdle = ready && !error && nodes.length === 0
+
   return (
     <CanvasActionsProvider value={actions}>
       <div className={`app${exporting ? ' app--exporting' : ''}`}>
@@ -364,7 +367,7 @@ function Canvas() {
             nodeBorderRadius={3}
           />
         </ReactFlow>
-        {ready && !error && nodes.length === 0 && <EmptyState />}
+        {showIdle && <EmptyState />}
         {error && <div className="app-error">{error}</div>}
         {!exporting && (
           <TopBar
@@ -382,7 +385,7 @@ function Canvas() {
           />
         )}
         {!exporting && <ZoomControls />}
-        {!exporting && (
+        {!exporting && !showIdle && (
           <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>
         )}
         {!exporting && (
