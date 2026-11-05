@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "notice": "以下为独立整理的视觉风格（style aliases），与 Apple、Google、Anthropic 等公司无隶属或背书关系；相关商标归各自所有者。",
+  "notice": "以下为独立整理的视觉风格（style aliases），与 Apple、Google、Anthropic、Mattel 等公司及《新世纪福音战士》相关权利方无隶属或背书关系；相关商标归各自所有者。",
   "styles": [
     {
       "id": "apple",
@@ -33,6 +33,22 @@
       "description": "把画布自身的纸墨语言带进原型：暖纸底、墨色文字、琥珀强调、硬偏移阴影。",
       "tags": ["sketch", "warm", "house"],
       "swatches": ["#faf7f0", "#fffdf8", "#e07a3f", "#2b2b2b"]
+    },
+    {
+      "id": "barbie",
+      "name": "芭比风",
+      "tagline": "亮粉、圆润、编辑感",
+      "description": "亮粉与腮红色阶铺底，超大圆角与粉色投影给出柔润质感，衬线标题带编辑感，适合营销活动与内容运营看板。",
+      "tags": ["pink", "playful", "light"],
+      "swatches": ["#fffafc", "#ffffff", "#d81b60", "#310015"]
+    },
+    {
+      "id": "nerv",
+      "name": "NERV 风",
+      "tagline": "暗底、霓虹红、高技术感",
+      "description": "深灰底与近白文字构成高对比暗色界面，霓虹红作主操作与强调，等宽字体用于数据读数，适合监控台与技术型看板。",
+      "tags": ["dark", "neon", "technical"],
+      "swatches": ["#0f0f10", "#191b1e", "#ea343a", "#f4f9ff"]
     }
   ]
 }

@@ -1,0 +1,25 @@
+{
+  "id": "nerv",
+  "name": "NERV 风",
+  "tagline": "暗底、霓虹红、高技术感",
+  "description": "深灰底与近白文字构成高对比暗色界面，霓虹红作主操作与强调，等宽字体用于数据读数，适合监控台与技术型看板。",
+  "tags": [
+    "dark",
+    "neon",
+    "technical"
+  ],
+  "swatches": [
+    "#0f0f10",
+    "#191b1e",
+    "#ea343a",
+    "#f4f9ff"
+  ],
+  "version": 1,
+  "iconStyle": {
+    "strokeWidth": 1.75,
+    "linecap": "round",
+    "linejoin": "round"
+  },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与 NERV / 新世纪福音战士相关权利方无隶属或背书关系。"
+}

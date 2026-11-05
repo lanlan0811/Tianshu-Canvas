@@ -1,0 +1,12 @@
+{
+  "id": "barbie",
+  "name": "芭比风",
+  "tagline": "亮粉、圆润、编辑感",
+  "description": "亮粉与腮红色阶铺底，超大圆角与粉色投影给出柔润质感，衬线标题带编辑感，适合营销活动与内容运营看板。",
+  "tags": ["pink", "playful", "light"],
+  "swatches": ["#fffafc", "#ffffff", "#d81b60", "#310015"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 1.5, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与 Mattel 及 Barbie 品牌无隶属或背书关系。"
+}

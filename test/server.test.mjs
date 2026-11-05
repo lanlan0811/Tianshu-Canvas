@@ -115,7 +115,14 @@ try {
   const catalogRes = await fetch(`${base}/api/design-systems`)
   assert.equal(catalogRes.status, 200)
   const catalog = await catalogRes.json()
-  assert.deepEqual(catalog.styles.map((s) => s.id), ['apple', 'google', 'claude', 'tianshu-original'])
+  assert.deepEqual(catalog.styles.map((s) => s.id), [
+    'apple',
+    'google',
+    'claude',
+    'tianshu-original',
+    'barbie',
+    'nerv',
+  ])
   assert.ok(catalog.notice.includes('无隶属'))
 
   // 切换风格：缺头 403 / 带头 200 / 未知风格 400 / 解绑

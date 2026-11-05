@@ -2,7 +2,7 @@
 
 本目录是「天枢画布设计系统」的源数据，构建期编译到 `dist/design/`，随插件分发。
 
-- 用户在对话里选择风格（苹果风 / 谷歌风 / Claude 风 / 天枢原创 / 自由发挥）。
+- 用户在对话里选择风格（苹果风 / 谷歌风 / Claude 风 / 天枢原创 / 芭比风 / NERV 风 / 自由发挥）。
 - 风格以**项目级**锁定，写入 `project.json` 的 `design` 字段。
 - 写入页面时工具自动把 `tokens.css`、`components.css` 与使用到的图标内联进 HTML。
 - 原型运行在严格 CSP 的 iframe 中（`default-src 'none'`），因此**禁止外链**：样式必须内联，图标由 `data-icon` 占位后在写入时展开。
@@ -15,8 +15,8 @@ design-systems/
 ├─ NOTICE.md                  无隶属声明与图标来源
 ├─ icons/core.json            共享图标几何（按名字引用）
 ├─ components/
-│  ├─ components.json         组件契约（23 个组件，四套风格共享）
-│  └─ components.css          组件样式（只使用 --ts-* 变量，四套风格共享）
+│  ├─ components.json         组件契约（23 个组件，全部风格共享）
+│  └─ components.css          组件样式（只使用 --ts-* 变量，全部风格共享）
 ├─ templates/
 │  ├─ dashboard.html          数据看板骨架（body 片段）
 │  └─ landing.html            落地页骨架（body 片段）
@@ -25,12 +25,12 @@ design-systems/
    └─ tokens.json             Token 唯一真源
 ```
 
-> 组件与模板为四套风格共享：风格差异全部来自 token（颜色、字体、圆角、阴影、间距、尺寸），
-> 这样能保证四套风格的类名与 DOM 结构完全同构，切换风格时只替换样式块。
+> 组件与模板为全部风格共享：风格差异全部来自 token（颜色、字体、圆角、阴影、间距、尺寸），
+> 这样能保证各风格的类名与 DOM 结构完全同构，切换风格时只替换样式块。
 
 ## tokens.json 约定
 
-- 四套风格的 **key 集合必须完全一致**，只有值不同。构建会逐项比对变量名集合。
+- 各风格的 **key 集合必须完全一致**，只有值不同。构建会逐项比对变量名集合。
 - 颜色分两层：`color.primitives`（`neutral/brand/success/warning/danger/info/chart`）与 `color.semantic`。
 - 语义色的值有两种写法：`"组.步"` 引用原色（生成 `var(--ts-color-组-步)`），或 `rgba()`/`#hex` 字面量。
 - 统一前缀 `--ts-`，不占用画布外壳的 `--paper/--ink/--accent`。

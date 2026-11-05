@@ -9,7 +9,7 @@ import test from 'node:test'
 const root = resolve(import.meta.dirname, '..')
 const designDir = join(root, 'dist', 'design')
 const catalog = JSON.parse(readFileSync(join(designDir, 'index.json'), 'utf8'))
-const STYLES = ['apple', 'google', 'claude', 'tianshu-original']
+const STYLES = ['apple', 'google', 'claude', 'tianshu-original', 'barbie', 'nerv']
 
 const FORBIDDEN = [
   'library-consumption',
@@ -34,7 +34,7 @@ function readAll(dir) {
   )
 }
 
-test('设计系统：清单与四套产物齐全', () => {
+test('设计系统：清单与全部风格产物齐全', () => {
   assert.equal(catalog.schemaVersion, 1)
   assert.ok(catalog.notice.includes('无隶属'), '必须有与品牌无隶属关系的声明')
   assert.deepEqual(catalog.styles.map((s) => s.id), STYLES)
@@ -45,7 +45,7 @@ test('设计系统：清单与四套产物齐全', () => {
   }
 })
 
-test('设计系统：四套风格的变量/组件类/模板同构', () => {
+test('设计系统：各风格的变量/组件类/模板同构', () => {
   const manifests = STYLES.map((id) =>
     JSON.parse(readFileSync(join(designDir, 'styles', id, 'tokens.manifest.json'), 'utf8')),
   )
