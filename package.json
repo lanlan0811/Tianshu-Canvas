@@ -11,7 +11,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "build": "node scripts/build.mjs",
-    "test": "node --test \"test/**/*.test.mjs\"",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
     "verify": "npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
