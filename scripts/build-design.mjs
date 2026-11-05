@@ -6,7 +6,7 @@
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { buildManifest, tokensToCss } from './lib/design-tokens.mjs'
+import { buildManifest, tokensToCss } from './design/design-tokens.mjs'
 import {
   auditForbidden,
   validateComponents,
@@ -15,7 +15,7 @@ import {
   validateTemplateHtml,
   validateTemplates,
   validateTokens,
-} from './lib/design-validate.mjs'
+} from './design/design-validate.mjs'
 
 const CORE_NAMES = [
   'search', 'home', 'menu', 'x', 'plus', 'check', 'user', 'settings', 'bell', 'mail',
