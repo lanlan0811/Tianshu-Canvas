@@ -1,7 +1,7 @@
 {
   "schema": "tianshu-design-manifest/1",
   "id": "tianshu-original",
-  "version": 1,
+  "version": 2,
   "vars": [
     "--ts-color-neutral-0",
     "--ts-color-neutral-50",
@@ -138,12 +138,12 @@
     4,
     8,
     12,
-    18,
+    16,
     9999
   ],
   "fontFamilies": [
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
-    "'Kaiti SC', 'STKaiti', KaiTi, Georgia, serif",
+    "'Kaiti SC', 'STKaiti', KaiTi, '楷体', Georgia, serif",
     "ui-monospace, Menlo, Consolas, monospace"
   ],
   "iconNames": [
@@ -316,11 +316,11 @@
   ],
   "resolvedSemantic": {
     "color.bg.canvas": {
-      "value": "#faf7f0",
+      "value": "#f0f2ea",
       "primitive": "neutral.100"
     },
     "color.bg.surface": {
-      "value": "#fffdf8",
+      "value": "#fafbf7",
       "primitive": "neutral.50"
     },
     "color.bg.raised": {
@@ -328,79 +328,79 @@
       "primitive": "neutral.0"
     },
     "color.bg.sunken": {
-      "value": "#f3ede1",
+      "value": "#e6e9df",
       "primitive": "neutral.200"
     },
     "color.bg.inverse": {
-      "value": "#2b2b2b",
+      "value": "#1f2a26",
       "primitive": "neutral.900"
     },
     "color.text.primary": {
-      "value": "#2b2b2b",
+      "value": "#1f2a26",
       "primitive": "neutral.900"
     },
     "color.text.secondary": {
-      "value": "#4a453d",
+      "value": "#3f3d34",
       "primitive": "neutral.700"
     },
     "color.text.muted": {
-      "value": "#8a8275",
+      "value": "#7a7566",
       "primitive": "neutral.500"
     },
     "color.text.inverse": {
-      "value": "#fffdf8",
+      "value": "#fafbf7",
       "primitive": "neutral.50"
     },
     "color.text.link": {
-      "value": "#94431f",
-      "primitive": "brand.700"
+      "value": "#0b5a54",
+      "primitive": "brand.600"
     },
     "color.border.default": {
-      "value": "#d9cfbd",
-      "primitive": "neutral.300"
-    },
-    "color.border.strong": {
-      "value": "#2b2b2b",
-      "primitive": "neutral.900"
-    },
-    "color.border.subtle": {
-      "value": "#f3ede1",
+      "value": "#e6e9df",
       "primitive": "neutral.200"
     },
+    "color.border.strong": {
+      "value": "#cdd3c4",
+      "primitive": "neutral.300"
+    },
+    "color.border.subtle": {
+      "value": "#f0f2ea",
+      "primitive": "neutral.100"
+    },
     "color.border.focus": {
-      "value": "#b8562a",
+      "value": "#0f766e",
       "primitive": "brand.500"
     },
     "color.action.primary": {
-      "value": "#b8562a",
+      "value": "#0f766e",
       "primitive": "brand.500"
     },
     "color.action.primaryHover": {
-      "value": "#94431f",
-      "primitive": "brand.700"
+      "value": "#0b5a54",
+      "primitive": "brand.600"
     },
     "color.action.primaryText": {
       "value": "#ffffff",
       "primitive": "neutral.0"
     },
     "color.action.secondary": {
-      "value": "#fffdf8",
+      "value": "#fafbf7",
       "primitive": "neutral.50"
     },
     "color.action.secondaryHover": {
-      "value": "#f3ede1",
+      "value": "#e6e9df",
       "primitive": "neutral.200"
     },
     "color.action.secondaryText": {
-      "value": "#2b2b2b",
+      "value": "#1f2a26",
       "primitive": "neutral.900"
     },
     "color.action.ghostHover": {
-      "value": "#f7e3d3",
+      "value": "#dcece7",
       "primitive": "brand.100"
     },
     "color.action.danger": {
-      "value": "#c0392b",
+      "value": "#a52f24",
       "primitive": "danger.500"
     },
     "color.action.dangerText": {
@@ -408,59 +408,59 @@
       "primitive": "neutral.0"
     },
     "color.status.success": {
-      "value": "#1f7d5c",
+      "value": "#1c6b4a",
       "primitive": "success.500"
     },
     "color.status.successBg": {
-      "value": "#eefaf4",
+      "value": "#e6f4ec",
       "primitive": "success.50"
     },
     "color.status.warning": {
-      "value": "#b8771a",
+      "value": "#8a6410",
       "primitive": "warning.500"
     },
     "color.status.warningBg": {
-      "value": "#fff7e3",
+      "value": "#f7efd9",
       "primitive": "warning.50"
     },
     "color.status.danger": {
-      "value": "#c0392b",
+      "value": "#a52f24",
       "primitive": "danger.500"
     },
     "color.status.dangerBg": {
-      "value": "#fbeceb",
+      "value": "#f9e7e4",
       "primitive": "danger.50"
     },
     "color.status.info": {
-      "value": "#2f92d6",
+      "value": "#3a6272",
       "primitive": "info.500"
     },
     "color.status.infoBg": {
-      "value": "#eef7ff",
+      "value": "#e7eef1",
       "primitive": "info.50"
     },
     "color.chart.1": {
-      "value": "#e07a3f",
+      "value": "#0f766e",
       "primitive": null
     },
     "color.chart.2": {
-      "value": "#6fd0ad",
+      "value": "#8a6410",
       "primitive": null
     },
     "color.chart.3": {
-      "value": "#6dbcf5",
+      "value": "#3a6272",
       "primitive": null
     },
     "color.chart.4": {
-      "value": "#ffd166",
+      "value": "#a52f24",
       "primitive": null
     },
     "color.chart.5": {
-      "value": "#ff9b9b",
+      "value": "#7cb3a7",
       "primitive": null
     },
     "color.overlay.scrim": {
-      "value": "rgba(43,43,43,0.32)",
+      "value": "rgba(31,42,38,0.36)",
       "primitive": null
     }
   }

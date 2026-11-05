@@ -1,25 +1,25 @@
 {
   "id": "tianshu-original",
   "name": "天枢原创",
-  "tagline": "墨纸与琥珀色的手作感界面",
-  "description": "把画布自身的纸墨语言带进原型：暖纸底、墨色文字、琥珀强调、硬偏移阴影。",
+  "tagline": "宣纸青绿、文人清冷",
+  "description": "宣纸米白铺底，墨绿黑为字，青绿作唯一强调色，楷体标题带东方文人气。克制的圆角与极轻投影，适合内容、文档与需要静气的界面。",
   "tags": [
-    "sketch",
-    "warm",
-    "house"
+    "oriental",
+    "ink",
+    "light"
   ],
   "swatches": [
-    "#faf7f0",
-    "#fffdf8",
-    "#e07a3f",
-    "#2b2b2b"
+    "#f5f2e9",
+    "#fbfaf6",
+    "#0f766e",
+    "#1f2a26"
   ],
-  "version": 1,
+  "version": 2,
   "iconStyle": {
-    "strokeWidth": 1.8,
+    "strokeWidth": 1.5,
     "linecap": "round",
     "linejoin": "round"
   },
-  "license": "本项目原创；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
   "notice": "非官方风格；与各品牌无隶属关系。"
 }
