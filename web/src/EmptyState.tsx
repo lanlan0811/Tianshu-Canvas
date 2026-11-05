@@ -39,8 +39,8 @@ export function EmptyState() {
         {/* 手绘空白画板：虚线边框 + 抖动滤镜 */}
         <svg
           className="empty-state__board"
-          width="120"
-          height="84"
+          width="180"
+          height="126"
           viewBox="0 0 120 84"
           fill="none"
           stroke="currentColor"
