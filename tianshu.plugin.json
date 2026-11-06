@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.6.0",
-  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取、导出生产代码（Web 与多端）",
+  "version": "0.7.0",
+  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包",
   "runtime": "agent",
   "entry": "dist/index.mjs",
   "capabilities": [
@@ -31,7 +31,7 @@
       },
       {
         "name": "canvas_style",
-        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、iOS/Android/小程序）"
+        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、shadcn、Ant Design、iOS/Android/小程序）"
       },
       {
         "name": "canvas_check_style",
@@ -39,7 +39,11 @@
       },
       {
         "name": "canvas_design_system",
-        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色），或从现有 HTML/CSS/URL 反抽取一套"
+        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/），从现有 HTML/CSS/URL 反抽取、从仓库 shadcn/AntD 主题导入，或导出/导入可移植品牌包"
+      },
+      {
+        "name": "canvas_audit",
+        "description": "设计 CI 审计：契约（token/裸色/间距/图标）、可访问性（对比度/可访问名/焦点/目标尺寸）、视觉回归（截图基线 diff）与设计漂移"
       },
       {
         "name": "canvas_comments",

@@ -3,6 +3,26 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.7.0] - 2026-11-06
+
+护城河版：真实代码库适配器（shadcn / AntD）、Design CI（`canvas_audit`）、品牌记忆与可移植品牌包。工具数 8 → 9。详细说明见 [release-0.7.0.md](release/release-0.7.0.md)。
+
+### 新增
+
+- **适配器**：`canvas_style` 的 `codegen` 新增 `shadcn`、`antd` 两个 target，按真实组件 props 生成可编译代码；基于新增的 HTML 节点树（`src/htmlTree.ts`）按结构选组件。
+- **从仓库导入主题**：`canvas_design_system` 的 `action=import`，自动探测 shadcn/Tailwind 或 Ant Design，颜色归一化为 `#hex` 并通过 token 契约；AntD 找不到项目主题时明确标注默认种子 token。
+- **Design CI**：新增 `canvas_audit`（contract / a11y / visual / baseline / drift），自研零依赖 a11y 规则集与 `node:zlib` PNG 像素 diff；`contract` 可落盘自包含的 `*.audit.test.mjs`。
+- **品牌记忆**：`.tianshu-canvas/memory/brand.json` 累加使用统计；`canvas_design_system` 新增 `export` / `import_pack`，单 JSON 品牌包带 checksum、无时间戳、可复现。
+- **编译验收**：`npm run verify:codegen`（进 CI，声明桩 + tsc，含必失败的反向用例）与 `npm run verify:codegen:real`（发版前真实安装）。
+
+### 变更
+
+- 工具数 8 → 9；清单与运行时描述仍逐字一致且 ≤200 字。
+- `canvas_design_system` 的 `pathParams` 新增 `source_path` / `pack_path` / `out_dir`。
+- 画布支持 `?page=<id>&export=1` 单页导出模式（供视觉回归使用）。
+- 自定义风格 `meta.json` 新增可选 `adapter` 字段；旧 library 不受影响。
+- CI 在测试后新增 `npm run verify:codegen`。
+
 ## [v0.6.0] - 2026-11-06
 
 发行形态对齐版：让插件能通过天枢官方插件库的打包与验包，功能与 0.5.0 一致（仍 8 个工具）。详细说明见 [release-0.6.0.md](release/release-0.6.0.md)。

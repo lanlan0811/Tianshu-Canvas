@@ -36,5 +36,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Verify codegen compiles (adapter stubs)
+        run: npm run verify:codegen
+
       - name: Plugin release self-check
         run: npm run check:plugin

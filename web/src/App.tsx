@@ -54,6 +54,8 @@ import { applyEditToSource, textFingerprint, type SourceEdits } from './sourceEd
 const params = new URLSearchParams(location.search)
 const ws = params.get('ws') ?? ''
 const exporting = params.get('export') === '1'
+/** 审计截图：只渲染指定页面（与 export=1 配合）。 */
+const pageFilter = params.get('page') ?? ''
 
 const edgeTypes = { ink: InkEdge }
 const defaultEdgeOptions = {
@@ -71,7 +73,8 @@ function toFlowNodes(
   commentCounts: Map<string, number>,
 ): PageFlowNode[] {
   const byId = new Map(previous.map((n) => [n.id, n]))
-  return project.nodes.map((n) => {
+  const nodes = pageFilter ? project.nodes.filter((n) => n.id === pageFilter) : project.nodes
+  return nodes.map((n) => {
     const prev = byId.get(n.id)
     return {
       // 项目刷新只更新服务端数据；选中、置顶、尺寸测量等客户端状态要保留。

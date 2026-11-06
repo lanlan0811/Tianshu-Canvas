@@ -274,6 +274,8 @@ export function createCustomStyle(
     iconStyle,
     license: String(metaInObj.license ?? '本项目原创配色；图标为共享的通用线性几何图形。'),
     notice: String(metaInObj.notice ?? '自定义风格；与各品牌无隶属关系。'),
+    // 适配器绑定（从真实代码库导入时写入；可选，旧 library 无此字段）。
+    ...(metaInObj.adapter && typeof metaInObj.adapter === 'object' ? { adapter: metaInObj.adapter } : {}),
   }
 
   const errors: string[] = []

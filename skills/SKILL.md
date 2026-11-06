@@ -150,14 +150,17 @@ triggers:
 用户说「导出代码 / 转成前端代码 / 要 React 版本 / 要 iOS 版 / 给我个能用的代码」时用它。
 
 **执行顺序（硬约束，不得跳步）**：
-1. **先问「目标」**——把下面四项作为选项问用户，**等回答**，不得自行假定：
-   > 导出成什么？A React + TSX　B CSS 变量 + 无框架 HTML　C Tailwind　D 多端
-2. 若选 **D 多端**，**再问技术栈**（可多选多端）：
+1. **先问「目标」**——把下面五项作为选项问用户，**等回答**，不得自行假定：
+   > 导出成什么？A React + TSX　B CSS 变量 + 无框架 HTML　C Tailwind　D 直接进现有代码库（shadcn / Ant Design）　E 多端
+2. 若选 **D 现有代码库**，**再问技术栈**：
+   > shadcn + Tailwind，还是 Ant Design？
+3. 若选 **E 多端**，**再问技术栈**（可多选多端）：
    > iOS：SwiftUI / UIKit；Android：Compose / XML；小程序：微信原生 / uni-app / Taro
-3. 拿到回答后调 `canvas_style`（`action=codegen`）：
-   - Web：`target` = `react` / `css-vars` / `tailwind`。
+4. 拿到回答后调 `canvas_style`（`action=codegen`）：
+   - Web：`target` = `react` / `css-vars` / `tailwind` / `shadcn` / `antd`。
    - 多端：`target` = `ios` / `android` / `miniprogram`，并传 `stack`（`swiftui`/`uikit`/`compose`/`xml`/`weapp`/`uniapp`/`taro`）。
    - 可用 `page_id` 指定页面（画布只有一个页面时可省略），或用 `html` 直接传源。
+   - `shadcn` / `antd` 要求已锁定风格（或传 `style_id`）；产物按真实组件 props 生成，会经过声明桩 + tsc 验收。
 
 **多端产物的正确用法**：插件只出**主题/Token 文件 + `design-spec.md` 规格清单**（这是确定性的、已校验的部分）。
 **页面代码由你按 `design-spec.md` 亲自编写** —— HTML→原生不是自动转换，必然有损
@@ -168,6 +171,7 @@ triggers:
 - 在用户选定目标（多端还要选定技术栈）之前，调用 `canvas_style`（`action=codegen`）——**即使你觉得某个目标更合适，也必须先问**。
 - 把多端产物当成「完整可运行的原生工程」交付；它是主题 + 规格，页面代码需要你写。
 - 替用户决定多端技术栈。
+- 把 shadcn/antd 产物当成「已经接进用户仓库」交付：它依赖 `@/components/ui/*` 或 `antd`，要提醒用户安装/合并主题文件。
 
 ## 从现有页面反推设计系统（`canvas_design_system` 的 `action=extract`）
 
@@ -178,6 +182,37 @@ triggers:
 - 建议先 `dry_run=true` 看摘要（含「观测 N 项 / 推断 M 项」与完整 tokens），确认后再正式执行。
 - 反抽取会按契约补齐缺失键，并对低对比配色做后处理；返回里会说明哪些是观测、哪些是推断。
 - 创建后默认锁定为当前项目风格；不要在 `notice`/`description` 里写源 URL（会被校验拒绝）。
+
+## 从现有仓库导入主题（`canvas_design_system` 的 `action=import`）
+
+用户说「接入我们现有的设计系统 / 用项目的 shadcn 主题 / 用我们的 antd 配色」时用它。
+
+- 不传 `stack` 时自动探测：有 `antd` 依赖 → antd；有 tailwind 依赖 + `components.json`/样式文件 → shadcn。
+- shadcn：读 CSS 变量（支持 `oklch()` 与新版的 `@theme inline`，也兼容旧版裸三元组）或 `tailwind.config.*` 的字面值。
+- AntD：读 `ConfigProvider theme={{ token }}` 字面量；**找不到时必须说实话**——用的是 AntD v5 默认种子 token，不是项目主题。
+- 返回里区分「观测 N 项 / 推断 M 项」；推断出来的颜色（hover、状态色、步进）要让用户核对，不要当成仓库原值。
+
+## 品牌记忆与品牌包（`canvas_design_system` 的 `export` / `import_pack`）
+
+- 插件在 `.tianshu-canvas/memory/brand.json` 里累加每个风格的使用记忆（常用组件/图标/变量、反复命中的审计规则）。
+  `action=get` 与 `canvas_get_state` 会展示摘要；记忆是缓存，损坏会静默重建，**不要**把它当权威数据。
+- **导出**：`action=export`，`id` 为自定义风格；产物是单 JSON（tokens + meta + 使用记忆 + checksum），
+  默认落到 `.tianshu-canvas/exports/<id>.json`。内置风格不能导出。
+- **导入**：`action=import_pack`，`pack_path` 指向品牌包。会先校验 checksum 与 token 契约；
+  重名默认拒绝（`overwrite=true` 才覆盖），导入后自动锁定并重写页面。
+- 使用场景：换机器、交接项目、复制一套「这个项目长这样」的视觉基因。品牌包不含时间戳，可纳入版本控制。
+
+## 交付前审计（`canvas_audit`）
+
+写完页面、交付代码前跑一次；用户问「有没有问题 / 合不合规范 / 能不能上线」时也用它。
+
+- `action=contract`：源码级设计契约（零浏览器、确定性），**优先用这个**。看「符合度」与「契约外变量/类」；
+  `write_files=true` 可落盘一份可独立运行的 `*.audit.test.mjs` 给用户进自己的 CI。
+- `action=a11y`：渲染后可访问性（需要 Chrome/Edge）。对比度、可访问名、表单标签、焦点样式、目标尺寸、标题层级。
+  报告里的 **error 必须修**；warning/info 说明理由后再决定。不要为了清零而删掉有意义的文字。
+- `action=baseline` 先写视觉基线，`action=visual` 再与基线逐页逐像素比较（给偏离度分数）。
+  基线默认在 `.tianshu-canvas/audit/baseline`（被 gitignore）；**要团队共享时让用户传 `baseline_dir` 指到仓库内目录**。
+- `action=drift`：与上次设计快照比较，回答「这次改版哪里偏离了规范」。首次运行只写快照。
 
 ## 约定
 
@@ -199,5 +234,6 @@ triggers:
 | `canvas_arrange` | 删除 / 复制页面、连线 / 取消连线（`action` 选择） | 编排画布、表达页面流程时 |
 | `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template；导出代码时**先问目标（多端再问技术栈）**再 codegen |
 | `canvas_check_style` | 只读检查页面是否符合当前风格 | 每次写完页面后；用户问「为什么风格不统一」时 |
-| `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`action=extract` 从现有 HTML/CSS/URL 反抽取 | 用户要做「专属设计系统」时：问清配置后 create；用户要「照这个站点的风格」时 extract（先 dry_run） |
+| `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`extract` 反抽取；`import` 从仓库主题导入；`export` / `import_pack` 品牌包 | 用户要做「专属设计系统」时：问清配置后 create；要「照这个站点的风格」时 extract（先 dry_run）；要接入现有项目主题时 import；要交接/迁移时 export / import_pack |
+| `canvas_audit` | 设计 CI：契约、可访问性、视觉回归、设计漂移（`action`: contract / a11y / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
 | `canvas_comments` | 读取 / 处理画布元素批注（`action`: list / resolve / reopen / remove） | 用户圈了几处要改时：先 list 读全部，逐条改完再 resolve |

@@ -10,6 +10,21 @@
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { adapterContext, detectAdapters, generateWithAdapter, getAdapter } from './adapters/registry.js'
+import type { AdapterId } from './adapters/types.js'
+import { auditPage, formatA11yReport } from './audit/a11y.js'
+import { computeContract, formatContractReport } from './audit/contract.js'
+import { launchBrowser, resolveBrowser } from './export.js'
+import {
+  buildSnapshot,
+  diffSnapshots,
+  formatDriftReport,
+  readSnapshot,
+  snapshotDir,
+  writeSnapshot,
+} from './audit/drift.js'
+import { compareWithBaselines, defaultBaselineDir, formatVisualReport, writeBaselines } from './audit/visual.js'
+import { buildBrandPack, exportBrandPack, forgetStyle, importBrandPack, memorySummary, recordUsage, verifyBrandPack } from './brand.js'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
 import { isWorkerSession, warnUser } from './host.js'
 import {
@@ -24,6 +39,7 @@ import {
   resolveDesignStyle,
 } from './design.js'
 import {
+  compileCustomStyle,
   createCustomStyle,
   customStyleExists,
   libraryDir,
@@ -351,6 +367,12 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
         ? `设计风格：${summary.name}（${styleId}，已锁定）。页面必须使用该风格的 --ts-* 变量与 ts-* 组件类。`
         : `设计风格：未知（${styleId}）；请重新用 canvas_style（action=set）设置。`,
     )
+    try {
+      const memory = memorySummary(call.cwd, styleId)
+      if (memory) sections.push(memory)
+    } catch {
+      /* 记忆不是权威数据 */
+    }
   }
 
   if (project.nodes.length === 0) {
@@ -528,8 +550,9 @@ function formatStyleBrief(cwd: string, styleId: string): string {
 // codegen（canvas_style 的 action=codegen）：设计 → 生产代码
 // ---------------------------------------------------------------------------
 
-const WEB_TARGETS = new Set(['react', 'css-vars', 'tailwind'])
+const WEB_TARGETS = new Set(['react', 'css-vars', 'tailwind', 'shadcn', 'antd'])
 const PLATFORM_TARGETS = new Set<PlatformTarget>(['ios', 'android', 'miniprogram'])
+const ADAPTER_TARGETS = new Set<AdapterId>(['shadcn', 'antd'])
 
 /** 取页面 HTML：优先内联 html 参数，其次 page_id，再次当前唯一页面。 */
 function resolveCodegenHtml(call: ToolCall): { html: string | null; label: string; error?: string } {
@@ -573,6 +596,10 @@ function buildCodegenFiles(call: ToolCall, target: string, stack: string | undef
         files: toFrameworklessHtml(resolved.html, { tokensCss: style.tokensCss, componentsCss: style.componentsCss }).map((f) => ({ name: f.name, content: f.content })),
         label: resolved.label,
       }
+    }
+    if (ADAPTER_TARGETS.has(target as AdapterId)) {
+      const files = generateWithAdapter(target as AdapterId, resolved.html, adapterContext(call.cwd, style))
+      return { files: files.map((f) => ({ name: f.name, content: f.content })), label: resolved.label }
     }
     // tailwind
     const vars = parseCssVars(style.tokensCss)
@@ -635,6 +662,21 @@ async function canvasCodegen(call: ToolCall): Promise<ToolResult> {
   }
   const { files, label, error } = buildCodegenFiles(call, target, str(call.args.stack))
   if (error) return { content: error, isError: true }
+
+  // 品牌记忆：记录本次导出的页面用量（风格可能来自 style_id 覆盖）。
+  try {
+    const { styleId } = (() => {
+      const override = str(call.args.style_id)
+      const sid = override === 'free' ? null : (override ?? currentStyleId(call.cwd))
+      return { styleId: sid && sid !== 'free' ? sid : null }
+    })()
+    const resolved = resolveCodegenHtml(call)
+    if (styleId && resolved.html) {
+      recordUsage(call.cwd, { styleId, htmls: [resolved.html], source: { kind: 'codegen', ref: target } })
+    }
+  } catch {
+    /* 记忆不是权威数据，写失败不影响导出 */
+  }
 
   const writeFiles = call.args.write_files === true || typeof call.args.out_dir === 'string'
   if (writeFiles) {
@@ -806,7 +848,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       return { content: `${formatCustomList(call.cwd)}\n\n${all.content}` }
     }
 
-    if (action === 'get') {
+      if (action === 'get') {
       const id = str(call.args.id) ?? currentStyleId(call.cwd) ?? ''
       if (!id) return { content: 'get 需要 id（或先锁定一套风格）。', isError: true }
       if (!designStyleExists(call.cwd, id)) return { content: `未知的设计风格：${id}`, isError: true }
@@ -815,7 +857,8 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       const darkNote = isCustom && resolveDesignStyle(call.cwd, id)?.tokensCss.includes('.dark {')
         ? '\n\n深色模式：页面根元素加 class="dark" 即切换（浅色为默认）。'
         : ''
-      return { content: `${brief}\n\n来源：${isCustom ? `自定义（${libraryDir(call.cwd)}）` : '内置'}${darkNote}` }
+      const memory = memorySummary(call.cwd, id)
+      return { content: `${brief}${memory ? `\n\n${memory}` : ''}\n\n来源：${isCustom ? `自定义（${libraryDir(call.cwd)}）` : '内置'}${darkNote}` }
     }
 
     if (action === 'extract') {
@@ -858,6 +901,11 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
         overwrite: call.args.overwrite,
       }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() })
       invalidateDesignCache(call.cwd)
+      recordUsage(call.cwd, {
+        styleId: id,
+        htmls: source ? [source] : [],
+        source: { kind: 'extract', ref: filePath ?? (url ? new URL(url).host : 'inline') },
+      })
 
       const setCurrent = call.args.set_current !== false
       let lockLine = '未锁定（如需使用：canvas_style action=set）。'
@@ -871,6 +919,85 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
           `${summary}\n\n已创建自定义设计系统「${result.summary.name}」（${id}）并完成校验。\n` +
           `文件：${libraryDir(call.cwd)}/${id}/{tokens.json,meta.json}\n${lockLine}\n` +
           `（只在本工作区生效，随 .tianshu-canvas/ 一起被 gitignore。）`,
+      }
+    }
+
+    if (action === 'import') {
+      const id = str(call.args.id)
+      if (!id) return { content: 'import 需要 id（新建的风格 id：字母数字/_/-，1–64 位）。', isError: true }
+      const stackArg = str(call.args.stack)
+      let adapterId = stackArg as AdapterId | undefined
+      let detection = adapterId ? null : detectAdapters(call.cwd)[0]
+      if (!adapterId && !detection) {
+        return {
+          content:
+            '没有在当前工作区探测到可导入的技术栈（需要 package.json 依赖 antd，或 tailwindcss/class-variance-authority 之一 + 样式文件）。\n' +
+            '请用 stack=shadcn|antd 显式指定，或用 extract 从页面反抽取。',
+          isError: true,
+        }
+      }
+      if (!adapterId && detection) adapterId = detection.id
+      const adapter = getAdapter(adapterId!)
+      if (!adapter) return { content: `未知的 stack：${adapterId}。可选：shadcn / antd。`, isError: true }
+      const sourcePath = str(call.args.source_path)
+      let imported
+      try {
+        imported = adapter.importTokens(call.cwd, sourcePath)
+      } catch (err) {
+        return { content: `导入主题失败：${(err as Error).message}`, isError: true }
+      }
+
+      const summary =
+        `从仓库导入主题（${adapterId}）：观测 ${imported.observed.length} 项、推断 ${imported.inferred.length} 项。\n` +
+        (detection ? `探测依据：${detection.evidence.join('；')}\n` : '') +
+        (imported.warnings.length ? `提示：\n${imported.warnings.map((w) => `  - ${w}`).join('\n')}\n` : '') +
+        (imported.inferred.length ? `推断项（非仓库原值，请核对）：${imported.inferred.slice(0, 12).join('、')}${imported.inferred.length > 12 ? ` 等 ${imported.inferred.length} 项` : ''}\n` : '')
+
+      if (call.args.dry_run === true) {
+        return {
+          content: `${summary}\n（dry_run：未写入。完整 tokens 如下，检查后去掉 dry_run 再执行）\n\`\`\`json\n${JSON.stringify(imported.tokens, null, 2)}\n\`\`\``,
+        }
+      }
+
+      const tokens = imported.tokens as Record<string, any>
+      const swatches = [
+        tokens.color?.primitives?.brand?.['500'],
+        tokens.color?.primitives?.neutral?.['900'],
+        tokens.color?.primitives?.neutral?.['50'],
+        tokens.color?.primitives?.danger?.['500'],
+      ].filter(Boolean) as string[]
+
+      const result = createCustomStyle(
+        call.cwd,
+        id,
+        tokens,
+        {
+          name: call.args.name ?? imported.name,
+          tagline: call.args.tagline ?? imported.tagline,
+          description: call.args.description ?? `由 canvas_design_system import 从现有 ${adapterId} 主题导入（观测 ${imported.observed.length} 项 / 推断 ${imported.inferred.length} 项）。`,
+          tags: call.args.tags ?? [adapterId, 'imported'],
+          swatches: call.args.swatches ?? swatches,
+          iconStyle: call.args.iconStyle ?? imported.iconStyle,
+          adapter: { id: adapterId, version: 1, source: sourcePath ?? detection?.evidence.join('; ') ?? 'auto' },
+        },
+        designDir(),
+        { overwrite: call.args.overwrite === true, builtinIds: builtinIds() },
+      )
+      invalidateDesignCache(call.cwd)
+      recordUsage(call.cwd, { styleId: id, source: { kind: 'import', ref: adapterId ?? 'auto' } })
+
+      const setCurrent = call.args.set_current !== false
+      let lockLine = '未锁定（如需使用：canvas_style action=set）。'
+      if (setCurrent) {
+        const applied = applyProjectStyle(call.cwd, id)
+        const { url } = await ensureServer(call.cwd)
+        lockLine = `已锁定为当前项目风格：重写 ${applied.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}`
+      }
+      return {
+        content:
+          `${summary}\n已创建自定义设计系统「${result.summary.name}」（${id}）并完成校验。\n` +
+          `文件：${libraryDir(call.cwd)}/${id}/{tokens.json,meta.json}\n${lockLine}\n` +
+          `注意：自定义设计系统只在本工作区生效（随 .tianshu-canvas/ 一起被 gitignore）。`,
       }
     }
 
@@ -911,12 +1038,71 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       }
     }
 
+    if (action === 'export') {
+      const id = str(call.args.id) ?? currentStyleId(call.cwd) ?? ''
+      if (!id) return { content: 'export 需要 id（或先锁定一套自定义风格）。', isError: true }
+      if (isBuiltinStyle(id)) return { content: `「${id}」是内置风格，不支持导出为品牌包（用 canvas_style action=get 查看 token）。`, isError: true }
+      let pack
+      try {
+        pack = buildBrandPack(call.cwd, id, designDir())
+      } catch (err) {
+        return { content: (err as Error).message, isError: true }
+      }
+      const rawOut = str(call.args.out_dir)
+      const dir = rawOut ? (isAbsolute(rawOut) ? rawOut : join(call.cwd, rawOut)) : join(call.cwd, PROJECT_DIR_NAME, 'exports')
+      const file = join(dir, `${id}.json`)
+      exportBrandPack(call.cwd, pack, file)
+      return {
+        content:
+          `已导出品牌包「${pack.name}」（${id}）：${file}\n` +
+          `包含：tokens、meta（含适配器绑定）、使用记忆（组件/图标/变量）、校验命中记录。\n` +
+          `checksum：${pack.checksum.slice(0, 16)}…（导入时会校验）\n` +
+          `把它复制到目标工作区后，用 canvas_design_system（action=import_pack, pack_path=<该文件>）导入。`,
+      }
+    }
+
+    if (action === 'import_pack') {
+      const rawPath = str(call.args.pack_path)
+      if (!rawPath) return { content: 'import_pack 需要 pack_path（品牌包 JSON 的路径）。', isError: true }
+      const file = isAbsolute(rawPath) ? rawPath : join(call.cwd, rawPath)
+      if (!existsSync(file)) return { content: `品牌包不存在：${file}`, isError: true }
+      let pack: unknown
+      try {
+        pack = JSON.parse(readFileSync(file, 'utf8'))
+      } catch (err) {
+        return { content: `品牌包不是合法 JSON：${(err as Error).message}`, isError: true }
+      }
+      const errors = verifyBrandPack(pack)
+      if (errors.length) return { content: `品牌包校验失败：\n${errors.map((e) => `  - ${e}`).join('\n')}`, isError: true }
+      const typed = pack as ReturnType<typeof buildBrandPack>
+      if (builtinIds().includes(typed.id)) return { content: `品牌包 id「${typed.id}」与内置风格冲突。`, isError: true }
+      if (customStyleExists(call.cwd, typed.id) && call.args.overwrite !== true) {
+        return { content: `自定义设计系统「${typed.id}」已存在。若要覆盖，请传 overwrite=true。`, isError: true }
+      }
+      importBrandPack(call.cwd, typed)
+      invalidateDesignCache(call.cwd)
+      try {
+        compileCustomStyle(call.cwd, typed.id, designDir())
+      } catch (err) {
+        return { content: `品牌包已解包，但 token 校验失败：${(err as Error).message}`, isError: true }
+      }
+      const set = await canvasStyle({ ...call, args: { action: 'set', style_id: typed.id } })
+      return {
+        content:
+          `已导入品牌包「${typed.name}」（${typed.id}）：${file}\n` +
+          `恢复使用记忆：组件 ${Object.keys(typed.usage?.components ?? {}).length} 个、图标 ${Object.keys(typed.usage?.icons ?? {}).length} 个。\n` +
+          set.content,
+        isError: set.isError,
+      }
+    }
+
     if (action === 'remove') {
       const id = str(call.args.id)
       if (!id) return { content: 'remove 需要 id。', isError: true }
       if (isBuiltinStyle(id)) return { content: `「${id}」是内置风格，不能删除。`, isError: true }
       const wasCurrent = currentStyleId(call.cwd) === id
       removeCustomStyle(call.cwd, id)
+      forgetStyle(call.cwd, id)
       invalidateDesignCache(call.cwd)
       let unlinkLine = ''
       if (wasCurrent) {
@@ -927,6 +1113,134 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
     }
 
     return { content: `未知的 action：${action}。可选：create / extract / list / get / remove。`, isError: true }
+  } catch (err) {
+    return { content: (err as Error).message, isError: true }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// canvas_audit（contract / a11y / visual / baseline / drift）—— Design CI
+// ---------------------------------------------------------------------------
+
+function resolveAuditStyle(call: ToolCall): { styleId: string | null; style: ReturnType<typeof resolveDesignStyle> } {
+  const override = str(call.args.style_id)
+  const styleId = override === 'free' ? null : (override ?? currentStyleId(call.cwd))
+  const style = styleId && styleId !== 'free' ? resolveDesignStyle(call.cwd, styleId) : null
+  return { styleId: styleId ?? null, style }
+}
+
+function auditPages(call: ToolCall): { pages: { id: string; title: string; html: string }[]; error?: string } {
+  const pageId = str(call.args.page_id)
+  if (pageId) {
+    const html = readPageHtml(call.cwd, pageId)
+    if (html === null) return { pages: [], error: `页面不存在：${pageId}` }
+    const node = readProject(call.cwd).nodes.find((n) => n.id === pageId)
+    return { pages: [{ id: pageId, title: node?.title ?? pageId, html }] }
+  }
+  const project = readProject(call.cwd)
+  if (project.nodes.length === 0) return { pages: [], error: '画布上没有页面可审计。' }
+  const pages = []
+  for (const node of project.nodes) {
+    const html = readPageHtml(call.cwd, node.id)
+    if (html !== null) pages.push({ id: node.id, title: node.title, html })
+  }
+  return { pages }
+}
+
+async function canvasAudit(call: ToolCall): Promise<ToolResult> {
+  const action = str(call.args.action) ?? 'contract'
+  try {
+    if (action === 'contract') {
+      const { pages, error } = auditPages(call)
+      if (error) return { content: error, isError: true }
+      const { styleId, style } = resolveAuditStyle(call)
+      const results = pages.map((p) => {
+        const result = computeContract(p.html, styleId, call.cwd, style?.manifest ?? null)
+        return { page: p, result }
+      })
+      const total = results.reduce((n, r) => n + r.result.total, 0)
+      const outDir = str(call.args.out_dir)
+      let writeLine = ''
+      if (call.args.write_files === true || outDir) {
+        const base = outDir ? (isAbsolute(outDir) ? outDir : join(call.cwd, outDir)) : join(call.cwd, PROJECT_DIR_NAME, 'exports', 'audit')
+        mkdirSync(base, { recursive: true })
+        const written: string[] = []
+        for (const { page, result } of results) {
+          const htmlPath = join(base, `${page.id}.html`)
+          writeFileSync(htmlPath, page.html, 'utf8')
+          const testPath = join(base, `${page.id}.audit.test.mjs`)
+          writeFileSync(testPath, result.testFile, 'utf8')
+          written.push(testPath)
+        }
+        writeLine = `\n\n已落盘：${written.join('、')}`
+      }
+      const body = results.map(({ page, result }) => formatContractReport(result, `页面「${page.title}」(id=${page.id})`)).join('\n\n')
+      return { content: `${body}\n\n合计：${total} 处 lint 问题。${writeLine}` }
+    }
+
+    if (action === 'drift') {
+      const { styleId, style } = resolveAuditStyle(call)
+      if (!style) return { content: 'drift 需要已锁定的风格（或传 style_id）；当前为自由发挥。', isError: true }
+      const { pages, error } = auditPages(call)
+      if (error) return { content: error, isError: true }
+      const snapshot = buildSnapshot({
+        styleId,
+        htmls: pages.map((p) => p.html),
+        manifest: style.manifest,
+        tokensCss: style.tokensCss,
+        componentsCss: style.componentsCss,
+        icons: style.manifest.iconNames,
+      })
+      const dir = str(call.args.out_dir) ? (isAbsolute(str(call.args.out_dir)!) ? str(call.args.out_dir)! : join(call.cwd, str(call.args.out_dir)!)) : snapshotDir(call.cwd)
+      const file = join(dir, 'snapshot.json')
+      const before = readSnapshot(file)
+      writeSnapshot(file, snapshot)
+      if (!before) {
+        return { content: `已写入首个设计快照：${file}\n（下次运行 drift 会展示与本次的差集。）` }
+      }
+      const drift = diffSnapshots(before, snapshot)
+      return { content: `${formatDriftReport(drift, '上次快照', '当前')}\n\n快照：${file}` }
+    }
+
+    if (action === 'a11y') {
+      const { pages, error } = auditPages(call)
+      if (error) return { content: error, isError: true }
+      const { url } = await ensureServer(call.cwd)
+      const exe = resolveBrowser()
+      if (!exe) return { content: '未找到 Chrome/Edge，无法渲染页面做可访问性审计。可用 TIANSHU_CANVAS_BROWSER 指定路径。', isError: true }
+      const { browser, dispose } = await launchBrowser(exe)
+      try {
+        const parts: string[] = []
+        let errors = 0
+        for (const page of pages) {
+          const report = await auditPage(browser, `${url.replace(/\/\?ws=/, '/page/')}${page.id}`, {
+            minContrast: num(call.args.min_contrast),
+            minTargetSize: num(call.args.min_target_size),
+            ignore: Array.isArray(call.args.ignore) ? (call.args.ignore as unknown[]).map(String) : undefined,
+          })
+          errors += report.counts.error
+          parts.push(formatA11yReport(report, `页面「${page.title}」(id=${page.id})`))
+        }
+        return { content: `${parts.join('\n\n')}\n\n合计 error ${errors} 处。` }
+      } finally {
+        await dispose()
+      }
+    }
+
+    if (action === 'baseline' || action === 'visual') {
+      const { styleId } = resolveAuditStyle(call)
+      const rawDir = str(call.args.baseline_dir)
+      const dir = rawDir ? (isAbsolute(rawDir) ? rawDir : join(call.cwd, rawDir)) : defaultBaselineDir(call.cwd)
+      const threshold = num(call.args.threshold)
+      if (action === 'baseline') {
+        const result = await writeBaselines(call.cwd, styleId ?? 'free', dir)
+        return { content: formatVisualReport(result, true) }
+      }
+      const result = await compareWithBaselines(call.cwd, styleId ?? 'free', dir, { threshold, updateMissing: call.args.update_missing === true })
+      return { content: formatVisualReport(result, false) }
+    }
+
+    return { content: `未知的 action：${action}。可选：contract / a11y / visual / baseline / drift。`, isError: true }
   } catch (err) {
     return { content: (err as Error).message, isError: true }
   }
@@ -1124,7 +1438,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_style',
-      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、iOS/Android/小程序）',
+      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、shadcn、Ant Design、iOS/Android/小程序）',
       input_schema: {
         type: 'object',
         properties: {
@@ -1143,8 +1457,8 @@ export const tools: TpiTool[] = [
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
           target: {
             type: 'string',
-            enum: ['react', 'css-vars', 'tailwind', 'ios', 'android', 'miniprogram'],
-            description: 'codegen：目标。Web：react（React+TSX）/ css-vars（CSS 变量+无框架 HTML）/ tailwind（Tailwind 配置）；多端：ios / android / miniprogram（需配合 stack）',
+            enum: ['react', 'css-vars', 'tailwind', 'shadcn', 'antd', 'ios', 'android', 'miniprogram'],
+            description: 'codegen：目标。Web：react（React+TSX）/ css-vars（CSS 变量+无框架 HTML）/ tailwind（Tailwind 配置）/ shadcn（shadcn 组件 + Tailwind）/ antd（Ant Design 组件 + ConfigProvider）；多端：ios / android / miniprogram（需配合 stack）',
           },
           stack: {
             type: 'string',
@@ -1195,14 +1509,31 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_design_system',
-      description: '创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色），或从现有 HTML/CSS/URL 反抽取一套',
+      description: '创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/），从现有 HTML/CSS/URL 反抽取、从仓库 shadcn/AntD 主题导入，或导出/导入可移植品牌包',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['create', 'extract', 'list', 'get', 'remove'],
-            description: 'create=创建（先主动问清配置：配色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色）；extract=从现有 HTML/CSS/URL 反抽取；list=列出；get=查看细节；remove=删除',
+            enum: ['create', 'extract', 'import', 'export', 'import_pack', 'list', 'get', 'remove'],
+            description: 'create=创建（先主动问清配置：配色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色）；extract=从现有 HTML/CSS/URL 反抽取；import=从仓库现有 shadcn/Tailwind 或 AntD 主题导入；export=导出可移植品牌包；import_pack=导入品牌包；list=列出；get=查看细节；remove=删除',
+          },
+          stack: {
+            type: 'string',
+            enum: ['shadcn', 'antd'],
+            description: 'import：技术栈。省略时自动探测（有 antd 依赖 → antd；有 tailwind 依赖 + components.json/样式文件 → shadcn）',
+          },
+          source_path: {
+            type: 'string',
+            description: 'import：主题源文件（shadcn 的 globals.css / tailwind.config.*；AntD 含 ConfigProvider 的 tsx）。省略时自动查找。宿主会把该参数规范化为绝对路径',
+          },
+          pack_path: {
+            type: 'string',
+            description: 'import_pack：品牌包 JSON 路径。宿主会把该参数规范化为绝对路径',
+          },
+          out_dir: {
+            type: 'string',
+            description: 'export：品牌包落盘目录（默认 .tianshu-canvas/exports/）。宿主会把该参数规范化为绝对路径',
           },
           source: { type: 'string', description: 'extract：内联 HTML 或 CSS 文本（最高优先）' },
           path: { type: 'string', description: 'extract：工作区内的 HTML/CSS 文件路径。宿主会把该参数规范化为绝对路径' },
@@ -1241,12 +1572,54 @@ export const tools: TpiTool[] = [
         additionalProperties: false,
       },
     },
-    pathParams: { path: 'read' },
+    pathParams: { path: 'read', source_path: 'read', pack_path: 'read', out_dir: 'write' },
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 120_000,
     execute: canvasDesignSystem,
+  },
+  {
+    definition: {
+      name: 'canvas_audit',
+      description: '设计 CI 审计：契约（token/裸色/间距/图标）、可访问性（对比度/可访问名/焦点/目标尺寸）、视觉回归（截图基线 diff）与设计漂移',
+      input_schema: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['contract', 'a11y', 'visual', 'baseline', 'drift'],
+            description:
+              'contract=源码级设计契约（确定性，无需浏览器）；a11y=渲染后可访问性审计（需要 Chrome/Edge）；' +
+              'baseline=写入视觉基线（覆盖式）；visual=与基线逐像素比较；drift=与上次设计快照比较',
+          },
+          page_id: { type: 'string', description: '只审计指定页面；省略则审计全部页面' },
+          style_id: { type: 'string', description: '覆盖当前锁定的风格；free 表示不做风格相关检查' },
+          write_files: { type: 'boolean', description: 'contract：把可独立运行的 *.audit.test.mjs 落到 out_dir（默认 false）' },
+          out_dir: {
+            type: 'string',
+            description: 'contract：测试文件落盘目录（默认 .tianshu-canvas/exports/audit/）；drift：快照目录（默认 .tianshu-canvas/audit/）',
+          },
+          baseline_dir: {
+            type: 'string',
+            description: 'visual/baseline：基线目录（默认 .tianshu-canvas/audit/baseline，被 gitignore；要团队共享就指到仓库内目录）',
+          },
+          threshold: { type: 'number', description: 'visual：单通道像素差阈值（0–255，默认 8，用于容忍抗锯齿）' },
+          update_missing: { type: 'boolean', description: 'visual：缺少基线的页面是否顺手写入（默认 false）' },
+          min_contrast: { type: 'number', description: 'a11y：正文对比度下限（默认 4.5）' },
+          min_target_size: { type: 'number', description: 'a11y：点击目标最小尺寸（CSS px，默认 24）' },
+          ignore: { type: 'array', items: { type: 'string' }, description: 'a11y：忽略的选择器片段（如 ["page-node__header"]）' },
+        },
+        required: ['action'],
+        additionalProperties: false,
+      },
+    },
+    pathParams: { out_dir: 'write', baseline_dir: 'write' },
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    timeoutMs: 300_000,
+    execute: canvasAudit,
   },
   {
     definition: {

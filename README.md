@@ -46,13 +46,36 @@
 
 想要内置风格之外的专属视觉时，可用**自定义设计系统**：AI 会先问清配色与配置，再生成一套只属于当前工作区的风格。
 
-- `canvas_design_system` — `create` 创建（传完整 token）、`extract` **从现有 HTML/CSS/URL 反抽取**、`list` 列出、`get` 查看、`remove` 删除；创建后默认锁定为当前项目风格。
+- `canvas_design_system` — `create` 创建（传完整 token）、`extract` **从现有 HTML/CSS/URL 反抽取**、`import` **从仓库现有 shadcn/Tailwind 或 AntD 主题导入**、`export` / `import_pack` **品牌包导出/导入**、`list` 列出、`get` 查看、`remove` 删除；创建后默认锁定为当前项目风格。
 - 存于 `.tianshu-canvas/library/<id>/`，**仅当前项目生效**（随项目数据一起被 gitignore，不随仓库分发）。
 - **只能改 token**：组件类（`ts-*`）与图标为共享资源，不支持扩展；变量名须与内置风格一致，值自由。
 - **浅色 + 深色两套**：深色在页面根元素加 `class="dark"` 即切换。
 - 创建时会校验对比度（浅色与深色各一遍）、尺度递增与变量覆盖，不通过返回逐条错误。
 - **反抽取**（`action=extract`）：`source`（内联 HTML/CSS）/ `path`（工作区内文件）/ `url`（远程页面）；
   建议先 `dry_run=true` 预览，返回里区分「观测 / 推断」。确定性输出，一次通过校验。
+- **从仓库导入**（`action=import`）：自动探测技术栈（`stack=shadcn|antd` 可显式指定）。
+  shadcn 读 CSS 变量（`oklch()` / 旧版裸三元组）或 `tailwind.config.*`；AntD 读 `ConfigProvider theme.token` 字面量，
+  找不到时明说用的是默认种子 token。颜色统一归一化为 `#hex` 后过同一套 token 契约校验。
+
+#### 品牌记忆与品牌包
+
+- 每次反抽取、导入、导出代码都会在 `.tianshu-canvas/memory/brand.json` 累加使用记忆（常用组件/图标/变量、反复命中的审计规则）；
+  `canvas_design_system`（`action=get`）与 `canvas_get_state` 会展示摘要。记忆是缓存，损坏会静默重建。
+- `action=export` 导出**可移植品牌包**（单 JSON：tokens + meta + 使用记忆 + checksum，无时间戳、可复现）；
+  `action=import_pack` 导入时校验 checksum 与 token 契约，重名默认拒绝（`overwrite=true` 才覆盖），导入后自动锁定。
+
+### Design CI（`canvas_audit`）
+
+交付前把「这套设计能不能进生产」变成可执行的检查：
+
+| action | 作用 | 需要浏览器 |
+|---|---|---|
+| `contract` | 源码级设计契约：token 使用、裸色值、间距越界、图标来源、组件类；可落盘可独立运行的 `*.audit.test.mjs` | 否 |
+| `a11y` | 可访问性：对比度（向上追溯真实背景）、可访问名、表单标签、焦点可见性、目标尺寸、标题层级、`lang` | 是 |
+| `baseline` / `visual` | 视觉回归：逐页截图基线，与当前逐像素比较，输出偏离度分数与变化区域 bbox | 是 |
+| `drift` | 设计漂移：与上次快照比较，输出新增 / 移除 / 未使用 / 越界四类差集 | 否 |
+
+视觉基线默认在 `.tianshu-canvas/audit/baseline`（被 gitignore）；团队要共享基线时传 `baseline_dir` 指到仓库内可提交目录。
 
 **画布操作**：空格/中键拖拽平移 · Ctrl+滚轮缩放 · 普通滚轮平移 · 顶栏缩放百分比 · 右下角缩略图（MiniMap）。
 界面为手绘白板/便签风：顶栏含品牌与导出，左侧页面列表点击定位，右下角缩放控件，节点右键菜单（重命名/复制/删除/置于顶层）。
@@ -67,8 +90,9 @@
 - **可视化编辑**：选中元素后直接改样式，不含子元素的元素还可改文案，修改回写到原型源文件（脚本生成的元素无法回写，会提示交给 AI）；面板可用头部「×」收起为右上角小标签，点击再展开。
 - **编排**：节点工具栏重命名/复制/删除；页面间连线。AI 侧用 `canvas_arrange`（`action`: remove / duplicate / link / unlink）。
 - **导出**：在画布顶栏点「导出」自行产出画布截图 PNG 与/或原型打包 ZIP。导出只由用户在画布上操作，**没有对应的 AI 工具**。
-- **导出生产代码**：`canvas_style`（`action=codegen`）把设计转成可交付代码。**会先问你目标**：React + TSX / CSS 变量 + 无框架 HTML / Tailwind，或多端（iOS / Android / 小程序，需再选技术栈）。
-  - Web 三目标是确定性转换；多端产出**主题/Token 文件 + `design-spec.md` 规格清单**，页面代码由 AI 按规格编写（HTML→原生有损，不宣称像素级还原）。
+- **导出生产代码**：`canvas_style`（`action=codegen`）把设计转成可交付代码。**会先问你目标**：React + TSX / CSS 变量 + 无框架 HTML / Tailwind / 直接进现有代码库（shadcn / Ant Design），或多端（iOS / Android / 小程序，需再选技术栈）。
+  - Web 目标是确定性转换；`shadcn` / `antd` 会按真实组件 props 生成（`@/components/ui/*`、`ConfigProvider` 主题），并在 CI 里用声明桩 + `tsc` 验收。
+  - 多端产出**主题/Token 文件 + `design-spec.md` 规格清单**，页面代码由 AI 按规格编写（HTML→原生有损，不宣称像素级还原）。
   - 默认直接返回文件内容；传 `write_files=true` / `out_dir` 落到 `.tianshu-canvas/exports/`。
 
 > PNG 导出需系统安装 Chrome/Edge；可用 `TIANSHU_CANVAS_BROWSER` 指定路径。ZIP 不依赖浏览器。
@@ -81,15 +105,19 @@
 <cwd>/.tianshu-canvas/
 ├── project.json          画布模型（节点/视口/风格锁定/元素批注）
 ├── pages/<id>.html       每个页面的原型 HTML
-└── library/<id>/         自定义设计系统（tokens.json + meta.json，可选）
+├── library/<id>/         自定义设计系统（tokens.json + meta.json，可选）
+├── memory/brand.json     品牌记忆（使用统计 + 审计命中，缓存性质）
+└── audit/                设计快照与视觉基线（baseline 可指定到仓库内目录）
 ```
 
 ## 开发
 
 ```bash
 npm install
-npm run verify        # typecheck + build + test
-npm run check:plugin  # 官方发行约束自检（清单/入口/握手/路径/体积）
+npm run verify                # typecheck + build + test
+npm run verify:codegen        # 适配器产物编译验收（声明桩 + tsc，离线）
+npm run verify:codegen:real   # 发版前：真实 npm install + tsc（需联网）
+npm run check:plugin          # 官方发行约束自检（清单/入口/握手/路径/体积）
 ```
 
 - **技术栈**：TypeScript（Node 侧 + React 侧），esbuild 打包。
@@ -106,8 +134,8 @@ npm run check:plugin  # 官方发行约束自检（清单/入口/握手/路径/�
 
 ```bash
 npm run build
-node scripts/pack-plugin.mjs ./tianshu-canvas-0.6.0.zip \
-  --release-id rel_tianshu_canvas_060 --publisher-id <发布者 ID> \
+node scripts/pack-plugin.mjs ./tianshu-canvas-0.7.0.zip \
+  --release-id rel_tianshu_canvas_070 --publisher-id <发布者 ID> \
   --source-commit "$(git rev-parse HEAD)" --platforms win32-x64
 ```
 
@@ -115,23 +143,27 @@ node scripts/pack-plugin.mjs ./tianshu-canvas-0.6.0.zip \
 `xiaosi.release.json` 与 `xiaosi.contents.json`。若本地有官方开发套件，可再复核一次：
 
 ```bash
-node ".claude/天枢插件开发指南(天枢harness官方版)/cli.mjs" validate ./tianshu-canvas-0.6.0.zip --lane official_reviewed
+node ".claude/天枢插件开发指南(天枢harness官方版)/cli.mjs" validate ./tianshu-canvas-0.7.0.zip --lane official_reviewed
 ```
 
 ### 目录
 
 ```
-src/             Node 侧（入口/工具/本地服务/项目模型/设计系统/校验/探针/导出/抓取/内联/反抽取/代码生成）→ dist/index.mjs
+src/             Node 侧（入口/工具/本地服务/项目模型/设计系统/校验/探针/导出/抓取/内联/反抽取/代码生成/审计）→ dist/index.mjs
   host.ts          宿主桥（host.log / isWorker）
   netFetch.ts      SSRF 安全抓取（内联与反抽取共用）
   inlineAssets.ts  资源内联为 data: URI
   extract.ts       设计系统反抽取
+  htmlTree.ts      轻量 HTML 树解析（适配器与审计共用）
+  adapters/        真实代码库适配器（shadcn/Tailwind、Ant Design）
+  audit/           Design CI（契约 / a11y / PNG diff / 视觉回归 / 漂移）
+  brand.ts         品牌记忆与可移植品牌包
   codegen*.ts      React/TSX、CSS 变量、Tailwind、多端主题与规格
 web/             画布前端（React + React Flow）→ dist/web/canvas.js
 design-systems/  设计系统源数据（风格 token / 组件 / 图标 / 模板）→ dist/design/
 dist/            构建产物（提交进仓库）
-test/            契约 / 项目 / 服务 / 设计系统 / 选中 / 导出 / 抓取 / 内联 / 反抽取 / 代码生成 / 探针 e2e 测试（node:test，跑构建产物）
-scripts/         build.mjs、build-design.mjs、check-plugin.mjs、pack-plugin.mjs、verify-web.mjs、extract-release-notes.mjs
+test/            契约 / 项目 / 服务 / 设计系统 / 选中 / 导出 / 抓取 / 内联 / 反抽取 / 代码生成 / 适配器 / 审计 / 品牌 / 探针 e2e 测试（node:test，跑构建产物）
+scripts/         build.mjs、build-design.mjs、check-plugin.mjs、pack-plugin.mjs、verify-web.mjs、verify-codegen*.mjs、extract-release-notes.mjs
 release/         每个版本的发布详情文档（release-<版本>.md）
 ```
 

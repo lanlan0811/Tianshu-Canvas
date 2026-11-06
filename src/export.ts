@@ -170,7 +170,7 @@ function cleanStaleProfiles(): void {
  *
  * 每次尝试使用独立临时 profile，失败自动强杀进程树并清理，最多重试 3 次。
  */
-async function launchBrowser(exe: string): Promise<{ browser: Browser; dispose: () => Promise<void> }> {
+export async function launchBrowser(exe: string): Promise<{ browser: Browser; dispose: () => Promise<void> }> {
   const puppeteer = (await import('puppeteer-core')).default
   let lastErr: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
