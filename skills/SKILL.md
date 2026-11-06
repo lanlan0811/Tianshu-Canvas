@@ -1,6 +1,6 @@
 ---
 name: tianshu-canvas
-description: 用无限画布承载前端设计原型。当用户要做页面/组件/界面设计、生成 HTML 原型、做多页设计稿、或提到「画布」时使用。
+description: 前端设计原型写入无限画布。硬顺序：先 canvas_open 发链接给用户，再 canvas_style list 问风格并等回答。
 triggers:
   - 画布
   - canvas

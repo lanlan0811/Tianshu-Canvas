@@ -3,7 +3,7 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包",
   "runtime": "agent",
   "entry": "dist/index.mjs",
@@ -15,11 +15,11 @@
     "tools": [
       {
         "name": "canvas_open",
-        "description": "启动/复用本工作区的本地画布服务并返回可在浏览器打开的 URL"
+        "description": "【第一步】启动/复用本工作区的本地画布服务并返回画布 URL；必须先把该 URL 单独一行发给用户，再开始设计"
       },
       {
         "name": "canvas_upsert_page",
-        "description": "新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）"
+        "description": "新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）。调用前必须先 canvas_open，并已确认设计风格"
       },
       {
         "name": "canvas_get_state",
@@ -31,7 +31,7 @@
       },
       {
         "name": "canvas_style",
-        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、shadcn、Ant Design、iOS/Android/小程序）"
+        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续"
       },
       {
         "name": "canvas_check_style",

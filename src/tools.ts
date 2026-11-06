@@ -1329,7 +1329,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_open',
-      description: '启动/复用本工作区的本地画布服务并返回可在浏览器打开的 URL',
+      description: '【第一步】启动/复用本工作区的本地画布服务并返回画布 URL；必须先把该 URL 单独一行发给用户，再开始设计',
       input_schema: {
         type: 'object',
         properties: {
@@ -1350,7 +1350,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_upsert_page',
-      description: '新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）',
+      description: '新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）。调用前必须先 canvas_open，并已确认设计风格',
       input_schema: {
         type: 'object',
         properties: {
@@ -1438,7 +1438,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_style',
-      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、shadcn、Ant Design、iOS/Android/小程序）',
+      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续',
       input_schema: {
         type: 'object',
         properties: {
@@ -1463,7 +1463,10 @@ export const tools: TpiTool[] = [
           stack: {
             type: 'string',
             enum: ['swiftui', 'uikit', 'compose', 'xml', 'weapp', 'uniapp', 'taro'],
-            description: 'codegen 多端专用：技术栈。ios→swiftui|uikit；android→compose|xml；miniprogram→weapp|uniapp|taro。Web 目标忽略。多端产物是「主题/Token 文件 + design-spec.md 规格清单」，**页面代码由你按规格编写**（HTML→原生必然有损，不得声称像素级还原）',
+            description:
+              'codegen 多端专用：技术栈。ios→swiftui|uikit；android→compose|xml；miniprogram→weapp|uniapp|taro。Web 目标忽略。' +
+              '**多端导出前必须先问用户选哪种技术栈并等回答，不得替用户决定**（也可多选多端）。' +
+              '多端产物是「主题/Token 文件 + design-spec.md 规格清单」，**页面代码由你按规格编写**（HTML→原生必然有损，不得声称像素级还原）',
           },
           page_id: { type: 'string', description: 'codegen：要转换的页面 id；省略时若画布只有一个页面则用它' },
           html: { type: 'string', description: 'codegen：直接传入源 HTML（优先于 page_id）' },
@@ -1516,7 +1519,9 @@ export const tools: TpiTool[] = [
           action: {
             type: 'string',
             enum: ['create', 'extract', 'import', 'export', 'import_pack', 'list', 'get', 'remove'],
-            description: 'create=创建（先主动问清配置：配色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色）；extract=从现有 HTML/CSS/URL 反抽取；import=从仓库现有 shadcn/Tailwind 或 AntD 主题导入；export=导出可移植品牌包；import_pack=导入品牌包；list=列出；get=查看细节；remove=删除',
+            description:
+              'create=创建；extract=从现有 HTML/CSS/URL 反抽取；import=从仓库现有 shadcn/Tailwind 或 AntD 主题导入；export=导出可移植品牌包；import_pack=导入品牌包；list=列出；get=查看细节；remove=删除。' +
+              '**create 前必须先一次性问清配置并等回答：配色与主色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色——不要拆成多轮反复追问。**',
           },
           stack: {
             type: 'string',
@@ -1538,7 +1543,10 @@ export const tools: TpiTool[] = [
           source: { type: 'string', description: 'extract：内联 HTML 或 CSS 文本（最高优先）' },
           path: { type: 'string', description: 'extract：工作区内的 HTML/CSS 文件路径。宿主会把该参数规范化为绝对路径' },
           url: { type: 'string', description: 'extract：远程页面 URL（仅 http/https；会做 SSRF 防护，禁内网）' },
-          dry_run: { type: 'boolean', description: 'extract：只预览（返回摘要 + 完整 tokens），不写盘（默认 false）' },
+          dry_run: {
+            type: 'boolean',
+            description: 'extract/import：只预览（返回摘要 + 完整 tokens），不写盘（默认 false）。**建议默认先传 true 让用户确认后再正式执行**——正式执行会创建风格并重写所有页面',
+          },
           id: { type: 'string', description: '风格 id：字母数字/_/-，1–64 位；不得与内置风格重名' },
           name: { type: 'string', description: 'create：风格显示名' },
           tagline: { type: 'string', description: 'create：一句话描述' },
