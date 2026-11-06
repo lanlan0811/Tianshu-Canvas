@@ -8,7 +8,7 @@
  * 入口会内联自己的副本，测试 import 时会看到第二个独立单例。
  */
 import { build } from 'esbuild'
-import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildDesignSystems } from './build-design.mjs'
@@ -57,12 +57,19 @@ await build({
   minify: true,
   sourcemap: false,
   define: { 'process.env.NODE_ENV': '"production"' },
-  loader: { '.css': 'css' },
+  // .png 内联为 data: URI：画布 CSP 只允许 img-src 'self' data: blob:，
+  // 内联同时省掉静态资源路由（服务端只白名单 canvas.js/css/map）。
+  loader: { '.css': 'css', '.png': 'dataurl' },
   logLevel: 'info',
 })
 
-// (c) 复制 HTML 外壳
-copyFileSync(resolve(root, 'web/index.html'), resolve(distWeb, 'index.html'))
+// (c) HTML 外壳：把 __FAVICON__ 占位换成内联的图标 data: URI
+const favicon = readFileSync(resolve(root, 'web/favicon.png')).toString('base64')
+const shell = readFileSync(resolve(root, 'web/index.html'), 'utf8').replace(
+  '__FAVICON__',
+  `data:image/png;base64,${favicon}`,
+)
+writeFileSync(resolve(distWeb, 'index.html'), shell)
 
 // 断言关键产物存在
 for (const f of ['index.mjs', 'web/index.html', 'web/canvas.js', 'web/canvas.css', 'design/index.json']) {

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useReactFlow, useViewport } from '@xyflow/react'
 import { ChevronIcon, DownloadIcon, FitViewIcon, SidebarIcon } from './icons'
+import brandIcon from './brand-icon.png'
 import { StyleSwitcher } from './StyleSwitcher'
 import type { ApiDesignCatalog } from './api'
 
@@ -50,7 +51,7 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="topbar__brand">
-        <span className="topbar__mark" aria-hidden="true" />
+        <img className="topbar__mark" src={brandIcon} alt="" width={22} height={22} />
         <span className="topbar__name">天枢画布</span>
       </div>
       <div className="topbar__tools">
