@@ -3,6 +3,32 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.4.1] - 2026-11-06
+
+新增**元素批注**：在画布上直接圈出要改的地方，AI 一次读回全部批注并逐条修改。工具由 8 个增至 9 个。详细说明见 [release-0.4.1.md](release/release-0.4.1.md)。
+
+### 新增
+
+- **元素批注**：选中元素后写一句话即可打图钉（元素左上角显示编号、节点标题栏显示「批注 N」），存于 `project.json` 的 `comments[]`。
+- **`canvas_comments`**（`action`: list / resolve / reopen / remove）：`list` 一次读回全部待处理批注（含页面标题 / 标签 / xpath / 当前文本），AI 逐条改完后用 `resolve` 批量标记已解决。
+- **图钉由注入探针在 iframe 内绘制**：按 xpath 定位、文档坐标绝对定位，不受画布缩放 / 平移 / 页面滚动影响；已解决的不再显示。
+- 新增 `GET /api/comments` 与 `POST /api/comments`（op: add / resolve / remove）。
+
+### 变更
+
+- 工具数由 8 个增至 9 个；`canvas_get_state` 末尾提示「待处理批注：N 条」。
+- `project.json` 新增可选字段 `comments: Comment[]`；缺省即没有批注，旧项目无需迁移。
+
+### 修复
+
+- 无效批注（缺 id / 非字符串 xpath / 空内容）读取时静默过滤，不影响其余条目。
+- 删除页面时连带删除该页批注。
+
+### 说明
+
+- 图钉只做展示、不拦截点击；面板里每条批注可单独解决 / 重开 / 删除。
+- 测试由 62 个增至 63 个。
+
 ## [v0.4.0] - 2026-11-06
 
 正式版：引入项目级设计系统（7 套内置风格 + 用户自定义设计系统），工具由 5 个增至 8 个。详细说明见 [release-0.4.0.md](release/release-0.4.0.md)。
