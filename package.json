@@ -1,6 +1,6 @@
 {
   "name": "tianshu-canvas",
-  "version": "0.4.0-beta.4",
+  "version": "0.4.0",
   "description": "无限画布设计工作台（天枢 TPI 插件）",
   "license": "Apache-2.0",
   "private": true,
