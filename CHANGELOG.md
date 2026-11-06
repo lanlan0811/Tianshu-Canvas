@@ -3,6 +3,31 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.6.0] - 2026-11-06
+
+发行形态对齐版：让插件能通过天枢官方插件库的打包与验包，功能与 0.5.0 一致（仍 8 个工具）。详细说明见 [release-0.6.0.md](release/release-0.6.0.md)。
+
+### 修复
+
+- **清单补 `engines.tianshu`**（`>=4.0.2 <5.0.0`）：官方打包器对缺此项的包直接拒绝，发行记录的 `compatibility.core` 由它派生。
+- **入口改为 `dist/index.mjs`**：发行 ZIP 内没有 `package.json`，模块格式只能按扩展名判定。
+- **`puppeteer-core` 内联进单文件 bundle**：旧实现是运行时从 `node_modules` 动态 import，而官方包不携带依赖目录，装完插件导出 PNG 会失败。现已在无 `node_modules` 的空目录实测通过。
+- **`permissions.shell` 改为 `true`**：确实会 spawn 系统浏览器、启动无头 Chrome、在 Windows 上调用 `taskkill`。
+- **工具描述与清单逐字一致且 ≤200 字**（官方示例按 `{ name, description }` 深比较）；详细契约移入 `inputSchema` 参数说明与技能。
+- **路径参数声明**：`canvas_style.out_dir` → `write`，`canvas_design_system.path` → `read`，宿主据此做路径守卫。
+- **`canvas_open` 改为非并发安全**：会启动服务并写 `url.txt`。全部工具补 `timeoutMs`，`inputSchema` 补 `additionalProperties: false`。
+- **日志改走 `host.log`**（新增 `src/host.ts`，宿主外回落 stderr）；`isWorker` 会话不写 `url.txt`。
+
+### 新增
+
+- `npm run check:plugin`：发行前自检（清单/入口/握手/路径/体积），已接入 CI 与 Release 工作流。
+- `scripts/pack-plugin.mjs`：按官方规则生成发行 ZIP 与 `xiaosi.release.json`、`xiaosi.contents.json`；同源码两次打包字节一致。
+
+### 说明
+
+- 工具名与行为对用户不变，无项目数据迁移；已安装 0.5.0 可直接覆盖升级，新建会话后生效。
+- 官方套件 `validate --lane official_reviewed` 返回 `valid: true`；`npm run verify` 95/95 通过。
+
 ## [v0.5.0] - 2026-11-06
 
 三个新能力：**真实资源内联**、**设计系统反抽取**、**导出生产代码（Web + 多端）**。工具名不变（仍 8 个），新能力以参数 / `action` 形式并入现有工具。详细说明见 [release-0.5.0.md](release/release-0.5.0.md)。

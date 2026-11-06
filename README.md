@@ -106,8 +106,8 @@ npm run check:plugin  # 官方发行约束自检（清单/入口/握手/路径/�
 
 ```bash
 npm run build
-node scripts/pack-plugin.mjs ./tianshu-canvas-0.5.0.zip \
-  --release-id rel_tianshu_canvas_050 --publisher-id <发布者 ID> \
+node scripts/pack-plugin.mjs ./tianshu-canvas-0.6.0.zip \
+  --release-id rel_tianshu_canvas_060 --publisher-id <发布者 ID> \
   --source-commit "$(git rev-parse HEAD)" --platforms win32-x64
 ```
 
@@ -115,7 +115,7 @@ node scripts/pack-plugin.mjs ./tianshu-canvas-0.5.0.zip \
 `xiaosi.release.json` 与 `xiaosi.contents.json`。若本地有官方开发套件，可再复核一次：
 
 ```bash
-node ".claude/天枢插件开发指南(天枢harness官方版)/cli.mjs" validate ./tianshu-canvas-0.5.0.zip --lane official_reviewed
+node ".claude/天枢插件开发指南(天枢harness官方版)/cli.mjs" validate ./tianshu-canvas-0.6.0.zip --lane official_reviewed
 ```
 
 ### 目录
