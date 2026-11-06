@@ -1235,18 +1235,265 @@ ${template.html.trim()}
   return { html, device: template.device, name: template.name };
 }
 
-// src/export.ts
-import { spawn } from "node:child_process";
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync5, readdirSync as readdirSync2, rmSync as rmSync3, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
-import { tmpdir } from "node:os";
-import { join as join5 } from "node:path";
-import { deflateRawSync } from "node:zlib";
+// src/resources.ts
+var TAG_RESOURCE = /<(?:script|img|link|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|href|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+var CSS_RESOURCE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)|@import\s+(?:"([^"]*)"|'([^']*)')/gi;
+var INLINE = /^(?:data:|blob:|about:|#)/i;
+function findBlockedResources(html) {
+  const found = /* @__PURE__ */ new Set();
+  for (const pattern of [TAG_RESOURCE, CSS_RESOURCE]) {
+    for (const match of html.matchAll(pattern)) {
+      const value = match.slice(1).find((group) => group !== void 0)?.trim();
+      if (value && !INLINE.test(value)) found.add(value);
+    }
+  }
+  return [...found];
+}
+
+// src/lint.ts
+var MAX_FINDINGS = 40;
+var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
+var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
+var FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi;
+var COLOR_PROP = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline))*(?:-color)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)$/;
+var NAMED_COLORS = new Set(
+  "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen".split(" ")
+);
+var CSS_WORD = /(?<![\w-])[a-z]+(?![\w-])/gi;
+var VAR_REF = /var\(\s*(--ts-[A-Za-z0-9-]+)\s*\)/g;
+var CLASS_ATTR = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+var DATA_ICON = /data-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+var EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi;
+var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/;
+var RADIUS_PROP = /^border(?:-[a-z]+)*-radius$/;
+var FONT_PROP = /^font-family$/;
+function mask(text) {
+  return text.replace(/[^\n]/g, " ");
+}
+function maskBalanced(text, pattern) {
+  const out = text.split("");
+  pattern.lastIndex = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    for (let i = start; i < start + match[0].length; i++) if (out[i] !== "\n") out[i] = " ";
+  }
+  return out.join("");
+}
+function maskUrls(segment) {
+  let out = maskBalanced(segment, /url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\s*\)/gi);
+  out = maskBalanced(out, /\bdata:[^"')\s]+/gi);
+  return out;
+}
+function styleSegments(maskedHtml) {
+  const segments = [];
+  for (const match of maskedHtml.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+    const inner = match[1] ?? "";
+    const start = (match.index ?? 0) + match[0].indexOf(inner);
+    segments.push({ start, text: inner.replace(/\/\*[\s\S]*?\*\//g, mask) });
+  }
+  for (const match of maskedHtml.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+    const inner = match[1] ?? match[2] ?? "";
+    const start = (match.index ?? 0) + match[0].indexOf(inner);
+    segments.push({ start, text: inner });
+  }
+  return segments;
+}
+function declarations(text) {
+  const out = [];
+  let depth = 0;
+  let quote = "";
+  let start = 0;
+  const flush = (end) => {
+    const body = text.slice(start, end);
+    const colon = body.indexOf(":");
+    if (colon > 0) {
+      const prop = body.slice(0, colon).trim().toLowerCase();
+      const raw = body.slice(colon + 1);
+      const value = raw.replace(/\}+\s*$/, "").trim();
+      if (prop && value) out.push({ prop, value, raw, offset: start + colon + 1 });
+    }
+  };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === quote && text[i - 1] !== "\\") quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && (ch === ";" || ch === "}")) {
+      flush(i);
+      start = i + 1;
+    } else if (depth === 0 && ch === "{") {
+      start = i + 1;
+    }
+  }
+  if (start < text.length) flush(text.length);
+  return out;
+}
+function lineIndex(html) {
+  const index = [0];
+  for (let i = 0; i < html.length; i++) if (html[i] === "\n") index.push(i + 1);
+  return index;
+}
+function lineOf(index, offset) {
+  let lo = 0;
+  let hi = index.length - 1;
+  while (lo < hi) {
+    const mid = lo + hi + 1 >> 1;
+    if (index[mid] <= offset) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
+}
+function snippetAt(html, offset, length = 80) {
+  const start = Math.max(0, offset);
+  const lineEnd = html.indexOf("\n", start);
+  const end = lineEnd === -1 ? Math.min(html.length, start + length) : Math.min(lineEnd, start + length);
+  return html.slice(start, end).trim();
+}
+function nearest(values, target) {
+  const sorted = [...values].sort((a, b) => Math.abs(a - target) - Math.abs(b - target));
+  return sorted.slice(0, 2);
+}
+function nearestTokenHint(kind, value, manifest) {
+  const pool = kind === "space" ? manifest.spacing : manifest.radius;
+  const close = nearest(pool, value);
+  return close.map((v) => `--ts-${kind === "space" ? "space" : "radius"}-${keyFor(pool, v, kind)}`).join(" / ");
+}
+function keyFor(pool, value, kind) {
+  const names = kind === "radius" ? { 0: "none", 4: "sm", 6: "sm", 8: "md", 10: "md", 12: "lg", 14: "lg", 16: "xl", 18: "xl", 20: "xl", 9999: "full" } : {};
+  return names[value] ?? String(value);
+}
+function lintHtml(html, styleId, cwd) {
+  const counts = Object.fromEntries(RULES.map((r) => [r, 0]));
+  const findings = [];
+  const index = lineIndex(html);
+  const add = (rule, offset, message) => {
+    counts[rule]++;
+    if (findings.length < MAX_FINDINGS) {
+      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset) });
+    }
+  };
+  const blocked = findBlockedResources(html);
+  if (blocked.length) {
+    const first = blocked[0];
+    const at = Math.max(0, html.indexOf(first));
+    add("resource", at, `\u5C06\u88AB\u753B\u5E03 CSP \u62E6\u622A\uFF1A${blocked.slice(0, 3).join("\u3001")}${blocked.length > 3 ? ` \u7B49 ${blocked.length} \u5904` : ""}`);
+  }
+  const style = styleId ? resolveDesignStyle(cwd, styleId) : null;
+  if (!style) {
+    return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
+  }
+  const manifest = style.manifest;
+  const varSet = new Set(manifest.vars);
+  const iconSet = new Set(manifest.iconNames);
+  const classSet = new Set(manifest.componentClasses);
+  const familySet = new Set(manifest.fontFamilies.map((f) => f.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase()));
+  const spacing = new Set(manifest.spacing);
+  const radius = new Set(manifest.radius);
+  let masked = html.replace(/<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->/g, mask).replace(/<script\b[\s\S]*?<\/script>/gi, mask).replace(/<!--[\s\S]*?-->/g, mask);
+  masked = maskUrls(masked);
+  for (const match of masked.matchAll(VAR_REF)) {
+    const name = match[1];
+    if (!varSet.has(name)) add("token", match.index ?? 0, `\u672A\u77E5 token\uFF1A${name}`);
+  }
+  for (const segment of styleSegments(masked)) {
+    for (const decl of declarations(segment.text)) {
+      const offset = segment.start + decl.offset;
+      if (FONT_PROP.test(decl.prop)) {
+        const first = decl.value.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase();
+        if (first && !first.startsWith("var(") && first !== "inherit" && !familySet.has(first)) {
+          add("font", offset, `\u5B57\u4F53 ${first} \u4E0D\u5728\u5F53\u524D\u98CE\u683C\u5B57\u4F53\u6808\u5185\uFF0C\u6539\u7528 var(--ts-font-sans)`);
+        }
+        continue;
+      }
+      if (RADIUS_PROP.test(decl.prop)) {
+        for (const px of pxValues(decl.value)) {
+          if (px !== 0 && !radius.has(px)) {
+            add("radius", offset, `\u5706\u89D2 ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("radius", px, manifest)}`);
+          }
+        }
+        continue;
+      }
+      if (SPACING_PROPS.test(decl.prop)) {
+        for (const px of pxValues(decl.value)) {
+          if (px !== 0 && px !== 1 && !spacing.has(px)) {
+            add("spacing", offset, `\u95F4\u8DDD ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("space", px, manifest)}`);
+          }
+        }
+      }
+    }
+  }
+  for (const segment of styleSegments(masked)) {
+    for (const decl of declarations(segment.text)) {
+      const offset = segment.start + decl.offset;
+      const reportColor = (index2, color) => add("color", offset + index2, `\u88F8\u8272\u503C ${color}\uFF0C\u6539\u7528 var(--ts-color-*)`);
+      for (const match of decl.raw.matchAll(HEX_COLOR)) reportColor(match.index ?? 0, match[0]);
+      for (const match of decl.raw.matchAll(FUNC_COLOR)) {
+        if (!match[0].includes("var(")) reportColor(match.index ?? 0, match[0]);
+      }
+      if (COLOR_PROP.test(decl.prop)) {
+        const words = decl.raw.replace(/var\([^)]*\)/gi, mask);
+        for (const match of words.matchAll(CSS_WORD)) {
+          if (NAMED_COLORS.has(match[0].toLowerCase())) reportColor(match.index ?? 0, match[0]);
+        }
+      }
+    }
+  }
+  for (const match of masked.matchAll(DATA_ICON)) {
+    const name = (match[1] ?? match[2] ?? "").trim();
+    if (name && !iconSet.has(name)) add("icon", match.index ?? 0, `\u56FE\u6807\u76EE\u5F55\u65E0\u6B64\u540D\uFF1A${name}`);
+  }
+  for (const match of masked.matchAll(EMPTY_SVG)) {
+    if (!/data-icon/.test(match[1] ?? "")) add("icon", match.index ?? 0, "\u7A7A <svg> \u7F3A\u5C11 data-icon \u540D\u79F0");
+  }
+  for (const match of masked.matchAll(CLASS_ATTR)) {
+    const value = match[1] ?? match[2] ?? "";
+    for (const cls of value.split(/\s+/).filter(Boolean)) {
+      if (cls.startsWith("ts-") && !classSet.has(cls)) {
+        add("component", match.index ?? 0, `\u7EC4\u4EF6\u76EE\u5F55\u65E0\u6B64\u7C7B\uFF1A${cls}`);
+      }
+    }
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  findings.sort((a, b) => a.line - b.line);
+  return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total };
+}
+function pxValues(value) {
+  if (/calc\(/i.test(value)) return [];
+  const literal = value.replace(/var\([^)]*\)/gi, " ");
+  const found = /* @__PURE__ */ new Set();
+  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
+  return [...found];
+}
+function formatLintReport(report, label) {
+  const styleName = report.styleId ? report.styleName ?? report.styleId : null;
+  const head = styleName ? `\u98CE\u683C\u68C0\u67E5\uFF1A${styleName}\uFF08${report.styleId}\uFF09\xB7 ${label}` : `\u98CE\u683C\u68C0\u67E5\uFF1A\u672A\u9501\u5B9A\u98CE\u683C \xB7 ${label}\uFF08\u4EC5\u68C0\u67E5\u8D44\u6E90\u5F15\u7528\uFF09`;
+  if (report.total === 0) {
+    return `${head}
+\u672A\u53D1\u73B0\u4E0D\u7B26\u5408\u9879\uFF080 \u5904\uFF09\u3002`;
+  }
+  const lines = report.findings.map((f, i) => `${i + 1}. [${f.rule}] \u7B2C ${f.line} \u884C ${f.message}
+   ${f.snippet}`);
+  const summary = RULES.filter((r) => report.counts[r] > 0).map((r) => `${r} ${report.counts[r]}`).join("\u3001");
+  const tail = report.truncated ? `
+\u2026\u53E6\u6709 ${report.total - report.findings.length} \u5904\u672A\u663E\u793A\u3002` : "";
+  return `${head}
+\u53D1\u73B0 ${report.total} \u5904\uFF08\u4EC5\u62A5\u544A\uFF0C\u672A\u4FEE\u6539\u6587\u4EF6\uFF09\uFF1A
+${lines.join("\n")}
+\u6C47\u603B\uFF1A${summary}${tail}`;
+}
 
 // src/server.ts
 import http from "node:http";
 import { createHash as createHash2 } from "node:crypto";
-import { existsSync as existsSync4, readFileSync as readFileSync4, statSync } from "node:fs";
-import { join as join4 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync5, statSync as statSync2 } from "node:fs";
+import { join as join5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/probe.ts
@@ -1542,6 +1789,316 @@ ${safe}
   return html.slice(0, at) + tag + html.slice(at);
 }
 
+// src/export.ts
+import { spawn } from "node:child_process";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync4, readdirSync as readdirSync2, rmSync as rmSync3, statSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as join4 } from "node:path";
+import { deflateRawSync } from "node:zlib";
+var BROWSER_CANDIDATES = [
+  process.env.TIANSHU_CANVAS_BROWSER,
+  "C:/Program Files/Google/Chrome/Application/chrome.exe",
+  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+  "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+].filter((p) => typeof p === "string" && p.length > 0);
+function resolveBrowser() {
+  return BROWSER_CANDIDATES.find((p) => existsSync4(p)) ?? null;
+}
+function exportsDir(cwd) {
+  return join4(projectDir(cwd), "exports");
+}
+function stamp() {
+  const d = /* @__PURE__ */ new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+var pngQueue = Promise.resolve();
+function exportPng(cwd) {
+  const run = pngQueue.then(() => exportPngOnce(cwd));
+  pngQueue = run.catch(() => {
+  });
+  return run;
+}
+var LAUNCH_ARGS = [
+  "--remote-debugging-port=0",
+  "--no-sandbox",
+  "--disable-gpu",
+  "--disable-dev-shm-usage",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--disable-extensions",
+  "--headless=new",
+  "--hide-scrollbars",
+  "--mute-audio",
+  "--disable-background-networking",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
+  "--disable-breakpad",
+  "--disable-crash-reporter"
+];
+var BrowserSpawnError = class extends Error {
+};
+async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
+  const portFile = join4(userDataDir, "DevToolsActivePort");
+  const deadline = Date.now() + timeoutMs;
+  let stderr = "";
+  proc.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+  let exitCode = null;
+  proc.once("exit", (code) => {
+    exitCode = code;
+  });
+  let spawnError = null;
+  proc.on("error", (err) => {
+    spawnError = err;
+  });
+  while (Date.now() < deadline) {
+    if (spawnError) throw new BrowserSpawnError(`\u65E0\u6CD5\u542F\u52A8\u6D4F\u89C8\u5668 ${proc.spawnfile}\uFF1A${spawnError.message}`);
+    if (exitCode !== null) {
+      throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
+    }
+    if (existsSync4(portFile)) {
+      const lines = readFileSync4(portFile, "utf8").split("\n");
+      const port = lines[0]?.trim();
+      const wsPath = lines[1]?.trim();
+      if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`\u7B49\u5F85\u6D4F\u89C8\u5668\u8C03\u8BD5\u7AEF\u53E3\u8D85\u65F6\uFF08${timeoutMs}ms\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
+}
+function killTree(proc) {
+  if (proc.exitCode !== null || !proc.pid) return;
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => {
+      });
+    } else {
+      process.kill(-proc.pid, "SIGKILL");
+    }
+  } catch {
+  }
+}
+function removeProfile(userDataDir) {
+  try {
+    rmSync3(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+  } catch (err) {
+    console.error(`[tianshu-canvas] \u4E34\u65F6 profile \u672A\u80FD\u5220\u9664\uFF1A${userDataDir}\uFF08${err.message}\uFF09`);
+  }
+}
+function cleanStaleProfiles() {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1e3;
+  try {
+    for (const entry of readdirSync2(tmpdir())) {
+      if (!entry.startsWith("tsc-png-")) continue;
+      const dir = join4(tmpdir(), entry);
+      try {
+        if (statSync(dir).mtimeMs < cutoff) rmSync3(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
+      } catch {
+      }
+    }
+  } catch {
+  }
+}
+async function launchBrowser(exe) {
+  const puppeteer = (await import("puppeteer-core")).default;
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const userDataDir = mkdtempSync(join4(tmpdir(), "tsc-png-"));
+    const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, "about:blank"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      detached: process.platform !== "win32"
+    });
+    try {
+      const wsEndpoint = await readDevToolsEndpoint(userDataDir, proc, 6e4);
+      const browser = await puppeteer.connect({
+        browserWSEndpoint: wsEndpoint,
+        protocolTimeout: 12e4,
+        defaultViewport: null
+      });
+      const dispose = async () => {
+        await Promise.race([browser.close().catch(() => {
+        }), new Promise((r) => setTimeout(r, 1e4))]);
+        killTree(proc);
+        await new Promise((r) => setTimeout(r, 500));
+        removeProfile(userDataDir);
+      };
+      return { browser, dispose };
+    } catch (err) {
+      lastErr = err;
+      killTree(proc);
+      await new Promise((r) => setTimeout(r, 500));
+      removeProfile(userDataDir);
+      if (err instanceof BrowserSpawnError) break;
+      await new Promise((r) => setTimeout(r, 1e3 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+async function exportPngOnce(cwd) {
+  const exe = resolveBrowser();
+  if (!exe) {
+    throw new Error(
+      "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u5BFC\u51FA PNG\u3002\u8BF7\u5B89\u88C5 Chrome/Edge\uFF0C\u6216\u7528\u73AF\u5883\u53D8\u91CF TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u6D4F\u89C8\u5668\u8DEF\u5F84\u3002"
+    );
+  }
+  const { url } = await ensureServer(cwd);
+  cleanStaleProfiles();
+  const { browser, dispose } = await launchBrowser(exe);
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 });
+    await page.goto(`${url}&export=1`, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    await page.waitForSelector(".page-node", { timeout: 15e3 });
+    await new Promise((r) => setTimeout(r, 800));
+    const clip = await page.evaluate(() => {
+      const doc = globalThis.document;
+      const els = Array.from(doc.querySelectorAll(".page-node, .page-node__header"));
+      if (!els.length) return null;
+      const rects = els.map((e) => e.getBoundingClientRect());
+      const left = Math.min(...rects.map((r) => r.left));
+      const top = Math.min(...rects.map((r) => r.top));
+      const right = Math.max(...rects.map((r) => r.right));
+      const bottom = Math.max(...rects.map((r) => r.bottom));
+      const pad = 40;
+      return { x: left - pad, y: top - pad, width: right - left + pad * 2, height: bottom - top + pad * 2 };
+    });
+    const dir = exportsDir(cwd);
+    mkdirSync3(dir, { recursive: true });
+    const name = `canvas-${stamp()}.png`;
+    const path = join4(dir, name);
+    await page.screenshot({ path, clip: clip ?? void 0 });
+    return { name, path, bytes: readFileSync4(path).length };
+  } finally {
+    await dispose();
+  }
+}
+var CRC_TABLE = (() => {
+  const table = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+    table[n] = c;
+  }
+  return table;
+})();
+function crc32(buf) {
+  let c = 4294967295;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 255] ^ c >>> 8;
+  return (c ^ 4294967295) >>> 0;
+}
+function buildZip(entries) {
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const nameBuf = Buffer.from(entry.name, "utf8");
+    const crc = crc32(entry.data);
+    const compressed = deflateRawSync(entry.data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(67324752, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(2048, 6);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(0, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(entry.data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    local.writeUInt16LE(0, 28);
+    chunks.push(local, nameBuf, compressed);
+    const cd = Buffer.alloc(46);
+    cd.writeUInt32LE(33639248, 0);
+    cd.writeUInt16LE(20, 4);
+    cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(2048, 8);
+    cd.writeUInt16LE(8, 10);
+    cd.writeUInt16LE(0, 12);
+    cd.writeUInt16LE(0, 14);
+    cd.writeUInt32LE(crc, 16);
+    cd.writeUInt32LE(compressed.length, 20);
+    cd.writeUInt32LE(entry.data.length, 24);
+    cd.writeUInt16LE(nameBuf.length, 28);
+    cd.writeUInt16LE(0, 30);
+    cd.writeUInt16LE(0, 32);
+    cd.writeUInt16LE(0, 34);
+    cd.writeUInt16LE(0, 36);
+    cd.writeUInt32LE(0, 38);
+    cd.writeUInt32LE(offset, 42);
+    central.push(cd, nameBuf);
+    offset += local.length + nameBuf.length + compressed.length;
+  }
+  const centralBuf = Buffer.concat(central);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(101010256, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+  return Buffer.concat([...chunks, centralBuf, eocd]);
+}
+function galleryHtml(cwd) {
+  const project = readProject(cwd);
+  const cards = project.nodes.map(
+    (n) => `<section><h2>${escapeHtml(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1.5px solid #2b2b2b;border-radius:12px 5px 14px 6px/6px 13px 5px 12px;background:#fffdf8"></iframe></section>`
+  ).join("\n");
+  return `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6</title>
+<style>body{font-family:system-ui;margin:0;padding:24px;background:#faf7f0;color:#2b2b2b}
+h1{font-size:20px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}h2{font-size:15px;margin:0 0 8px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}section{margin:0 0 32px}small{color:#6b6152;font-weight:400}
+iframe{display:block}</style></head>
+<body><h1>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6\uFF08\u5171 ${project.nodes.length} \u9875\uFF09</h1>
+${cards || "<p>\uFF08\u65E0\u9875\u9762\uFF09</p>"}
+</body></html>`;
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+async function exportZip(cwd) {
+  const project = readProject(cwd);
+  const entries = [];
+  for (const node of project.nodes) {
+    const html = readPageHtml(cwd, node.id);
+    if (html !== null) entries.push({ name: `pages/${node.id}.html`, data: Buffer.from(html, "utf8") });
+  }
+  entries.push({ name: "project.json", data: Buffer.from(JSON.stringify(project, null, 2), "utf8") });
+  entries.push({ name: "index.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
+  const zip = buildZip(entries);
+  const dir = exportsDir(cwd);
+  mkdirSync3(dir, { recursive: true });
+  const name = `canvas-${stamp()}.zip`;
+  const path = join4(dir, name);
+  writeFileSync3(path, zip);
+  return { name, path, bytes: zip.length };
+}
+async function runExport(cwd, kind) {
+  const files = [];
+  let pngError;
+  if (kind === "png" || kind === "both") {
+    try {
+      files.push(await exportPng(cwd));
+    } catch (err) {
+      pngError = err.message;
+    }
+  }
+  if (kind === "zip" || kind === "both") {
+    files.push(await exportZip(cwd));
+  }
+  return { files, pngError };
+}
+
 // src/server.ts
 var WEB_DIR = fileURLToPath2(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
@@ -1699,10 +2256,10 @@ function routeRequest(req, res) {
     if (!name || /[\\/]/.test(name) || name.includes("..")) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
-    const file = join4(exportsDir(cwd), name);
-    if (!existsSync4(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    const file = join5(exportsDir(cwd), name);
+    if (!existsSync5(file) || !statSync2(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
-    const data = readFileSync4(file);
+    const data = readFileSync5(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
     res.end(data);
     return;
@@ -1969,14 +2526,14 @@ function isLocalHost(host) {
   return name === "127.0.0.1" || name === "localhost";
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
-  const file = join4(WEB_DIR, name);
-  if (!existsSync4(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
+  const file = join5(WEB_DIR, name);
+  if (!existsSync5(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
   res.writeHead(200, headers);
-  res.end(readFileSync4(file));
+  res.end(readFileSync5(file));
 }
 function sendUntrustedHtml(res, html) {
   res.writeHead(200, {
@@ -1993,565 +2550,6 @@ function sendJson(res, body) {
 function send(res, status, type, body) {
   res.writeHead(status, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
   res.end(body);
-}
-
-// src/export.ts
-var BROWSER_CANDIDATES = [
-  process.env.TIANSHU_CANVAS_BROWSER,
-  "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-  "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-  "/usr/bin/google-chrome",
-  "/usr/bin/google-chrome-stable",
-  "/usr/bin/chromium",
-  "/usr/bin/chromium-browser",
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-].filter((p) => typeof p === "string" && p.length > 0);
-function resolveBrowser() {
-  return BROWSER_CANDIDATES.find((p) => existsSync5(p)) ?? null;
-}
-function exportsDir(cwd) {
-  return join5(projectDir(cwd), "exports");
-}
-function stamp() {
-  const d = /* @__PURE__ */ new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
-var pngQueue = Promise.resolve();
-function exportPng(cwd) {
-  const run = pngQueue.then(() => exportPngOnce(cwd));
-  pngQueue = run.catch(() => {
-  });
-  return run;
-}
-var LAUNCH_ARGS = [
-  "--remote-debugging-port=0",
-  "--no-sandbox",
-  "--disable-gpu",
-  "--disable-dev-shm-usage",
-  "--no-first-run",
-  "--no-default-browser-check",
-  "--disable-extensions",
-  "--headless=new",
-  "--hide-scrollbars",
-  "--mute-audio",
-  "--disable-background-networking",
-  "--disable-backgrounding-occluded-windows",
-  "--disable-renderer-backgrounding",
-  "--disable-breakpad",
-  "--disable-crash-reporter"
-];
-var BrowserSpawnError = class extends Error {
-};
-async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
-  const portFile = join5(userDataDir, "DevToolsActivePort");
-  const deadline = Date.now() + timeoutMs;
-  let stderr = "";
-  proc.stderr?.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
-  let exitCode = null;
-  proc.once("exit", (code) => {
-    exitCode = code;
-  });
-  let spawnError = null;
-  proc.on("error", (err) => {
-    spawnError = err;
-  });
-  while (Date.now() < deadline) {
-    if (spawnError) throw new BrowserSpawnError(`\u65E0\u6CD5\u542F\u52A8\u6D4F\u89C8\u5668 ${proc.spawnfile}\uFF1A${spawnError.message}`);
-    if (exitCode !== null) {
-      throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
-    }
-    if (existsSync5(portFile)) {
-      const lines = readFileSync5(portFile, "utf8").split("\n");
-      const port = lines[0]?.trim();
-      const wsPath = lines[1]?.trim();
-      if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error(`\u7B49\u5F85\u6D4F\u89C8\u5668\u8C03\u8BD5\u7AEF\u53E3\u8D85\u65F6\uFF08${timeoutMs}ms\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
-}
-function killTree(proc) {
-  if (proc.exitCode !== null || !proc.pid) return;
-  try {
-    if (process.platform === "win32") {
-      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => {
-      });
-    } else {
-      process.kill(-proc.pid, "SIGKILL");
-    }
-  } catch {
-  }
-}
-function removeProfile(userDataDir) {
-  try {
-    rmSync3(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
-  } catch (err) {
-    console.error(`[tianshu-canvas] \u4E34\u65F6 profile \u672A\u80FD\u5220\u9664\uFF1A${userDataDir}\uFF08${err.message}\uFF09`);
-  }
-}
-function cleanStaleProfiles() {
-  const cutoff = Date.now() - 2 * 60 * 60 * 1e3;
-  try {
-    for (const entry of readdirSync2(tmpdir())) {
-      if (!entry.startsWith("tsc-png-")) continue;
-      const dir = join5(tmpdir(), entry);
-      try {
-        if (statSync2(dir).mtimeMs < cutoff) rmSync3(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
-      } catch {
-      }
-    }
-  } catch {
-  }
-}
-async function launchBrowser(exe) {
-  const puppeteer = (await import("puppeteer-core")).default;
-  let lastErr;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const userDataDir = mkdtempSync(join5(tmpdir(), "tsc-png-"));
-    const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, "about:blank"], {
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-      detached: process.platform !== "win32"
-    });
-    try {
-      const wsEndpoint = await readDevToolsEndpoint(userDataDir, proc, 6e4);
-      const browser = await puppeteer.connect({
-        browserWSEndpoint: wsEndpoint,
-        protocolTimeout: 12e4,
-        defaultViewport: null
-      });
-      const dispose = async () => {
-        await Promise.race([browser.close().catch(() => {
-        }), new Promise((r) => setTimeout(r, 1e4))]);
-        killTree(proc);
-        await new Promise((r) => setTimeout(r, 500));
-        removeProfile(userDataDir);
-      };
-      return { browser, dispose };
-    } catch (err) {
-      lastErr = err;
-      killTree(proc);
-      await new Promise((r) => setTimeout(r, 500));
-      removeProfile(userDataDir);
-      if (err instanceof BrowserSpawnError) break;
-      await new Promise((r) => setTimeout(r, 1e3 * (attempt + 1)));
-    }
-  }
-  throw lastErr;
-}
-async function exportPngOnce(cwd) {
-  const exe = resolveBrowser();
-  if (!exe) {
-    throw new Error(
-      "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u5BFC\u51FA PNG\u3002\u8BF7\u5B89\u88C5 Chrome/Edge\uFF0C\u6216\u7528\u73AF\u5883\u53D8\u91CF TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u6D4F\u89C8\u5668\u8DEF\u5F84\u3002"
-    );
-  }
-  const { url } = await ensureServer(cwd);
-  cleanStaleProfiles();
-  const { browser, dispose } = await launchBrowser(exe);
-  try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 });
-    await page.goto(`${url}&export=1`, { waitUntil: "domcontentloaded", timeout: 3e4 });
-    await page.waitForSelector(".page-node", { timeout: 15e3 });
-    await new Promise((r) => setTimeout(r, 800));
-    const clip = await page.evaluate(() => {
-      const doc = globalThis.document;
-      const els = Array.from(doc.querySelectorAll(".page-node, .page-node__header"));
-      if (!els.length) return null;
-      const rects = els.map((e) => e.getBoundingClientRect());
-      const left = Math.min(...rects.map((r) => r.left));
-      const top = Math.min(...rects.map((r) => r.top));
-      const right = Math.max(...rects.map((r) => r.right));
-      const bottom = Math.max(...rects.map((r) => r.bottom));
-      const pad = 40;
-      return { x: left - pad, y: top - pad, width: right - left + pad * 2, height: bottom - top + pad * 2 };
-    });
-    const dir = exportsDir(cwd);
-    mkdirSync3(dir, { recursive: true });
-    const name = `canvas-${stamp()}.png`;
-    const path = join5(dir, name);
-    await page.screenshot({ path, clip: clip ?? void 0 });
-    return { name, path, bytes: readFileSync5(path).length };
-  } finally {
-    await dispose();
-  }
-}
-var CRC_TABLE = (() => {
-  const table = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
-    table[n] = c;
-  }
-  return table;
-})();
-function crc32(buf) {
-  let c = 4294967295;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 255] ^ c >>> 8;
-  return (c ^ 4294967295) >>> 0;
-}
-function buildZip(entries) {
-  const chunks = [];
-  const central = [];
-  let offset = 0;
-  for (const entry of entries) {
-    const nameBuf = Buffer.from(entry.name, "utf8");
-    const crc = crc32(entry.data);
-    const compressed = deflateRawSync(entry.data);
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(67324752, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(2048, 6);
-    local.writeUInt16LE(8, 8);
-    local.writeUInt16LE(0, 10);
-    local.writeUInt16LE(0, 12);
-    local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(compressed.length, 18);
-    local.writeUInt32LE(entry.data.length, 22);
-    local.writeUInt16LE(nameBuf.length, 26);
-    local.writeUInt16LE(0, 28);
-    chunks.push(local, nameBuf, compressed);
-    const cd = Buffer.alloc(46);
-    cd.writeUInt32LE(33639248, 0);
-    cd.writeUInt16LE(20, 4);
-    cd.writeUInt16LE(20, 6);
-    cd.writeUInt16LE(2048, 8);
-    cd.writeUInt16LE(8, 10);
-    cd.writeUInt16LE(0, 12);
-    cd.writeUInt16LE(0, 14);
-    cd.writeUInt32LE(crc, 16);
-    cd.writeUInt32LE(compressed.length, 20);
-    cd.writeUInt32LE(entry.data.length, 24);
-    cd.writeUInt16LE(nameBuf.length, 28);
-    cd.writeUInt16LE(0, 30);
-    cd.writeUInt16LE(0, 32);
-    cd.writeUInt16LE(0, 34);
-    cd.writeUInt16LE(0, 36);
-    cd.writeUInt32LE(0, 38);
-    cd.writeUInt32LE(offset, 42);
-    central.push(cd, nameBuf);
-    offset += local.length + nameBuf.length + compressed.length;
-  }
-  const centralBuf = Buffer.concat(central);
-  const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(101010256, 0);
-  eocd.writeUInt16LE(0, 4);
-  eocd.writeUInt16LE(0, 6);
-  eocd.writeUInt16LE(entries.length, 8);
-  eocd.writeUInt16LE(entries.length, 10);
-  eocd.writeUInt32LE(centralBuf.length, 12);
-  eocd.writeUInt32LE(offset, 16);
-  eocd.writeUInt16LE(0, 20);
-  return Buffer.concat([...chunks, centralBuf, eocd]);
-}
-function galleryHtml(cwd) {
-  const project = readProject(cwd);
-  const cards = project.nodes.map(
-    (n) => `<section><h2>${escapeHtml(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1.5px solid #2b2b2b;border-radius:12px 5px 14px 6px/6px 13px 5px 12px;background:#fffdf8"></iframe></section>`
-  ).join("\n");
-  return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><title>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6</title>
-<style>body{font-family:system-ui;margin:0;padding:24px;background:#faf7f0;color:#2b2b2b}
-h1{font-size:20px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}h2{font-size:15px;margin:0 0 8px;font-family:"Kaiti SC","STKaiti","KaiTi",system-ui}section{margin:0 0 32px}small{color:#6b6152;font-weight:400}
-iframe{display:block}</style></head>
-<body><h1>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6\uFF08\u5171 ${project.nodes.length} \u9875\uFF09</h1>
-${cards || "<p>\uFF08\u65E0\u9875\u9762\uFF09</p>"}
-</body></html>`;
-}
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-}
-async function exportZip(cwd) {
-  const project = readProject(cwd);
-  const entries = [];
-  for (const node of project.nodes) {
-    const html = readPageHtml(cwd, node.id);
-    if (html !== null) entries.push({ name: `pages/${node.id}.html`, data: Buffer.from(html, "utf8") });
-  }
-  entries.push({ name: "project.json", data: Buffer.from(JSON.stringify(project, null, 2), "utf8") });
-  entries.push({ name: "index.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
-  const zip = buildZip(entries);
-  const dir = exportsDir(cwd);
-  mkdirSync3(dir, { recursive: true });
-  const name = `canvas-${stamp()}.zip`;
-  const path = join5(dir, name);
-  writeFileSync3(path, zip);
-  return { name, path, bytes: zip.length };
-}
-async function runExport(cwd, kind) {
-  const files = [];
-  let pngError;
-  if (kind === "png" || kind === "both") {
-    try {
-      files.push(await exportPng(cwd));
-    } catch (err) {
-      pngError = err.message;
-    }
-  }
-  if (kind === "zip" || kind === "both") {
-    files.push(await exportZip(cwd));
-  }
-  return { files, pngError };
-}
-
-// src/resources.ts
-var TAG_RESOURCE = /<(?:script|img|link|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|href|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
-var CSS_RESOURCE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)|@import\s+(?:"([^"]*)"|'([^']*)')/gi;
-var INLINE = /^(?:data:|blob:|about:|#)/i;
-function findBlockedResources(html) {
-  const found = /* @__PURE__ */ new Set();
-  for (const pattern of [TAG_RESOURCE, CSS_RESOURCE]) {
-    for (const match of html.matchAll(pattern)) {
-      const value = match.slice(1).find((group) => group !== void 0)?.trim();
-      if (value && !INLINE.test(value)) found.add(value);
-    }
-  }
-  return [...found];
-}
-
-// src/lint.ts
-var MAX_FINDINGS = 40;
-var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
-var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
-var FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi;
-var COLOR_PROP = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline))*(?:-color)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)$/;
-var NAMED_COLORS = new Set(
-  "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen".split(" ")
-);
-var CSS_WORD = /(?<![\w-])[a-z]+(?![\w-])/gi;
-var VAR_REF = /var\(\s*(--ts-[A-Za-z0-9-]+)\s*\)/g;
-var CLASS_ATTR = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-var DATA_ICON = /data-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-var EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi;
-var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/;
-var RADIUS_PROP = /^border(?:-[a-z]+)*-radius$/;
-var FONT_PROP = /^font-family$/;
-function mask(text) {
-  return text.replace(/[^\n]/g, " ");
-}
-function maskBalanced(text, pattern) {
-  const out = text.split("");
-  pattern.lastIndex = 0;
-  for (const match of text.matchAll(pattern)) {
-    const start = match.index ?? 0;
-    for (let i = start; i < start + match[0].length; i++) if (out[i] !== "\n") out[i] = " ";
-  }
-  return out.join("");
-}
-function maskUrls(segment) {
-  let out = maskBalanced(segment, /url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\s*\)/gi);
-  out = maskBalanced(out, /\bdata:[^"')\s]+/gi);
-  return out;
-}
-function styleSegments(maskedHtml) {
-  const segments = [];
-  for (const match of maskedHtml.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
-    const inner = match[1] ?? "";
-    const start = (match.index ?? 0) + match[0].indexOf(inner);
-    segments.push({ start, text: inner.replace(/\/\*[\s\S]*?\*\//g, mask) });
-  }
-  for (const match of maskedHtml.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
-    const inner = match[1] ?? match[2] ?? "";
-    const start = (match.index ?? 0) + match[0].indexOf(inner);
-    segments.push({ start, text: inner });
-  }
-  return segments;
-}
-function declarations(text) {
-  const out = [];
-  let depth = 0;
-  let quote = "";
-  let start = 0;
-  const flush = (end) => {
-    const body = text.slice(start, end);
-    const colon = body.indexOf(":");
-    if (colon > 0) {
-      const prop = body.slice(0, colon).trim().toLowerCase();
-      const raw = body.slice(colon + 1);
-      const value = raw.replace(/\}+\s*$/, "").trim();
-      if (prop && value) out.push({ prop, value, raw, offset: start + colon + 1 });
-    }
-  };
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quote) {
-      if (ch === quote && text[i - 1] !== "\\") quote = "";
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      continue;
-    }
-    if (ch === "(") depth++;
-    else if (ch === ")") depth = Math.max(0, depth - 1);
-    else if (depth === 0 && (ch === ";" || ch === "}")) {
-      flush(i);
-      start = i + 1;
-    } else if (depth === 0 && ch === "{") {
-      start = i + 1;
-    }
-  }
-  if (start < text.length) flush(text.length);
-  return out;
-}
-function lineIndex(html) {
-  const index = [0];
-  for (let i = 0; i < html.length; i++) if (html[i] === "\n") index.push(i + 1);
-  return index;
-}
-function lineOf(index, offset) {
-  let lo = 0;
-  let hi = index.length - 1;
-  while (lo < hi) {
-    const mid = lo + hi + 1 >> 1;
-    if (index[mid] <= offset) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo + 1;
-}
-function snippetAt(html, offset, length = 80) {
-  const start = Math.max(0, offset);
-  const lineEnd = html.indexOf("\n", start);
-  const end = lineEnd === -1 ? Math.min(html.length, start + length) : Math.min(lineEnd, start + length);
-  return html.slice(start, end).trim();
-}
-function nearest(values, target) {
-  const sorted = [...values].sort((a, b) => Math.abs(a - target) - Math.abs(b - target));
-  return sorted.slice(0, 2);
-}
-function nearestTokenHint(kind, value, manifest) {
-  const pool = kind === "space" ? manifest.spacing : manifest.radius;
-  const close = nearest(pool, value);
-  return close.map((v) => `--ts-${kind === "space" ? "space" : "radius"}-${keyFor(pool, v, kind)}`).join(" / ");
-}
-function keyFor(pool, value, kind) {
-  const names = kind === "radius" ? { 0: "none", 4: "sm", 6: "sm", 8: "md", 10: "md", 12: "lg", 14: "lg", 16: "xl", 18: "xl", 20: "xl", 9999: "full" } : {};
-  return names[value] ?? String(value);
-}
-function lintHtml(html, styleId, cwd) {
-  const counts = Object.fromEntries(RULES.map((r) => [r, 0]));
-  const findings = [];
-  const index = lineIndex(html);
-  const add = (rule, offset, message) => {
-    counts[rule]++;
-    if (findings.length < MAX_FINDINGS) {
-      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset) });
-    }
-  };
-  const blocked = findBlockedResources(html);
-  if (blocked.length) {
-    const first = blocked[0];
-    const at = Math.max(0, html.indexOf(first));
-    add("resource", at, `\u5C06\u88AB\u753B\u5E03 CSP \u62E6\u622A\uFF1A${blocked.slice(0, 3).join("\u3001")}${blocked.length > 3 ? ` \u7B49 ${blocked.length} \u5904` : ""}`);
-  }
-  const style = styleId ? resolveDesignStyle(cwd, styleId) : null;
-  if (!style) {
-    return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
-  }
-  const manifest = style.manifest;
-  const varSet = new Set(manifest.vars);
-  const iconSet = new Set(manifest.iconNames);
-  const classSet = new Set(manifest.componentClasses);
-  const familySet = new Set(manifest.fontFamilies.map((f) => f.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase()));
-  const spacing = new Set(manifest.spacing);
-  const radius = new Set(manifest.radius);
-  let masked = html.replace(/<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->/g, mask).replace(/<script\b[\s\S]*?<\/script>/gi, mask).replace(/<!--[\s\S]*?-->/g, mask);
-  masked = maskUrls(masked);
-  for (const match of masked.matchAll(VAR_REF)) {
-    const name = match[1];
-    if (!varSet.has(name)) add("token", match.index ?? 0, `\u672A\u77E5 token\uFF1A${name}`);
-  }
-  for (const segment of styleSegments(masked)) {
-    for (const decl of declarations(segment.text)) {
-      const offset = segment.start + decl.offset;
-      if (FONT_PROP.test(decl.prop)) {
-        const first = decl.value.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase();
-        if (first && !first.startsWith("var(") && first !== "inherit" && !familySet.has(first)) {
-          add("font", offset, `\u5B57\u4F53 ${first} \u4E0D\u5728\u5F53\u524D\u98CE\u683C\u5B57\u4F53\u6808\u5185\uFF0C\u6539\u7528 var(--ts-font-sans)`);
-        }
-        continue;
-      }
-      if (RADIUS_PROP.test(decl.prop)) {
-        for (const px of pxValues(decl.value)) {
-          if (px !== 0 && !radius.has(px)) {
-            add("radius", offset, `\u5706\u89D2 ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("radius", px, manifest)}`);
-          }
-        }
-        continue;
-      }
-      if (SPACING_PROPS.test(decl.prop)) {
-        for (const px of pxValues(decl.value)) {
-          if (px !== 0 && px !== 1 && !spacing.has(px)) {
-            add("spacing", offset, `\u95F4\u8DDD ${px}px \u4E0D\u5728\u5C3A\u5EA6\u4E0A\uFF0C\u6700\u8FD1\uFF1A${nearestTokenHint("space", px, manifest)}`);
-          }
-        }
-      }
-    }
-  }
-  for (const segment of styleSegments(masked)) {
-    for (const decl of declarations(segment.text)) {
-      const offset = segment.start + decl.offset;
-      const reportColor = (index2, color) => add("color", offset + index2, `\u88F8\u8272\u503C ${color}\uFF0C\u6539\u7528 var(--ts-color-*)`);
-      for (const match of decl.raw.matchAll(HEX_COLOR)) reportColor(match.index ?? 0, match[0]);
-      for (const match of decl.raw.matchAll(FUNC_COLOR)) {
-        if (!match[0].includes("var(")) reportColor(match.index ?? 0, match[0]);
-      }
-      if (COLOR_PROP.test(decl.prop)) {
-        const words = decl.raw.replace(/var\([^)]*\)/gi, mask);
-        for (const match of words.matchAll(CSS_WORD)) {
-          if (NAMED_COLORS.has(match[0].toLowerCase())) reportColor(match.index ?? 0, match[0]);
-        }
-      }
-    }
-  }
-  for (const match of masked.matchAll(DATA_ICON)) {
-    const name = (match[1] ?? match[2] ?? "").trim();
-    if (name && !iconSet.has(name)) add("icon", match.index ?? 0, `\u56FE\u6807\u76EE\u5F55\u65E0\u6B64\u540D\uFF1A${name}`);
-  }
-  for (const match of masked.matchAll(EMPTY_SVG)) {
-    if (!/data-icon/.test(match[1] ?? "")) add("icon", match.index ?? 0, "\u7A7A <svg> \u7F3A\u5C11 data-icon \u540D\u79F0");
-  }
-  for (const match of masked.matchAll(CLASS_ATTR)) {
-    const value = match[1] ?? match[2] ?? "";
-    for (const cls of value.split(/\s+/).filter(Boolean)) {
-      if (cls.startsWith("ts-") && !classSet.has(cls)) {
-        add("component", match.index ?? 0, `\u7EC4\u4EF6\u76EE\u5F55\u65E0\u6B64\u7C7B\uFF1A${cls}`);
-      }
-    }
-  }
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  findings.sort((a, b) => a.line - b.line);
-  return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total };
-}
-function pxValues(value) {
-  if (/calc\(/i.test(value)) return [];
-  const literal = value.replace(/var\([^)]*\)/gi, " ");
-  const found = /* @__PURE__ */ new Set();
-  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
-  return [...found];
-}
-function formatLintReport(report, label) {
-  const styleName = report.styleId ? report.styleName ?? report.styleId : null;
-  const head = styleName ? `\u98CE\u683C\u68C0\u67E5\uFF1A${styleName}\uFF08${report.styleId}\uFF09\xB7 ${label}` : `\u98CE\u683C\u68C0\u67E5\uFF1A\u672A\u9501\u5B9A\u98CE\u683C \xB7 ${label}\uFF08\u4EC5\u68C0\u67E5\u8D44\u6E90\u5F15\u7528\uFF09`;
-  if (report.total === 0) {
-    return `${head}
-\u672A\u53D1\u73B0\u4E0D\u7B26\u5408\u9879\uFF080 \u5904\uFF09\u3002`;
-  }
-  const lines = report.findings.map((f, i) => `${i + 1}. [${f.rule}] \u7B2C ${f.line} \u884C ${f.message}
-   ${f.snippet}`);
-  const summary = RULES.filter((r) => report.counts[r] > 0).map((r) => `${r} ${report.counts[r]}`).join("\u3001");
-  const tail = report.truncated ? `
-\u2026\u53E6\u6709 ${report.total - report.findings.length} \u5904\u672A\u663E\u793A\u3002` : "";
-  return `${head}
-\u53D1\u73B0 ${report.total} \u5904\uFF08\u4EC5\u62A5\u544A\uFF0C\u672A\u4FEE\u6539\u6587\u4EF6\uFF09\uFF1A
-${lines.join("\n")}
-\u6C47\u603B\uFF1A${summary}${tail}`;
 }
 
 // src/tools.ts
@@ -2818,30 +2816,6 @@ async function canvasArrange(call) {
         isError: true
       };
   }
-}
-async function canvasExport(call) {
-  const kindRaw = str(call.args.kind);
-  const kind = kindRaw === "png" || kindRaw === "zip" ? kindRaw : "both";
-  await ensureServer(call.cwd);
-  let result;
-  try {
-    result = await runExport(call.cwd, kind);
-  } catch (err) {
-    return { content: `\u5BFC\u51FA\u5931\u8D25\uFF1A${err.message}`, isError: true };
-  }
-  const lines = [];
-  for (const f of result.files) {
-    lines.push(`${f.name}\uFF08${(f.bytes / 1024).toFixed(1)} KB\uFF09
-  \u8DEF\u5F84\uFF1A${f.path}`);
-  }
-  const url = currentUrl(call.cwd);
-  const head = `\u5DF2\u5BFC\u51FA ${result.files.length} \u4E2A\u6587\u4EF6\uFF1A`;
-  const pngNote = result.pngError ? `
-\u6CE8\u610F\uFF1APNG \u5BFC\u51FA\u672A\u5B8C\u6210\u2014\u2014${result.pngError}` : "";
-  const linkNote = url ? `
-\u753B\u5E03 URL\uFF1A${url}` : "";
-  return { content: `${head}
-${lines.join("\n")}${pngNote}${linkNote}` };
 }
 function formatStyleList(cwd) {
   let catalog;
@@ -3255,24 +3229,6 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: withBackupNotice(canvasArrange)
-  },
-  {
-    definition: {
-      name: "canvas_export",
-      description: "\u5BFC\u51FA\u753B\u5E03\u6210\u679C\uFF1A\u6574\u5757\u753B\u5E03\u622A\u56FE PNG \u4E0E/\u6216\u539F\u578B\u6253\u5305 ZIP\uFF08\u542B index.html \u753B\u5ECA + project.json\uFF09\u3002",
-      input_schema: {
-        type: "object",
-        properties: {
-          kind: { type: "string", enum: ["png", "zip", "both"], description: "\u5BFC\u51FA\u7C7B\u578B\uFF08\u9ED8\u8BA4 both\uFF09" }
-        },
-        required: []
-      }
-    },
-    pathParams: {},
-    requiresApproval: () => false,
-    isConcurrencySafe: () => false,
-    isEnabled: () => true,
-    execute: canvasExport
   },
   {
     definition: {

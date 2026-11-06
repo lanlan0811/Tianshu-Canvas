@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.4.1",
-  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、可视化编辑、编排与导出",
+  "version": "0.4.2",
+  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排（导出在画布顶栏由用户自行操作）",
   "runtime": "agent",
   "entry": "dist/index.js",
   "capabilities": [
@@ -43,10 +43,6 @@
       {
         "name": "canvas_comments",
         "description": "读取/处理用户在画布上留下的元素批注：列出待办、批量标记已解决/重开/删除"
-      },
-      {
-        "name": "canvas_export",
-        "description": "导出画布截图 PNG 与/或原型打包 ZIP"
       }
     ],
     "lifecycle": [],
