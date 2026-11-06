@@ -6,9 +6,10 @@
   "version": "0.5.0",
   "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取、导出生产代码（Web 与多端）",
   "runtime": "agent",
-  "entry": "dist/index.js",
+  "entry": "dist/index.mjs",
   "capabilities": [
-    "tools"
+    "tools",
+    "log"
   ],
   "contributes": {
     "tools": [
@@ -53,6 +54,9 @@
   "permissions": {
     "fs": true,
     "net": true,
-    "shell": false
+    "shell": true
+  },
+  "engines": {
+    "tianshu": ">=4.0.2 <5.0.0"
   }
 }

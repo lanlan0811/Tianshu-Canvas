@@ -1,7 +1,7 @@
 /**
  * 回归：畸形百分号编码与未捕获异常、损坏的 project.json、
  * 连线/选中校验、超限请求体、IPv6 Host。
- * 断言的是构建产物 dist/index.js。
+ * 断言的是构建产物 dist/index.mjs。
  */
 import assert from 'node:assert/strict'
 import http from 'node:http'
@@ -14,7 +14,7 @@ import { after, before, describe, test } from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 const MAX_BODY = 4 * 1024 * 1024
 const MAX_VIEWPORT_BODY = 4096

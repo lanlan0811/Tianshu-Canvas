@@ -10,7 +10,7 @@ import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 const pageFile = (cwd, id) => readFileSync(join(cwd, '.tianshu-canvas', 'pages', `${id}.html`), 'utf8')
 const projectFile = (cwd) => JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))

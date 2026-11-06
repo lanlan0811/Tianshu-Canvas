@@ -10,7 +10,7 @@ import { installFakeSdk } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 installFakeSdk()
-const { assertUrlAllowed, isBlockedIp, fetchUrl } = await import(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { assertUrlAllowed, isBlockedIp, fetchUrl } = await import(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 test('协议白名单：只允许 http/https', async () => {
   await assert.rejects(() => assertUrlAllowed('file:///etc/passwd'), /仅允许 http\/https/)

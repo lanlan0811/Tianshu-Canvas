@@ -10,7 +10,7 @@ import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const entry = pathToFileURL(join(root, 'dist', 'index.js')).href
+const entry = pathToFileURL(join(root, 'dist', 'index.mjs')).href
 const { tools } = await loadPlugin(entry)
 
 const strokeOf = (styleId) =>

@@ -29,7 +29,7 @@ const BROWSERS = [
 const browserPath = BROWSERS.find((p) => existsSync(p))
 
 test('探针 e2e：两层选择 + 编辑回写', { skip: !browserPath && '未找到浏览器' }, async () => {
-  const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+  const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
   const puppeteer = (await import('puppeteer-core')).default
   const cwd = mkdtempSync(join(tmpdir(), 'tsc-e2e-'))
   let browser

@@ -53,7 +53,7 @@ const PAGES = {
 }
 
 test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, async () => {
-  const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+  const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
   const puppeteer = (await import('puppeteer-core')).default
   const cwd = mkdtempSync(join(tmpdir(), 'tsc-edit-'))
   let browser

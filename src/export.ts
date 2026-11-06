@@ -11,6 +11,7 @@ import type { Browser } from 'puppeteer-core'
 import { join } from 'node:path'
 import { deflateRawSync } from 'node:zlib'
 import { projectDir, readPageHtml, readProject } from './project.js'
+import { warnUser } from './host.js'
 import { ensureServer } from './server.js'
 
 export type ExportKind = 'png' | 'zip' | 'both'
@@ -136,7 +137,7 @@ function removeProfile(userDataDir: string): void {
   try {
     rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
   } catch (err) {
-    console.error(`[tianshu-canvas] 临时 profile 未能删除：${userDataDir}（${(err as Error).message}）`)
+    warnUser(`临时 profile 未能删除：${userDataDir}（${(err as Error).message}）`)
   }
 }
 

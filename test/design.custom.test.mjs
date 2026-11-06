@@ -11,7 +11,7 @@ import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 // 以内置风格为模板造一份完整的自定义 token（值自由、变量名与内置一致）。
 const base = JSON.parse(readFileSync(join(root, 'design-systems/styles/apple/tokens.json'), 'utf8'))

@@ -9,8 +9,9 @@
  */
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
+import { isWorkerSession, warnUser } from './host.js'
 import {
   designStyleExists,
   designStyleIds,
@@ -86,6 +87,8 @@ export interface TpiTool {
   requiresApproval?: () => boolean
   isConcurrencySafe?: () => boolean
   isEnabled?: () => boolean
+  /** 宿主管理的调用预算（毫秒）；不设则由宿主默认决定。 */
+  timeoutMs?: number
   execute: (call: ToolCall) => Promise<ToolResult>
 }
 
@@ -148,6 +151,8 @@ async function canvasOpen(call: ToolCall): Promise<ToolResult> {
 }
 
 function writeUrlHint(cwd: string, url: string): void {
+  // 官方约定：worker（子会话）不写用户数据，避免重复写入。
+  if (isWorkerSession()) return
   try {
     writeFileSync(join(cwd, PROJECT_DIR_NAME, 'url.txt'), url + '\n', 'utf8')
   } catch {
@@ -162,7 +167,7 @@ function openBrowser(url: string): void {
     const child = spawn(cmd, args, { detached: true, stdio: 'ignore' })
     // 命令不存在时走异步 error 事件，外层 try/catch 接不住，不监听会打垮宿主。
     child.on('error', (err) => {
-      console.error(`[tianshu-canvas] 无法打开系统浏览器：${err.message}`)
+      warnUser(`无法打开系统浏览器：${err.message}`)
     })
     child.unref()
   } catch {
@@ -633,10 +638,11 @@ async function canvasCodegen(call: ToolCall): Promise<ToolResult> {
 
   const writeFiles = call.args.write_files === true || typeof call.args.out_dir === 'string'
   if (writeFiles) {
-    const base = str(call.args.out_dir) ?? join(PROJECT_DIR_NAME, 'exports', `${target}`)
-    const dir = join(call.cwd, base)
+    const raw = str(call.args.out_dir) ?? join(PROJECT_DIR_NAME, 'exports', `${target}`)
+    // 宿主会把 pathParams 声明的参数改写成规范化绝对路径；相对值仍按 cwd 解析。
+    const base = isAbsolute(raw) ? raw : join(call.cwd, raw)
     for (const file of files) {
-      const abs = join(dir, file.name)
+      const abs = join(base, file.name)
       mkdirSync(dirname(abs), { recursive: true })
       writeFileSync(abs, file.content, 'utf8')
     }
@@ -815,7 +821,9 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
     if (action === 'extract') {
       const id = str(call.args.id)
       if (!id) return { content: 'extract 需要 id（新建的风格 id：字母数字/_/-，1–64 位）。', isError: true }
-      const filePath = str(call.args.path)
+      const rawPath = str(call.args.path)
+      // pathParams 声明为 read：宿主已改写为绝对路径；本地调用时按 cwd 解析相对值。
+      const filePath = rawPath === undefined ? undefined : isAbsolute(rawPath) ? rawPath : resolve(call.cwd, rawPath)
       const url = str(call.args.url)
       const source = str(call.args.source)
       if (!source && !filePath && !url) {
@@ -1007,9 +1015,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_open',
-      description:
-        '启动/复用本工作区的本地画布服务，返回可在浏览器打开的 URL（127.0.0.1）。' +
-        '**这是画布设计的第一步：先调用本工具把画布链接给用户，再开始生成原型。**',
+      description: '启动/复用本工作区的本地画布服务并返回可在浏览器打开的 URL',
       input_schema: {
         type: 'object',
         properties: {
@@ -1017,28 +1023,27 @@ export const tools: TpiTool[] = [
           open: { type: 'boolean', description: '可选：尝试用系统默认浏览器打开（默认 false）' },
         },
         required: [],
+        additionalProperties: false,
       },
     },
     pathParams: {},
     requiresApproval: () => false,
-    isConcurrencySafe: () => true,
+    isConcurrencySafe: () => false,
     isEnabled: () => true,
+    timeoutMs: 30_000,
     execute: canvasOpen,
   },
   {
     definition: {
       name: 'canvas_upsert_page',
-      description:
-        '新增或更新画布上的页面节点。优先传 html（内联）写入 HTML 原型（原型自动保存到 .tianshu-canvas/pages/，无需也不要在工作区另建文件夹），html_path 仅用于导入已有文件。原型必须自包含：外链（CDN、字体、图片）和相对路径都会被画布 CSP 拦截，资源请内联；' +
-        '对已有 id 可省略 html，仅更新标题/位置/尺寸/设备（即重命名、移动、调整尺寸，未指定的字段保持原值）。' +
-        '返回里会带上画布 URL（若画布服务尚未启动会自动启动）。',
+      description: '新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）',
       input_schema: {
         type: 'object',
         properties: {
           html_path: { type: 'string', description: '已有 HTML 文件路径（工作区内，优先于 html）；一般不要用，请直接用 html 内联，避免在工作区产生多余文件' },
-          html: { type: 'string', description: '内联 HTML（推荐方式：原型只存放在 .tianshu-canvas/pages/，不要另建文件夹）；更新已有页面的元数据时可省略' },
+          html: { type: 'string', description: '内联 HTML（推荐方式：原型只存放在 .tianshu-canvas/pages/，不要另建文件夹）。原型必须自包含：外链与相对路径会被画布 CSP 拦截，请内联。更新已有页面的元数据时可省略' },
           title: { type: 'string', description: '页面标题' },
-          id: { type: 'string', description: '页面 id（字母数字/_/-）。缺省则新建并自动生成；传已存在的 id 则更新该页面' },
+          id: { type: 'string', description: '页面 id（字母数字/_/-）。缺省则新建并自动生成；传已存在的 id 则更新该页面，未指定的字段保持原值' },
           x: { type: 'number', description: '画布 X 坐标（新建缺省按网格自动排布；更新缺省保持原位）' },
           y: { type: 'number', description: '画布 Y 坐标（新建缺省按网格自动排布；更新缺省保持原位）' },
           width: { type: 'number', description: '逻辑宽度 px（覆盖设备预设）' },
@@ -1064,35 +1069,33 @@ export const tools: TpiTool[] = [
           },
         },
         required: [],
+        additionalProperties: false,
       },
     },
     pathParams: { html_path: 'read' },
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
+    timeoutMs: 180_000,
     execute: withBackupNotice(canvasUpsertPage),
   },
   {
     definition: {
       name: 'canvas_get_state',
-      description:
-        '读取画布当前状态：所有页面节点（id/标题/位置/尺寸/设备）、页面连线、' +
-        '用户在画布上的选中项（整个页面或页面内元素，含 xpath/标签/文案/关键样式）以及画布 URL。' +
-        '修改设计前先调用，据此定位用户指的是哪个页面/元素。',
-      input_schema: { type: 'object', properties: {}, required: [] },
+      description: '读取画布状态：页面节点、连线、用户当前选中项与画布 URL',
+      input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => true,
     isEnabled: () => true,
+    timeoutMs: 30_000,
     execute: withBackupNotice(canvasGetState),
   },
   {
     definition: {
       name: 'canvas_arrange',
-      description:
-        '编排画布：按 action 删除页面（remove，连带其连线与原型文件）、复制页面（duplicate）、' +
-        '在两个页面间连线（link）或取消连线（unlink）。重命名/移动请用 canvas_upsert_page。',
+      description: '编排画布：删除/复制页面节点、页面间连线或取消连线',
       input_schema: {
         type: 'object',
         properties: {
@@ -1108,30 +1111,31 @@ export const tools: TpiTool[] = [
           label: { type: 'string', description: 'link 可选：连线标签' },
         },
         required: ['action'],
+        additionalProperties: false,
       },
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
+    timeoutMs: 60_000,
     execute: withBackupNotice(canvasArrange),
   },
   {
     definition: {
       name: 'canvas_style',
-      description:
-        '查看/锁定/切换项目级设计风格，取页面模板 HTML，或把设计**导出为生产代码**。' +
-        'action=list 列出全部可选风格与当前状态（用户没指定风格时据此提问）；get 查看某风格的 token/组件类/图标名；' +
-        'set 锁定或切换风格（style_id=风格 id，free 表示解除锁定，会重写所有页面并刷新画布）；' +
-        'template 取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page；' +
-        'codegen 生成生产代码（**必须先问用户要哪种目标**，不要自行假定）。\n' +
-        'codegen 的 target：react（React+TSX 组件）/ css-vars（CSS 变量+无框架 HTML）/ tailwind（Tailwind 配置）；' +
-        '多端（ios / android / miniprogram）需再问**技术栈**并传入 stack（ios: swiftui|uikit；android: compose|xml；miniprogram: weapp|uniapp|taro）。' +
-        '多端产物是「主题/Token 文件 + design-spec.md 规格清单」，**页面代码由你按规格编写**（HTML→原生必然有损，不得声称像素级还原）。',
+      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、iOS/Android/小程序）',
       input_schema: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['list', 'get', 'set', 'template', 'codegen'], description: 'list=列出风格；get=查看细节；set=锁定/切换；template=取模板；codegen=导出生产代码' },
+          action: {
+            type: 'string',
+            enum: ['list', 'get', 'set', 'template', 'codegen'],
+            description:
+              'list=列出全部可选风格与当前状态（用户没指定风格时据此提问）；get=查看某风格的 token/组件类/图标名；' +
+              'set=锁定或切换风格；template=取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page；' +
+              'codegen=导出生产代码（**必须先问用户要哪种目标**，不要自行假定）',
+          },
           style_id: {
             type: 'string',
             description: '风格 id（set/get/template/codegen 使用），内置或自定义均可；free 表示解除锁定',
@@ -1140,33 +1144,33 @@ export const tools: TpiTool[] = [
           target: {
             type: 'string',
             enum: ['react', 'css-vars', 'tailwind', 'ios', 'android', 'miniprogram'],
-            description: 'codegen：目标。Web：react / css-vars / tailwind；多端：ios / android / miniprogram（需配合 stack）',
+            description: 'codegen：目标。Web：react（React+TSX）/ css-vars（CSS 变量+无框架 HTML）/ tailwind（Tailwind 配置）；多端：ios / android / miniprogram（需配合 stack）',
           },
           stack: {
             type: 'string',
             enum: ['swiftui', 'uikit', 'compose', 'xml', 'weapp', 'uniapp', 'taro'],
-            description: 'codegen 多端专用：技术栈。ios→swiftui|uikit；android→compose|xml；miniprogram→weapp|uniapp|taro。Web 目标忽略。',
+            description: 'codegen 多端专用：技术栈。ios→swiftui|uikit；android→compose|xml；miniprogram→weapp|uniapp|taro。Web 目标忽略。多端产物是「主题/Token 文件 + design-spec.md 规格清单」，**页面代码由你按规格编写**（HTML→原生必然有损，不得声称像素级还原）',
           },
           page_id: { type: 'string', description: 'codegen：要转换的页面 id；省略时若画布只有一个页面则用它' },
           html: { type: 'string', description: 'codegen：直接传入源 HTML（优先于 page_id）' },
-          out_dir: { type: 'string', description: 'codegen：落盘目录（相对 cwd；默认 .tianshu-canvas/exports/<target>/）' },
+          out_dir: { type: 'string', description: 'codegen：落盘目录（默认 .tianshu-canvas/exports/<target>/）。宿主会把该参数规范化为绝对路径' },
           write_files: { type: 'boolean', description: 'codegen：是否写到磁盘（默认 false，直接返回文件内容）' },
         },
         required: ['action'],
+        additionalProperties: false,
       },
     },
-    pathParams: {},
+    pathParams: { out_dir: 'write' },
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
+    timeoutMs: 120_000,
     execute: withBackupNotice(canvasStyle),
   },
   {
     definition: {
       name: 'canvas_check_style',
-      description:
-        '只读检查页面是否符合当前设计风格（裸色值、非 token 字体、越界间距/圆角、目录外图标与组件类、未知变量、会被 CSP 拦截的资源）。' +
-        '按 page_id 检查单页、省略则检查全部页面；也可用 html 直接检查一段未落盘的 HTML。只报告、不修改文件、不阻塞写入。',
+      description: '只读检查页面是否符合当前设计风格，输出分级报告',
       input_schema: {
         type: 'object',
         properties: {
@@ -1178,40 +1182,30 @@ export const tools: TpiTool[] = [
           },
         },
         required: [],
+        additionalProperties: false,
       },
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => true,
     isEnabled: () => true,
+    timeoutMs: 60_000,
     execute: canvasCheckStyle,
   },
   {
     definition: {
       name: 'canvas_design_system',
-      description:
-        '在**当前项目**创建/查看/删除一套自定义设计系统（仅本工作区生效，存 .tianshu-canvas/library/）。' +
-        '用户说「要做一套设计系统」时用它：先主动问清配置（配色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色），' +
-        '然后 action=create 传入完整 tokens。\n' +
-        'tokens 契约（值自由、变量名必须与内置风格一致）：\n' +
-        '- color.primitives：neutral{0,50,100,200,300,500,700,900}、brand{100,300,500,600,700}、success{50,500}、warning{50,500}、danger{50,500}、info{50,500}，值均为 #hex。\n' +
-        '- color.semantic（浅色）与 color.semanticDark（深色，同结构）：七组——' +
-        'bg{canvas,surface,raised,sunken,inverse}、text{primary,secondary,muted,inverse,link}、' +
-        'border{default,strong,subtle,focus}、action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}、' +
-        'status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}、chart{1,2,3,4,5}、overlay{scrim}；' +
-        '值写 "组.步"（如 neutral.900）或 #hex/rgba()。\n' +
-        '- font：families{sans,display,mono}、sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)、weights{regular,medium,semibold,bold}、lineHeights{tight,snug,normal,relaxed}、letterSpacing{tight,normal,wide}。\n' +
-        '- space（键 0..16，值须严格递增）、radius{none,sm,md,lg,xl,full}（值递增，full=9999）、borderWidth{hairline,thin,thick}、size{controlSm..containerLg,sidebar}、shadow{sm,md,lg}、motion{fast,base,easing}。\n' +
-        '写入前会校验：对比度（浅色与深色各一遍，正文≥4.5）、尺度递增、变量名覆盖共享组件/模板；不通过会返回逐条错误。' +
-        '深色用页面根元素 class="dark" 切换。组件（ts-*）与图标为共享资源，不支持扩展。\n' +
-        'action=extract：**从现有 HTML/CSS（或一个 URL）反推**出一套能通过上述校验的设计系统 —— 用户说「照这个站点的风格做」「用这个页面的配色」时用它。' +
-        '传 source（内联 HTML/CSS）、path（工作区内 .html/.css 文件）或 url 之一；先用 dry_run=true 预览 tokens。',
+      description: '创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色），或从现有 HTML/CSS/URL 反抽取一套',
       input_schema: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['create', 'extract', 'list', 'get', 'remove'], description: 'create=创建；extract=从现有 HTML/CSS/URL 反抽取；list=列出；get=查看细节；remove=删除' },
+          action: {
+            type: 'string',
+            enum: ['create', 'extract', 'list', 'get', 'remove'],
+            description: 'create=创建（先主动问清配置：配色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色）；extract=从现有 HTML/CSS/URL 反抽取；list=列出；get=查看细节；remove=删除',
+          },
           source: { type: 'string', description: 'extract：内联 HTML 或 CSS 文本（最高优先）' },
-          path: { type: 'string', description: 'extract：工作区内的 HTML/CSS 文件路径' },
+          path: { type: 'string', description: 'extract：工作区内的 HTML/CSS 文件路径。宿主会把该参数规范化为绝对路径' },
           url: { type: 'string', description: 'extract：远程页面 URL（仅 http/https；会做 SSRF 防护，禁内网）' },
           dry_run: { type: 'boolean', description: 'extract：只预览（返回摘要 + 完整 tokens），不写盘（默认 false）' },
           id: { type: 'string', description: '风格 id：字母数字/_/-，1–64 位；不得与内置风格重名' },
@@ -1230,27 +1224,34 @@ export const tools: TpiTool[] = [
             },
             required: ['strokeWidth'],
           },
-          tokens: { type: 'object', description: 'create：完整 tokens 对象（契约见本工具描述）' },
+          tokens: {
+            type: 'object',
+            description:
+              'create：完整 tokens 对象。契约（值自由，变量名必须与内置风格一致）：\n' +
+              '- color.primitives：neutral{0,50,100,200,300,500,700,900}、brand{100,300,500,600,700}、success{50,500}、warning{50,500}、danger{50,500}、info{50,500}，值均为 #hex。\n' +
+              '- color.semantic（浅色）与 color.semanticDark（深色，同结构）：bg{canvas,surface,raised,sunken,inverse}、text{primary,secondary,muted,inverse,link}、border{default,strong,subtle,focus}、action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}、status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}、chart{1..5}、overlay{scrim}；值写 "组.步"（如 neutral.900）或 #hex/rgba()。\n' +
+              '- font：families{sans,display,mono}、sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)、weights{regular,medium,semibold,bold}、lineHeights{tight,snug,normal,relaxed}、letterSpacing{tight,normal,wide}。\n' +
+              '- space（键 0..16，值须严格递增）、radius{none,sm,md,lg,xl,full}、borderWidth{hairline,thin,thick}、size{controlSm..containerLg,sidebar}、shadow{sm,md,lg}、motion{fast,base,easing}。\n' +
+              '写入前会校验对比度（浅色与深色各一遍，正文≥4.5）、尺度递增、变量名覆盖共享组件/模板；不通过会返回逐条错误。',
+          },
           overwrite: { type: 'boolean', description: 'create：id 已存在时是否覆盖（默认 false）' },
           set_current: { type: 'boolean', description: 'create：是否立即锁定为当前项目风格（默认 true）' },
         },
         required: ['action'],
+        additionalProperties: false,
       },
     },
-    pathParams: {},
+    pathParams: { path: 'read' },
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
+    timeoutMs: 120_000,
     execute: canvasDesignSystem,
   },
   {
     definition: {
       name: 'canvas_comments',
-      description:
-        '读取/处理用户在画布上留下的元素批注（用户在画布选中元素后写一句话打图钉）。' +
-        'action=list 一次返回全部待处理批注（含页码标题、标签、xpath、当前文本与批注内容），据此逐条修改；' +
-        '改完后用 resolve 传 ids 标记已解决，reopen 重新打开，remove 删除（或 all=true 清空全部）。' +
-        '用户说「画布上有几处要改」「我圈了几处问题」时用它。',
+      description: '读取/处理用户在画布上留下的元素批注：列出待办、批量标记已解决/重开/删除',
       input_schema: {
         type: 'object',
         properties: {
@@ -1260,12 +1261,14 @@ export const tools: TpiTool[] = [
           all: { type: 'boolean', description: 'remove 可选：清空全部批注（忽略 ids）' },
         },
         required: ['action'],
+        additionalProperties: false,
       },
     },
     pathParams: {},
     requiresApproval: () => false,
     isConcurrencySafe: () => false,
     isEnabled: () => true,
+    timeoutMs: 60_000,
     execute: withBackupNotice(canvasComments),
   },
 ]

@@ -10,7 +10,7 @@ import { installFakeSdk } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 installFakeSdk()
-const { inlineAssets, toDataUri } = await import(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { inlineAssets, toDataUri } = await import(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 /** 造一个按 URL 返回固定内容的假 fetcher。 */
 function fakeFetcher(byUrl) {

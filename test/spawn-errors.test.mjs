@@ -17,7 +17,7 @@ mkdirSync(notABrowser)
 process.env.TIANSHU_CANVAS_BROWSER = notABrowser
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 test.after(() => rmSync(cwd, { recursive: true, force: true }))
 

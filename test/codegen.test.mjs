@@ -14,7 +14,7 @@ import { installFakeSdk } from './helpers/host.mjs'
 const root = resolve(import.meta.dirname, '..')
 const { tools } = await (async () => {
   installFakeSdk()
-  const mod = await import(pathToFileURL(join(root, 'dist', 'index.js')).href)
+  const mod = await import(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
   const api = await mod.default.activate({ log: { debug() {}, warn() {} } })
   return { tools: Object.fromEntries(api.tools.map((t) => [t.name, t])) }
 })()

@@ -23,17 +23,22 @@ mkdirSync(distWeb, { recursive: true })
 // (0) 设计系统：design-systems/ -> dist/design/（运行时不读源目录）
 await buildDesignSystems({ root, dist })
 
-// (a) Node 侧：src/index.ts -> dist/index.js（单文件 ESM bundle）
-// puppeteer-core 保持 external：运行时从 node_modules 动态 import（它体积大且非纯 JS 依赖树）。
+// (a) Node 侧：src/index.ts -> dist/index.mjs（单文件 ESM bundle）
+// 为什么是 .mjs：插件 ZIP 内没有 package.json（官方禁止依赖目录/清单），Node 只能按扩展名
+// 判定模块格式；官方手册也推荐 .mjs 明确 ESM。
+// 为什么不留 external：官方发行包禁止依赖目录与运行时安装，puppeteer-core 必须内联。
+// banner 提供 require：puppeteer-core 的 CJS 依赖（ws 等）在 ESM bundle 里需要它。
 await build({
   absWorkingDir: root,
   entryPoints: ['src/index.ts'],
-  outfile: 'dist/index.js',
+  outfile: 'dist/index.mjs',
   bundle: true,
   platform: 'node',
   format: 'esm',
   target: 'node24',
-  external: ['puppeteer-core'],
+  banner: {
+    js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+  },
   sourcemap: false,
   legalComments: 'none',
   logLevel: 'info',
@@ -60,10 +65,10 @@ await build({
 copyFileSync(resolve(root, 'web/index.html'), resolve(distWeb, 'index.html'))
 
 // 断言关键产物存在
-for (const f of ['index.js', 'web/index.html', 'web/canvas.js', 'web/canvas.css', 'design/index.json']) {
+for (const f of ['index.mjs', 'web/index.html', 'web/canvas.js', 'web/canvas.css', 'design/index.json']) {
   if (!existsSync(resolve(dist, f))) {
     console.error(`build: 缺少产物 dist/${f}`)
     process.exit(1)
   }
 }
-console.log('build: 完成 -> dist/index.js, dist/web/{index.html,canvas.js,canvas.css}, dist/design/**')
+console.log('build: 完成 -> dist/index.mjs, dist/web/{index.html,canvas.js,canvas.css}, dist/design/**')

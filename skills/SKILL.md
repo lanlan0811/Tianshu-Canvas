@@ -82,6 +82,19 @@ triggers:
 - **只能改 token，不能扩展组件与图标**：`ts-*` 组件类（23 个）与图标名（77 个）是共享的，
   自定义风格只决定它们的颜色 / 字体 / 间距 / 圆角 / 阴影 / 尺寸。不要发明新的 `ts-` 类或图标名。
 - **变量名必须与内置风格完全一致**（工具会校验），值自由。
+- **tokens 契约**（`canvas_design_system` 的 `create` 参数；值自由、键名固定）：
+  - `color.primitives`：`neutral{0,50,100,200,300,500,700,900}`、`brand{100,300,500,600,700}`、
+    `success{50,500}`、`warning{50,500}`、`danger{50,500}`、`info{50,500}`，值均为 `#hex`。
+  - `color.semantic`（浅色）与 `color.semanticDark`（深色，同结构）七组：
+    `bg{canvas,surface,raised,sunken,inverse}`、`text{primary,secondary,muted,inverse,link}`、
+    `border{default,strong,subtle,focus}`、
+    `action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}`、
+    `status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}`、`chart{1,2,3,4,5}`、`overlay{scrim}`；
+    值写 `"组.步"`（如 `neutral.900`）或 `#hex` / `rgba()`。
+  - `font`：`families{sans,display,mono}`、`sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}`(px)、
+    `weights{regular,medium,semibold,bold}`、`lineHeights{tight,snug,normal,relaxed}`、`letterSpacing{tight,normal,wide}`。
+  - `space`（键 0..16，值严格递增）、`radius{none,sm,md,lg,xl,full}`（递增，full=9999）、
+    `borderWidth{hairline,thin,thick}`、`size{controlSm..containerLg,sidebar}`、`shadow{sm,md,lg}`、`motion{fast,base,easing}`。
 - **浅色 + 深色两套**：默认生成。深色在页面根元素加 `class="dark"` 即切换
   （`<html class="dark">` 或 `<body class="dark">`），浅色是默认。
 - `canvas_design_system` 的 `create` 会做写入前校验：对比度（浅色与深色各一遍，正文 ≥ 4.5）、

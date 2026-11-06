@@ -5,21 +5,34 @@
  *  - defineTianshuPlugin 只接受 { id, activate }；其它键被丢弃。
  *  - activate(host) 返回 { tools, lifecycle?, dispose? }。
  *  - activate 返回的 tools 名称集合必须与 manifest.contributes.tools[].name 完全一致，
- *    否则 loader 报 rejected_handshake。
+ *    否则 loader 报 rejected_handshake；描述也必须与清单逐字一致（官方套件按
+ *    { name, description } 深比较）。工具描述上限 200 字，细节写进 inputSchema。
  *  - tool 对象字段：name / description / inputSchema / pathParams /
  *    requiresApproval / concurrencySafe / timeoutMs / execute(call)。
  *  - execute 收到 { args, cwd, sessionId }；返回值只取 content / isError。
+ *  - host 提供 log / isWorker；日志走 host.log，worker 会话不写用户数据。
  *
  * 注意：本地画布服务是模块级单例，dispose 时**不关闭**（浏览器标签可能仍开着）。
  */
 import { defineTianshuPlugin } from './tpi.js'
+import { setHostServices } from './host.js'
 import { tools as implTools } from './tools.js'
 
 const PLUGIN_ID = 'tianshu-canvas'
 
+interface HostLike {
+  log?: { debug(message: string): void; warn(message: string): void }
+  isWorker?: boolean
+}
+
 export default defineTianshuPlugin({
   id: PLUGIN_ID,
-  activate() {
+  activate(host: unknown) {
+    const h = (host ?? {}) as HostLike
+    setHostServices({
+      log: h.log ?? { debug() {}, warn: (message) => console.error(message) },
+      isWorker: h.isWorker === true,
+    })
     return {
       tools: implTools.map((tool) => ({
         name: tool.definition.name,
@@ -28,6 +41,7 @@ export default defineTianshuPlugin({
         concurrencySafe: tool.isConcurrencySafe?.() === true,
         requiresApproval: tool.requiresApproval?.() === true,
         pathParams: tool.pathParams ?? {},
+        ...(tool.timeoutMs !== undefined ? { timeoutMs: tool.timeoutMs } : {}),
         execute: (call: { args: Record<string, unknown>; cwd: string; sessionId?: string }) =>
           tool.execute({ args: call.args, cwd: call.cwd, sessionId: call.sessionId ?? 'default' }),
       })),

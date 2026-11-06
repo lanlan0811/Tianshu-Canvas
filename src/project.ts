@@ -12,6 +12,7 @@ import { EventEmitter } from 'node:events'
 import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertSafeId, InvalidInputError, isSafeId, newCommentId, newPageId } from './ids.js'
+import { warnUser } from './host.js'
 import type { DeviceType } from './device.js'
 
 export const PROJECT_DIR_NAME = '.tianshu-canvas'
@@ -196,7 +197,7 @@ function backupDamagedProject(cwd: string): void {
       throw err
     }
     pendingBackups.set(cwd, dest)
-    console.error(`[tianshu-canvas] project.json 已损坏或含无效条目，覆盖前已备份到 ${dest}`)
+    warnUser(`project.json 已损坏或含无效条目，覆盖前已备份到 ${dest}`)
     return
   }
   throw new Error(`无法备份损坏的项目文件：${file}`)

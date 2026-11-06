@@ -12,7 +12,7 @@ import { installFakeSdk } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 installFakeSdk()
-const { extractTokens } = await import(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { extractTokens } = await import(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 // 直接引构建期的纯校验函数（与 createCustomStyle 用的是同一套）。
 const { validateTokens } = await import(pathToFileURL(join(root, 'scripts', 'design', 'design-validate.mjs')).href)
 
@@ -128,7 +128,7 @@ test('action=extract 端到端：dry_run 不落盘，正式执行落盘 tokens.j
 async function loadTools() {
   const { installFakeSdk } = await import('./helpers/host.mjs')
   installFakeSdk()
-  const mod = await import(pathToFileURL(join(root, 'dist', 'index.js')).href)
+  const mod = await import(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
   const api = await mod.default.activate({ log: { debug() {}, warn() {} } })
   return Object.fromEntries(api.tools.map((t) => [t.name, t]))
 }

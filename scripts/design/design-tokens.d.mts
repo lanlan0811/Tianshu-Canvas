@@ -2,7 +2,7 @@
  * `design-tokens.mjs` 的类型声明。
  *
  * 该模块是构建期与运行时共用的纯函数（无 IO），源码为 ESM `.mjs`；
- * 运行时 `src/designCustom.ts` 直接 import 它，esbuild 会把它打进 dist/index.js。
+ * 运行时 `src/designCustom.ts` 直接 import 它，esbuild 会把它打进 dist/index.mjs。
  * tsc 通过本文件解析类型（NodeNext 下 `.mjs` 旁边放同名 `.d.mts`）。
  *
  * 只声明运行时实际用到的导出；内部结构用宽松类型，避免与 mjs 实现漂移。

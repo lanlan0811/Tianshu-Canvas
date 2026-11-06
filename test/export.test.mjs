@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 /** 解析 zip 中央目录，返回条目名列表。 */
 function listZipEntries(buf) {

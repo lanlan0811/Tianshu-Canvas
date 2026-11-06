@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url'
 const root = resolve(import.meta.dirname, '..')
 const { installFakeSdk } = await import(pathToFileURL(join(root, 'test/helpers/host.mjs')).href)
 installFakeSdk()
-const mod = await import(pathToFileURL(join(root, 'dist/index.js')).href)
+const mod = await import(pathToFileURL(join(root, 'dist/index.mjs')).href)
 const api = await mod.default.activate({ log: { debug() {}, warn() {} } })
 const tools = Object.fromEntries(api.tools.map((t) => [t.name, t]))
 

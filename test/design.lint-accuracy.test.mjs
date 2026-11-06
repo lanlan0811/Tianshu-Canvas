@@ -9,7 +9,7 @@ import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 const check = (input) => tools.canvas_check_style.execute({ input, cwd: process.cwd() })
 const lint = async (css) => (await check({ html: `<style>${css}</style>`, style_id: 'claude' })).content

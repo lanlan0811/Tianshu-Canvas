@@ -36,6 +36,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Plugin release self-check
+        run: npm run check:plugin
+
       - name: Collect release notes
         run: |
           # 发布详情文档优先：release/release-<版本>.md（版本去掉 v 前缀）

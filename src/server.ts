@@ -22,6 +22,7 @@ import { assertSafeId, InvalidInputError } from './ids.js'
 import { loadDesignCatalog } from './design.js'
 import { applyProjectStyle } from './designOps.js'
 import { injectProbe } from './probe.js'
+import { warnUser } from './host.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
   addComment,
@@ -162,7 +163,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     routeRequest(req, res)
   } catch (err) {
     // 同步异常（例如读页面文件失败）不能打垮进程。
-    console.error('[tianshu-canvas] 请求处理失败：', err)
+    warnUser(`请求处理失败：${(err as Error)?.message ?? String(err)}`)
     // 响应头已发出时无法再改状态码，只能断开，否则客户端会一直挂起。
     if (res.headersSent) res.destroy()
     else send(res, 500, 'text/plain; charset=utf-8', 'internal error')
@@ -371,7 +372,7 @@ function readJsonBody(
       if (err instanceof InvalidInputError) {
         return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
       }
-      console.error('[tianshu-canvas] 请求处理失败：', err)
+      warnUser(`请求处理失败：${(err as Error)?.message ?? String(err)}`)
       if (res.headersSent) res.destroy()
       else send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: 'internal error' }))
     }

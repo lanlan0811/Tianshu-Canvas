@@ -10,7 +10,7 @@ import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
 
 async function lint(html, styleId = 'claude') {
   const res = await tools.canvas_check_style.execute({ input: { html, style_id: styleId }, cwd: process.cwd() })

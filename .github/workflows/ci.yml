@@ -35,3 +35,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Plugin release self-check
+        run: npm run check:plugin

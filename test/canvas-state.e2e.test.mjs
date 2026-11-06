@@ -28,7 +28,7 @@ const browserPath = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 test('画布状态回归', { skip: !browserPath && '未找到浏览器' }, async () => {
-  const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.js')).href)
+  const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
   const puppeteer = (await import('puppeteer-core')).default
   const cwd = mkdtempSync(join(tmpdir(), 'tsc-state-'))
   let browser
