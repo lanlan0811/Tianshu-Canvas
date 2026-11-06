@@ -355,9 +355,13 @@ function Canvas() {
     }
     void loadProject()
     void loadSelection()
-    void fetchDesignSystems().then(setCatalog)
+    void fetchDesignSystems(ws).then(setCatalog)
     return subscribeEvents(ws, {
-      onProject: () => void loadProject(),
+      onProject: () => {
+        void loadProject()
+        // 自定义设计系统是工作区数据，AI 侧新建后要让它出现在顶栏切换器里。
+        void fetchDesignSystems(ws).then(setCatalog)
+      },
       onSelection: () => void loadSelection(),
     })
   }, [loadProject, loadSelection])

@@ -78,9 +78,9 @@ export async function fetchProject(ws: string): Promise<ApiProject> {
   return (await res.json()) as ApiProject
 }
 
-export async function fetchDesignSystems(): Promise<ApiDesignCatalog | null> {
+export async function fetchDesignSystems(ws: string): Promise<ApiDesignCatalog | null> {
   try {
-    const res = await fetch('/api/design-systems')
+    const res = await fetch(`/api/design-systems?ws=${encodeURIComponent(ws)}`)
     if (!res.ok) return null
     return (await res.json()) as ApiDesignCatalog
   } catch {

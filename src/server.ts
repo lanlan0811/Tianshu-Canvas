@@ -194,8 +194,10 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   }
 
   if (req.method === 'GET' && path === '/api/design-systems') {
+    // 带 ws 时把当前工作区的自定义设计系统一并返回；不带则只有内置（向后兼容）。
+    const cwd = resolveCwd(url.searchParams.get('ws'))
     try {
-      return sendJson(res, loadDesignCatalog())
+      return sendJson(res, loadDesignCatalog(cwd ?? undefined))
     } catch (err) {
       return send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
     }

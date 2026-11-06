@@ -29,7 +29,7 @@ export function currentStyleId(cwd: string): string | null {
 }
 
 export function applyProjectStyle(cwd: string, styleId: string | null): StyleChangeResult {
-  if (styleId !== null && !designStyleExists(styleId)) {
+  if (styleId !== null && !designStyleExists(cwd, styleId)) {
     throw new InvalidInputError(`未知的设计风格：${styleId}。可用 canvas_style（action=list）查看可选风格。`)
   }
   // 与 setViewport 同策略：项目文件损坏时不做破坏性写入。
@@ -54,7 +54,7 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
     for (const node of project.nodes) {
       const html = readPageHtml(cwd, node.id)
       if (html === null || html.trim() === '') continue
-      const injected = injectDesign(html, styleId)
+      const injected = injectDesign(html, styleId, cwd)
       for (const name of injected.missingIcons) missing.add(name)
       for (const name of injected.scriptIcons) scriptIcons.add(name)
       if (injected.html === html) continue
@@ -67,7 +67,7 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
   writeProject(cwd, project)
   return {
     styleId,
-    name: styleId === null ? null : (designStyleSummary(styleId)?.name ?? styleId),
+    name: styleId === null ? null : (designStyleSummary(cwd, styleId)?.name ?? styleId),
     pagesUpdated,
     missingIcons: [...missing],
     scriptIcons: [...scriptIcons],
@@ -75,8 +75,8 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
 }
 
 /** 取一份模板，组装成可直接交给 canvas_upsert_page 的完整 HTML。 */
-export function templateDocument(styleId: string, templateId: string): { html: string; device: string; name: string } | null {
-  const style = resolveDesignStyle(styleId)
+export function templateDocument(cwd: string, styleId: string, templateId: string): { html: string; device: string; name: string } | null {
+  const style = resolveDesignStyle(cwd, styleId)
   if (!style) return null
   const template = style.templates[templateId]
   if (!template) return null

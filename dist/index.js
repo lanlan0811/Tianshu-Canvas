@@ -7,8 +7,8 @@ function defineTianshuPlugin(spec) {
 
 // src/tools.ts
 import { spawn as spawn2 } from "node:child_process";
-import { existsSync as existsSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
-import { join as join5 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "node:fs";
+import { join as join6 } from "node:path";
 
 // src/device.ts
 var DEVICE_PRESETS = {
@@ -31,8 +31,8 @@ function positiveOr(value, fallback) {
 }
 
 // src/design.ts
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync as readFileSync3, existsSync as existsSync3 } from "node:fs";
+import { join as join3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/html.ts
@@ -41,150 +41,10 @@ function afterDoctype(html) {
   return match ? match[0].length : 0;
 }
 
-// src/design.ts
-var DESIGN_DIR = fileURLToPath(new URL("./design/", import.meta.url));
-var BLOCK_START = "<!--tianshu-ds:start";
-var BLOCK_END = "<!--tianshu-ds:end-->";
-var START_RE = /\n?<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\n?/g;
-var catalogCache = null;
-var catalogFailed = null;
-var styleCache = /* @__PURE__ */ new Map();
-var styleFailed = /* @__PURE__ */ new Map();
-function readJson(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
-}
-function loadDesignCatalog() {
-  if (catalogCache) return catalogCache;
-  if (catalogFailed) throw new Error(catalogFailed);
-  const file = join(DESIGN_DIR, "index.json");
-  if (!existsSync(file)) {
-    catalogFailed = "\u8BBE\u8BA1\u7CFB\u7EDF\u6784\u5EFA\u4EA7\u7269\u7F3A\u5931\uFF08dist/design/index.json\uFF09\uFF0C\u8BF7\u5148\u8FD0\u884C npm run build\u3002";
-    throw new Error(catalogFailed);
-  }
-  catalogCache = readJson(file);
-  return catalogCache;
-}
-function designStyleIds() {
-  try {
-    return loadDesignCatalog().styles.map((s) => s.id);
-  } catch {
-    return [];
-  }
-}
-function designStyleExists(id) {
-  return typeof id === "string" && designStyleIds().includes(id);
-}
-function designStyleSummary(id) {
-  try {
-    return loadDesignCatalog().styles.find((s) => s.id === id) ?? null;
-  } catch {
-    return null;
-  }
-}
-function resolveDesignStyle(id) {
-  if (!designStyleExists(id)) return null;
-  const cached = styleCache.get(id);
-  if (cached) return cached;
-  const failed = styleFailed.get(id);
-  if (failed) throw new Error(failed);
-  const dir = join(DESIGN_DIR, "styles", id);
-  try {
-    const resolved = {
-      summary: designStyleSummary(id),
-      tokensCss: readFileSync(join(dir, "tokens.css"), "utf8"),
-      componentsCss: readFileSync(join(dir, "components.css"), "utf8"),
-      manifest: readJson(join(dir, "tokens.manifest.json")),
-      icons: readJson(join(dir, "icons.json")),
-      templates: readJson(join(dir, "templates.json"))
-    };
-    styleCache.set(id, resolved);
-    return resolved;
-  } catch (err) {
-    const message = `\u8BBE\u8BA1\u98CE\u683C\u300C${id}\u300D\u7684\u6784\u5EFA\u4EA7\u7269\u4E0D\u5B8C\u6574\uFF1A${err.message}`;
-    styleFailed.set(id, message);
-    throw new Error(message);
-  }
-}
-function stripDesign(html) {
-  return html.replace(START_RE, "");
-}
-function maskSegments(html) {
-  const mask2 = (text) => text.replace(/[^\n]/g, " ");
-  return html.replace(/<script\b[\s\S]*?<\/script>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
-}
-function findInsertOffset(html) {
-  const masked = maskSegments(html);
-  const head = /<head\b[^>]*>/i.exec(masked);
-  if (head) return head.index + head[0].length;
-  const htmlTag = /<html\b[^>]*>/i.exec(masked);
-  if (htmlTag) return htmlTag.index + htmlTag[0].length;
-  return afterDoctype(html);
-}
-function escapeStyleText(css) {
-  return css.replace(/<\/style/gi, "<\\/style");
-}
-var STYLE_OWNED_ICON_ATTRS = /\s(?:fill|stroke|stroke-width|stroke-linecap|stroke-linejoin)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
-function buildIconSvg(attrs, body, set, viewBox) {
-  const kept = attrs.replace(STYLE_OWNED_ICON_ATTRS, "").replace(/\s*\/\s*$/g, "").replace(/\s+/g, " ").trim();
-  const hasViewBox = /\bviewBox\s*=/.test(kept);
-  const stroke = `fill="none" stroke="currentColor" stroke-width="${set.stroke.strokeWidth}"` + (set.stroke.linecap ? ` stroke-linecap="${set.stroke.linecap}"` : "") + (set.stroke.linejoin ? ` stroke-linejoin="${set.stroke.linejoin}"` : "");
-  const parts = [kept, hasViewBox ? "" : `viewBox="${viewBox}"`, stroke].filter(Boolean);
-  return `<svg ${parts.join(" ")}>${body}</svg>`;
-}
-var ICON_SCAN = /<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<!--[\s\S]*?-->|<svg\b([^>]*?)(?:\/>|>[\s\S]*?<\/svg\s*>)/gi;
-var ICON_ATTR = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
-var SCRIPT_ICON = /\bdata-icon\s*=\s*\\?["']([^"'\\]*)/gi;
-function expandIcons(html, set) {
-  const used = /* @__PURE__ */ new Set();
-  const missing = /* @__PURE__ */ new Set();
-  const inScripts = /* @__PURE__ */ new Set();
-  const viewBox = set.viewBox || "0 0 24 24";
-  const expanded = html.replace(ICON_SCAN, (whole, attrs) => {
-    if (attrs === void 0) {
-      if (/^<script/i.test(whole)) {
-        for (const match of whole.matchAll(SCRIPT_ICON)) if (match[1]) inScripts.add(match[1]);
-      }
-      return whole;
-    }
-    const iconMatch = ICON_ATTR.exec(attrs);
-    if (!iconMatch) return whole;
-    const name = (iconMatch[1] ?? iconMatch[2] ?? "").trim();
-    const body = set.icons[name];
-    if (!body) {
-      missing.add(name);
-      return whole;
-    }
-    used.add(name);
-    return buildIconSvg(attrs, body, set, viewBox);
-  });
-  return { html: expanded, usedIcons: [...used], missingIcons: [...missing], scriptIcons: [...inScripts] };
-}
-function injectDesign(html, styleId) {
-  const stripped = stripDesign(html);
-  if (styleId === null) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
-  }
-  const style = resolveDesignStyle(styleId);
-  if (!style) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
-  }
-  const icons = expandIcons(stripped, style.icons);
-  const block = `${BLOCK_START} style=${style.summary.id} version=${style.manifest.version}-->
-<style id="tianshu-tokens" data-tianshu-ds="tokens" data-style="${style.summary.id}" data-version="${style.manifest.version}">${escapeStyleText(style.tokensCss)}</style>
-<style id="tianshu-components" data-tianshu-ds="components">${escapeStyleText(style.componentsCss)}</style>
-${BLOCK_END}
-`;
-  const offset = findInsertOffset(icons.html);
-  const result = icons.html.slice(0, offset) + "\n" + block + icons.html.slice(offset);
-  return {
-    html: result,
-    styleId: style.summary.id,
-    injected: true,
-    usedIcons: icons.usedIcons,
-    missingIcons: icons.missingIcons,
-    scriptIcons: icons.scriptIcons
-  };
-}
+// src/designCustom.ts
+import { createHash } from "node:crypto";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, readdirSync, renameSync as renameSync2, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join2 } from "node:path";
 
 // src/ids.ts
 import { randomUUID } from "node:crypto";
@@ -203,27 +63,27 @@ function newPageId() {
 
 // src/project.ts
 import { EventEmitter } from "node:events";
-import { constants, copyFileSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
 projectEvents.setMaxListeners(0);
 function projectDir(cwd) {
-  return join2(cwd, PROJECT_DIR_NAME);
+  return join(cwd, PROJECT_DIR_NAME);
 }
 function projectFile(cwd) {
-  return join2(projectDir(cwd), "project.json");
+  return join(projectDir(cwd), "project.json");
 }
 function pagesDir(cwd) {
-  return join2(projectDir(cwd), "pages");
+  return join(projectDir(cwd), "pages");
 }
 function emptyProject() {
   return { version: 1, viewport: { x: 0, y: 0, zoom: 1 }, nodes: [], edges: [] };
 }
 function inspectProject(cwd) {
   const file = projectFile(cwd);
-  if (!existsSync2(file)) return { project: emptyProject(), dropped: 0 };
-  const raw = readFileSync2(file, "utf8");
+  if (!existsSync(file)) return { project: emptyProject(), dropped: 0 };
+  const raw = readFileSync(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -325,8 +185,8 @@ function writeProject(cwd, project) {
 function writePageHtml(cwd, id, html) {
   assertSafeId(id);
   mkdirSync(pagesDir(cwd), { recursive: true });
-  const rel = join2(PROJECT_DIR_NAME, "pages", `${id}.html`);
-  const abs = join2(cwd, rel);
+  const rel = join(PROJECT_DIR_NAME, "pages", `${id}.html`);
+  const abs = join(cwd, rel);
   const tmp = abs + ".tmp";
   writeFileSync(tmp, html, "utf8");
   renameSync(tmp, abs);
@@ -334,8 +194,8 @@ function writePageHtml(cwd, id, html) {
 }
 function readPageHtml(cwd, id) {
   if (!isSafeId(id)) return null;
-  const abs = join2(pagesDir(cwd), `${id}.html`);
-  return existsSync2(abs) ? readFileSync2(abs, "utf8") : null;
+  const abs = join(pagesDir(cwd), `${id}.html`);
+  return existsSync(abs) ? readFileSync(abs, "utf8") : null;
 }
 function upsertNode(cwd, node) {
   const project = readProject(cwd);
@@ -377,7 +237,7 @@ function removeNode(cwd, id) {
   project.edges = project.edges.filter((e) => e.source !== id && e.target !== id);
   writeProjectAtomic(cwd, project);
   try {
-    rmSync(join2(pagesDir(cwd), `${id}.html`), { force: true });
+    rmSync(join(pagesDir(cwd), `${id}.html`), { force: true });
   } catch {
   }
   return project;
@@ -461,13 +321,13 @@ function removeEdge(cwd, source, target) {
   return project;
 }
 function selectionFile(cwd) {
-  return join2(projectDir(cwd), "selection.json");
+  return join(projectDir(cwd), "selection.json");
 }
 function readSelection(cwd) {
   const file = selectionFile(cwd);
-  if (!existsSync2(file)) return null;
+  if (!existsSync(file)) return null;
   try {
-    const parsed = JSON.parse(readFileSync2(file, "utf8"));
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
     if (!parsed || typeof parsed.pageId !== "string") return null;
     return parsed;
   } catch {
@@ -483,12 +343,753 @@ function writeSelection(cwd, selection) {
   projectEvents.emit("selection", { cwd });
 }
 
+// scripts/design/design-tokens.mjs
+var HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+function isHex(value) {
+  return typeof value === "string" && HEX.test(value.trim());
+}
+function kebab(key) {
+  return String(key).replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/[\s_]+/g, "-").toLowerCase();
+}
+function isPrimitiveRef(value) {
+  return typeof value === "string" && /^[a-z][a-z0-9]*\.[A-Za-z0-9]+$/.test(value);
+}
+function resolveColor(tokens, value, trail = []) {
+  if (isPrimitiveRef(value)) {
+    const [group, step] = value.split(".");
+    const prim = tokens?.color?.primitives?.[group]?.[step];
+    if (prim === void 0) {
+      throw new Error(`\u8BED\u4E49\u8272\u5F15\u7528\u65E0\u6CD5\u89E3\u6790\uFF1A${value}\uFF08\u5728 ${trail.join(".")}\uFF09`);
+    }
+    return { value: prim, primitive: value };
+  }
+  if (isHex(value) || /^rgba?\(|^hsla?\(|^transparent$/.test(value)) {
+    return { value };
+  }
+  throw new Error(`\u65E0\u6CD5\u8BC6\u522B\u7684\u989C\u8272\u503C\uFF1A${JSON.stringify(value)}\uFF08\u5728 ${trail.join(".")}\uFF09`);
+}
+function flattenTokens(tokens) {
+  const vars = [];
+  const resolvedSemantic = {};
+  const push = (name, value) => {
+    if (!name.startsWith("--ts-")) throw new Error(`\u53D8\u91CF\u5FC5\u987B\u4EE5 --ts- \u5F00\u5934\uFF1A${name}`);
+    vars.push({ name, value });
+  };
+  const primitives = tokens.color.primitives;
+  for (const group of Object.keys(primitives)) {
+    for (const step of Object.keys(primitives[group])) {
+      const value = primitives[group][step];
+      if (!isHex(value)) throw new Error(`\u539F\u8272\u5FC5\u987B\u662F hex\uFF1Acolor.primitives.${group}.${step} = ${value}`);
+      push(`--ts-color-${kebab(group)}-${kebab(step)}`, value);
+    }
+  }
+  const semantic = tokens.color.semantic;
+  for (const group of Object.keys(semantic)) {
+    for (const name of Object.keys(semantic[group])) {
+      const raw = semantic[group][name];
+      const { value, primitive } = resolveColor(tokens, raw, ["color", "semantic", group, name]);
+      const varName = `--ts-color-${kebab(group)}-${kebab(name)}`;
+      push(varName, value);
+      resolvedSemantic[`color.${group}.${name}`] = { value, primitive: primitive ?? null };
+    }
+  }
+  for (const name of Object.keys(tokens.font.families)) {
+    push(`--ts-font-${kebab(name)}`, tokens.font.families[name]);
+  }
+  for (const name of Object.keys(tokens.font.sizes)) {
+    push(`--ts-fs-${kebab(name)}`, `${tokens.font.sizes[name]}px`);
+  }
+  for (const name of Object.keys(tokens.font.weights)) {
+    push(`--ts-weight-${kebab(name)}`, String(tokens.font.weights[name]));
+  }
+  for (const name of Object.keys(tokens.font.lineHeights)) {
+    push(`--ts-lh-${kebab(name)}`, String(tokens.font.lineHeights[name]));
+  }
+  for (const name of Object.keys(tokens.font.letterSpacing)) {
+    push(`--ts-tracking-${kebab(name)}`, String(tokens.font.letterSpacing[name]));
+  }
+  const pxGroups = [
+    ["space", "--ts-space-"],
+    ["radius", "--ts-radius-"],
+    ["borderWidth", "--ts-border-"],
+    ["size", "--ts-size-"]
+  ];
+  for (const [group, prefix] of pxGroups) {
+    for (const name of Object.keys(tokens[group])) {
+      const n = tokens[group][name];
+      if (typeof n !== "number" || !Number.isFinite(n) || n < 0) {
+        throw new Error(`${group}.${name} \u5FC5\u987B\u662F\u975E\u8D1F\u6570\u5B57`);
+      }
+      push(`${prefix}${kebab(name)}`, `${n}px`);
+    }
+  }
+  for (const name of Object.keys(tokens.shadow)) {
+    push(`--ts-shadow-${kebab(name)}`, String(tokens.shadow[name]));
+  }
+  for (const name of Object.keys(tokens.motion)) {
+    push(`--ts-motion-${kebab(name)}`, String(tokens.motion[name]));
+  }
+  return { vars, resolvedSemantic };
+}
+function hasDarkMode(tokens) {
+  return tokens?.modes?.dark === true && tokens?.color?.semanticDark != null;
+}
+function flattenDarkSemantic(tokens) {
+  const vars = [];
+  const semantic = tokens?.color?.semanticDark;
+  if (semantic == null) return vars;
+  for (const group of Object.keys(semantic)) {
+    for (const name of Object.keys(semantic[group])) {
+      const raw = semantic[group][name];
+      const { value } = resolveColor(tokens, raw, ["color", "semanticDark", group, name]);
+      vars.push({ name: `--ts-color-${kebab(group)}-${kebab(name)}`, value });
+    }
+  }
+  return vars;
+}
+function tokensToCss(tokens) {
+  const { vars } = flattenTokens(tokens);
+  const lines = vars.map((v) => `  ${v.name}: ${v.value};`);
+  let css = `/* \u7531 tokens.json \u751F\u6210\uFF0C\u8BF7\u52FF\u624B\u6539\u3002 */
+:root {
+${lines.join("\n")}
+}
+`;
+  if (hasDarkMode(tokens)) {
+    const darkLines = flattenDarkSemantic(tokens).map((v) => `  ${v.name}: ${v.value};`);
+    css += `
+/* \u6DF1\u8272\u6A21\u5F0F\uFF1A\u7ED9\u6839\u5143\u7D20\u52A0 class="dark" \u5373\u5207\u6362\u3002 */
+.dark {
+${darkLines.join("\n")}
+}
+`;
+  }
+  return css;
+}
+function buildManifest(tokens, { icons, componentClasses }) {
+  const { vars, resolvedSemantic } = flattenTokens(tokens);
+  return {
+    schema: "tianshu-design-manifest/1",
+    id: tokens.id,
+    version: tokens.version,
+    vars: vars.map((v) => v.name),
+    spacing: Object.values(tokens.space),
+    radius: Object.values(tokens.radius),
+    fontFamilies: Object.values(tokens.font.families),
+    iconNames: [...icons],
+    componentClasses: [...componentClasses],
+    resolvedSemantic
+  };
+}
+function luminance(hex) {
+  const rgb = parseHex(hex);
+  if (!rgb) throw new Error(`\u65E0\u6CD5\u89E3\u6790\u989C\u8272\uFF1A${hex}`);
+  const [r, g, b] = rgb.map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function parseHex(hex) {
+  if (typeof hex !== "string") return null;
+  let h = hex.trim().replace(/^#/, "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length === 8) h = h.slice(0, 6);
+  if (h.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function contrast(a, b) {
+  const la = luminance(a);
+  const lb = luminance(b);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// scripts/design/design-validate.mjs
+var FORBIDDEN = [
+  "library-consumption",
+  "soloDesignConsumption",
+  "uikit-plan",
+  "preview-contract",
+  "readOrder",
+  ".trae-cn",
+  "dl_builtin",
+  "fill-html-head",
+  "solo-design",
+  "--trae-",
+  "--doubao-",
+  "--claude-",
+  "--apple-",
+  "--google-"
+];
+var REQUIRED_SEMANTIC = {
+  bg: ["canvas", "surface", "raised", "sunken", "inverse"],
+  text: ["primary", "secondary", "muted", "inverse", "link"],
+  border: ["default", "strong", "subtle", "focus"],
+  action: [
+    "primary",
+    "primaryHover",
+    "primaryText",
+    "secondary",
+    "secondaryHover",
+    "secondaryText",
+    "ghostHover",
+    "danger",
+    "dangerText"
+  ],
+  status: ["success", "successBg", "warning", "warningBg", "danger", "dangerBg", "info", "infoBg"],
+  chart: ["1", "2", "3", "4", "5"],
+  overlay: ["scrim"]
+};
+function auditForbidden(label, text, errors) {
+  for (const token of FORBIDDEN) {
+    if (text.includes(token)) errors.push(`${label}\uFF1A\u51FA\u73B0\u88AB\u7981\u7528\u7684\u6807\u8BC6 ${token}`);
+  }
+  if (/https?:\/\//.test(text)) errors.push(`${label}\uFF1A\u51FA\u73B0\u5916\u94FE URL`);
+}
+function checkMonotonic(label, record, errors) {
+  const keys = Object.keys(record);
+  const nums = keys.map((k) => Number(k));
+  if (nums.some((n) => !Number.isFinite(n) || n < 0)) {
+    errors.push(`${label}\uFF1A\u952E\u5FC5\u987B\u662F\u975E\u8D1F\u6570\u5B57\uFF08\u53EF\u6392\u5E8F\uFF09`);
+    return;
+  }
+  for (let i = 1; i < nums.length; i++) {
+    if (nums[i] <= nums[i - 1]) errors.push(`${label}\uFF1A\u952E\u5FC5\u987B\u4E25\u683C\u9012\u589E\uFF08${keys[i - 1]} -> ${keys[i]}\uFF09`);
+  }
+  for (let i = 1; i < keys.length; i++) {
+    const prev = record[keys[i - 1]];
+    const cur = record[keys[i]];
+    if (typeof prev !== "number" || typeof cur !== "number") continue;
+    if (cur <= prev) errors.push(`${label}\uFF1A\u503C\u5FC5\u987B\u4E25\u683C\u9012\u589E\uFF08${keys[i - 1]}=${prev} -> ${keys[i]}=${cur}\uFF09`);
+  }
+}
+function checkRadius(record, errors) {
+  const entries = Object.entries(record);
+  let prev = -Infinity;
+  for (const [key, value] of entries) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      errors.push(`tokens.radius.${key} \u5FC5\u987B\u662F\u975E\u8D1F\u6570\u5B57`);
+      continue;
+    }
+    if (key === "full") continue;
+    if (value <= prev) errors.push(`tokens.radius.${key} \u5FC5\u987B\u5927\u4E8E\u524D\u4E00\u6863\uFF08${prev}\uFF09`);
+    prev = value;
+  }
+}
+function validateTokens(tokens, expectedId, errors, warnings) {
+  if (tokens?.schema !== "tianshu-design-tokens/1") errors.push("tokens.schema \u5FC5\u987B\u662F tianshu-design-tokens/1");
+  if (tokens?.id !== expectedId) errors.push(`tokens.id\uFF08${tokens?.id}\uFF09\u4E0E\u76EE\u5F55\uFF08${expectedId}\uFF09\u4E0D\u4E00\u81F4`);
+  if (typeof tokens?.version !== "number") errors.push("tokens.version \u5FC5\u987B\u662F\u6570\u5B57");
+  for (const group of ["font", "space", "radius", "borderWidth", "shadow", "size", "motion", "color"]) {
+    if (!tokens?.[group] || typeof tokens[group] !== "object") errors.push(`tokens.${group} \u7F3A\u5931`);
+  }
+  if (!tokens?.color?.primitives || !tokens?.color?.semantic) {
+    errors.push("tokens.color \u9700\u8981 primitives \u4E0E semantic");
+    return null;
+  }
+  for (const [group, steps] of Object.entries(tokens.color.primitives)) {
+    for (const [step, value] of Object.entries(steps)) {
+      if (!isHex(value)) errors.push(`\u539F\u8272\u5FC5\u987B\u662F hex\uFF1Acolor.primitives.${group}.${step} = ${value}`);
+    }
+  }
+  for (const [group, required] of Object.entries(REQUIRED_SEMANTIC)) {
+    const actual = tokens.color.semantic[group];
+    if (!actual) {
+      errors.push(`\u7F3A\u5C11\u8BED\u4E49\u8272\u7EC4 color.semantic.${group}`);
+      continue;
+    }
+    for (const name of required) {
+      if (actual[name] === void 0) errors.push(`\u7F3A\u5C11\u8BED\u4E49\u8272 color.semantic.${group}.${name}`);
+    }
+  }
+  for (const [group, entries] of Object.entries(tokens.color.semantic)) {
+    for (const [name, value] of Object.entries(entries)) {
+      if (isPrimitiveRef(value)) {
+        const [g, s] = value.split(".");
+        if (tokens.color.primitives[g]?.[s] === void 0) {
+          errors.push(`\u8BED\u4E49\u8272\u5F15\u7528\u4E0D\u53EF\u89E3\u6790\uFF1Acolor.semantic.${group}.${name} = ${value}`);
+        }
+      } else if (!isHex(value) && !/^(?:rgba?|hsla?)\(|^transparent$/.test(value)) {
+        errors.push(`\u65E0\u6CD5\u8BC6\u522B\u7684\u989C\u8272\u503C\uFF1Acolor.semantic.${group}.${name} = ${value}`);
+      }
+    }
+  }
+  const font = tokens.font ?? {};
+  for (const key of ["families", "sizes", "weights", "lineHeights", "letterSpacing"]) {
+    if (!font[key] || Object.keys(font[key]).length === 0) errors.push(`tokens.font.${key} \u4E0D\u80FD\u4E3A\u7A7A`);
+  }
+  for (const [name, px] of Object.entries(font.sizes ?? {})) {
+    if (typeof px !== "number" || px <= 0) errors.push(`font.sizes.${name} \u5FC5\u987B\u662F\u6B63\u6570`);
+  }
+  checkMonotonic("tokens.space", tokens.space ?? {}, errors);
+  checkRadius(tokens.radius ?? {}, errors);
+  for (const [k, v] of Object.entries(tokens.size ?? {})) {
+    if (typeof v !== "number" || v <= 0) errors.push(`size.${k} \u5FC5\u987B\u662F\u6B63\u6570`);
+  }
+  for (const [k, v] of Object.entries(tokens.shadow ?? {})) {
+    if (typeof v !== "string" || /url\(|@import|https?:\/\//i.test(v)) errors.push(`shadow.${k} \u542B\u7981\u7528\u5185\u5BB9`);
+  }
+  validateColorSemantics(tokens, tokens.color.semantic, "", errors, warnings);
+  const dark = tokens.color.semanticDark;
+  if (dark != null) {
+    if (typeof dark !== "object") {
+      errors.push("color.semanticDark \u5FC5\u987B\u662F\u5BF9\u8C61");
+    } else {
+      for (const [group, required] of Object.entries(REQUIRED_SEMANTIC)) {
+        const actual = dark[group];
+        if (!actual) {
+          errors.push(`\u7F3A\u5C11\u6DF1\u8272\u8BED\u4E49\u8272\u7EC4 color.semanticDark.${group}`);
+          continue;
+        }
+        for (const name of required) {
+          if (actual[name] === void 0) errors.push(`\u7F3A\u5C11\u6DF1\u8272\u8BED\u4E49\u8272 color.semanticDark.${group}.${name}`);
+        }
+      }
+      for (const [group, entries] of Object.entries(dark)) {
+        for (const [name, value] of Object.entries(entries)) {
+          if (isPrimitiveRef(value)) {
+            const [g, s] = value.split(".");
+            if (tokens.color.primitives[g]?.[s] === void 0) {
+              errors.push(`\u6DF1\u8272\u8BED\u4E49\u8272\u5F15\u7528\u4E0D\u53EF\u89E3\u6790\uFF1Acolor.semanticDark.${group}.${name} = ${value}`);
+            }
+          } else if (!isHex(value) && !/^(?:rgba?|hsla?)\(|^transparent$/.test(value)) {
+            errors.push(`\u65E0\u6CD5\u8BC6\u522B\u7684\u6DF1\u8272\u8BED\u4E49\u8272\u503C\uFF1Acolor.semanticDark.${group}.${name} = ${value}`);
+          }
+        }
+      }
+      validateColorSemantics(tokens, dark, "[dark] ", errors, warnings);
+    }
+  }
+  try {
+    flattenTokens(tokens);
+    if (dark != null) flattenDarkSemantic(tokens);
+  } catch (err) {
+    errors.push(`token \u5C55\u5E73\u5931\u8D25\uFF1A${err.message}`);
+    return null;
+  }
+  return true;
+}
+function resolveValue(tokens, path, semantic) {
+  const [group, name] = path.split(".");
+  const raw = semantic?.[group]?.[name];
+  if (raw === void 0) return null;
+  if (isPrimitiveRef(raw)) {
+    const [g, s] = raw.split(".");
+    return tokens.color.primitives[g]?.[s] ?? null;
+  }
+  return raw;
+}
+var CONTRAST_PAIRS = [
+  ["text.primary", "bg.canvas", 4.5],
+  ["text.primary", "bg.surface", 4.5],
+  ["text.secondary", "bg.canvas", 4.5],
+  ["text.muted", "bg.canvas", 3],
+  ["action.primaryText", "action.primary", 4.5]
+];
+function validateColorSemantics(tokens, semantic, prefix, errors, warnings) {
+  if (!semantic || typeof semantic !== "object") return;
+  for (const [fg, bg, min] of CONTRAST_PAIRS) {
+    const fgValue = resolveValue(tokens, fg, semantic);
+    const bgValue = resolveValue(tokens, bg, semantic);
+    if (!fgValue || !bgValue) continue;
+    if (!parseHex(fgValue) || !parseHex(bgValue)) continue;
+    const ratio = contrast(fgValue, bgValue);
+    const label = `${prefix}${fg} \u5BF9\u6BD4 ${bg} = ${ratio.toFixed(2)}`;
+    if (ratio < min) {
+      if (min >= 4.5) errors.push(`\u5BF9\u6BD4\u5EA6\u4E0D\u8DB3\uFF1A${label}\uFF08\u8981\u6C42 \u2265 ${min}\uFF09`);
+      else warnings.push(`\u5BF9\u6BD4\u5EA6\u504F\u4F4E\uFF1A${label}\uFF08\u5EFA\u8BAE \u2265 ${min}\uFF09`);
+    }
+  }
+}
+
+// src/designCustom.ts
+var LIBRARY_DIR_NAME = "library";
+function libraryDir(cwd) {
+  return join2(projectDir(cwd), LIBRARY_DIR_NAME);
+}
+function customStyleDir(cwd, id) {
+  assertSafeId(id);
+  return join2(libraryDir(cwd), id);
+}
+function collectVars(text) {
+  const out = /* @__PURE__ */ new Set();
+  for (const match of text.matchAll(/var\(\s*(--ts-[A-Za-z0-9-]+)/g)) out.add(match[1]);
+  return out;
+}
+function stampLibrary(cwd) {
+  const dir = libraryDir(cwd);
+  if (!existsSync2(dir)) return "";
+  const hash = createHash("sha1");
+  const ids = readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  for (const id of ids) {
+    if (!isSafeId(id)) continue;
+    hash.update(id);
+    for (const file of ["tokens.json", "meta.json"]) {
+      const abs = join2(dir, id, file);
+      hash.update(existsSync2(abs) ? readFileSync2(abs, "utf8") : "\0");
+    }
+  }
+  return hash.digest("hex");
+}
+function readJson(file, label) {
+  try {
+    return JSON.parse(readFileSync2(file, "utf8"));
+  } catch (err) {
+    throw new InvalidInputError(`${label} \u4E0D\u662F\u5408\u6CD5 JSON\uFF1A${err.message}`);
+  }
+}
+function sharedAssets(builtinDir, builtinId, iconStyle) {
+  const dir = join2(builtinDir, "styles", builtinId);
+  const componentsCss = readFileSync2(join2(dir, "components.css"), "utf8");
+  const templates = readJson(join2(dir, "templates.json"), "templates.json");
+  const raw = readJson(join2(dir, "icons.json"), "icons.json");
+  return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons } };
+}
+function assertCoversSharedVars(manifest, componentsCss, templates, errors) {
+  const known = new Set(manifest.vars);
+  const needed = collectVars(componentsCss);
+  for (const tpl of Object.values(templates)) for (const v of collectVars(tpl.html)) needed.add(v);
+  const missing = [...needed].filter((v) => !known.has(v));
+  if (missing.length) {
+    errors.push(`tokens \u7F3A\u5C11\u5171\u4EAB\u7EC4\u4EF6/\u6A21\u677F\u6240\u9700\u7684\u53D8\u91CF\uFF08\u4F1A\u6837\u5F0F\u60AC\u7A7A\uFF09\uFF1A${missing.slice(0, 8).join("\u3001")}${missing.length > 8 ? ` \u7B49 ${missing.length} \u4E2A` : ""}`);
+  }
+}
+function loadCustomSummaries(cwd, builtinDir) {
+  const dir = libraryDir(cwd);
+  if (!existsSync2(dir)) return [];
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !isSafeId(entry.name)) continue;
+    try {
+      out.push(compileCustomStyle(cwd, entry.name, builtinDir).summary);
+    } catch {
+    }
+  }
+  return out;
+}
+function customStyleExists(cwd, id) {
+  return isSafeId(id) && existsSync2(join2(libraryDir(cwd), id, "tokens.json"));
+}
+function compileCustomStyle(cwd, id, builtinDir) {
+  const dir = customStyleDir(cwd, id);
+  const tokensFile = join2(dir, "tokens.json");
+  const metaFile = join2(dir, "meta.json");
+  if (!existsSync2(tokensFile) || !existsSync2(metaFile)) {
+    throw new InvalidInputError(`\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u4E0D\u5B58\u5728\uFF1A${id}`);
+  }
+  const tokens = readJson(tokensFile, `${id}/tokens.json`);
+  const meta = readJson(metaFile, `${id}/meta.json`);
+  const iconStyle = meta.iconStyle;
+  const contract = sharedContract(builtinDir);
+  const shared = sharedAssets(builtinDir, contract.builtinId, iconStyle);
+  const manifest = buildManifest(tokens, {
+    icons: contract.iconNames,
+    componentClasses: contract.componentClasses
+  });
+  const templates = shared.templates;
+  const summary = {
+    id,
+    name: String(meta.name ?? id),
+    tagline: String(meta.tagline ?? ""),
+    description: String(meta.description ?? ""),
+    tags: Array.isArray(meta.tags) ? meta.tags.map(String) : [],
+    swatches: Array.isArray(meta.swatches) ? meta.swatches.map(String) : [],
+    fonts: tokens.font?.families ?? {},
+    iconStyle,
+    counts: { icons: manifest.iconNames.length, components: contract.componentCount, templates: Object.keys(templates).length },
+    templates: Object.entries(templates).map(([tid, t]) => ({ id: tid, name: t.name, device: t.device }))
+  };
+  return {
+    summary,
+    tokensCss: tokensToCss(tokens),
+    componentsCss: shared.componentsCss,
+    manifest,
+    icons: shared.icons,
+    templates
+  };
+}
+var sharedContractCache = /* @__PURE__ */ new Map();
+function sharedContract(builtinDir) {
+  const cached = sharedContractCache.get(builtinDir);
+  if (cached) return cached;
+  const index = readJson(join2(builtinDir, "index.json"), "design/index.json");
+  const builtinId = index.styles[0]?.id;
+  if (!builtinId) throw new Error("\u8BBE\u8BA1\u7CFB\u7EDF\u6784\u5EFA\u4EA7\u7269\u7F3A\u5931\uFF1Adist/design/index.json \u6CA1\u6709\u98CE\u683C");
+  const dir = join2(builtinDir, "styles", builtinId);
+  const manifest = readJson(join2(dir, "tokens.manifest.json"), "tokens.manifest.json");
+  const icons = readJson(join2(dir, "icons.json"), "icons.json");
+  const value = {
+    builtinId,
+    componentClasses: manifest.componentClasses,
+    iconNames: Object.keys(icons.icons),
+    componentCount: index.styles[0]?.counts?.components ?? 0
+  };
+  sharedContractCache.set(builtinDir, value);
+  return value;
+}
+function writeJsonAtomic(file, value) {
+  mkdirSync2(join2(file, ".."), { recursive: true });
+  const tmp = file + ".tmp";
+  writeFileSync2(tmp, JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n", "utf8");
+  renameSync2(tmp, file);
+}
+function createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options) {
+  if (!isSafeId(id)) {
+    throw new InvalidInputError(`\u975E\u6CD5 id\uFF1A${String(id)}\uFF08\u4EC5\u5141\u8BB8\u5B57\u6BCD\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u3001\u8FDE\u5B57\u7B26\uFF0C1\u201364 \u4F4D\uFF09`);
+  }
+  if (options.builtinIds.includes(id)) {
+    throw new InvalidInputError(`id\u300C${id}\u300D\u4E0E\u5185\u7F6E\u98CE\u683C\u51B2\u7A81\uFF0C\u8BF7\u6362\u4E00\u4E2A\u540D\u5B57\u3002`);
+  }
+  const exists = customStyleExists(cwd, id);
+  if (exists && options.overwrite !== true) {
+    throw new InvalidInputError(`\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${id}\u300D\u5DF2\u5B58\u5728\u3002\u82E5\u8981\u8986\u76D6\uFF0C\u8BF7\u4F20 overwrite=true\u3002`);
+  }
+  if (!tokensIn || typeof tokensIn !== "object" || Array.isArray(tokensIn)) {
+    throw new InvalidInputError("\u7F3A\u5C11 tokens\uFF1A\u8BF7\u4F20\u5165\u5B8C\u6574 tokens \u5BF9\u8C61\uFF08\u89C1\u5DE5\u5177\u8BF4\u660E\uFF09\u3002");
+  }
+  const metaInObj = metaIn && typeof metaIn === "object" && !Array.isArray(metaIn) ? metaIn : {};
+  const tokens = { ...tokensIn, schema: "tianshu-design-tokens/1", id };
+  if (typeof tokens.version !== "number") tokens.version = 1;
+  if (!tokens.modes || typeof tokens.modes !== "object") {
+    tokens.modes = { light: true, dark: tokens.color?.semanticDark != null };
+  }
+  const iconStyle = metaInObj.iconStyle;
+  if (!iconStyle || typeof iconStyle !== "object" || typeof iconStyle.strokeWidth !== "number") {
+    throw new InvalidInputError("\u7F3A\u5C11 meta.iconStyle.strokeWidth\uFF08\u6570\u5B57\uFF0C\u5982 1.5 / 1.75\uFF09\u3002");
+  }
+  const meta = {
+    id,
+    name: String(metaInObj.name ?? id),
+    tagline: String(metaInObj.tagline ?? ""),
+    description: String(metaInObj.description ?? ""),
+    tags: Array.isArray(metaInObj.tags) ? metaInObj.tags.map(String) : [],
+    swatches: Array.isArray(metaInObj.swatches) ? metaInObj.swatches.map(String) : [],
+    version: tokens.version,
+    iconStyle,
+    license: String(metaInObj.license ?? "\u672C\u9879\u76EE\u539F\u521B\u914D\u8272\uFF1B\u56FE\u6807\u4E3A\u5171\u4EAB\u7684\u901A\u7528\u7EBF\u6027\u51E0\u4F55\u56FE\u5F62\u3002"),
+    notice: String(metaInObj.notice ?? "\u81EA\u5B9A\u4E49\u98CE\u683C\uFF1B\u4E0E\u5404\u54C1\u724C\u65E0\u96B6\u5C5E\u5173\u7CFB\u3002")
+  };
+  const errors = [];
+  const warnings = [];
+  validateTokens(tokens, id, errors, warnings);
+  auditForbidden("meta.json", JSON.stringify(meta), errors);
+  const contract = sharedContract(builtinDir);
+  const manifest = errors.length === 0 ? buildManifest(tokens, { icons: contract.iconNames, componentClasses: contract.componentClasses }) : null;
+  if (manifest) {
+    const { componentsCss, templates } = sharedAssets(builtinDir, contract.builtinId, iconStyle);
+    assertCoversSharedVars(manifest, componentsCss, templates, errors);
+    const builtinManifest = readJson(
+      join2(builtinDir, "styles", contract.builtinId, "tokens.manifest.json"),
+      "tokens.manifest.json"
+    );
+    const known = new Set(manifest.vars);
+    const missing = builtinManifest.vars.filter((v) => !known.has(v));
+    if (missing.length) {
+      errors.push(`tokens \u7F3A\u5C11\u5185\u7F6E\u98CE\u683C\u7684\u53D8\u91CF\uFF1A${missing.slice(0, 8).join("\u3001")}${missing.length > 8 ? ` \u7B49 ${missing.length} \u4E2A` : ""}`);
+    }
+  }
+  if (errors.length) {
+    throw new InvalidInputError(`\u8BBE\u8BA1\u7CFB\u7EDF\u6821\u9A8C\u5931\u8D25\uFF1A
+${errors.map((e) => `  - ${e}`).join("\n")}`);
+  }
+  const dir = customStyleDir(cwd, id);
+  writeJsonAtomic(join2(dir, "tokens.json"), tokens);
+  writeJsonAtomic(join2(dir, "meta.json"), meta);
+  const summary = compileCustomStyle(cwd, id, builtinDir).summary;
+  return { id, summary, warnings };
+}
+function removeCustomStyle(cwd, id) {
+  if (!isSafeId(id)) throw new InvalidInputError(`\u975E\u6CD5 id\uFF1A${String(id)}`);
+  const dir = join2(libraryDir(cwd), id);
+  if (!existsSync2(dir)) throw new InvalidInputError(`\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u4E0D\u5B58\u5728\uFF1A${id}`);
+  rmSync2(dir, { recursive: true, force: true });
+}
+
+// src/design.ts
+var DESIGN_DIR = fileURLToPath(new URL("./design/", import.meta.url));
+var BLOCK_START = "<!--tianshu-ds:start";
+var BLOCK_END = "<!--tianshu-ds:end-->";
+var START_RE = /\n?<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->\n?/g;
+var builtinCatalogCache = null;
+var customCatalogCache = /* @__PURE__ */ new Map();
+var styleCache = /* @__PURE__ */ new Map();
+function readJson2(file) {
+  return JSON.parse(readFileSync3(file, "utf8"));
+}
+function designDir() {
+  return DESIGN_DIR;
+}
+function loadBuiltinCatalog() {
+  if (builtinCatalogCache) return builtinCatalogCache;
+  const file = join3(DESIGN_DIR, "index.json");
+  if (!existsSync3(file)) {
+    throw new Error("\u8BBE\u8BA1\u7CFB\u7EDF\u6784\u5EFA\u4EA7\u7269\u7F3A\u5931\uFF08dist/design/index.json\uFF09\uFF0C\u8BF7\u5148\u8FD0\u884C npm run build\u3002");
+  }
+  builtinCatalogCache = readJson2(file);
+  return builtinCatalogCache;
+}
+function customStylesFor(cwd) {
+  if (!cwd) return [];
+  const stamp2 = stampLibrary(cwd);
+  const cached = customCatalogCache.get(cwd);
+  if (cached && cached.stamp === stamp2) return cached.styles;
+  let styles = [];
+  try {
+    styles = loadCustomSummaries(cwd, DESIGN_DIR);
+  } catch {
+    styles = [];
+  }
+  customCatalogCache.set(cwd, { stamp: stamp2, styles });
+  return styles;
+}
+function invalidateDesignCache(cwd) {
+  customCatalogCache.delete(cwd);
+  const prefix = `${cwd}\0`;
+  for (const key of [...styleCache.keys()]) if (key.startsWith(prefix)) styleCache.delete(key);
+}
+function loadDesignCatalog(cwd) {
+  const builtin = loadBuiltinCatalog();
+  const custom = customStylesFor(cwd);
+  if (custom.length === 0) return builtin;
+  return { schemaVersion: builtin.schemaVersion, notice: builtin.notice, styles: [...builtin.styles, ...custom] };
+}
+function designStyleIds(cwd) {
+  try {
+    return loadDesignCatalog(cwd).styles.map((s) => s.id);
+  } catch {
+    return [];
+  }
+}
+function designStyleExists(cwd, id) {
+  return typeof id === "string" && designStyleIds(cwd).includes(id);
+}
+function designStyleSummary(cwd, id) {
+  try {
+    return loadDesignCatalog(cwd).styles.find((s) => s.id === id) ?? null;
+  } catch {
+    return null;
+  }
+}
+function isBuiltinStyle(id) {
+  return typeof id === "string" && designStyleIds().includes(id);
+}
+function resolveDesignStyle(cwd, id) {
+  if (!designStyleExists(cwd, id)) return null;
+  const key = `${cwd ?? "\0builtin"}\0${id}`;
+  const cached = styleCache.get(key);
+  if (cached) return cached;
+  const summary = designStyleSummary(cwd, id);
+  if (!summary) return null;
+  let resolved;
+  if (cwd && customStyleExists(cwd, id)) {
+    resolved = compileCustomStyle(cwd, id, DESIGN_DIR);
+  } else {
+    const dir = join3(DESIGN_DIR, "styles", id);
+    try {
+      resolved = {
+        summary,
+        tokensCss: readFileSync3(join3(dir, "tokens.css"), "utf8"),
+        componentsCss: readFileSync3(join3(dir, "components.css"), "utf8"),
+        manifest: readJson2(join3(dir, "tokens.manifest.json")),
+        icons: readJson2(join3(dir, "icons.json")),
+        templates: readJson2(join3(dir, "templates.json"))
+      };
+    } catch (err) {
+      throw new Error(`\u8BBE\u8BA1\u98CE\u683C\u300C${id}\u300D\u7684\u6784\u5EFA\u4EA7\u7269\u4E0D\u5B8C\u6574\uFF1A${err.message}`);
+    }
+  }
+  styleCache.set(key, resolved);
+  return resolved;
+}
+function stripDesign(html) {
+  return html.replace(START_RE, "");
+}
+function maskSegments(html) {
+  const mask2 = (text) => text.replace(/[^\n]/g, " ");
+  return html.replace(/<script\b[\s\S]*?<\/script>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
+}
+function findInsertOffset(html) {
+  const masked = maskSegments(html);
+  const head = /<head\b[^>]*>/i.exec(masked);
+  if (head) return head.index + head[0].length;
+  const htmlTag = /<html\b[^>]*>/i.exec(masked);
+  if (htmlTag) return htmlTag.index + htmlTag[0].length;
+  return afterDoctype(html);
+}
+function escapeStyleText(css) {
+  return css.replace(/<\/style/gi, "<\\/style");
+}
+var STYLE_OWNED_ICON_ATTRS = /\s(?:fill|stroke|stroke-width|stroke-linecap|stroke-linejoin)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+function buildIconSvg(attrs, body, set, viewBox) {
+  const kept = attrs.replace(STYLE_OWNED_ICON_ATTRS, "").replace(/\s*\/\s*$/g, "").replace(/\s+/g, " ").trim();
+  const hasViewBox = /\bviewBox\s*=/.test(kept);
+  const stroke = `fill="none" stroke="currentColor" stroke-width="${set.stroke.strokeWidth}"` + (set.stroke.linecap ? ` stroke-linecap="${set.stroke.linecap}"` : "") + (set.stroke.linejoin ? ` stroke-linejoin="${set.stroke.linejoin}"` : "");
+  const parts = [kept, hasViewBox ? "" : `viewBox="${viewBox}"`, stroke].filter(Boolean);
+  return `<svg ${parts.join(" ")}>${body}</svg>`;
+}
+var ICON_SCAN = /<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<!--[\s\S]*?-->|<svg\b([^>]*?)(?:\/>|>[\s\S]*?<\/svg\s*>)/gi;
+var ICON_ATTR = /\bdata-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
+var SCRIPT_ICON = /\bdata-icon\s*=\s*\\?["']([^"'\\]*)/gi;
+function expandIcons(html, set) {
+  const used = /* @__PURE__ */ new Set();
+  const missing = /* @__PURE__ */ new Set();
+  const inScripts = /* @__PURE__ */ new Set();
+  const viewBox = set.viewBox || "0 0 24 24";
+  const expanded = html.replace(ICON_SCAN, (whole, attrs) => {
+    if (attrs === void 0) {
+      if (/^<script/i.test(whole)) {
+        for (const match of whole.matchAll(SCRIPT_ICON)) if (match[1]) inScripts.add(match[1]);
+      }
+      return whole;
+    }
+    const iconMatch = ICON_ATTR.exec(attrs);
+    if (!iconMatch) return whole;
+    const name = (iconMatch[1] ?? iconMatch[2] ?? "").trim();
+    const body = set.icons[name];
+    if (!body) {
+      missing.add(name);
+      return whole;
+    }
+    used.add(name);
+    return buildIconSvg(attrs, body, set, viewBox);
+  });
+  return { html: expanded, usedIcons: [...used], missingIcons: [...missing], scriptIcons: [...inScripts] };
+}
+function injectDesign(html, styleId, cwd) {
+  const stripped = stripDesign(html);
+  if (styleId === null) {
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
+  }
+  const style = resolveDesignStyle(cwd, styleId);
+  if (!style) {
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
+  }
+  const icons = expandIcons(stripped, style.icons);
+  const block = `${BLOCK_START} style=${style.summary.id} version=${style.manifest.version}-->
+<style id="tianshu-tokens" data-tianshu-ds="tokens" data-style="${style.summary.id}" data-version="${style.manifest.version}">${escapeStyleText(style.tokensCss)}</style>
+<style id="tianshu-components" data-tianshu-ds="components">${escapeStyleText(style.componentsCss)}</style>
+${BLOCK_END}
+`;
+  const offset = findInsertOffset(icons.html);
+  const result = icons.html.slice(0, offset) + "\n" + block + icons.html.slice(offset);
+  return {
+    html: result,
+    styleId: style.summary.id,
+    injected: true,
+    usedIcons: icons.usedIcons,
+    missingIcons: icons.missingIcons,
+    scriptIcons: icons.scriptIcons
+  };
+}
+
 // src/designOps.ts
 function currentStyleId(cwd) {
   return readProject(cwd).design?.styleId ?? null;
 }
 function applyProjectStyle(cwd, styleId) {
-  if (styleId !== null && !designStyleExists(styleId)) {
+  if (styleId !== null && !designStyleExists(cwd, styleId)) {
     throw new InvalidInputError(`\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`);
   }
   if (projectIssue(cwd)) {
@@ -509,7 +1110,7 @@ function applyProjectStyle(cwd, styleId) {
     for (const node of project.nodes) {
       const html = readPageHtml(cwd, node.id);
       if (html === null || html.trim() === "") continue;
-      const injected = injectDesign(html, styleId);
+      const injected = injectDesign(html, styleId, cwd);
       for (const name of injected.missingIcons) missing.add(name);
       for (const name of injected.scriptIcons) scriptIcons.add(name);
       if (injected.html === html) continue;
@@ -521,14 +1122,14 @@ function applyProjectStyle(cwd, styleId) {
   writeProject(cwd, project);
   return {
     styleId,
-    name: styleId === null ? null : designStyleSummary(styleId)?.name ?? styleId,
+    name: styleId === null ? null : designStyleSummary(cwd, styleId)?.name ?? styleId,
     pagesUpdated,
     missingIcons: [...missing],
     scriptIcons: [...scriptIcons]
   };
 }
-function templateDocument(styleId, templateId) {
-  const style = resolveDesignStyle(styleId);
+function templateDocument(cwd, styleId, templateId) {
+  const style = resolveDesignStyle(cwd, styleId);
   if (!style) return null;
   const template = style.templates[templateId];
   if (!template) return null;
@@ -549,16 +1150,16 @@ ${template.html.trim()}
 
 // src/export.ts
 import { spawn } from "node:child_process";
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync4, readdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync5, readdirSync as readdirSync2, rmSync as rmSync3, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
 // src/server.ts
 import http from "node:http";
-import { createHash } from "node:crypto";
-import { existsSync as existsSync3, readFileSync as readFileSync3, statSync } from "node:fs";
-import { join as join3 } from "node:path";
+import { createHash as createHash2 } from "node:crypto";
+import { existsSync as existsSync4, readFileSync as readFileSync4, statSync } from "node:fs";
+import { join as join4 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/probe.ts
@@ -822,7 +1423,7 @@ var MAX_VIEWPORT_BODY = 4096;
 var BODY_DRAIN_MS = 2e3;
 var state = null;
 function tokenFor(cwd) {
-  return createHash("sha256").update(cwd).digest("hex").slice(0, 16);
+  return createHash2("sha256").update(cwd).digest("hex").slice(0, 16);
 }
 function listen(server, port) {
   return new Promise((resolve, reject) => {
@@ -914,8 +1515,9 @@ function routeRequest(req, res) {
     return send(res, 404, "text/plain; charset=utf-8", "not found");
   }
   if (req.method === "GET" && path === "/api/design-systems") {
+    const cwd = resolveCwd(url.searchParams.get("ws"));
     try {
-      return sendJson(res, loadDesignCatalog());
+      return sendJson(res, loadDesignCatalog(cwd ?? void 0));
     } catch (err) {
       return send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
     }
@@ -964,10 +1566,10 @@ function routeRequest(req, res) {
     if (!name || /[\\/]/.test(name) || name.includes("..")) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
-    const file = join3(exportsDir(cwd), name);
-    if (!existsSync3(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    const file = join4(exportsDir(cwd), name);
+    if (!existsSync4(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
-    const data = readFileSync3(file);
+    const data = readFileSync4(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
     res.end(data);
     return;
@@ -1206,14 +1808,14 @@ function isLocalHost(host) {
   return name === "127.0.0.1" || name === "localhost";
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
-  const file = join3(WEB_DIR, name);
-  if (!existsSync3(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
+  const file = join4(WEB_DIR, name);
+  if (!existsSync4(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
   res.writeHead(200, headers);
-  res.end(readFileSync3(file));
+  res.end(readFileSync4(file));
 }
 function sendUntrustedHtml(res, html) {
   res.writeHead(200, {
@@ -1246,10 +1848,10 @@ var BROWSER_CANDIDATES = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ].filter((p) => typeof p === "string" && p.length > 0);
 function resolveBrowser() {
-  return BROWSER_CANDIDATES.find((p) => existsSync4(p)) ?? null;
+  return BROWSER_CANDIDATES.find((p) => existsSync5(p)) ?? null;
 }
 function exportsDir(cwd) {
-  return join4(projectDir(cwd), "exports");
+  return join5(projectDir(cwd), "exports");
 }
 function stamp() {
   const d = /* @__PURE__ */ new Date();
@@ -1283,7 +1885,7 @@ var LAUNCH_ARGS = [
 var BrowserSpawnError = class extends Error {
 };
 async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
-  const portFile = join4(userDataDir, "DevToolsActivePort");
+  const portFile = join5(userDataDir, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
   let stderr = "";
   proc.stderr?.on("data", (chunk) => {
@@ -1302,8 +1904,8 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
     if (exitCode !== null) {
       throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
     }
-    if (existsSync4(portFile)) {
-      const lines = readFileSync4(portFile, "utf8").split("\n");
+    if (existsSync5(portFile)) {
+      const lines = readFileSync5(portFile, "utf8").split("\n");
       const port = lines[0]?.trim();
       const wsPath = lines[1]?.trim();
       if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
@@ -1326,7 +1928,7 @@ function killTree(proc) {
 }
 function removeProfile(userDataDir) {
   try {
-    rmSync2(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    rmSync3(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   } catch (err) {
     console.error(`[tianshu-canvas] \u4E34\u65F6 profile \u672A\u80FD\u5220\u9664\uFF1A${userDataDir}\uFF08${err.message}\uFF09`);
   }
@@ -1334,11 +1936,11 @@ function removeProfile(userDataDir) {
 function cleanStaleProfiles() {
   const cutoff = Date.now() - 2 * 60 * 60 * 1e3;
   try {
-    for (const entry of readdirSync(tmpdir())) {
+    for (const entry of readdirSync2(tmpdir())) {
       if (!entry.startsWith("tsc-png-")) continue;
-      const dir = join4(tmpdir(), entry);
+      const dir = join5(tmpdir(), entry);
       try {
-        if (statSync2(dir).mtimeMs < cutoff) rmSync2(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
+        if (statSync2(dir).mtimeMs < cutoff) rmSync3(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
       } catch {
       }
     }
@@ -1349,7 +1951,7 @@ async function launchBrowser(exe) {
   const puppeteer = (await import("puppeteer-core")).default;
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const userDataDir = mkdtempSync(join4(tmpdir(), "tsc-png-"));
+    const userDataDir = mkdtempSync(join5(tmpdir(), "tsc-png-"));
     const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, "about:blank"], {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -1410,11 +2012,11 @@ async function exportPngOnce(cwd) {
       return { x: left - pad, y: top - pad, width: right - left + pad * 2, height: bottom - top + pad * 2 };
     });
     const dir = exportsDir(cwd);
-    mkdirSync2(dir, { recursive: true });
+    mkdirSync3(dir, { recursive: true });
     const name = `canvas-${stamp()}.png`;
-    const path = join4(dir, name);
+    const path = join5(dir, name);
     await page.screenshot({ path, clip: clip ?? void 0 });
-    return { name, path, bytes: readFileSync4(path).length };
+    return { name, path, bytes: readFileSync5(path).length };
   } finally {
     await dispose();
   }
@@ -1515,10 +2117,10 @@ async function exportZip(cwd) {
   entries.push({ name: "index.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
   const zip = buildZip(entries);
   const dir = exportsDir(cwd);
-  mkdirSync2(dir, { recursive: true });
+  mkdirSync3(dir, { recursive: true });
   const name = `canvas-${stamp()}.zip`;
-  const path = join4(dir, name);
-  writeFileSync2(path, zip);
+  const path = join5(dir, name);
+  writeFileSync3(path, zip);
   return { name, path, bytes: zip.length };
 }
 async function runExport(cwd, kind) {
@@ -1671,7 +2273,7 @@ function keyFor(pool, value, kind) {
   const names = kind === "radius" ? { 0: "none", 4: "sm", 6: "sm", 8: "md", 10: "md", 12: "lg", 14: "lg", 16: "xl", 18: "xl", 20: "xl", 9999: "full" } : {};
   return names[value] ?? String(value);
 }
-function lintHtml(html, styleId) {
+function lintHtml(html, styleId, cwd) {
   const counts = Object.fromEntries(RULES.map((r) => [r, 0]));
   const findings = [];
   const index = lineIndex(html);
@@ -1687,7 +2289,7 @@ function lintHtml(html, styleId) {
     const at = Math.max(0, html.indexOf(first));
     add("resource", at, `\u5C06\u88AB\u753B\u5E03 CSP \u62E6\u622A\uFF1A${blocked.slice(0, 3).join("\u3001")}${blocked.length > 3 ? ` \u7B49 ${blocked.length} \u5904` : ""}`);
   }
-  const style = styleId ? resolveDesignStyle(styleId) : null;
+  const style = styleId ? resolveDesignStyle(cwd, styleId) : null;
   if (!style) {
     return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
   }
@@ -1764,7 +2366,7 @@ function lintHtml(html, styleId) {
   }
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   findings.sort((a, b) => a.line - b.line);
-  return { styleId, findings, counts, truncated: total > MAX_FINDINGS, total };
+  return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total };
 }
 function pxValues(value) {
   if (/calc\(/i.test(value)) return [];
@@ -1774,7 +2376,7 @@ function pxValues(value) {
   return [...found];
 }
 function formatLintReport(report, label) {
-  const styleName = report.styleId ? designStyleSummary(report.styleId)?.name ?? report.styleId : null;
+  const styleName = report.styleId ? report.styleName ?? report.styleId : null;
   const head = styleName ? `\u98CE\u683C\u68C0\u67E5\uFF1A${styleName}\uFF08${report.styleId}\uFF09\xB7 ${label}` : `\u98CE\u683C\u68C0\u67E5\uFF1A\u672A\u9501\u5B9A\u98CE\u683C \xB7 ${label}\uFF08\u4EC5\u68C0\u67E5\u8D44\u6E90\u5F15\u7528\uFF09`;
   if (report.total === 0) {
     return `${head}
@@ -1835,7 +2437,7 @@ ${url}
 }
 function writeUrlHint(cwd, url) {
   try {
-    writeFileSync3(join5(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "utf8");
+    writeFileSync4(join6(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "utf8");
   } catch {
   }
 }
@@ -1856,11 +2458,11 @@ async function canvasUpsertPage(call) {
   const htmlPath = str(args.html_path);
   let html;
   if (htmlPath) {
-    if (!existsSync5(htmlPath)) {
+    if (!existsSync6(htmlPath)) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A\u6587\u4EF6\u4E0D\u5B58\u5728 ${htmlPath}`, isError: true };
     }
     try {
-      html = readFileSync5(htmlPath, "utf8");
+      html = readFileSync6(htmlPath, "utf8");
     } catch (err) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
     }
@@ -1900,7 +2502,7 @@ async function canvasUpsertPage(call) {
     }
   }
   const styleId = currentStyleId(call.cwd);
-  const injection = html !== void 0 ? injectDesign(html, styleId) : null;
+  const injection = html !== void 0 ? injectDesign(html, styleId, call.cwd) : null;
   const pageHtml = injection ? injection.html : html;
   const rel = pageHtml !== void 0 ? writePageHtml(call.cwd, id, pageHtml) : existing?.htmlPath ?? "";
   const now = Date.now();
@@ -1922,13 +2524,13 @@ async function canvasUpsertPage(call) {
   const { url } = await ensureServer(call.cwd);
   const blocked = pageHtml !== void 0 ? findBlockedResources(pageHtml) : [];
   const styleLine = injection ? injection.injected ? `
-\u5DF2\u5E94\u7528\u8BBE\u8BA1\u98CE\u683C\u300C${designStyleSummary(injection.styleId ?? "")?.name ?? injection.styleId}\u300D\uFF08${injection.styleId}\uFF09\uFF1A\u6CE8\u5165 token/\u7EC4\u4EF6\u6837\u5F0F${injection.usedIcons.length ? `\uFF0C\u5185\u8054 ${injection.usedIcons.length} \u4E2A\u56FE\u6807` : ""}\u3002` : "\n\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\uFF1B\u5982\u9700\u7EDF\u4E00\u89C6\u89C9\uFF0C\u5148 canvas_style\uFF08action=set\uFF09\u3002" : "";
+\u5DF2\u5E94\u7528\u8BBE\u8BA1\u98CE\u683C\u300C${designStyleSummary(call.cwd, injection.styleId ?? "")?.name ?? injection.styleId}\u300D\uFF08${injection.styleId}\uFF09\uFF1A\u6CE8\u5165 token/\u7EC4\u4EF6\u6837\u5F0F${injection.usedIcons.length ? `\uFF0C\u5185\u8054 ${injection.usedIcons.length} \u4E2A\u56FE\u6807` : ""}\u3002` : "\n\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\uFF1B\u5982\u9700\u7EDF\u4E00\u89C6\u89C9\uFF0C\u5148 canvas_style\uFF08action=set\uFF09\u3002" : "";
   const missingLine = injection?.missingIcons.length ? `
 \u6CE8\u610F\uFF1A\u8FD9\u4E9B\u56FE\u6807\u540D\u4E0D\u5728\u76EE\u5F55\u4E2D\uFF0C\u672A\u5185\u8054\uFF1A${injection.missingIcons.slice(0, 8).join("\u3001")}${injection.missingIcons.length > 8 ? ` \u7B49 ${injection.missingIcons.length} \u4E2A` : ""}\u3002\u53EF\u7528 canvas_style\uFF08action=get\uFF09\u67E5\u770B\u56FE\u6807\u6E05\u5355\u3002` : "";
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join5(call.cwd, rel)}
+` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join6(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
@@ -1965,7 +2567,7 @@ async function canvasGetState(call) {
   if (styleId === null) {
     sections.push("\u8BBE\u8BA1\u98CE\u683C\uFF1A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\u3002\u751F\u6210\u539F\u578B\u524D\u5148\u4E0E\u7528\u6237\u786E\u8BA4\u98CE\u683C\uFF1B\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u7ED9\u51FA\u9009\u9879\u3002");
   } else {
-    const summary = designStyleSummary(styleId);
+    const summary = designStyleSummary(call.cwd, styleId);
     sections.push(
       summary ? `\u8BBE\u8BA1\u98CE\u683C\uFF1A${summary.name}\uFF08${styleId}\uFF0C\u5DF2\u9501\u5B9A\uFF09\u3002\u9875\u9762\u5FC5\u987B\u4F7F\u7528\u8BE5\u98CE\u683C\u7684 --ts-* \u53D8\u91CF\u4E0E ts-* \u7EC4\u4EF6\u7C7B\u3002` : `\u8BBE\u8BA1\u98CE\u683C\uFF1A\u672A\u77E5\uFF08${styleId}\uFF09\uFF1B\u8BF7\u91CD\u65B0\u7528 canvas_style\uFF08action=set\uFF09\u8BBE\u7F6E\u3002`
     );
@@ -2079,7 +2681,7 @@ ${lines.join("\n")}${pngNote}${linkNote}` };
 function formatStyleList(cwd) {
   let catalog;
   try {
-    catalog = loadDesignCatalog();
+    catalog = loadDesignCatalog(cwd);
   } catch (err) {
     return err.message;
   }
@@ -2087,7 +2689,8 @@ function formatStyleList(cwd) {
   const current = currentStyleId(cwd);
   const lines = catalog.styles.map((s) => {
     const templates = s.templates.map((t) => t.name).join(" / ");
-    return `- ${s.name}\uFF08${s.id}\uFF09\uFF1A${s.tagline}
+    const tag = isBuiltinStyle(s.id) ? "\u5185\u7F6E" : "\u81EA\u5B9A\u4E49";
+    return `- ${s.name}\uFF08${s.id}\uFF09[${tag}]\uFF1A${s.tagline}
   \u8272\u677F ${s.swatches.join(" ")}\uFF1B\u56FE\u6807 ${s.counts.icons} \u4E2A\u3001\u7EC4\u4EF6 ${s.counts.components} \u4E2A\uFF1B\u6A21\u677F ${templates || "\u65E0"}`;
   });
   return `${catalog.notice}
@@ -2095,12 +2698,12 @@ function formatStyleList(cwd) {
 \u53EF\u9009\u8BBE\u8BA1\u98CE\u683C\uFF08\u9879\u76EE\u7EA7\u9501\u5B9A\uFF09\uFF1A
 ${lines.join("\n")}
 
-\u5F53\u524D\uFF1A${current ? `\u5DF2\u9501\u5B9A ${designStyleSummary(current)?.name ?? current}\uFF08${current}\uFF09` : "\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\uFF09"}
+\u5F53\u524D\uFF1A${current ? `\u5DF2\u9501\u5B9A ${designStyleSummary(cwd, current)?.name ?? current}\uFF08${current}\uFF09` : "\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\uFF09"}
 \u9501\u5B9A/\u5207\u6362\uFF1Acanvas_style\uFF08action=set, style_id=<id>\uFF09\uFF1B\u56DE\u5230\u81EA\u7531\u53D1\u6325\uFF1Astyle_id=free\u3002
 \u7528\u6237\u6CA1\u6709\u6307\u5B9A\u98CE\u683C\u65F6\uFF0C\u628A\u4E0A\u9762\u7684\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\uFF08\u542B\u300C\u81EA\u7531\u53D1\u6325\u300D\uFF09\u3002`;
 }
-function formatStyleBrief(styleId) {
-  const style = resolveDesignStyle(styleId);
+function formatStyleBrief(cwd, styleId) {
+  const style = resolveDesignStyle(cwd, styleId);
   if (!style) return `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`;
   const { manifest, summary } = style;
   const group = (prefix) => manifest.vars.filter((v) => v.startsWith(prefix));
@@ -2163,8 +2766,8 @@ async function canvasStyle(call) {
           content: "\u5F53\u524D\u672A\u9501\u5B9A\u98CE\u683C\uFF08\u81EA\u7531\u53D1\u6325\uFF09\u3002\u5148\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\uFF0C\u518D\u7528 action=set \u9501\u5B9A\u3002"
         };
       }
-      if (!designStyleExists(styleId)) return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`, isError: true };
-      return { content: formatStyleBrief(styleId) };
+      if (!designStyleExists(call.cwd, styleId)) return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`, isError: true };
+      return { content: formatStyleBrief(call.cwd, styleId) };
     }
     if (action === "set") {
       const raw = str(call.args.style_id);
@@ -2186,7 +2789,7 @@ async function canvasStyle(call) {
         return { content: "template \u9700\u8981\u5DF2\u9501\u5B9A\u7684\u98CE\u683C\uFF0C\u6216\u663E\u5F0F\u4F20 style_id\u3002", isError: true };
       }
       const templateId = str(call.args.template_id) ?? "dashboard";
-      const doc = templateDocument(styleId, templateId);
+      const doc = templateDocument(call.cwd, styleId, templateId);
       if (!doc) {
         return { content: `\u53D6\u6A21\u677F\u5931\u8D25\uFF1A\u98CE\u683C ${styleId} \u6CA1\u6709\u6A21\u677F ${templateId}\u3002`, isError: true };
       }
@@ -2205,19 +2808,19 @@ async function canvasStyle(call) {
 async function canvasCheckStyle(call) {
   const inlineHtml = str(call.args.html);
   const override = str(call.args.style_id);
-  if (override && override !== "free" && !designStyleExists(override)) {
+  if (override && override !== "free" && !designStyleExists(call.cwd, override)) {
     return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${override}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`, isError: true };
   }
   const styleId = override === "free" ? null : override ?? currentStyleId(call.cwd);
   if (inlineHtml !== void 0) {
-    const report = lintHtml(inlineHtml, styleId);
+    const report = lintHtml(inlineHtml, styleId, call.cwd);
     return { content: formatLintReport(report, "\u76F4\u63A5\u68C0\u67E5\u4F20\u5165\u7684 HTML") };
   }
   const pageId = str(call.args.page_id);
   if (pageId) {
     const html = readPageHtml(call.cwd, pageId);
     if (html === null) return { content: `\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}`, isError: true };
-    const report = lintHtml(html, styleId);
+    const report = lintHtml(html, styleId, call.cwd);
     return { content: formatLintReport(report, `\u9875\u9762 id=${pageId}`) };
   }
   const project = readProject(call.cwd);
@@ -2227,12 +2830,12 @@ async function canvasCheckStyle(call) {
   for (const node of project.nodes) {
     const html = readPageHtml(call.cwd, node.id);
     if (html === null) continue;
-    const report = lintHtml(html, styleId);
+    const report = lintHtml(html, styleId, call.cwd);
     total += report.total;
     if (report.total > 0) reports.push(formatLintReport(report, `\u9875\u9762\u300C${node.title}\u300D(id=${node.id})`));
   }
   if (reports.length === 0) {
-    const name = styleId ? designStyleSummary(styleId)?.name ?? styleId : null;
+    const name = styleId ? designStyleSummary(call.cwd, styleId)?.name ?? styleId : null;
     return {
       content: `\u98CE\u683C\u68C0\u67E5\uFF1A${name ? `${name}\uFF08${styleId}\uFF09` : "\u672A\u9501\u5B9A\u98CE\u683C"} \xB7 \u5168\u90E8 ${project.nodes.length} \u4E2A\u9875\u9762
 \u672A\u53D1\u73B0\u4E0D\u7B26\u5408\u9879\uFF080 \u5904\uFF09\u3002`
@@ -2241,6 +2844,96 @@ async function canvasCheckStyle(call) {
   return { content: `${reports.join("\n\n")}
 
 \u5408\u8BA1\uFF1A${total} \u5904\u3002` };
+}
+function builtinIds() {
+  return designStyleIds();
+}
+function formatCustomList(cwd) {
+  const customs = loadCustomSummaries(cwd, designDir());
+  if (customs.length === 0) {
+    return `\u5F53\u524D\u9879\u76EE\u8FD8\u6CA1\u6709\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u76EE\u5F55\uFF1A${libraryDir(cwd)}\uFF09\u3002
+\u7528 canvas_design_system\uFF08action=create\uFF09\u521B\u5EFA\u4E00\u5957\u3002`;
+  }
+  const current = currentStyleId(cwd);
+  const lines = customs.map(
+    (s) => `- ${s.name}\uFF08${s.id}\uFF09${s.id === current ? " \u2190 \u5F53\u524D" : ""}
+  \u8272\u677F ${s.swatches.join(" ")}\uFF1B\u56FE\u6807 ${s.counts.icons} \u4E2A\u3001\u7EC4\u4EF6 ${s.counts.components} \u4E2A\uFF1B\u6A21\u677F ${s.templates.map((t) => t.name).join(" / ") || "\u65E0"}`
+  );
+  return `\u672C\u9879\u76EE\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08${customs.length} \u5957\uFF0C\u4EC5\u672C\u5DE5\u4F5C\u533A\u751F\u6548\uFF09\uFF1A
+${lines.join("\n")}
+
+\u67E5\u770B\u7EC6\u8282\uFF1Acanvas_design_system\uFF08action=get, id=<id>\uFF09\u3002`;
+}
+async function canvasDesignSystem(call) {
+  const action = str(call.args.action) ?? "list";
+  try {
+    if (action === "list") {
+      const all = await canvasStyle({ ...call, args: { action: "list" } });
+      return { content: `${formatCustomList(call.cwd)}
+
+${all.content}` };
+    }
+    if (action === "get") {
+      const id = str(call.args.id) ?? currentStyleId(call.cwd) ?? "";
+      if (!id) return { content: "get \u9700\u8981 id\uFF08\u6216\u5148\u9501\u5B9A\u4E00\u5957\u98CE\u683C\uFF09\u3002", isError: true };
+      if (!designStyleExists(call.cwd, id)) return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${id}`, isError: true };
+      const brief = formatStyleBrief(call.cwd, id);
+      const isCustom = customStyleExists(call.cwd, id);
+      const darkNote = isCustom && resolveDesignStyle(call.cwd, id)?.tokensCss.includes(".dark {") ? '\n\n\u6DF1\u8272\u6A21\u5F0F\uFF1A\u9875\u9762\u6839\u5143\u7D20\u52A0 class="dark" \u5373\u5207\u6362\uFF08\u6D45\u8272\u4E3A\u9ED8\u8BA4\uFF09\u3002' : "";
+      return { content: `${brief}
+
+\u6765\u6E90\uFF1A${isCustom ? `\u81EA\u5B9A\u4E49\uFF08${libraryDir(call.cwd)}\uFF09` : "\u5185\u7F6E"}${darkNote}` };
+    }
+    if (action === "create") {
+      const id = str(call.args.id);
+      if (!id) return { content: "create \u9700\u8981 id\uFF08\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
+      const result = createCustomStyle(call.cwd, id, call.args.tokens, {
+        name: call.args.name,
+        tagline: call.args.tagline,
+        description: call.args.description,
+        tags: call.args.tags,
+        swatches: call.args.swatches,
+        iconStyle: call.args.iconStyle,
+        license: call.args.license,
+        notice: call.args.notice
+      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() });
+      invalidateDesignCache(call.cwd);
+      const setCurrent = call.args.set_current !== false;
+      let lockLine = "\u672A\u9501\u5B9A\uFF08\u5982\u9700\u4F7F\u7528\uFF1Acanvas_style action=set\uFF09\u3002";
+      if (setCurrent) {
+        const applied = applyProjectStyle(call.cwd, id);
+        const { url } = await ensureServer(call.cwd);
+        lockLine = `\u5DF2\u9501\u5B9A\u4E3A\u5F53\u524D\u9879\u76EE\u98CE\u683C\uFF1A\u91CD\u5199 ${applied.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
+\u753B\u5E03 URL\uFF1A${url}` + (applied.missingIcons.length ? `
+\u6CE8\u610F\uFF1A\u8FD9\u4E9B\u56FE\u6807\u540D\u4E0D\u5728\u76EE\u5F55\u4E2D\uFF1A${applied.missingIcons.slice(0, 8).join("\u3001")}\u3002` : "") + scriptIconNote(applied.scriptIcons);
+      }
+      const warnLine = result.warnings.length ? `
+\u63D0\u793A\uFF1A${result.warnings.join("\uFF1B")}` : "";
+      return {
+        content: `\u5DF2\u521B\u5EFA\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${result.summary.name}\u300D\uFF08${id}\uFF09\uFF1A${result.summary.swatches.length} \u4E2A\u8272\u5361\u3001\u56FE\u6807 ${result.summary.counts.icons} \u4E2A\u3001\u7EC4\u4EF6 ${result.summary.counts.components} \u4E2A\uFF08\u5171\u4EAB\uFF0C\u4E0D\u53EF\u6269\u5C55\uFF09\u3002
+\u6587\u4EF6\uFF1A${libraryDir(call.cwd)}/${id}/{tokens.json,meta.json}
+${lockLine}${warnLine}
+\u6CE8\u610F\uFF1A\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u53EA\u5728\u672C\u5DE5\u4F5C\u533A\u751F\u6548\uFF08\u968F .tianshu-canvas/ \u4E00\u8D77\u88AB gitignore\uFF09\u3002`
+      };
+    }
+    if (action === "remove") {
+      const id = str(call.args.id);
+      if (!id) return { content: "remove \u9700\u8981 id\u3002", isError: true };
+      if (isBuiltinStyle(id)) return { content: `\u300C${id}\u300D\u662F\u5185\u7F6E\u98CE\u683C\uFF0C\u4E0D\u80FD\u5220\u9664\u3002`, isError: true };
+      const wasCurrent = currentStyleId(call.cwd) === id;
+      removeCustomStyle(call.cwd, id);
+      invalidateDesignCache(call.cwd);
+      let unlinkLine = "";
+      if (wasCurrent) {
+        applyProjectStyle(call.cwd, null);
+        unlinkLine = "\n\u5B83\u539F\u672C\u662F\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF0C\u5DF2\u89E3\u9664\u9501\u5B9A\uFF08\u5DF2\u6709\u9875\u9762\u4FDD\u7559\u6CE8\u5165\u7684\u6837\u5F0F\u5757\uFF09\u3002";
+      }
+      return { content: `\u5DF2\u5220\u9664\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${id}\u300D\u3002${unlinkLine}` };
+    }
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acreate / list / get / remove\u3002`, isError: true };
+  } catch (err) {
+    return { content: err.message, isError: true };
+  }
 }
 var tools = [
   {
@@ -2359,8 +3052,7 @@ var tools = [
           action: { type: "string", enum: ["list", "get", "set", "template"], description: "list=\u5217\u51FA\u98CE\u683C\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bset=\u9501\u5B9A/\u5207\u6362\uFF1Btemplate=\u53D6\u6A21\u677F" },
           style_id: {
             type: "string",
-            ...designStyleIds().length ? { enum: [...designStyleIds(), "free"] } : {},
-            description: "\u98CE\u683C id\uFF08set/get/template \u4F7F\u7528\uFF09\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
+            description: "\u98CE\u683C id\uFF08set/get/template \u4F7F\u7528\uFF09\uFF0C\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u5747\u53EF\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
           },
           template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" }
         },
@@ -2384,8 +3076,7 @@ var tools = [
           html: { type: "string", description: "\u76F4\u63A5\u68C0\u67E5\u4E00\u6BB5 HTML\uFF08\u4F18\u5148\u4E8E page_id\uFF09\uFF0C\u7528\u4E8E\u5199\u5165\u524D\u81EA\u67E5" },
           style_id: {
             type: "string",
-            ...designStyleIds().length ? { enum: [...designStyleIds(), "free"] } : {},
-            description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF1Bfree \u8868\u793A\u53EA\u68C0\u67E5\u8D44\u6E90\u5F15\u7528"
+            description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF08\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49 id\uFF09\uFF1Bfree \u8868\u793A\u53EA\u68C0\u67E5\u8D44\u6E90\u5F15\u7528"
           }
         },
         required: []
@@ -2396,6 +3087,43 @@ var tools = [
     isConcurrencySafe: () => true,
     isEnabled: () => true,
     execute: canvasCheckStyle
+  },
+  {
+    definition: {
+      name: "canvas_design_system",
+      description: '\u5728**\u5F53\u524D\u9879\u76EE**\u521B\u5EFA/\u67E5\u770B/\u5220\u9664\u4E00\u5957\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u4EC5\u672C\u5DE5\u4F5C\u533A\u751F\u6548\uFF0C\u5B58 .tianshu-canvas/library/\uFF09\u3002\u7528\u6237\u8BF4\u300C\u8981\u505A\u4E00\u5957\u8BBE\u8BA1\u7CFB\u7EDF\u300D\u65F6\u7528\u5B83\uFF1A\u5148\u4E3B\u52A8\u95EE\u6E05\u914D\u7F6E\uFF08\u914D\u8272\u3001\u5706\u89D2\u3001\u5B57\u53F7\u3001\u5B57\u4F53\u3001\u52A8\u6548\u3001\u9634\u5F71\u3001\u63A7\u4EF6\u5C3A\u5BF8\u3001\u662F\u5426\u8981\u6DF1\u8272\uFF09\uFF0C\u7136\u540E action=create \u4F20\u5165\u5B8C\u6574 tokens\u3002\ntokens \u5951\u7EA6\uFF08\u503C\u81EA\u7531\u3001\u53D8\u91CF\u540D\u5FC5\u987B\u4E0E\u5185\u7F6E\u98CE\u683C\u4E00\u81F4\uFF09\uFF1A\n- color.primitives\uFF1Aneutral{0,50,100,200,300,500,700,900}\u3001brand{100,300,500,600,700}\u3001success{50,500}\u3001warning{50,500}\u3001danger{50,500}\u3001info{50,500}\uFF0C\u503C\u5747\u4E3A #hex\u3002\n- color.semantic\uFF08\u6D45\u8272\uFF09\u4E0E color.semanticDark\uFF08\u6DF1\u8272\uFF0C\u540C\u7ED3\u6784\uFF09\uFF1A\u4E03\u7EC4\u2014\u2014bg{canvas,surface,raised,sunken,inverse}\u3001text{primary,secondary,muted,inverse,link}\u3001border{default,strong,subtle,focus}\u3001action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}\u3001status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}\u3001chart{1,2,3,4,5}\u3001overlay{scrim}\uFF1B\u503C\u5199 "\u7EC4.\u6B65"\uFF08\u5982 neutral.900\uFF09\u6216 #hex/rgba()\u3002\n- font\uFF1Afamilies{sans,display,mono}\u3001sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)\u3001weights{regular,medium,semibold,bold}\u3001lineHeights{tight,snug,normal,relaxed}\u3001letterSpacing{tight,normal,wide}\u3002\n- space\uFF08\u952E 0..16\uFF0C\u503C\u987B\u4E25\u683C\u9012\u589E\uFF09\u3001radius{none,sm,md,lg,xl,full}\uFF08\u503C\u9012\u589E\uFF0Cfull=9999\uFF09\u3001borderWidth{hairline,thin,thick}\u3001size{controlSm..containerLg,sidebar}\u3001shadow{sm,md,lg}\u3001motion{fast,base,easing}\u3002\n\u5199\u5165\u524D\u4F1A\u6821\u9A8C\uFF1A\u5BF9\u6BD4\u5EA6\uFF08\u6D45\u8272\u4E0E\u6DF1\u8272\u5404\u4E00\u904D\uFF0C\u6B63\u6587\u22654.5\uFF09\u3001\u5C3A\u5EA6\u9012\u589E\u3001\u53D8\u91CF\u540D\u8986\u76D6\u5171\u4EAB\u7EC4\u4EF6/\u6A21\u677F\uFF1B\u4E0D\u901A\u8FC7\u4F1A\u8FD4\u56DE\u9010\u6761\u9519\u8BEF\u3002\u6DF1\u8272\u7528\u9875\u9762\u6839\u5143\u7D20 class="dark" \u5207\u6362\u3002\u7EC4\u4EF6\uFF08ts-*\uFF09\u4E0E\u56FE\u6807\u4E3A\u5171\u4EAB\u8D44\u6E90\uFF0C\u4E0D\u652F\u6301\u6269\u5C55\u3002',
+      input_schema: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["create", "list", "get", "remove"], description: "create=\u521B\u5EFA\uFF1Blist=\u5217\u51FA\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bremove=\u5220\u9664" },
+          id: { type: "string", description: "\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF1B\u4E0D\u5F97\u4E0E\u5185\u7F6E\u98CE\u683C\u91CD\u540D" },
+          name: { type: "string", description: "create\uFF1A\u98CE\u683C\u663E\u793A\u540D" },
+          tagline: { type: "string", description: "create\uFF1A\u4E00\u53E5\u8BDD\u63CF\u8FF0" },
+          description: { type: "string", description: "create\uFF1A\u8F83\u957F\u63CF\u8FF0" },
+          tags: { type: "array", items: { type: "string" }, description: "create\uFF1A\u6807\u7B7E" },
+          swatches: { type: "array", items: { type: "string" }, description: "create\uFF1A\u8272\u5361\uFF084 \u4E2A hex\uFF0C\u7528\u4E8E\u753B\u5E03\u9876\u680F\u5C55\u793A\uFF09" },
+          iconStyle: {
+            type: "object",
+            description: "create\uFF1A\u56FE\u6807\u63CF\u8FB9\u98CE\u683C\uFF1BstrokeWidth \u5FC5\u586B\uFF08\u6570\u5B57\uFF0C\u5982 1.5 / 1.75\uFF09\uFF0Clinecap/linejoin \u53EF\u9009",
+            properties: {
+              strokeWidth: { type: "number" },
+              linecap: { type: "string" },
+              linejoin: { type: "string" }
+            },
+            required: ["strokeWidth"]
+          },
+          tokens: { type: "object", description: "create\uFF1A\u5B8C\u6574 tokens \u5BF9\u8C61\uFF08\u5951\u7EA6\u89C1\u672C\u5DE5\u5177\u63CF\u8FF0\uFF09" },
+          overwrite: { type: "boolean", description: "create\uFF1Aid \u5DF2\u5B58\u5728\u65F6\u662F\u5426\u8986\u76D6\uFF08\u9ED8\u8BA4 false\uFF09" },
+          set_current: { type: "boolean", description: "create\uFF1A\u662F\u5426\u7ACB\u5373\u9501\u5B9A\u4E3A\u5F53\u524D\u9879\u76EE\u98CE\u683C\uFF08\u9ED8\u8BA4 true\uFF09" }
+        },
+        required: ["action"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasDesignSystem
   }
 ];
 

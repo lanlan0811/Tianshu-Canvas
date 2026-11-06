@@ -8,7 +8,7 @@
  * 其中命名色只查 color/background/border 等颜色相关属性。
  */
 import { findBlockedResources } from './resources.js'
-import { designStyleSummary, resolveDesignStyle, type DesignManifest } from './design.js'
+import { resolveDesignStyle, type DesignManifest } from './design.js'
 
 export type LintRule = 'color' | 'font' | 'spacing' | 'radius' | 'icon' | 'component' | 'token' | 'resource'
 
@@ -21,6 +21,8 @@ export interface LintFinding {
 
 export interface LintReport {
   styleId: string | null
+  /** 风格名（用于报告标题）；由 lintHtml 解析后写入，避免格式化层再触磁盘。 */
+  styleName?: string | null
   findings: LintFinding[]
   counts: Record<LintRule, number>
   truncated: boolean
@@ -191,7 +193,7 @@ function keyFor(pool: number[], value: number, kind: 'space' | 'radius'): string
  * 检查一段页面 HTML。
  * styleId 为 null 时只检查资源引用（自由发挥模式）。
  */
-export function lintHtml(html: string, styleId: string | null): LintReport {
+export function lintHtml(html: string, styleId: string | null, cwd?: string): LintReport {
   const counts = Object.fromEntries(RULES.map((r) => [r, 0])) as Record<LintRule, number>
   const findings: LintFinding[] = []
   const index = lineIndex(html)
@@ -210,7 +212,7 @@ export function lintHtml(html: string, styleId: string | null): LintReport {
     add('resource', at, `将被画布 CSP 拦截：${blocked.slice(0, 3).join('、')}${blocked.length > 3 ? ` 等 ${blocked.length} 处` : ''}`)
   }
 
-  const style = styleId ? resolveDesignStyle(styleId) : null
+  const style = styleId ? resolveDesignStyle(cwd, styleId) : null
   if (!style) {
     // 风格不可用时只查了资源，报告里不能显示成按某个风格检查过。
     return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource }
@@ -307,7 +309,7 @@ export function lintHtml(html: string, styleId: string | null): LintReport {
 
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
   findings.sort((a, b) => a.line - b.line)
-  return { styleId, findings, counts, truncated: total > MAX_FINDINGS, total }
+  return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total }
 }
 
 /** 取出值里的每个像素长度（负值取绝对值）；calc() 无法静态判断，var() 不属于字面量。 */
@@ -320,7 +322,7 @@ function pxValues(value: string): number[] {
 }
 
 export function formatLintReport(report: LintReport, label: string): string {
-  const styleName = report.styleId ? (designStyleSummary(report.styleId)?.name ?? report.styleId) : null
+  const styleName = report.styleId ? (report.styleName ?? report.styleId) : null
   const head = styleName
     ? `风格检查：${styleName}（${report.styleId}）· ${label}`
     : `风格检查：未锁定风格 · ${label}（仅检查资源引用）`

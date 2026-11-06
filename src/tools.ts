@@ -11,7 +11,24 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
-import { designStyleExists, designStyleIds, designStyleSummary, injectDesign, loadDesignCatalog, resolveDesignStyle } from './design.js'
+import {
+  designStyleExists,
+  designStyleIds,
+  designStyleSummary,
+  designDir,
+  injectDesign,
+  invalidateDesignCache,
+  isBuiltinStyle,
+  loadDesignCatalog,
+  resolveDesignStyle,
+} from './design.js'
+import {
+  createCustomStyle,
+  customStyleExists,
+  libraryDir,
+  loadCustomSummaries,
+  removeCustomStyle,
+} from './designCustom.js'
 import { applyProjectStyle, currentStyleId, templateDocument } from './designOps.js'
 import { runExport, type ExportFile, type ExportKind } from './export.js'
 import { isSafeId, newPageId } from './ids.js'
@@ -204,7 +221,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
 
   // 设计系统是项目级锁定：写入时自动内联 token/组件样式并展开图标。
   const styleId = currentStyleId(call.cwd)
-  const injection = html !== undefined ? injectDesign(html, styleId) : null
+  const injection = html !== undefined ? injectDesign(html, styleId, call.cwd) : null
   const pageHtml = injection ? injection.html : html
 
   const rel = pageHtml !== undefined ? writePageHtml(call.cwd, id, pageHtml) : (existing?.htmlPath ?? '')
@@ -230,7 +247,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
   const blocked = pageHtml !== undefined ? findBlockedResources(pageHtml) : []
   const styleLine = injection
     ? injection.injected
-      ? `\n已应用设计风格「${designStyleSummary(injection.styleId ?? '')?.name ?? injection.styleId}」（${injection.styleId}）：注入 token/组件样式${injection.usedIcons.length ? `，内联 ${injection.usedIcons.length} 个图标` : ''}。`
+      ? `\n已应用设计风格「${designStyleSummary(call.cwd, injection.styleId ?? '')?.name ?? injection.styleId}」（${injection.styleId}）：注入 token/组件样式${injection.usedIcons.length ? `，内联 ${injection.usedIcons.length} 个图标` : ''}。`
       : '\n当前为自由发挥（未锁定风格）；如需统一视觉，先 canvas_style（action=set）。'
     : ''
   const missingLine = injection?.missingIcons.length
@@ -291,7 +308,7 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
   if (styleId === null) {
     sections.push('设计风格：自由发挥（未锁定风格）。生成原型前先与用户确认风格；可用 canvas_style（action=list）给出选项。')
   } else {
-    const summary = designStyleSummary(styleId)
+    const summary = designStyleSummary(call.cwd, styleId)
     sections.push(
       summary
         ? `设计风格：${summary.name}（${styleId}，已锁定）。页面必须使用该风格的 --ts-* 变量与 ts-* 组件类。`
@@ -422,7 +439,7 @@ async function canvasExport(call: ToolCall): Promise<ToolResult> {
 function formatStyleList(cwd: string): string {
   let catalog
   try {
-    catalog = loadDesignCatalog()
+    catalog = loadDesignCatalog(cwd)
   } catch (err) {
     return (err as Error).message
   }
@@ -430,21 +447,22 @@ function formatStyleList(cwd: string): string {
   const current = currentStyleId(cwd)
   const lines = catalog.styles.map((s) => {
     const templates = s.templates.map((t) => t.name).join(' / ')
+    const tag = isBuiltinStyle(s.id) ? '内置' : '自定义'
     return (
-      `- ${s.name}（${s.id}）：${s.tagline}\n` +
+      `- ${s.name}（${s.id}）[${tag}]：${s.tagline}\n` +
       `  色板 ${s.swatches.join(' ')}；图标 ${s.counts.icons} 个、组件 ${s.counts.components} 个；模板 ${templates || '无'}`
     )
   })
   return (
     `${catalog.notice}\n\n可选设计风格（项目级锁定）：\n${lines.join('\n')}\n\n` +
-    `当前：${current ? `已锁定 ${designStyleSummary(current)?.name ?? current}（${current}）` : '自由发挥（未锁定）'}\n` +
+    `当前：${current ? `已锁定 ${designStyleSummary(cwd, current)?.name ?? current}（${current}）` : '自由发挥（未锁定）'}\n` +
     `锁定/切换：canvas_style（action=set, style_id=<id>）；回到自由发挥：style_id=free。\n` +
     `用户没有指定风格时，把上面的风格名作为选项问用户一次（含「自由发挥」）。`
   )
 }
 
-function formatStyleBrief(styleId: string): string {
-  const style = resolveDesignStyle(styleId)
+function formatStyleBrief(cwd: string, styleId: string): string {
+  const style = resolveDesignStyle(cwd, styleId)
   if (!style) return `未知的设计风格：${styleId}`
   const { manifest, summary } = style
   const group = (prefix: string): string[] => manifest.vars.filter((v) => v.startsWith(prefix))
@@ -502,8 +520,8 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
             '当前未锁定风格（自由发挥）。先用 canvas_style（action=list）查看可选风格，再用 action=set 锁定。',
         }
       }
-      if (!designStyleExists(styleId)) return { content: `未知的设计风格：${styleId}`, isError: true }
-      return { content: formatStyleBrief(styleId) }
+      if (!designStyleExists(call.cwd, styleId)) return { content: `未知的设计风格：${styleId}`, isError: true }
+      return { content: formatStyleBrief(call.cwd, styleId) }
     }
 
     if (action === 'set') {
@@ -528,7 +546,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
         return { content: 'template 需要已锁定的风格，或显式传 style_id。', isError: true }
       }
       const templateId = str(call.args.template_id) ?? 'dashboard'
-      const doc = templateDocument(styleId, templateId)
+      const doc = templateDocument(call.cwd, styleId, templateId)
       if (!doc) {
         return { content: `取模板失败：风格 ${styleId} 没有模板 ${templateId}。`, isError: true }
       }
@@ -553,13 +571,13 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
 async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   const inlineHtml = str(call.args.html)
   const override = str(call.args.style_id)
-  if (override && override !== 'free' && !designStyleExists(override)) {
+  if (override && override !== 'free' && !designStyleExists(call.cwd, override)) {
     return { content: `未知的设计风格：${override}。可用 canvas_style（action=list）查看可选风格。`, isError: true }
   }
   const styleId = override === 'free' ? null : (override ?? currentStyleId(call.cwd))
 
   if (inlineHtml !== undefined) {
-    const report = lintHtml(inlineHtml, styleId)
+    const report = lintHtml(inlineHtml, styleId, call.cwd)
     return { content: formatLintReport(report, '直接检查传入的 HTML') }
   }
 
@@ -567,7 +585,7 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   if (pageId) {
     const html = readPageHtml(call.cwd, pageId)
     if (html === null) return { content: `页面不存在：${pageId}`, isError: true }
-    const report = lintHtml(html, styleId)
+    const report = lintHtml(html, styleId, call.cwd)
     return { content: formatLintReport(report, `页面 id=${pageId}`) }
   }
 
@@ -578,17 +596,117 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   for (const node of project.nodes) {
     const html = readPageHtml(call.cwd, node.id)
     if (html === null) continue
-    const report = lintHtml(html, styleId)
+    const report = lintHtml(html, styleId, call.cwd)
     total += report.total
     if (report.total > 0) reports.push(formatLintReport(report, `页面「${node.title}」(id=${node.id})`))
   }
   if (reports.length === 0) {
-    const name = styleId ? (designStyleSummary(styleId)?.name ?? styleId) : null
+    const name = styleId ? (designStyleSummary(call.cwd, styleId)?.name ?? styleId) : null
     return {
       content: `风格检查：${name ? `${name}（${styleId}）` : '未锁定风格'} · 全部 ${project.nodes.length} 个页面\n未发现不符合项（0 处）。`,
     }
   }
   return { content: `${reports.join('\n\n')}\n\n合计：${total} 处。` }
+}
+
+// ---------------------------------------------------------------------------
+// canvas_design_system（create / list / get / remove）—— 项目级自定义设计系统
+// ---------------------------------------------------------------------------
+
+function builtinIds(): string[] {
+  return designStyleIds()
+}
+
+function formatCustomList(cwd: string): string {
+  const customs = loadCustomSummaries(cwd, designDir())
+  if (customs.length === 0) {
+    return `当前项目还没有自定义设计系统（目录：${libraryDir(cwd)}）。\n用 canvas_design_system（action=create）创建一套。`
+  }
+  const current = currentStyleId(cwd)
+  const lines = customs.map(
+    (s) =>
+      `- ${s.name}（${s.id}）${s.id === current ? ' ← 当前' : ''}\n` +
+      `  色板 ${s.swatches.join(' ')}；图标 ${s.counts.icons} 个、组件 ${s.counts.components} 个；模板 ${s.templates.map((t) => t.name).join(' / ') || '无'}`,
+  )
+  return `本项目自定义设计系统（${customs.length} 套，仅本工作区生效）：\n${lines.join('\n')}\n\n查看细节：canvas_design_system（action=get, id=<id>）。`
+}
+
+async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
+  const action = str(call.args.action) ?? 'list'
+  try {
+    if (action === 'list') {
+      const all = await canvasStyle({ ...call, args: { action: 'list' } })
+      return { content: `${formatCustomList(call.cwd)}\n\n${all.content}` }
+    }
+
+    if (action === 'get') {
+      const id = str(call.args.id) ?? currentStyleId(call.cwd) ?? ''
+      if (!id) return { content: 'get 需要 id（或先锁定一套风格）。', isError: true }
+      if (!designStyleExists(call.cwd, id)) return { content: `未知的设计风格：${id}`, isError: true }
+      const brief = formatStyleBrief(call.cwd, id)
+      const isCustom = customStyleExists(call.cwd, id)
+      const darkNote = isCustom && resolveDesignStyle(call.cwd, id)?.tokensCss.includes('.dark {')
+        ? '\n\n深色模式：页面根元素加 class="dark" 即切换（浅色为默认）。'
+        : ''
+      return { content: `${brief}\n\n来源：${isCustom ? `自定义（${libraryDir(call.cwd)}）` : '内置'}${darkNote}` }
+    }
+
+    if (action === 'create') {
+      const id = str(call.args.id)
+      if (!id) return { content: 'create 需要 id（风格 id：字母数字/_/-，1–64 位）。', isError: true }
+      const result = createCustomStyle(call.cwd, id, call.args.tokens, {
+        name: call.args.name,
+        tagline: call.args.tagline,
+        description: call.args.description,
+        tags: call.args.tags,
+        swatches: call.args.swatches,
+        iconStyle: call.args.iconStyle,
+        license: call.args.license,
+        notice: call.args.notice,
+      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() })
+      invalidateDesignCache(call.cwd)
+
+      const setCurrent = call.args.set_current !== false
+      let lockLine = '未锁定（如需使用：canvas_style action=set）。'
+      if (setCurrent) {
+        const applied = applyProjectStyle(call.cwd, id)
+        const { url } = await ensureServer(call.cwd)
+        lockLine =
+          `已锁定为当前项目风格：重写 ${applied.pagesUpdated} 个页面（画布会自动刷新）。\n` +
+          `画布 URL：${url}` +
+          (applied.missingIcons.length ? `\n注意：这些图标名不在目录中：${applied.missingIcons.slice(0, 8).join('、')}。` : '') +
+          scriptIconNote(applied.scriptIcons)
+      }
+      const warnLine = result.warnings.length ? `\n提示：${result.warnings.join('；')}` : ''
+      return {
+        content:
+          `已创建自定义设计系统「${result.summary.name}」（${id}）：` +
+          `${result.summary.swatches.length} 个色卡、图标 ${result.summary.counts.icons} 个、组件 ${result.summary.counts.components} 个（共享，不可扩展）。\n` +
+          `文件：${libraryDir(call.cwd)}/${id}/{tokens.json,meta.json}\n` +
+          `${lockLine}${warnLine}\n` +
+          `注意：自定义设计系统只在本工作区生效（随 .tianshu-canvas/ 一起被 gitignore）。`,
+      }
+    }
+
+    if (action === 'remove') {
+      const id = str(call.args.id)
+      if (!id) return { content: 'remove 需要 id。', isError: true }
+      if (isBuiltinStyle(id)) return { content: `「${id}」是内置风格，不能删除。`, isError: true }
+      const wasCurrent = currentStyleId(call.cwd) === id
+      removeCustomStyle(call.cwd, id)
+      invalidateDesignCache(call.cwd)
+      let unlinkLine = ''
+      if (wasCurrent) {
+        applyProjectStyle(call.cwd, null)
+        unlinkLine = '\n它原本是当前锁定的风格，已解除锁定（已有页面保留注入的样式块）。'
+      }
+      return { content: `已删除自定义设计系统「${id}」。${unlinkLine}` }
+    }
+
+    return { content: `未知的 action：${action}。可选：create / list / get / remove。`, isError: true }
+  } catch (err) {
+    return { content: (err as Error).message, isError: true }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -726,8 +844,7 @@ export const tools: TpiTool[] = [
           action: { type: 'string', enum: ['list', 'get', 'set', 'template'], description: 'list=列出风格；get=查看细节；set=锁定/切换；template=取模板' },
           style_id: {
             type: 'string',
-            ...(designStyleIds().length ? { enum: [...designStyleIds(), 'free'] } : {}),
-            description: '风格 id（set/get/template 使用）；free 表示解除锁定',
+            description: '风格 id（set/get/template 使用），内置或自定义均可；free 表示解除锁定',
           },
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
         },
@@ -753,8 +870,7 @@ export const tools: TpiTool[] = [
           html: { type: 'string', description: '直接检查一段 HTML（优先于 page_id），用于写入前自查' },
           style_id: {
             type: 'string',
-            ...(designStyleIds().length ? { enum: [...designStyleIds(), 'free'] } : {}),
-            description: '覆盖当前锁定的风格；free 表示只检查资源引用',
+            description: '覆盖当前锁定的风格（内置或自定义 id）；free 表示只检查资源引用',
           },
         },
         required: [],
@@ -765,5 +881,56 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => true,
     isEnabled: () => true,
     execute: canvasCheckStyle,
+  },
+  {
+    definition: {
+      name: 'canvas_design_system',
+      description:
+        '在**当前项目**创建/查看/删除一套自定义设计系统（仅本工作区生效，存 .tianshu-canvas/library/）。' +
+        '用户说「要做一套设计系统」时用它：先主动问清配置（配色、圆角、字号、字体、动效、阴影、控件尺寸、是否要深色），' +
+        '然后 action=create 传入完整 tokens。\n' +
+        'tokens 契约（值自由、变量名必须与内置风格一致）：\n' +
+        '- color.primitives：neutral{0,50,100,200,300,500,700,900}、brand{100,300,500,600,700}、success{50,500}、warning{50,500}、danger{50,500}、info{50,500}，值均为 #hex。\n' +
+        '- color.semantic（浅色）与 color.semanticDark（深色，同结构）：七组——' +
+        'bg{canvas,surface,raised,sunken,inverse}、text{primary,secondary,muted,inverse,link}、' +
+        'border{default,strong,subtle,focus}、action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}、' +
+        'status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}、chart{1,2,3,4,5}、overlay{scrim}；' +
+        '值写 "组.步"（如 neutral.900）或 #hex/rgba()。\n' +
+        '- font：families{sans,display,mono}、sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)、weights{regular,medium,semibold,bold}、lineHeights{tight,snug,normal,relaxed}、letterSpacing{tight,normal,wide}。\n' +
+        '- space（键 0..16，值须严格递增）、radius{none,sm,md,lg,xl,full}（值递增，full=9999）、borderWidth{hairline,thin,thick}、size{controlSm..containerLg,sidebar}、shadow{sm,md,lg}、motion{fast,base,easing}。\n' +
+        '写入前会校验：对比度（浅色与深色各一遍，正文≥4.5）、尺度递增、变量名覆盖共享组件/模板；不通过会返回逐条错误。' +
+        '深色用页面根元素 class="dark" 切换。组件（ts-*）与图标为共享资源，不支持扩展。',
+      input_schema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['create', 'list', 'get', 'remove'], description: 'create=创建；list=列出；get=查看细节；remove=删除' },
+          id: { type: 'string', description: '风格 id：字母数字/_/-，1–64 位；不得与内置风格重名' },
+          name: { type: 'string', description: 'create：风格显示名' },
+          tagline: { type: 'string', description: 'create：一句话描述' },
+          description: { type: 'string', description: 'create：较长描述' },
+          tags: { type: 'array', items: { type: 'string' }, description: 'create：标签' },
+          swatches: { type: 'array', items: { type: 'string' }, description: 'create：色卡（4 个 hex，用于画布顶栏展示）' },
+          iconStyle: {
+            type: 'object',
+            description: 'create：图标描边风格；strokeWidth 必填（数字，如 1.5 / 1.75），linecap/linejoin 可选',
+            properties: {
+              strokeWidth: { type: 'number' },
+              linecap: { type: 'string' },
+              linejoin: { type: 'string' },
+            },
+            required: ['strokeWidth'],
+          },
+          tokens: { type: 'object', description: 'create：完整 tokens 对象（契约见本工具描述）' },
+          overwrite: { type: 'boolean', description: 'create：id 已存在时是否覆盖（默认 false）' },
+          set_current: { type: 'boolean', description: 'create：是否立即锁定为当前项目风格（默认 true）' },
+        },
+        required: ['action'],
+      },
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: canvasDesignSystem,
   },
 ]

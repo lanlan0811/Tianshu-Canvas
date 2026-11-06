@@ -110,11 +110,39 @@ export function flattenTokens(tokens) {
   return { vars, resolvedSemantic }
 }
 
+/** 是否输出深色块：需 modes.dark 为真且提供 color.semanticDark。 */
+export function hasDarkMode(tokens) {
+  return tokens?.modes?.dark === true && tokens?.color?.semanticDark != null
+}
+
+/**
+ * 深色语义变量：与浅色**同名**（--ts-color-组-名），只有值不同，
+ * 因此共享的 components.css（全用 var(--ts-color-*)）无需任何改动。
+ */
+export function flattenDarkSemantic(tokens) {
+  const vars = []
+  const semantic = tokens?.color?.semanticDark
+  if (semantic == null) return vars
+  for (const group of Object.keys(semantic)) {
+    for (const name of Object.keys(semantic[group])) {
+      const raw = semantic[group][name]
+      const { value } = resolveColor(tokens, raw, ['color', 'semanticDark', group, name])
+      vars.push({ name: `--ts-color-${kebab(group)}-${kebab(name)}`, value })
+    }
+  }
+  return vars
+}
+
 /** 生成 tokens.css（确定性：固定顺序、LF、无时间戳）。 */
 export function tokensToCss(tokens) {
   const { vars } = flattenTokens(tokens)
   const lines = vars.map((v) => `  ${v.name}: ${v.value};`)
-  return `/* 由 tokens.json 生成，请勿手改。 */\n:root {\n${lines.join('\n')}\n}\n`
+  let css = `/* 由 tokens.json 生成，请勿手改。 */\n:root {\n${lines.join('\n')}\n}\n`
+  if (hasDarkMode(tokens)) {
+    const darkLines = flattenDarkSemantic(tokens).map((v) => `  ${v.name}: ${v.value};`)
+    css += `\n/* 深色模式：给根元素加 class="dark" 即切换。 */\n.dark {\n${darkLines.join('\n')}\n}\n`
+  }
+  return css
 }
 
 /** 生成运行时 manifest（注入与 lint 共用）。 */

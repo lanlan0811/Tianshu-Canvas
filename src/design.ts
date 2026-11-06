@@ -11,6 +11,13 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterDoctype } from './html.js'
+import {
+  compileCustomStyle,
+  customStyleExists,
+  loadCustomSummaries,
+  resetSharedContractCache,
+  stampLibrary,
+} from './designCustom.js'
 
 /** dist/index.js 与 dist/design/ 同级。 */
 const DESIGN_DIR = fileURLToPath(new URL('./design/', import.meta.url))
@@ -97,10 +104,16 @@ export interface InjectResult {
   scriptIcons: string[]
 }
 
-let catalogCache: DesignCatalog | null = null
-let catalogFailed: string | null = null
+/**
+ * 缓存策略：
+ *  - 内置风格只读 dist，进程内不会变 → 全局缓存一次。
+ *  - 自定义风格是工作区可写的，必须能热更新 → 按 cwd 缓存 catalog 摘要并带内容指纹；
+ *    指纹变化即重算。**不保留「永久失败位」**：一次读取失败下次会重试，
+ *    否则用户新写的风格一旦读失败就永久不可用。
+ */
+let builtinCatalogCache: DesignCatalog | null = null
+const customCatalogCache = new Map<string, { stamp: string; styles: DesignStyleSummary[] }>()
 const styleCache = new Map<string, ResolvedStyle>()
-const styleFailed = new Map<string, string>()
 
 function readJson<T>(file: string): T {
   return JSON.parse(readFileSync(file, 'utf8')) as T
@@ -110,75 +123,118 @@ export function designDir(): string {
   return DESIGN_DIR
 }
 
-/** 读取风格清单；产物缺失时抛错（调用方决定如何提示）。 */
-export function loadDesignCatalog(): DesignCatalog {
-  if (catalogCache) return catalogCache
-  if (catalogFailed) throw new Error(catalogFailed)
+/** 只读内置清单；产物缺失时抛错（调用方决定如何提示）。 */
+function loadBuiltinCatalog(): DesignCatalog {
+  if (builtinCatalogCache) return builtinCatalogCache
   const file = join(DESIGN_DIR, 'index.json')
   if (!existsSync(file)) {
-    catalogFailed = '设计系统构建产物缺失（dist/design/index.json），请先运行 npm run build。'
-    throw new Error(catalogFailed)
+    throw new Error('设计系统构建产物缺失（dist/design/index.json），请先运行 npm run build。')
   }
-  catalogCache = readJson<DesignCatalog>(file)
-  return catalogCache
+  builtinCatalogCache = readJson<DesignCatalog>(file)
+  return builtinCatalogCache
+}
+
+function customStylesFor(cwd: string | undefined): DesignStyleSummary[] {
+  if (!cwd) return []
+  const stamp = stampLibrary(cwd)
+  const cached = customCatalogCache.get(cwd)
+  if (cached && cached.stamp === stamp) return cached.styles
+  let styles: DesignStyleSummary[] = []
+  try {
+    styles = loadCustomSummaries(cwd, DESIGN_DIR)
+  } catch {
+    styles = []
+  }
+  customCatalogCache.set(cwd, { stamp, styles })
+  return styles
+}
+
+/** 设计系统变更后主动失效该工作区的缓存（创建/删除自定义风格时调用）。 */
+export function invalidateDesignCache(cwd: string): void {
+  customCatalogCache.delete(cwd)
+  const prefix = `${cwd}\u0000`
+  for (const key of [...styleCache.keys()]) if (key.startsWith(prefix)) styleCache.delete(key)
+}
+
+/**
+ * 读取风格清单：内置 + 当前工作区的自定义风格。
+ * 不传 cwd 时只返回内置（web 端与旧调用兼容）。
+ */
+export function loadDesignCatalog(cwd?: string): DesignCatalog {
+  const builtin = loadBuiltinCatalog()
+  const custom = customStylesFor(cwd)
+  if (custom.length === 0) return builtin
+  return { schemaVersion: builtin.schemaVersion, notice: builtin.notice, styles: [...builtin.styles, ...custom] }
 }
 
 /** 用于生成工具参数 enum：读不到产物时返回空数组，绝不抛错。 */
-export function designStyleIds(): string[] {
+export function designStyleIds(cwd?: string): string[] {
   try {
-    return loadDesignCatalog().styles.map((s) => s.id)
+    return loadDesignCatalog(cwd).styles.map((s) => s.id)
   } catch {
     return []
   }
 }
 
-export function designStyleExists(id: unknown): id is string {
-  return typeof id === 'string' && designStyleIds().includes(id)
+export function designStyleExists(cwd: string | undefined, id: unknown): id is string {
+  return typeof id === 'string' && designStyleIds(cwd).includes(id)
 }
 
-export function designStyleSummary(id: string): DesignStyleSummary | null {
+export function designStyleSummary(cwd: string | undefined, id: string): DesignStyleSummary | null {
   try {
-    return loadDesignCatalog().styles.find((s) => s.id === id) ?? null
+    return loadDesignCatalog(cwd).styles.find((s) => s.id === id) ?? null
   } catch {
     return null
   }
 }
 
-export function resolveDesignStyle(id: string): ResolvedStyle | null {
-  if (!designStyleExists(id)) return null
-  const cached = styleCache.get(id)
+/** 是否内置风格（用于区分来源与禁止覆盖）。 */
+export function isBuiltinStyle(id: unknown): id is string {
+  return typeof id === 'string' && designStyleIds().includes(id)
+}
+
+export function resolveDesignStyle(cwd: string | undefined, id: string): ResolvedStyle | null {
+  if (!designStyleExists(cwd, id)) return null
+  const key = `${cwd ?? '\u0000builtin'}\u0000${id}`
+  const cached = styleCache.get(key)
   if (cached) return cached
-  const failed = styleFailed.get(id)
-  if (failed) throw new Error(failed)
-  const dir = join(DESIGN_DIR, 'styles', id)
-  try {
-    const resolved: ResolvedStyle = {
-      summary: designStyleSummary(id)!,
-      tokensCss: readFileSync(join(dir, 'tokens.css'), 'utf8'),
-      componentsCss: readFileSync(join(dir, 'components.css'), 'utf8'),
-      manifest: readJson<DesignManifest>(join(dir, 'tokens.manifest.json')),
-      icons: readJson<DesignIconSet>(join(dir, 'icons.json')),
-      templates: readJson<Record<string, DesignTemplate>>(join(dir, 'templates.json')),
+
+  const summary = designStyleSummary(cwd, id)
+  if (!summary) return null
+
+  let resolved: ResolvedStyle
+  if (cwd && customStyleExists(cwd, id)) {
+    // 自定义风格：运行时从 tokens.json + meta.json 编译（失败不写永久失败位）。
+    resolved = compileCustomStyle(cwd, id, DESIGN_DIR)
+  } else {
+    const dir = join(DESIGN_DIR, 'styles', id)
+    try {
+      resolved = {
+        summary,
+        tokensCss: readFileSync(join(dir, 'tokens.css'), 'utf8'),
+        componentsCss: readFileSync(join(dir, 'components.css'), 'utf8'),
+        manifest: readJson<DesignManifest>(join(dir, 'tokens.manifest.json')),
+        icons: readJson<DesignIconSet>(join(dir, 'icons.json')),
+        templates: readJson<Record<string, DesignTemplate>>(join(dir, 'templates.json')),
+      }
+    } catch (err) {
+      throw new Error(`设计风格「${id}」的构建产物不完整：${(err as Error).message}`)
     }
-    styleCache.set(id, resolved)
-    return resolved
-  } catch (err) {
-    const message = `设计风格「${id}」的构建产物不完整：${(err as Error).message}`
-    styleFailed.set(id, message)
-    throw new Error(message)
   }
+  styleCache.set(key, resolved)
+  return resolved
 }
 
 /** 只用于测试：清空缓存。 */
 export function resetDesignCache(): void {
-  catalogCache = null
-  catalogFailed = null
+  builtinCatalogCache = null
+  customCatalogCache.clear()
   styleCache.clear()
-  styleFailed.clear()
+  resetSharedContractCache()
 }
 
-export function getDesignTemplate(styleId: string, templateId: string): { summary: DesignStyleSummary; meta: DesignTemplate } | null {
-  const style = resolveDesignStyle(styleId)
+export function getDesignTemplate(cwd: string | undefined, styleId: string, templateId: string): { summary: DesignStyleSummary; meta: DesignTemplate } | null {
+  const style = resolveDesignStyle(cwd, styleId)
   if (!style) return null
   const meta = style.templates[templateId]
   if (!meta) return null
@@ -282,12 +338,12 @@ function expandIcons(
  * 注入（或移除）设计系统样式块。
  * styleId 为 null 表示自由发挥：只剥离旧块，不注入。
  */
-export function injectDesign(html: string, styleId: string | null): InjectResult {
+export function injectDesign(html: string, styleId: string | null, cwd?: string): InjectResult {
   const stripped = stripDesign(html)
   if (styleId === null) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] }
   }
-  const style = resolveDesignStyle(styleId)
+  const style = resolveDesignStyle(cwd, styleId)
   if (!style) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] }
   }

@@ -1,7 +1,7 @@
 /**
  * 设计系统构建期校验。纯函数，返回 { errors, warnings }，由 build-design.mjs 决定是否中断。
  */
-import { buildManifest, contrast, flattenTokens, isHex, isPrimitiveRef, kebab, parseHex } from './design-tokens.mjs'
+import { buildManifest, contrast, flattenDarkSemantic, flattenTokens, isHex, isPrimitiveRef, kebab, parseHex } from './design-tokens.mjs'
 
 const FORBIDDEN = [
   'library-consumption',
@@ -75,6 +75,11 @@ export function auditForbidden(label, text, errors) {
   if (/https?:\/\//.test(text)) errors.push(`${label}：出现外链 URL`)
 }
 
+/**
+ * 尺度必须严格递增。既查键也查值：
+ * 键名是数字档位（0/1/2/…），但 JS 会把整数键自动升序排列，
+ * 只查键永远查不出乱序；真正的错误（如两档都写成 4）只体现在**值**上。
+ */
 function checkMonotonic(label, record, errors) {
   const keys = Object.keys(record)
   const nums = keys.map((k) => Number(k))
@@ -84,6 +89,12 @@ function checkMonotonic(label, record, errors) {
   }
   for (let i = 1; i < nums.length; i++) {
     if (nums[i] <= nums[i - 1]) errors.push(`${label}：键必须严格递增（${keys[i - 1]} -> ${keys[i]}）`)
+  }
+  for (let i = 1; i < keys.length; i++) {
+    const prev = record[keys[i - 1]]
+    const cur = record[keys[i]]
+    if (typeof prev !== 'number' || typeof cur !== 'number') continue
+    if (cur <= prev) errors.push(`${label}：值必须严格递增（${keys[i - 1]}=${prev} -> ${keys[i]}=${cur}）`)
   }
 }
 
@@ -161,29 +172,43 @@ export function validateTokens(tokens, expectedId, errors, warnings) {
     if (typeof v !== 'string' || /url\(|@import|https?:\/\//i.test(v)) errors.push(`shadow.${k} 含禁用内容`)
   }
 
-  const semantic = tokens.color.semantic
-  const pairs = [
-    ['text.primary', 'bg.canvas', 4.5],
-    ['text.primary', 'bg.surface', 4.5],
-    ['text.secondary', 'bg.canvas', 4.5],
-    ['text.muted', 'bg.canvas', 3],
-    ['action.primaryText', 'action.primary', 4.5],
-  ]
-  for (const [fg, bg, min] of pairs) {
-    const fgValue = resolveValue(tokens, fg, semantic)
-    const bgValue = resolveValue(tokens, bg, semantic)
-    if (!fgValue || !bgValue) continue
-    if (!parseHex(fgValue) || !parseHex(bgValue)) continue
-    const ratio = contrast(fgValue, bgValue)
-    const label = `${fg} 对比 ${bg} = ${ratio.toFixed(2)}`
-    if (ratio < min) {
-      if (min >= 4.5) errors.push(`对比度不足：${label}（要求 ≥ ${min}）`)
-      else warnings.push(`对比度偏低：${label}（建议 ≥ ${min}）`)
+  validateColorSemantics(tokens, tokens.color.semantic, '', errors, warnings)
+
+  // 深色：结构与浅色同构时校验对比度；缺哪个组/键单独报错。
+  const dark = tokens.color.semanticDark
+  if (dark != null) {
+    if (typeof dark !== 'object') {
+      errors.push('color.semanticDark 必须是对象')
+    } else {
+      for (const [group, required] of Object.entries(REQUIRED_SEMANTIC)) {
+        const actual = dark[group]
+        if (!actual) {
+          errors.push(`缺少深色语义色组 color.semanticDark.${group}`)
+          continue
+        }
+        for (const name of required) {
+          if (actual[name] === undefined) errors.push(`缺少深色语义色 color.semanticDark.${group}.${name}`)
+        }
+      }
+      for (const [group, entries] of Object.entries(dark)) {
+        for (const [name, value] of Object.entries(entries)) {
+          if (isPrimitiveRef(value)) {
+            const [g, s] = value.split('.')
+            if (tokens.color.primitives[g]?.[s] === undefined) {
+              errors.push(`深色语义色引用不可解析：color.semanticDark.${group}.${name} = ${value}`)
+            }
+          } else if (!isHex(value) && !/^(?:rgba?|hsla?)\(|^transparent$/.test(value)) {
+            errors.push(`无法识别的深色语义色值：color.semanticDark.${group}.${name} = ${value}`)
+          }
+        }
+      }
+      validateColorSemantics(tokens, dark, '[dark] ', errors, warnings)
     }
   }
 
   try {
     flattenTokens(tokens)
+    if (dark != null) flattenDarkSemantic(tokens)
   } catch (err) {
     errors.push(`token 展平失败：${err.message}`)
     return null
@@ -200,6 +225,34 @@ function resolveValue(tokens, path, semantic) {
     return tokens.color.primitives[g]?.[s] ?? null
   }
   return raw
+}
+
+const CONTRAST_PAIRS = [
+  ['text.primary', 'bg.canvas', 4.5],
+  ['text.primary', 'bg.surface', 4.5],
+  ['text.secondary', 'bg.canvas', 4.5],
+  ['text.muted', 'bg.canvas', 3],
+  ['action.primaryText', 'action.primary', 4.5],
+]
+
+/**
+ * 校验一组语义色（浅色或深色）的对比度。
+ * prefix 用于区分深浅（如 '[dark] '）。
+ */
+export function validateColorSemantics(tokens, semantic, prefix, errors, warnings) {
+  if (!semantic || typeof semantic !== 'object') return
+  for (const [fg, bg, min] of CONTRAST_PAIRS) {
+    const fgValue = resolveValue(tokens, fg, semantic)
+    const bgValue = resolveValue(tokens, bg, semantic)
+    if (!fgValue || !bgValue) continue
+    if (!parseHex(fgValue) || !parseHex(bgValue)) continue
+    const ratio = contrast(fgValue, bgValue)
+    const label = `${prefix}${fg} 对比 ${bg} = ${ratio.toFixed(2)}`
+    if (ratio < min) {
+      if (min >= 4.5) errors.push(`对比度不足：${label}（要求 ≥ ${min}）`)
+      else warnings.push(`对比度偏低：${label}（建议 ≥ ${min}）`)
+    }
+  }
 }
 
 export function validateComponents(components, componentsCss, manifest, errors, warnings) {

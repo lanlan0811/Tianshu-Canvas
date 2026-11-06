@@ -37,6 +37,10 @@
         "description": "只读检查页面是否符合当前设计风格，输出分级报告"
       },
       {
+        "name": "canvas_design_system",
+        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色）"
+      },
+      {
         "name": "canvas_export",
         "description": "导出画布截图 PNG 与/或原型打包 ZIP"
       }
