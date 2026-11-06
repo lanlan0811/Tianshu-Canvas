@@ -57,6 +57,30 @@
       "description": "纯中性黑白灰单色系统，近乎无彩的层级靠明度与细边框拉开，12px 圆角与极轻分层投影，适合工具、文档与数据密集界面。",
       "tags": ["monochrome", "minimal", "light"],
       "swatches": ["#fafafa", "#ffffff", "#18181b", "#71717a"]
+    },
+    {
+      "id": "tianshu-inkstone",
+      "name": "天枢·砚",
+      "tagline": "石墨纸、朱砂印",
+      "description": "冷灰纸面托底，石墨黑作正文，朱砂红只出现在主操作与关键标记上；小圆角、衬线标题、极轻投影，像在纸上落印。适合文档、审阅、内容型后台与需要克制强调的界面。",
+      "tags": ["paper", "cinnabar", "editorial"],
+      "swatches": ["#f4f1ea", "#ffffff", "#a63a22", "#211d17"]
+    },
+    {
+      "id": "tianshu-vapor",
+      "name": "天枢·雾",
+      "tagline": "雾蓝底、靛紫操作",
+      "description": "雾蓝灰作底、靛紫作主操作，大圆角与柔和投影带来空气感；标题用无衬线大字距，数据用等宽字体。适合协作工具、AI 助手界面与需要轻盈层级的现代后台。",
+      "tags": ["mist", "indigo", "soft"],
+      "swatches": ["#eef1f4", "#ffffff", "#4453a8", "#1b2430"]
+    },
+    {
+      "id": "tianshu-saffron",
+      "name": "天枢·麦",
+      "tagline": "麦纸底、藏红花强调",
+      "description": "麦纸色铺底、暖褐字色，藏红花橙作唯一强强调；中等圆角与衬线标题带来手工印刷的温度。适合内容社区、阅读产品、活动页与需要亲和力的运营后台。",
+      "tags": ["wheat", "saffron", "warm"],
+      "swatches": ["#fbf5e9", "#ffffff", "#a35f08", "#33281a"]
     }
   ]
 }

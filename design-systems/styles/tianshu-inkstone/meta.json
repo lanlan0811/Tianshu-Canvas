@@ -1,0 +1,12 @@
+{
+  "id": "tianshu-inkstone",
+  "name": "天枢·砚",
+  "tagline": "石墨纸、朱砂印",
+  "description": "冷灰纸面托底，石墨黑作正文，朱砂红只出现在主操作与关键标记上；小圆角、衬线标题、极轻投影，像在纸上落印。适合文档、审阅、内容型后台与需要克制强调的界面。",
+  "tags": ["paper", "cinnabar", "editorial"],
+  "swatches": ["#f4f1ea", "#ffffff", "#a63a22", "#211d17"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 1.5, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与各品牌无隶属关系。"
+}

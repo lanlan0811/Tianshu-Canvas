@@ -1,0 +1,12 @@
+{
+  "id": "tianshu-vapor",
+  "name": "天枢·雾",
+  "tagline": "雾蓝底、靛紫操作",
+  "description": "雾蓝灰作底、靛紫作主操作，大圆角与柔和投影带来空气感；标题用无衬线大字距，数据用等宽字体。适合协作工具、AI 助手界面与需要轻盈层级的现代后台。",
+  "tags": ["mist", "indigo", "soft"],
+  "swatches": ["#eef1f4", "#ffffff", "#4453a8", "#1b2430"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 1.75, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与各品牌无隶属关系。"
+}

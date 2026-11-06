@@ -123,6 +123,9 @@ try {
     'barbie',
     'nerv',
     'minimalist',
+    'tianshu-inkstone',
+    'tianshu-vapor',
+    'tianshu-saffron',
   ])
   assert.ok(catalog.notice.includes('无隶属'))
 

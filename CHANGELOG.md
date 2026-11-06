@@ -3,6 +3,23 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.7.1] - 2026-11-06
+
+三套原创设计风格：天枢·砚、天枢·雾、天枢·麦；内置风格 7 → 10 套。详细说明见 [release-0.7.1.md](release/release-0.7.1.md)。
+
+### 新增
+
+- **`tianshu-inkstone` 天枢·砚**：石墨纸 + 朱砂，小圆角、衬线标题、极轻投影；含深色模式。
+- **`tianshu-vapor` 天枢·雾**：雾蓝 + 靛紫，大圆角、柔和投影；含深色模式，主操作在深色下反转为浅靛。
+- **`tianshu-saffron` 天枢·麦**：麦纸 + 藏红花，中等圆角、舒适行高；面向内容与阅读场景。
+- 三套均为从零设计，不复用任何既有风格配色；共享组件契约、图标几何与模板结构，跨风格切换保持同构。
+
+### 变更
+
+- `design-systems/index.json` 与 `dist/design/` 更新为 10 套风格。
+- README / `design-systems/README.md` / 技能文档的风格清单同步；技能里的风格选项扩充为 8 项（含自由发挥）。
+- 测试（目录契约 / 服务端 catalog / 图标注入）同步到 10 套。
+
 ## [v0.7.0] - 2026-11-06
 
 护城河版：真实代码库适配器（shadcn / AntD）、Design CI（`canvas_audit`）、品牌记忆与可移植品牌包。工具数 8 → 9。详细说明见 [release-0.7.0.md](release/release-0.7.0.md)。

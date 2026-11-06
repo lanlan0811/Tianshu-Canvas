@@ -1,0 +1,12 @@
+{
+  "id": "tianshu-saffron",
+  "name": "天枢·麦",
+  "tagline": "麦纸底、藏红花强调",
+  "description": "麦纸色铺底、暖褐字色，藏红花橙作唯一强强调；中等圆角与衬线标题带来手工印刷的温度。适合内容社区、阅读产品、活动页与需要亲和力的运营后台。",
+  "tags": ["wheat", "saffron", "warm"],
+  "swatches": ["#fbf5e9", "#ffffff", "#a35f08", "#33281a"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 1.6, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与各品牌无隶属关系。"
+}
