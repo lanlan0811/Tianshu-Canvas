@@ -11,6 +11,7 @@ import type { Browser } from 'puppeteer-core'
 import { join } from 'node:path'
 import { deflateRawSync } from 'node:zlib'
 import { projectDir, readPageHtml, readProject } from './project.js'
+import { assertInsideWorkspace, writeFileAtomic } from './paths.js'
 import { warnUser } from './host.js'
 import { ensureServer } from './server.js'
 
@@ -62,9 +63,16 @@ export function exportPng(cwd: string): Promise<ExportFile> {
   return run
 }
 
+/**
+ * Chromium 启动参数。**保留浏览器进程沙箱**：截图与视觉回归会渲染可能含脚本的原型，
+ * 关掉沙箱（`--no-sandbox`）等于让这些脚本拿到当前用户全部权限。
+ *
+ * 环境确实无法启动沙箱时（Linux 上缺 SUID helper 且内核禁止非特权 user namespace），
+ * 由 `launchBrowser` 抛出明确错误并**停止**截图/视觉回归，而不是静默降级为无沙箱。
+ * 仅在此类已知受限环境下才通过 `TIANSHU_CANVAS_ALLOW_NO_SANDBOX=1` 显式放开。
+ */
 const LAUNCH_ARGS = [
   '--remote-debugging-port=0',
-  '--no-sandbox',
   '--disable-gpu',
   '--disable-dev-shm-usage',
   '--no-first-run',
@@ -80,8 +88,24 @@ const LAUNCH_ARGS = [
   '--disable-crash-reporter',
 ]
 
+/** 沙箱相关启动失败的典型 stderr 片段。 */
+const SANDBOX_FAILURE_PATTERN = /(?:No usable sandbox|Failed to move to new namespace|SUID sandbox helper|clone\(\)|Operation not permitted|namespace sandbox)/i
+
+/** 是否显式允许在无法启动沙箱时降级（默认否）。 */
+function sandboxOptOutAllowed(): boolean {
+  return process.env.TIANSHU_CANVAS_ALLOW_NO_SANDBOX === '1'
+}
+
+/** 组装本次启动参数；默认保留沙箱。 */
+export function launchArgsFor(): string[] {
+  return sandboxOptOutAllowed() ? [...LAUNCH_ARGS, '--no-sandbox'] : [...LAUNCH_ARGS]
+}
+
 /** 浏览器程序本身无法启动（路径错误、不可执行），重试没有意义。 */
 class BrowserSpawnError extends Error {}
+
+/** 沙箱无法启动：必须明确失败，绝不静默降级。 */
+class SandboxUnavailableError extends Error {}
 
 /** 等待 DevToolsActivePort 出现并读出 `端口 + ws 路径`（Chromium 成功绑定调试端口后才会写此文件）。 */
 async function readDevToolsEndpoint(userDataDir: string, proc: ChildProcess, timeoutMs: number): Promise<string> {
@@ -102,7 +126,13 @@ async function readDevToolsEndpoint(userDataDir: string, proc: ChildProcess, tim
   })
   while (Date.now() < deadline) {
     if (spawnError) throw new BrowserSpawnError(`无法启动浏览器 ${proc.spawnfile}：${(spawnError as Error).message}`)
+    // 沙箱启动失败会让 Chromium 立刻退出；识别出来并给出可操作的错误，不做无沙箱重试。
     if (exitCode !== null) {
+      if (SANDBOX_FAILURE_PATTERN.test(stderr)) {
+        throw new SandboxUnavailableError(
+          `Chromium 沙箱无法启动，已停止截图与视觉回归（不会以 --no-sandbox 降级）：${stderr.trim()}`,
+        )
+      }
       throw new Error(`浏览器进程已退出（exit code ${exitCode}）${stderr ? `：${stderr.trim()}` : ''}`)
     }
     if (existsSync(portFile)) {
@@ -175,7 +205,7 @@ export async function launchBrowser(exe: string): Promise<{ browser: Browser; di
   let lastErr: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
     const userDataDir = mkdtempSync(join(tmpdir(), 'tsc-png-'))
-    const proc = spawn(exe, [...LAUNCH_ARGS, `--user-data-dir=${userDataDir}`, 'about:blank'], {
+    const proc = spawn(exe, [...launchArgsFor(), `--user-data-dir=${userDataDir}`, 'about:blank'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       detached: process.platform !== 'win32',
@@ -199,7 +229,8 @@ export async function launchBrowser(exe: string): Promise<{ browser: Browser; di
       killTree(proc)
       await new Promise<void>((r) => setTimeout(r, 500))
       removeProfile(userDataDir)
-      if (err instanceof BrowserSpawnError) break
+      // 路径错误 / 沙箱不可用重试没有意义。
+      if (err instanceof BrowserSpawnError || err instanceof SandboxUnavailableError) break
       await new Promise<void>((r) => setTimeout(r, 1000 * (attempt + 1)))
     }
   }
@@ -239,6 +270,8 @@ async function exportPngOnce(cwd: string): Promise<ExportFile> {
     })
 
     const dir = exportsDir(cwd)
+    // exports 目录可能在项目里被替换成指向外部目录的符号链接/目录联接。
+    assertInsideWorkspace(cwd, dir, '导出目录')
     mkdirSync(dir, { recursive: true })
     const name = `canvas-${stamp()}.png`
     const path = join(dir, name)
@@ -370,10 +403,12 @@ export async function exportZip(cwd: string): Promise<ExportFile> {
 
   const zip = buildZip(entries)
   const dir = exportsDir(cwd)
+  assertInsideWorkspace(cwd, dir, '导出目录')
   mkdirSync(dir, { recursive: true })
   const name = `canvas-${stamp()}.zip`
   const path = join(dir, name)
-  writeFileSync(path, zip)
+  // 用独占临时文件 + rename 落盘：目标路径被预置成符号链接时不会写到外部。
+  writeFileAtomic(cwd, path, zip)
   return { name, path, bytes: zip.length }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "tianshu-canvas",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "无限画布设计工作台（天枢 TPI 插件）",
   "license": "Apache-2.0",
   "private": true,
@@ -11,8 +11,10 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "build": "node scripts/build.mjs",
+    "notices": "node scripts/gen-third-party.mjs",
+    "notices:check": "node scripts/gen-third-party.mjs --check",
     "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
-    "verify": "npm run typecheck && npm run build && npm test",
+    "verify": "npm run typecheck && npm run build && npm run notices && npm test",
     "verify:codegen": "node scripts/verify-codegen.mjs",
     "verify:codegen:real": "node scripts/verify-codegen-real.mjs",
     "check:plugin": "node scripts/check-plugin.mjs",

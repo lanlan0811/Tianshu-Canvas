@@ -3,6 +3,26 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.7.4] - 2026-11-07
+
+针对 XiaoSi 插件库技术反馈（0.7.1 复审）的安全修复版本：修掉两条已复现的安全边界问题（SSRF 映射地址绕过、工作区符号链接越界读写），恢复截图/视觉回归的 Chromium 沙箱，并按平台要求补齐第三方许可与数据用途说明。详细说明见 [release-0.7.4.md](release/release-0.7.4.md)。
+
+### 安全修复
+
+- **网络访问边界（映射地址 SSRF）**：`::ffff:127.0.0.1` 等 IPv4 映射 IPv6 地址不再被当成公网。改为把 IPv6 解析成整数数组**按实际 IP 值**判定，覆盖 `::ffff:`（点分与十六进制）、IPv4-compatible、NAT64、6to4、Teredo 及 ULA/链路本地/site-local/多播/文档段；解析失败一律按不安全处理。
+- **域名抓取兼容**：钉住的 `lookup` 兼容 Node 的 `all: true` 数组回调，修掉真实域名报 `Invalid IP address: undefined`。
+- **工作区文件边界**：新增 `src/paths.ts`，读/写/导出前按真实路径校验并拒绝符号链接与 Windows 目录联接；写入改用独占创建的随机临时文件 + rename，修掉「预置 `.html.tmp` 符号链接导致外部文件被覆盖」。越界返回 403。
+- **Chromium 沙箱**：移除硬编码的 `--no-sandbox`，默认保留进程沙箱；无法安全启动时明确报错并停止截图/视觉回归（可用 `TIANSHU_CANVAS_ALLOW_NO_SANDBOX=1` 显式放开）。
+
+### 新增
+
+- **`THIRD-PARTY-NOTICES.md`**：依实际打包产物生成的第三方组件许可与版权声明（37 个组件，含 React Flow），随发行 ZIP 分发；`npm run notices` 重新生成，CI 校验其与依赖一致。
+- README 新增「数据用途与外部访问」章节，单列资源内联与设计系统反抽取的访问条件与随请求发出的数据，与遥测说明分开。
+
+### 测试
+
+- 新增 `test/workspace-boundary.test.mjs`（符号链接/目录联接越界读写）、`test/chromium-sandbox.test.mjs`（沙箱启动参数），并扩充 `test/net-fetch.test.mjs`（映射地址矩阵、真实回环服务、`lookup` all 契约）。共 131 项通过。
+
 ## [v0.7.3] - 2026-11-06
 
 画布换上专属应用图标（顶栏品牌标 / favicon / 空态插画统一），并修复 Windows 上 `dist/` 换行符导致 CI 误判「产物与源码不一致」。详细说明见 [release-0.7.3.md](release/release-0.7.3.md)。

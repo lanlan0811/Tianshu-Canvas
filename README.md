@@ -181,6 +181,29 @@ D 天枢原创 E 自由发挥」，选定后才开始写页面。
   - 默认直接返回文件内容；传 `write_files=true` / `out_dir` 落到 `.tianshu-canvas/exports/`。
 
 > PNG 导出需系统安装 Chrome/Edge；可用 `TIANSHU_CANVAS_BROWSER` 指定路径。ZIP 不依赖浏览器。
+> 截图与视觉回归**保留 Chromium 进程沙箱**（不传 `--no-sandbox`）。若所在环境确实无法启动沙箱，
+> 导出会**明确报错并停止**，而不是静默降级为无沙箱；仅在此类受限环境可用
+> `TIANSHU_CANVAS_ALLOW_NO_SANDBOX=1` 显式放开。
+
+## 数据用途与外部访问
+
+**本插件不上报任何遥测、统计数据或崩溃信息**，不连接插件作者的任何服务器；
+除下述两类显式触发的抓取外，不产生任何出站网络请求。
+
+### 会访问外部 URL 的两处功能
+
+| 功能 | 触发条件 | 抓取目标 | 随请求发出的数据 |
+|---|---|---|---|
+| **资源内联**（`canvas_upsert_page` 的 `inline_assets=true`） | 仅当显式传参时 | 页面 HTML 里的外链资源（`<img>` / `<script src>` / `<link rel=stylesheet>` / CSS 与 `style` 里的 `url()`）；相对路径需 `inline_assets_origin` 提供基准地址 | 仅 HTTP GET 目标 URL 本身 + 固定 `User-Agent: tianshu-canvas`；**不发送页面内容、路径、项目数据或任何凭据** |
+| **设计系统反抽取**（`canvas_design_system`，`action=create` 且 `source` 为 URL） | 仅当用户把 URL 作为抽取源时 | 用户给出的那个 URL（通常是一个在线页面的 HTML/CSS） | 同上：仅 GET 该 URL + 固定 UA |
+
+抓取前会做 SSRF 校验：仅允许 http/https、拒绝内网/回环/链路本地地址及其映射形式
+（含 `::ffff:` 十六进制与点分两种写法、NAT64、6to4、Teredo 等），逐跳重定向重新校验，
+并把连接固定到已核验的 IP，防 DNS rebinding。
+
+> **与遥测的区别**：上表是「用户显式要求抓取某个 URL」时的正常网络行为，请求目标由用户
+> 输入决定；本插件**没有**任何后台遥测/心跳/更新检查。字体或图片等**相对路径**资源在内联时
+> 会按 `inline_assets_origin` 解析，请勿把该参数指向非预期站点。
 
 ## 项目数据
 
@@ -195,11 +218,16 @@ D 天枢原创 E 自由发挥」，选定后才开始写页面。
 └── audit/                设计快照与视觉基线（baseline 可指定到仓库内目录）
 ```
 
+上述所有读写都限定在工作区内：路径按真实路径解析，任一级父目录或目标文件若是指向工作区外的
+符号链接 / Windows 目录联接，一律拒绝；写入用独占创建的随机临时文件 + rename，防止校验后被替换。
+
 ## 开发
 
 ```bash
 npm install
-npm run verify                # typecheck + build + test
+npm run verify                # typecheck + build + notices + test
+npm run notices               # 重新生成 THIRD-PARTY-NOTICES.md（随发行 ZIP 提交）
+npm run notices:check         # 校验第三方许可声明与当前依赖一致（CI 用）
 npm run verify:codegen        # 适配器产物编译验收（声明桩 + tsc，离线）
 npm run verify:codegen:real   # 发版前：真实 npm install + tsc（需联网）
 npm run check:plugin          # 官方发行约束自检（清单/入口/握手/路径/体积）
@@ -224,8 +252,10 @@ node scripts/pack-plugin.mjs ./tianshu-canvas-0.7.0.zip \
   --source-commit "$(git rev-parse HEAD)" --platforms win32-x64
 ```
 
-打包器只收 `tianshu.plugin.json`、`dist/`、`skills/`、`LICENSE`，并生成
-`xiaosi.release.json` 与 `xiaosi.contents.json`。若本地有官方开发套件，可再复核一次：
+打包器只收 `tianshu.plugin.json`、`dist/`、`skills/`、`LICENSE`、`THIRD-PARTY-NOTICES.md`，并生成
+`xiaosi.release.json` 与 `xiaosi.contents.json`。打包前请确认 `npm run notices` 已执行
+（`npm run verify` 会自动带上），该文件列出所有实际内联进 `dist/` 的第三方组件及其许可全文。
+若本地有官方开发套件，可再复核一次：
 
 ```bash
 node ".claude/天枢插件开发指南(天枢harness官方版)/cli.mjs" validate ./tianshu-canvas-0.7.0.zip --lane official_reviewed
@@ -266,3 +296,8 @@ node scripts/verify-web.mjs <chrome.exe>
 ## 许可
 
 Apache License 2.0（见 [LICENSE](LICENSE)）。
+
+发行包内联了若干第三方组件（画布内核 [React Flow](https://github.com/xyflow/xyflow) / `@xyflow/react`（MIT）、
+`react` / `react-dom`（MIT）、`puppeteer-core` 与 `chromium-bidi`（Apache-2.0）、`ws`（MIT）等）。
+完整清单与各组件许可全文见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)，随发行 ZIP 一并分发；
+该文件由 `npm run notices` 依据实际打包产物生成，不是手工清单。

@@ -19,6 +19,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertSafeId, InvalidInputError } from './ids.js'
+import { PathBoundaryError } from './paths.js'
 import { loadDesignCatalog } from './design.js'
 import { applyProjectStyle } from './designOps.js'
 import { injectProbe } from './probe.js'
@@ -166,6 +167,8 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     warnUser(`请求处理失败：${(err as Error)?.message ?? String(err)}`)
     // 响应头已发出时无法再改状态码，只能断开，否则客户端会一直挂起。
     if (res.headersSent) res.destroy()
+    // 越界/符号链接属于调用方输入问题，按 403 明确拒绝，不伪装成服务端故障。
+    else if (err instanceof PathBoundaryError) send(res, 403, 'text/plain; charset=utf-8', err.message)
     else send(res, 500, 'text/plain; charset=utf-8', 'internal error')
   }
 }
@@ -371,6 +374,10 @@ function readJsonBody(
     } catch (err) {
       if (err instanceof InvalidInputError) {
         return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
+      }
+      // 越界写入/符号链接：403 明确拒绝。
+      if (err instanceof PathBoundaryError) {
+        return send(res, 403, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
       }
       warnUser(`请求处理失败：${(err as Error)?.message ?? String(err)}`)
       if (res.headersSent) res.destroy()

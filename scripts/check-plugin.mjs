@@ -35,7 +35,7 @@ const PACKAGE_INSTALL_FIELDS = new Set([
 ])
 
 // ---- 用户实际会发行进 ZIP 的内容（与 scripts/pack-plugin.mjs 的清单保持一致）----
-export const PACKAGE_ENTRIES = ['tianshu.plugin.json', 'dist', 'skills', 'LICENSE']
+export const PACKAGE_ENTRIES = ['tianshu.plugin.json', 'dist', 'skills', 'LICENSE', 'THIRD-PARTY-NOTICES.md']
 
 function digest(bytes) {
   return createHash('sha256').update(bytes).digest('hex')

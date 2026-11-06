@@ -50,6 +50,7 @@ import { applyProjectStyle, currentStyleId, templateDocument } from './designOps
 import { extractTokens } from './extract.js'
 import { inlineAssets } from './inlineAssets.js'
 import { isSafeId, newPageId } from './ids.js'
+import { PathBoundaryError } from './paths.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
 import { toReactComponent, toFrameworklessHtml, toTailwindConfig } from './codegen.js'
@@ -129,7 +130,15 @@ function kbToBytes(v: unknown): number | undefined {
 /** 写入前若备份过有问题的项目文件，把备份路径告诉调用方（宿主只透传 content）。 */
 function withBackupNotice(run: (call: ToolCall) => Promise<ToolResult>): (call: ToolCall) => Promise<ToolResult> {
   return async (call) => {
-    const result = await run(call)
+    let result: ToolResult
+    try {
+      result = await run(call)
+    } catch (err) {
+      // 工作区边界（符号链接/目录联接越界）属于用户可修复的输入问题，
+      // 转成工具错误返回，而不是让异常穿到宿主。
+      if (err instanceof PathBoundaryError) return { content: `已拒绝：${err.message}`, isError: true }
+      throw err
+    }
     const backup = takeProjectBackup(call.cwd)
     if (!backup) return result
     return { ...result, content: `${result.content}\n注意：project.json 曾损坏或含无效条目，覆盖前已备份到 ${backup}` }

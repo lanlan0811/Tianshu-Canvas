@@ -55,15 +55,14 @@ const BLOCKED_V4: Array<{ base: number; bits: number }> = [
   { base: 0xf0000000, bits: 4 }, // 240/4 (reserved)
 ]
 
-function v4ToInt(ip: string): number {
+function v4ToInt(ip: string): number | null {
   const parts = ip.split('.').map(Number)
-  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return NaN
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null
   return ((parts[0]! << 24) | (parts[1]! << 16) | (parts[2]! << 8) | parts[3]!) >>> 0
 }
 
-function ipv4Blocked(ip: string): boolean {
-  const value = v4ToInt(ip)
-  if (!Number.isFinite(value)) return true
+/** 按数值判断一个 IPv4 是否落在禁止段。 */
+function ipv4IntBlocked(value: number): boolean {
   for (const { base, bits } of BLOCKED_V4) {
     const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0
     if ((value & mask) === (base & mask)) return true
@@ -71,40 +70,112 @@ function ipv4Blocked(ip: string): boolean {
   return false
 }
 
-/** 归一化 IPv6 文本（去 `[]`、压缩形式交给统一处理）。 */
-function normalizeIp(raw: string): { family: 4 | 6; ip: string } | null {
-  const value = raw.trim().replace(/^\[|\]$/g, '')
-  // IPv4-mapped IPv6（::ffff:1.2.3.4）按其内层 IPv4 判断。
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(value)
-  if (mapped) return { family: 4, ip: mapped[1]! }
-  const family = isIP(value)
-  if (family === 4) return { family: 4, ip: value }
-  if (family === 6) return { family: 6, ip: value.toLowerCase() }
-  return null
+function ipv4Blocked(ip: string): boolean {
+  const value = v4ToInt(ip)
+  // 解析不出来就当作不安全（fail-closed）。
+  return value === null ? true : ipv4IntBlocked(value)
 }
 
-function ipv6Blocked(ip: string): boolean {
-  const value = ip.replace(/^\[|\]$/g, '').toLowerCase()
-  if (value === '::1' || value === '::') return true
-  // 链路本地 fe80::/10、唯一本地 fc00::/7。
-  if (/^fe[89ab]/.test(value)) return true
-  if (/^f[cd]/.test(value)) return true
-  // 文档/基准段 2001:db8::/32。
-  if (value.startsWith('2001:db8')) return true
-  // 其它一律放行（真实公网 IPv6），但经 ipv4Blocked 的映射已在前面拦下。
+/**
+ * 解析 IPv6 文本为 8 个 16 位组（支持 `::` 压缩、尾部内嵌 IPv4、`%zone`）。
+ * 无法解析返回 null。**任何形式都归一到整数数组再判断，不做字符串前缀匹配**，
+ * 否则 `::ffff:7f00:1` 这类十六进制写法的映射地址会绕过点分十进制判定。
+ *
+ * 尾部内嵌 IPv4（`::ffff:8.8.8.8`）先转成两个十六进制组再统一解析——若直接按 `:`
+ * 切分，`::ffff:` 会留下空组导致解析失败（fail-closed 会把公网地址也一起拒掉）。
+ */
+function parseV6(raw: string): number[] | null {
+  let text = raw.trim().replace(/^\[|\]$/g, '').split('%')[0]!
+  if (!text.includes(':')) return null
+  const v4Tail = /^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text)
+  if (v4Tail) {
+    const n = v4ToInt(v4Tail[2]!)
+    if (n === null) return null
+    text = `${v4Tail[1]!}${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`
+  }
+  const sides = text.split('::')
+  if (sides.length > 2) return null
+  const toGroups = (s: string): number[] | null => {
+    if (s === '') return []
+    const out: number[] = []
+    for (const g of s.split(':')) {
+      if (!/^[0-9a-f]{1,4}$/i.test(g)) return null
+      out.push(parseInt(g, 16))
+    }
+    return out
+  }
+  const left = toGroups(sides[0]!)
+  if (left === null) return null
+  if (sides.length === 1) {
+    // 没有 `::` 压缩：必须刚好 8 组。
+    return left.length === 8 ? left : null
+  }
+  const right = toGroups(sides[1]!)
+  if (right === null) return null
+  const fill = 8 - left.length - right.length
+  if (fill < 0) return null
+  return [...left, ...Array<number>(fill).fill(0), ...right]
+}
+
+/** 由高 32 位与低 32 位拼出的内嵌 IPv4 是否被禁。 */
+function embeddedV4Blocked(hi: number, lo: number): boolean {
+  return ipv4IntBlocked(((hi << 16) | lo) >>> 0)
+}
+
+/**
+ * 按实际 IP 值判断 IPv6 是否禁止直连。
+ * 覆盖：未指定/回环、IPv4-mapped（`::ffff:`，点分与十六进制两种写法）、
+ * IPv4-compatible（`::x`）、IPv4-translated、NAT64（`64:ff9b::/96`）、
+ * 6to4（`2002::/16`）、Teredo（`2001:0::/32`）、ULA / 链路本地 / site-local /
+ * 多播 / 文档段。解析失败一律视为不安全（fail-closed）。
+ */
+function ipv6Blocked(raw: string): boolean {
+  const g = parseV6(raw)
+  if (!g) return true
+  const [g0, g1, g2, g3, g4, g5, g6, g7] = g as [number, number, number, number, number, number, number, number]
+  // 低位前缀全零：涵盖了未指定 `::`、回环 `::1`、IPv4-mapped `::ffff:a.b.c.d`
+  // 与 IPv4-compatible `::a.b.c.d`（两者内嵌 IPv4 都在 g6:g7）。
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0) {
+    return ipv4IntBlocked((((g6 << 16) | g7) >>> 0))
+  }
+  // NAT64 64:ff9b::/96（以及 64:ff9b:1::/48）
+  if (g0 === 0x0064 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
+    return embeddedV4Blocked(g6, g7)
+  }
+  // 6to4 2002::/16：内嵌的 IPv4 在 g1:g2
+  if (g0 === 0x2002) return embeddedV4Blocked(g1, g2)
+  // Teredo 2001:0000::/32：服务端地址（g2:g3）与客户端地址（g6:g7）都取反
+  if (g0 === 0x2001 && g1 === 0) {
+    const server = ((~((g2 << 16) | g3)) & 0xffffffff) >>> 0
+    const client = ((~((g6 << 16) | g7)) & 0xffffffff) >>> 0
+    if (ipv4IntBlocked(server) || ipv4IntBlocked(client)) return true
+  }
+  // 唯一本地 fc00::/7、链路本地 fe80::/10、site-local fec0::/10、多播 ff00::/8
+  if ((g0 & 0xfe00) === 0xfc00) return true
+  if ((g0 & 0xffc0) === 0xfe80) return true
+  if ((g0 & 0xffc0) === 0xfec0) return true
+  if ((g0 & 0xff00) === 0xff00) return true
+  // 文档段 2001:db8::/32、基准段 2001:2::/48
+  if (g0 === 0x2001 && g1 === 0x0db8) return true
+  if (g0 === 0x2001 && g1 === 0x0002 && g2 === 0) return true
   return false
 }
 
 /** 判断一个 IP 字面量是否属于禁止直连的范围。非 IP 返回 true（当作不安全）。 */
 export function isBlockedIp(raw: string): boolean {
-  const parsed = normalizeIp(raw)
-  if (!parsed) return true
-  return parsed.family === 4 ? ipv4Blocked(parsed.ip) : ipv6Blocked(parsed.ip)
+  const value = String(raw).trim().replace(/^\[|\]$/g, '').split('%')[0]!
+  const family = isIP(value)
+  if (family === 4) return ipv4Blocked(value)
+  if (family === 6) return ipv6Blocked(value)
+  return true
 }
 
 /**
  * 校验 URL 是否允许抓取：仅 http(s)、无内嵌凭据、主机解析出的所有 IP 均不得是内网/回环。
  * 返回解析到的地址（供连接时钉住，防 rebinding）。
+ *
+ * 映射地址（`::ffff:7f00:1` 等）在 isBlockedIp 里已按实际 IP 值归类；这里额外做的是
+ * **连接固定**：只钉一个已核验的地址，并保留其地址族，避免连接时再做一次解析。
  */
 export async function assertUrlAllowed(rawUrl: string): Promise<{ url: URL; address: string; family: number }> {
   let url: URL
@@ -123,6 +194,7 @@ export async function assertUrlAllowed(rawUrl: string): Promise<{ url: URL; addr
   // 主机本身就是 IP 字面量时直接判断，不做 DNS。
   if (isIP(host)) {
     if (isBlockedIp(host)) throw new FetchError(`禁止访问内网/保留地址：${host}`)
+    // URL 主机的 IPv6 是一切形式的映射地址的入口；把它规范成实际地址族再钉住。
     return { url, address: host, family: isIP(host) }
   }
   const addresses = await resolveAll(host)
@@ -159,12 +231,19 @@ function requestOnce(
   return new Promise((resolve, reject) => {
     const isHttps = target.url.protocol === 'https:'
     const mod = isHttps ? https : http
+    // Node 的 autoSelectFamily（默认开启）调用 lookup 时带 `all: true`，并期望回调返回
+    // **地址数组**；此时回调里塞 `(null, address, family)` 会让 Node 报
+    // `Invalid IP address: undefined`（地址参数为 undefined）。因此按 opts.all 分支。
     const pinnedLookup = (
       _hostname: string,
-      _opts: unknown,
-      callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+      opts: { all?: boolean } | undefined,
+      callback: (...args: unknown[]) => void,
     ): void => {
-      // 忽略再次解析，直接返回已校验的地址（防 TOCTOU / DNS rebinding）。
+      // 忽略再次解析，直接返回已核验的地址（防 TOCTOU / DNS rebinding）。
+      if (opts?.all) {
+        callback(null, [{ address: target.address, family: target.family }])
+        return
+      }
       callback(null, target.address, target.family)
     }
     const req = mod.request(

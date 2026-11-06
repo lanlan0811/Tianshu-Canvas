@@ -9,9 +9,10 @@
  * 变更后 emit 事件，供本地服务广播 SSE。
  */
 import { EventEmitter } from 'node:events'
-import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertSafeId, InvalidInputError, isSafeId, newCommentId, newPageId } from './ids.js'
+import { assertInsideWorkspace, assertReadableFile, writeFileAtomic } from './paths.js'
 import { warnUser } from './host.js'
 import type { DeviceType } from './device.js'
 
@@ -260,12 +261,10 @@ function isEdge(e: unknown): e is Edge {
 }
 
 function writeProjectAtomic(cwd: string, project: Project, notify = true): void {
+  assertInsideWorkspace(cwd, projectDir(cwd), '项目目录')
   mkdirSync(pagesDir(cwd), { recursive: true })
   backupDamagedProject(cwd)
-  const file = projectFile(cwd)
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, JSON.stringify(project, null, 2) + '\n', 'utf8')
-  renameSync(tmp, file)
+  writeFileAtomic(cwd, projectFile(cwd), JSON.stringify(project, null, 2) + '\n')
   if (notify) projectEvents.emit('change', { cwd })
 }
 
@@ -275,19 +274,37 @@ export function writeProject(cwd: string, project: Project): void {
 
 export function writePageHtml(cwd: string, id: string, html: string): string {
   assertSafeId(id)
+  // pages 目录本身也必须真实存在且未指向工作区外，否则后续写入会落到外部。
+  assertInsideWorkspace(cwd, pagesDir(cwd), '页面目录')
   mkdirSync(pagesDir(cwd), { recursive: true })
   const rel = join(PROJECT_DIR_NAME, 'pages', `${id}.html`)
   const abs = join(cwd, rel)
-  const tmp = abs + '.tmp'
-  writeFileSync(tmp, html, 'utf8')
-  renameSync(tmp, abs)
+  // 用独占创建的随机临时文件 + rename：预置的固定 `.html.tmp` 符号链接不再可用，
+  // 且写入前会拒绝叶子处的符号链接/目录联接（见 paths.ts）。
+  writeFileAtomic(cwd, abs, html)
   return rel
 }
 
 export function readPageHtml(cwd: string, id: string): string | null {
   if (!isSafeId(id)) return null
   const abs = join(pagesDir(cwd), `${id}.html`)
-  return existsSync(abs) ? readFileSync(abs, 'utf8') : null
+  if (!existsSync(abs)) return null
+  // 页面文件可能是指向工作区外的符号链接；读取前按真实路径拒绝。
+  assertReadableFile(cwd, abs, '页面文件')
+  return readFileSync(abs, 'utf8')
+}
+
+/** 删除页面文件；越界/符号链接的路径拒绝删除，返回是否真的删掉了。 */
+function removePageHtml(cwd: string, id: string): void {
+  const abs = join(pagesDir(cwd), `${id}.html`)
+  if (!existsSync(abs)) return
+  try {
+    // 只按真实路径校验后删除链接本身；指向外部时拒绝（避免误删外部文件）。
+    assertInsideWorkspace(cwd, abs, '页面文件')
+  } catch {
+    return
+  }
+  rmSync(abs, { force: true })
 }
 
 /**
@@ -352,7 +369,7 @@ export function removeNode(cwd: string, id: string): Project {
   }
   writeProjectAtomic(cwd, project)
   try {
-    rmSync(join(pagesDir(cwd), `${id}.html`), { force: true })
+    removePageHtml(cwd, id)
   } catch {
     /* 忽略 */
   }
@@ -471,11 +488,9 @@ export function readSelection(cwd: string): Selection | null {
 }
 
 export function writeSelection(cwd: string, selection: Selection): void {
+  assertInsideWorkspace(cwd, projectDir(cwd), '项目目录')
   mkdirSync(projectDir(cwd), { recursive: true })
-  const file = selectionFile(cwd)
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, JSON.stringify(selection, null, 2) + '\n', 'utf8')
-  renameSync(tmp, file)
+  writeFileAtomic(cwd, selectionFile(cwd), JSON.stringify(selection, null, 2) + '\n')
   projectEvents.emit('selection', { cwd })
 }
 
