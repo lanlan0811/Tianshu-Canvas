@@ -246,6 +246,7 @@ src/             Node 侧（入口/工具/本地服务/项目模型/设计系统
   codegen*.ts      React/TSX、CSS 变量、Tailwind、多端主题与规格
 web/             画布前端（React + React Flow）→ dist/web/canvas.js
 design-systems/  设计系统源数据（风格 token / 组件 / 图标 / 模板）→ dist/design/
+assets/          应用图标（icon.png 透明底源图 + icon-512.png README 展示版）
 dist/            构建产物（提交进仓库）
 test/            契约 / 项目 / 服务 / 设计系统 / 选中 / 导出 / 抓取 / 内联 / 反抽取 / 代码生成 / 适配器 / 审计 / 品牌 / 探针 e2e 测试（node:test，跑构建产物）
 scripts/         build.mjs、build-design.mjs、check-plugin.mjs、pack-plugin.mjs、verify-web.mjs、verify-codegen*.mjs、extract-release-notes.mjs
