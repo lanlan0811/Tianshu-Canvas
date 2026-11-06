@@ -64,11 +64,12 @@ await build({
 })
 
 // (c) HTML 外壳：把 __FAVICON__ 占位换成内联的图标 data: URI
+// 必须归一化换行：Windows checkout（core.autocrlf=true）下源文件是 CRLF，直接写出会让
+// dist/ 与 Linux CI 重建的结果逐字节不同，触发「dist 与源码不一致」门禁。
 const favicon = readFileSync(resolve(root, 'web/favicon.png')).toString('base64')
-const shell = readFileSync(resolve(root, 'web/index.html'), 'utf8').replace(
-  '__FAVICON__',
-  `data:image/png;base64,${favicon}`,
-)
+const shell = readFileSync(resolve(root, 'web/index.html'), 'utf8')
+  .replace(/\r\n/g, '\n')
+  .replace('__FAVICON__', `data:image/png;base64,${favicon}`)
 writeFileSync(resolve(distWeb, 'index.html'), shell)
 
 // 断言关键产物存在
