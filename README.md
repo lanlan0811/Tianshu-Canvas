@@ -1,3 +1,5 @@
+<img src="assets/icon-512.png" alt="Tianshu-Canvas 应用图标" width="128" align="right">
+
 # Tianshu-Canvas · 画布设计
 
 天枢（Tianshu）插件：把**前端设计原型**写入一块可平移缩放的**无限画布**。
