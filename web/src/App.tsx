@@ -34,6 +34,7 @@ import {
   fetchPageSource,
   fetchProject,
   fetchSelection,
+  postCommentOp,
   postDesignStyle,
   postEdge,
   postNodeOp,
@@ -42,6 +43,7 @@ import {
   postViewport,
   requestExport,
   subscribeEvents,
+  type ApiComment,
   type ApiDesignCatalog,
   type ApiProject,
   type ApiSelection,
@@ -66,6 +68,7 @@ function toFlowNodes(
   project: ApiProject,
   contentHeights: Map<string, number>,
   previous: PageFlowNode[],
+  commentCounts: Map<string, number>,
 ): PageFlowNode[] {
   const byId = new Map(previous.map((n) => [n.id, n]))
   return project.nodes.map((n) => {
@@ -86,6 +89,7 @@ function toFlowNodes(
         rev: n.htmlRev,
         contentHeight: contentHeights.get(n.id),
         elementSelected: prev?.data.elementSelected,
+        commentCount: commentCounts.get(n.id) ?? 0,
       },
     }
   })
@@ -115,6 +119,7 @@ function Canvas() {
   const [initialViewport, setInitialViewport] = useState<Viewport | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [selection, setSelection] = useState<ApiSelection | null>(null)
+  const [comments, setComments] = useState<ApiComment[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [catalog, setCatalog] = useState<ApiDesignCatalog | null>(null)
@@ -122,20 +127,37 @@ function Canvas() {
   const [styleBusy, setStyleBusy] = useState(false)
   const nodesRef = useRef<PageFlowNode[]>([])
   nodesRef.current = nodes
+  const commentsRef = useRef<ApiComment[]>([])
+  commentsRef.current = comments
   // 高度只在页面加载时上报一次，项目刷新重建节点时不能丢。
   const contentHeights = useRef(new Map<string, number>())
 
   const { setViewport, getViewport, fitView } = useReactFlow()
 
+  /** 把某页未解决的批注推给该页 iframe（探针按 xpath 画编号图钉）。 */
+  function syncCommentsToPage(pageId: string, list: ApiComment[]): void {
+    const pins = list
+      .filter((c) => c.pageId === pageId && !c.resolved)
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => ({ xpath: c.xpath, note: c.note }))
+    postToPage(pageId, '__vd_set_comments', { comments: pins })
+  }
+
   const loadProject = useCallback(async () => {
     try {
       const project = await fetchProject(ws)
-      setNodes((prev) => toFlowNodes(project, contentHeights.current, prev))
+      const list = project.comments ?? []
+      const counts = new Map<string, number>()
+      for (const c of list) if (!c.resolved) counts.set(c.pageId, (counts.get(c.pageId) ?? 0) + 1)
+      setNodes((prev) => toFlowNodes(project, contentHeights.current, prev, counts))
       setInitialViewport((current) => (current === undefined ? restorableViewport(project) : current))
       setEdges(toFlowEdges(project))
       setDesign(project.design ?? null)
+      setComments(list)
       setReady(true)
       setError(project.issue ?? null)
+      // 把批注推给已加载的 iframe（图钉在 iframe 内绘制）。
+      for (const n of project.nodes) syncCommentsToPage(n.id, list)
     } catch (err) {
       setError((err as Error).message)
       setInitialViewport((current) => (current === undefined ? null : current))
@@ -173,6 +195,10 @@ function Canvas() {
 
   // 探针桥
   useProbeBridge({
+    onReady: (pageId) => {
+      // iframe 就绪时补推该页批注（首屏注入可能早于项目数据到达）。
+      syncCommentsToPage(pageId, commentsRef.current)
+    },
     onSelect: (pageId, payload) => {
       const sel: ApiSelection = {
         pageId,
@@ -295,6 +321,28 @@ function Canvas() {
     [],
   )
 
+  // 批注：写盘后重拉项目（SSE 也会刷新，这里保证即时反馈）。
+  const addComment = useCallback(
+    async (input: { pageId: string; xpath: string; tagName: string; textContent?: string; note: string }) => {
+      if (await postCommentOp(ws, 'add', input)) await loadProject()
+    },
+    [loadProject],
+  )
+
+  const toggleResolve = useCallback(
+    async (id: string, resolved: boolean) => {
+      if (await postCommentOp(ws, 'resolve', { ids: [id], resolved })) await loadProject()
+    },
+    [loadProject],
+  )
+
+  const removeComment = useCallback(
+    async (id: string) => {
+      if (await postCommentOp(ws, 'remove', { ids: [id] })) await loadProject()
+    },
+    [loadProject],
+  )
+
   const pickStyle = useCallback(
     async (styleId: string | null) => {
       setStyleBusy(true)
@@ -383,6 +431,9 @@ function Canvas() {
 
   const selectedNode = selection ? nodes.find((n) => n.id === selection.pageId) : null
   const pageTitle = selectedNode ? selectedNode.data.title : null
+  const pageComments = selection
+    ? comments.filter((c) => c.pageId === selection.pageId).sort((a, b) => a.createdAt - b.createdAt)
+    : []
 
   // 待机态（等原型出现前的空态）：空态时隐藏左下角 .hint，避免与空态里的快捷键重复
   const showIdle = ready && !error && nodes.length === 0
@@ -452,7 +503,15 @@ function Canvas() {
           <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>
         )}
         {!exporting && (
-          <SelectionPanel selection={selection} pageTitle={pageTitle} onApplyEdits={applyEdits} />
+          <SelectionPanel
+            selection={selection}
+            pageTitle={pageTitle}
+            comments={pageComments}
+            onApplyEdits={applyEdits}
+            onAddComment={addComment}
+            onToggleResolve={toggleResolve}
+            onRemoveComment={removeComment}
+          />
         )}
         {!exporting && menu && (
           <ContextMenu

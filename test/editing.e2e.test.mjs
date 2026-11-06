@@ -108,8 +108,9 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
     }
 
     const applyButton = '.selection-panel .btn:not(.btn--primary)'
+    const textArea = '.selection-panel__text'
     async function replaceText(text) {
-      await page.click('.selection-panel textarea', { clickCount: 3 })
+      await page.click(textArea, { clickCount: 3 })
       await page.keyboard.down('Control')
       await page.keyboard.press('a')
       await page.keyboard.up('Control')
@@ -118,7 +119,7 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
       await sleep(600)
     }
     async function setColor(value) {
-      await page.click('.selection-panel input', { clickCount: 3 })
+      await page.click('.selection-panel__styles input', { clickCount: 3 })
       await page.keyboard.type(value)
       await page.click(applyButton)
       await sleep(600)
@@ -128,7 +129,7 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
     // 1) 选中含子元素的区块：不提供文案输入，无法整体覆盖
     await clickIn('structure', '#title', false)
     await page.waitForSelector('.selection-panel', { timeout: 5000 })
-    assert.equal(await page.$('.selection-panel textarea'), null, '区块不应提供文案输入')
+    assert.equal(await page.$(textArea), null, '区块不应提供文案输入')
     assert.ok(await page.$('.selection-panel__note'), '应提示改用 Ctrl 点击')
 
     // 2) 选中叶子元素改文案：只改该元素，兄弟节点保留
@@ -148,9 +149,9 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
 
     // 4) 超过 200 字的文案：输入框是全文，追加不会截断
     await clickIn('long', '#long')
-    const shown = await page.$eval('.selection-panel textarea', (e) => e.value)
+    const shown = await page.$eval(textArea, (e) => e.value)
     assert.equal(shown, LONG_TEXT, '输入框应是完整文案')
-    await page.focus('.selection-panel textarea')
+    await page.focus(textArea)
     await page.keyboard.down('Control')
     await page.keyboard.press('End')
     await page.keyboard.up('Control')

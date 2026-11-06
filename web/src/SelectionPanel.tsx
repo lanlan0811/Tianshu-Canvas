@@ -2,17 +2,25 @@
  * 选中面板：展示当前选中项，提供「复制修改请求」（粘给 AI）与文案/样式编辑（M3）。
  */
 import { useEffect, useState } from 'react'
-import type { ApiSelection } from './api'
+import type { ApiComment, ApiSelection } from './api'
 
 export interface SelectionPanelProps {
   selection: ApiSelection | null
   pageTitle: string | null
+  /** 该页（selection.pageId）的批注，按创建时间升序。 */
+  comments?: ApiComment[]
   /** 应用编辑（M3 接入探针 __vd_apply_edits） */
   onApplyEdits?: (
     pageId: string,
     element: NonNullable<ApiSelection['element']>,
     edits: { text?: string; styles?: Record<string, string> },
   ) => void
+  /** 给当前选中元素添加一条批注。 */
+  onAddComment?: (input: { pageId: string; xpath: string; tagName: string; textContent?: string; note: string }) => void
+  /** 标记批注已解决 / 重新打开。 */
+  onToggleResolve?: (id: string, resolved: boolean) => void
+  /** 删除一条批注。 */
+  onRemoveComment?: (id: string) => void
 }
 
 const EDITABLE_STYLES: Array<{ key: string; label: string }> = [
@@ -41,11 +49,20 @@ function buildRequestText(selection: ApiSelection, pageTitle: string | null): st
   return lines.join('\n')
 }
 
-export function SelectionPanel({ selection, pageTitle, onApplyEdits }: SelectionPanelProps) {
+export function SelectionPanel({
+  selection,
+  pageTitle,
+  comments,
+  onApplyEdits,
+  onAddComment,
+  onToggleResolve,
+  onRemoveComment,
+}: SelectionPanelProps) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [text, setText] = useState('')
   const [styles, setStyles] = useState<Record<string, string>>({})
+  const [note, setNote] = useState('')
 
   useEffect(() => {
     setCopied(false)
@@ -53,6 +70,7 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
     setText(selection?.element?.editableText ?? '')
     // 样式输入留空：仅应用用户实际填写的项，避免把当前计算样式整体写成内联样式污染原型。
     setStyles({})
+    setNote('')
   }, [selection])
 
   if (!selection) return null
@@ -124,7 +142,7 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
           {typeof el.editableText === 'string' ? (
             <label className="field">
               <span>文案</span>
-              <textarea value={text} rows={2} onChange={(e) => setText(e.target.value)} />
+              <textarea className="selection-panel__text" value={text} rows={2} onChange={(e) => setText(e.target.value)} />
             </label>
           ) : (
             <p className="selection-panel__note">这个元素包含子元素，不能整体改文案。按住 Ctrl 点击具体的文字可单独修改。</p>
@@ -146,6 +164,76 @@ export function SelectionPanel({ selection, pageTitle, onApplyEdits }: Selection
           </button>
         </>
       )}
+      {selection && (!!comments?.length || !!el) ? (
+        <div className="selection-panel__comments">
+          {el && onAddComment && (
+            <div className="field field--note">
+              <label>
+                <span>批注这个元素</span>
+                <textarea
+                  className="selection-panel__note-input"
+                  value={note}
+                  rows={2}
+                  placeholder="例如：这个按钮改成主色、字号加大"
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={!note.trim()}
+                onClick={() => {
+                  onAddComment({
+                    pageId: selection.pageId,
+                    xpath: el.xpath,
+                    tagName: el.tagName,
+                    textContent: el.textContent,
+                    note: note.trim(),
+                  })
+                  setNote('')
+                }}
+              >
+                添加批注
+              </button>
+            </div>
+          )}
+          {comments && comments.length > 0 && (
+            <ul className="comment-list">
+              {comments.map((c, i) => (
+                <li key={c.id} className={`comment-item${c.resolved ? ' comment-item--resolved' : ''}`}>
+                  <span className="comment-item__seq">{i + 1}</span>
+                  <div className="comment-item__body">
+                    <div className="comment-item__note">{c.note}</div>
+                    <div className="comment-item__xpath" title={c.xpath}>
+                      {c.xpath}
+                    </div>
+                  </div>
+                  {onToggleResolve && (
+                    <button
+                      type="button"
+                      className="comment-item__btn"
+                      title={c.resolved ? '重新打开' : '标记已解决'}
+                      onClick={() => onToggleResolve(c.id, !c.resolved)}
+                    >
+                      {c.resolved ? '重开' : '解决'}
+                    </button>
+                  )}
+                  {onRemoveComment && (
+                    <button
+                      type="button"
+                      className="comment-item__btn"
+                      title="删除批注"
+                      onClick={() => onRemoveComment(c.id)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

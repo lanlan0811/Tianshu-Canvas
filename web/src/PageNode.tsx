@@ -28,6 +28,8 @@ export interface PageNodeData extends Record<string, unknown> {
   contentHeight?: number
   /** 该页当前是否选中了页面内元素（标题栏显示徽标） */
   elementSelected?: boolean
+  /** 该页待处理（未解决）批注数，>0 时标题栏显示徽标。 */
+  commentCount?: number
 }
 
 export type PageFlowNode = Node<PageNodeData, 'page'>
@@ -75,6 +77,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
           <DeviceIcon type={data.deviceType} size={14} />
           <span className="page-node__title">{data.title}</span>
           {data.elementSelected && <span className="page-node__badge">已选元素</span>}
+          {!!data.commentCount && <span className="page-node__badge">批注 {data.commentCount}</span>}
           <span className="page-node__size">
             {data.width}×{data.height}
           </span>

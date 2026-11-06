@@ -21,6 +21,18 @@ export interface ApiEdge {
   label?: string
 }
 
+export interface ApiComment {
+  id: string
+  pageId: string
+  xpath: string
+  tagName: string
+  textContent?: string
+  note: string
+  createdAt: number
+  resolved: boolean
+  resolvedAt?: number
+}
+
 export interface ApiProject {
   version: 1
   viewport: { x: number; y: number; zoom: number }
@@ -28,6 +40,8 @@ export interface ApiProject {
   edges: ApiEdge[]
   /** 项目级设计风格锁定；缺省表示自由发挥。 */
   design?: { styleId: string; updatedAt: number }
+  /** 元素批注；缺省表示没有。 */
+  comments?: ApiComment[]
   /** 项目文件有问题时的提示。 */
   issue?: string
 }
@@ -139,6 +153,28 @@ export async function postSelection(
   }).catch(() => {
     /* ignore */
   })
+}
+
+export interface CommentInput {
+  pageId: string
+  xpath: string
+  tagName: string
+  textContent?: string
+  note: string
+}
+
+/** 批注变更：add / resolve（含 reopen，resolved=false）/ remove（ids 省略即清空）。 */
+export async function postCommentOp(
+  ws: string,
+  op: 'add' | 'resolve' | 'remove',
+  data: CommentInput | { ids?: string[]; resolved?: boolean },
+): Promise<boolean> {
+  const res = await fetch('/api/comments', {
+    method: 'POST',
+    headers: MUTATION_HEADERS,
+    body: JSON.stringify({ ws, op, ...data }),
+  })
+  return res.ok
 }
 
 export type NodeOp = 'remove' | 'rename' | 'duplicate' | 'move'

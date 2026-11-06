@@ -42,14 +42,18 @@ import {
   PROJECT_DIR_NAME,
   projectFile,
   projectIssue,
+  readComments,
   readPageHtml,
   readProject,
   readSelection,
+  removeComments,
   removeEdge,
   removeNode,
+  setCommentsResolved,
   takeProjectBackup,
   upsertNode,
   writePageHtml,
+  type Comment,
   type PageNode,
   type Project,
   type Selection,
@@ -343,6 +347,11 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
       '当前画布没有选中项。\n' +
         '请在浏览器打开画布，点击某个页面节点（或按住 Ctrl 点击页面内的元素）后再试。',
     )
+  }
+
+  const pending = (project.comments ?? []).filter((c) => !c.resolved).length
+  if (pending > 0) {
+    sections.push(`待处理批注：${pending} 条。用 canvas_comments（action=list）查看全部批注并逐条修改。`)
   }
 
   sections.push(url ? `画布 URL：${url}` : '提示：先调用 canvas_open 获取画布 URL。')
@@ -710,6 +719,81 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
 }
 
 // ---------------------------------------------------------------------------
+// canvas_comments（list / resolve / reopen / remove）—— 元素批注
+// ---------------------------------------------------------------------------
+
+function formatComment(c: Comment, index: number, project: Project): string {
+  const node = project.nodes.find((n) => n.id === c.pageId)
+  const pageTitle = node ? node.title : c.pageId
+  const lines = [`${index}. [${c.id}] ${pageTitle}（${c.pageId}）· <${c.tagName || '?'}> xpath=${c.xpath}`]
+  if (c.textContent) lines.push(`   当前文本：${c.textContent}`)
+  lines.push(`   批注：${c.note}`)
+  if (c.resolved) lines.push('   （已解决）')
+  return lines.join('\n')
+}
+
+async function canvasComments(call: ToolCall): Promise<ToolResult> {
+  const action = str(call.args.action) ?? 'list'
+  try {
+    if (action === 'list') {
+      const project = readProject(call.cwd)
+      const all = project.comments ?? []
+      const includeResolved = call.args.include_resolved === true
+      const shown = includeResolved ? all : all.filter((c) => !c.resolved)
+      if (all.length === 0) {
+        return {
+          content:
+            '当前没有元素批注。\n' +
+            '用户在画布上选中页面内元素后，可在「选中面板」里写一句话并添加批注；保存后会出现在这里。',
+        }
+      }
+      if (shown.length === 0) {
+        return { content: `共有 ${all.length} 条批注，全部已解决。传 include_resolved=true 可查看。` }
+      }
+      const sorted = [...shown].sort((a, b) => a.createdAt - b.createdAt)
+      const body = sorted.map((c, i) => formatComment(c, i + 1, project)).join('\n')
+      const resolved = all.length - all.filter((c) => !c.resolved).length
+      return {
+        content:
+          `待处理批注 ${sorted.length} 条${resolved ? `（另有 ${resolved} 条已解决）` : ''}：\n\n${body}\n\n` +
+          `请逐条按 xpath 定位并修改（通常用 canvas_upsert_page 重写该页 HTML）；改完后调用 ` +
+          `canvas_comments（action=resolve, ids=[...]）标记已解决。`,
+      }
+    }
+
+    if (action === 'resolve' || action === 'reopen') {
+      const ids = Array.isArray(call.args.ids) ? call.args.ids.filter((v): v is string => typeof v === 'string') : []
+      if (ids.length === 0) return { content: `${action} 需要 ids（批注 id 数组）。`, isError: true }
+      const project = readProject(call.cwd)
+      const known = new Set((project.comments ?? []).map((c) => c.id))
+      const missing = ids.filter((id) => !known.has(id))
+      const changed = setCommentsResolved(call.cwd, ids, action === 'resolve')
+      const { url } = await ensureServer(call.cwd)
+      const missLine = missing.length ? `\n未找到：${missing.join('、')}` : ''
+      return {
+        content:
+          `${action === 'resolve' ? '已标记' : '已重新打开'} ${changed} 条批注。\n画布 URL：${url}${missLine}`,
+      }
+    }
+
+    if (action === 'remove') {
+      const ids = Array.isArray(call.args.ids) ? call.args.ids.filter((v): v is string => typeof v === 'string') : undefined
+      const all = call.args.all === true
+      if (!all && (!ids || ids.length === 0)) {
+        return { content: 'remove 需要 ids（批注 id 数组），或用 all=true 清空全部。', isError: true }
+      }
+      const removed = removeComments(call.cwd, all ? undefined : ids)
+      const { url } = await ensureServer(call.cwd)
+      return { content: `已删除 ${removed} 条批注。\n画布 URL：${url}` }
+    }
+
+    return { content: `未知的 action：${action}。可选：list / resolve / reopen / remove。`, isError: true }
+  } catch (err) {
+    return { content: (err as Error).message, isError: true }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 工具清单（名称必须与 tianshu.plugin.json 的 contributes.tools 完全一致）
 // ---------------------------------------------------------------------------
 
@@ -932,5 +1016,30 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: canvasDesignSystem,
+  },
+  {
+    definition: {
+      name: 'canvas_comments',
+      description:
+        '读取/处理用户在画布上留下的元素批注（用户在画布选中元素后写一句话打图钉）。' +
+        'action=list 一次返回全部待处理批注（含页码标题、标签、xpath、当前文本与批注内容），据此逐条修改；' +
+        '改完后用 resolve 传 ids 标记已解决，reopen 重新打开，remove 删除（或 all=true 清空全部）。' +
+        '用户说「画布上有几处要改」「我圈了几处问题」时用它。',
+      input_schema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['list', 'resolve', 'reopen', 'remove'], description: 'list=列出批注（默认）；resolve=标记已解决；reopen=重新打开；remove=删除' },
+          ids: { type: 'array', items: { type: 'string' }, description: 'resolve / reopen / remove 使用：批注 id 数组' },
+          include_resolved: { type: 'boolean', description: 'list 可选：是否一并列出已解决的批注（默认 false）' },
+          all: { type: 'boolean', description: 'remove 可选：清空全部批注（忽略 ids）' },
+        },
+        required: ['action'],
+      },
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: withBackupNotice(canvasComments),
   },
 ]

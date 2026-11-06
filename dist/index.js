@@ -60,6 +60,9 @@ function assertSafeId(id) {
 function newPageId() {
   return "page-" + randomUUID().replace(/-/g, "").slice(0, 8);
 }
+function newCommentId() {
+  return "cmt-" + randomUUID().replace(/-/g, "").slice(0, 8);
+}
 
 // src/project.ts
 import { EventEmitter } from "node:events";
@@ -100,8 +103,12 @@ function inspectProject(cwd) {
   const project = { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges };
   const design = normalizeDesign(obj.design);
   if (design) project.design = design;
+  const rawComments = Array.isArray(obj.comments) ? obj.comments : [];
+  const comments = rawComments.map(normalizeComment).filter((c) => c !== null);
+  if (comments.length > 0) project.comments = comments;
   return {
     project,
+    // 无效批注静默过滤（与 design 一致），不计入 dropped。
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length
   };
 }
@@ -159,6 +166,28 @@ function normalizeDesign(v) {
   if (typeof o.styleId !== "string" || o.styleId.trim() === "") return null;
   const updatedAt = typeof o.updatedAt === "number" && Number.isFinite(o.updatedAt) ? o.updatedAt : 0;
   return { styleId: o.styleId.trim(), updatedAt };
+}
+function normalizeComment(v) {
+  if (!v || typeof v !== "object") return null;
+  const o = v;
+  if (typeof o.id !== "string" || o.id.trim() === "") return null;
+  if (!isSafeId(o.pageId)) return null;
+  if (typeof o.xpath !== "string" || o.xpath.trim() === "") return null;
+  if (typeof o.note !== "string" || o.note.trim() === "") return null;
+  const createdAt = typeof o.createdAt === "number" && Number.isFinite(o.createdAt) ? o.createdAt : 0;
+  const resolved = o.resolved === true;
+  const comment = {
+    id: o.id.trim(),
+    pageId: o.pageId,
+    xpath: o.xpath,
+    tagName: typeof o.tagName === "string" ? o.tagName : "",
+    note: o.note.trim(),
+    createdAt,
+    resolved
+  };
+  if (typeof o.textContent === "string") comment.textContent = o.textContent;
+  if (resolved && typeof o.resolvedAt === "number" && Number.isFinite(o.resolvedAt)) comment.resolvedAt = o.resolvedAt;
+  return comment;
 }
 function isPageNode(n) {
   if (!n || typeof n !== "object") return false;
@@ -235,6 +264,11 @@ function removeNode(cwd, id) {
   const project = readProject(cwd);
   project.nodes = project.nodes.filter((n) => n.id !== id);
   project.edges = project.edges.filter((e) => e.source !== id && e.target !== id);
+  if (project.comments) {
+    const keep = project.comments.filter((c) => c.pageId !== id);
+    if (keep.length > 0) project.comments = keep;
+    else delete project.comments;
+  }
   writeProjectAtomic(cwd, project);
   try {
     rmSync(join(pagesDir(cwd), `${id}.html`), { force: true });
@@ -341,6 +375,59 @@ function writeSelection(cwd, selection) {
   writeFileSync(tmp, JSON.stringify(selection, null, 2) + "\n", "utf8");
   renameSync(tmp, file);
   projectEvents.emit("selection", { cwd });
+}
+function readComments(cwd) {
+  return readProject(cwd).comments ?? [];
+}
+function addComment(cwd, input) {
+  assertSafeId(input.pageId);
+  if (!input.xpath || input.xpath.trim() === "") throw new InvalidInputError("\u6279\u6CE8\u7F3A\u5C11 xpath");
+  if (!input.note || input.note.trim() === "") throw new InvalidInputError("\u6279\u6CE8\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A");
+  const project = readProject(cwd);
+  if (!project.nodes.some((n) => n.id === input.pageId)) {
+    throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${input.pageId}`);
+  }
+  const comment = {
+    id: newCommentId(),
+    pageId: input.pageId,
+    xpath: input.xpath,
+    tagName: input.tagName ?? "",
+    note: input.note.trim(),
+    createdAt: Date.now(),
+    resolved: false
+  };
+  if (input.textContent !== void 0) comment.textContent = input.textContent;
+  project.comments = [...project.comments ?? [], comment];
+  writeProjectAtomic(cwd, project);
+  return comment;
+}
+function setCommentsResolved(cwd, ids, resolved) {
+  const project = readProject(cwd);
+  const comments = project.comments ?? [];
+  if (comments.length === 0) return 0;
+  const wanted = new Set(ids);
+  let changed = 0;
+  for (const c of comments) {
+    if (!wanted.has(c.id) || c.resolved === resolved) continue;
+    c.resolved = resolved;
+    if (resolved) c.resolvedAt = Date.now();
+    else delete c.resolvedAt;
+    changed++;
+  }
+  if (changed > 0) writeProjectAtomic(cwd, project);
+  return changed;
+}
+function removeComments(cwd, ids) {
+  const project = readProject(cwd);
+  const comments = project.comments ?? [];
+  if (comments.length === 0) return 0;
+  const keep = ids ? comments.filter((c) => !ids.includes(c.id)) : [];
+  const removed = comments.length - keep.length;
+  if (removed === 0) return 0;
+  if (keep.length > 0) project.comments = keep;
+  else delete project.comments;
+  writeProjectAtomic(cwd, project);
+  return removed;
 }
 
 // scripts/design/design-tokens.mjs
@@ -1172,7 +1259,7 @@ var PROBE_SCRIPT = [
   "  var KNOWN = {",
   "    __vd_ping: 1, __vd_proto_state: 1, __vd_set_scope: 1,",
   "    __vd_request_add_to_chat: 1, __vd_request_select_xpath: 1,",
-  "    __vd_apply_edits: 1",
+  "    __vd_apply_edits: 1, __vd_set_comments: 1",
   "  };",
   "  var STYLE_KEYS = [",
   "    'color','background-color','background-image','font-family','font-size','font-weight',",
@@ -1319,6 +1406,46 @@ var PROBE_SCRIPT = [
   '    if (selectedEl) selectedEl.setAttribute("data-tianshu-selected", "1");',
   "  }",
   "",
+  "  // \u6279\u6CE8\u56FE\u9489\uFF1A\u7236\u4FA7\u8BFB\u4E0D\u5230\u672C iframe \u7684 DOM\uFF0C\u53EA\u80FD\u5728\u5185\u90E8\u6309 xpath \u5B9A\u4F4D\u5E76\u7ED8\u5236\u7F16\u53F7\u5FBD\u6807\u3002",
+  "  var pinComments = [];",
+  "  var pinLayer = null;",
+  "  function ensurePinStyle(){",
+  '    if (document.querySelector("style[data-tianshu-pinstyle]")) return;',
+  '    var s = document.createElement("style");',
+  '    s.setAttribute("data-tianshu-pinstyle", "1");',
+  '    s.textContent = "[data-tianshu-pins]{position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:2147483647}[data-tianshu-pin]{position:absolute;display:flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#b85a24;color:#fff;font:600 12px/1 sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:auto;transform:translate(-50%,-50%)}";',
+  "    (document.head || document.documentElement).appendChild(s);",
+  "  }",
+  "  function ensurePinLayer(){",
+  "    if (pinLayer && pinLayer.parentNode) return pinLayer;",
+  '    pinLayer = document.createElement("div");',
+  '    pinLayer.setAttribute("data-tianshu-pins", "1");',
+  "    (document.body || document.documentElement).appendChild(pinLayer);",
+  "    return pinLayer;",
+  "  }",
+  "  function renderPins(){",
+  "    var layer = ensurePinLayer();",
+  '    layer.textContent = "";',
+  "    if (!pinComments.length) return;",
+  "    ensurePinStyle();",
+  "    var sx = window.scrollX || window.pageXOffset || 0;",
+  "    var sy = window.scrollY || window.pageYOffset || 0;",
+  "    for (var i = 0; i < pinComments.length; i++) {",
+  "      var el = byXPath(pinComments[i].xpath);",
+  "      if (!el) continue;",
+  "      var rect = el.getBoundingClientRect();",
+  '      var pin = document.createElement("div");',
+  '      pin.setAttribute("data-tianshu-pin", "1");',
+  '      pin.style.left = (rect.left + sx) + "px";',
+  '      pin.style.top = (rect.top + sy) + "px";',
+  "      pin.textContent = String(i + 1);",
+  '      if (pinComments[i].note) pin.setAttribute("title", pinComments[i].note);',
+  "      layer.appendChild(pin);",
+  "    }",
+  "  }",
+  '  window.addEventListener("resize", renderPins);',
+  '  window.addEventListener("load", renderPins);',
+  "",
   '  document.addEventListener("click", function(e){',
   "    if (isEditable(e.target)) return;",
   "    ensureStyle();",
@@ -1362,6 +1489,7 @@ var PROBE_SCRIPT = [
   '    if (d.type === "__vd_ping") { post("__vd_iframe_ready", null); return; }',
   '    if (d.type === "__vd_proto_state") { scopeXpath = p.scopeXpath || null; return; }',
   '    if (d.type === "__vd_set_scope") { scopeXpath = p.xpath || null; return; }',
+  '    if (d.type === "__vd_set_comments") { pinComments = Array.isArray(p.comments) ? p.comments : []; renderPins(); return; }',
   '    if (d.type === "__vd_request_select_xpath") {',
   '      var el = byXPath(p.xpath); if (el) post("__vd_proto_element_selected", payload(el)); return;',
   "    }",
@@ -1552,6 +1680,11 @@ function routeRequest(req, res) {
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
     return sendJson(res, { selection: readSelection(cwd) });
   }
+  if (req.method === "GET" && path === "/api/comments") {
+    const cwd = resolveCwd(url.searchParams.get("ws"));
+    if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
+    return sendJson(res, { comments: readComments(cwd) });
+  }
   if (req.method === "GET" && path === "/api/page-html") {
     const cwd = resolveCwd(url.searchParams.get("ws"));
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
@@ -1580,6 +1713,7 @@ function routeRequest(req, res) {
     }
     if (path === "/api/viewport") return handleViewport(req, res);
     if (path === "/api/selection") return handleSelection(req, res);
+    if (path === "/api/comments") return handleComments(req, res);
     if (path === "/api/page-html") return handlePageHtml(req, res);
     if (path === "/api/nodes") return handleNodes(req, res);
     if (path === "/api/edges") return handleEdges(req, res);
@@ -1678,6 +1812,33 @@ function handleSelection(req, res) {
     };
     writeSelection(cwd, selection);
     return sendJson(res, { ok: true });
+  });
+}
+function handleComments(req, res) {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd);
+    const op = String(body.op ?? "");
+    if (op === "add") {
+      const comment = addComment(cwd, {
+        pageId: typeof body.pageId === "string" ? body.pageId : "",
+        xpath: typeof body.xpath === "string" ? body.xpath : "",
+        tagName: typeof body.tagName === "string" ? body.tagName : void 0,
+        textContent: typeof body.textContent === "string" ? body.textContent : void 0,
+        note: typeof body.note === "string" ? body.note : ""
+      });
+      return sendJson(res, { ok: true, comment });
+    }
+    if (op === "resolve") {
+      const ids = Array.isArray(body.ids) ? body.ids.filter((v) => typeof v === "string") : [];
+      const changed = setCommentsResolved(cwd, ids, body.resolved !== false);
+      return sendJson(res, { ok: true, changed });
+    }
+    if (op === "remove") {
+      const ids = Array.isArray(body.ids) ? body.ids.filter((v) => typeof v === "string") : void 0;
+      const removed = removeComments(cwd, ids);
+      return sendJson(res, { ok: true, removed });
+    }
+    return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
   });
 }
 function handlePageHtml(req, res) {
@@ -2598,6 +2759,10 @@ ${formatSelection(selection, project).join("\n")}`);
       "\u5F53\u524D\u753B\u5E03\u6CA1\u6709\u9009\u4E2D\u9879\u3002\n\u8BF7\u5728\u6D4F\u89C8\u5668\u6253\u5F00\u753B\u5E03\uFF0C\u70B9\u51FB\u67D0\u4E2A\u9875\u9762\u8282\u70B9\uFF08\u6216\u6309\u4F4F Ctrl \u70B9\u51FB\u9875\u9762\u5185\u7684\u5143\u7D20\uFF09\u540E\u518D\u8BD5\u3002"
     );
   }
+  const pending = (project.comments ?? []).filter((c) => !c.resolved).length;
+  if (pending > 0) {
+    sections.push(`\u5F85\u5904\u7406\u6279\u6CE8\uFF1A${pending} \u6761\u3002\u7528 canvas_comments\uFF08action=list\uFF09\u67E5\u770B\u5168\u90E8\u6279\u6CE8\u5E76\u9010\u6761\u4FEE\u6539\u3002`);
+  }
   sections.push(url ? `\u753B\u5E03 URL\uFF1A${url}` : "\u63D0\u793A\uFF1A\u5148\u8C03\u7528 canvas_open \u83B7\u53D6\u753B\u5E03 URL\u3002");
   return { content: sections.join("\n\n") };
 }
@@ -2935,6 +3100,73 @@ ${lockLine}${warnLine}
     return { content: err.message, isError: true };
   }
 }
+function formatComment(c, index, project) {
+  const node = project.nodes.find((n) => n.id === c.pageId);
+  const pageTitle = node ? node.title : c.pageId;
+  const lines = [`${index}. [${c.id}] ${pageTitle}\uFF08${c.pageId}\uFF09\xB7 <${c.tagName || "?"}> xpath=${c.xpath}`];
+  if (c.textContent) lines.push(`   \u5F53\u524D\u6587\u672C\uFF1A${c.textContent}`);
+  lines.push(`   \u6279\u6CE8\uFF1A${c.note}`);
+  if (c.resolved) lines.push("   \uFF08\u5DF2\u89E3\u51B3\uFF09");
+  return lines.join("\n");
+}
+async function canvasComments(call) {
+  const action = str(call.args.action) ?? "list";
+  try {
+    if (action === "list") {
+      const project = readProject(call.cwd);
+      const all = project.comments ?? [];
+      const includeResolved = call.args.include_resolved === true;
+      const shown = includeResolved ? all : all.filter((c) => !c.resolved);
+      if (all.length === 0) {
+        return {
+          content: "\u5F53\u524D\u6CA1\u6709\u5143\u7D20\u6279\u6CE8\u3002\n\u7528\u6237\u5728\u753B\u5E03\u4E0A\u9009\u4E2D\u9875\u9762\u5185\u5143\u7D20\u540E\uFF0C\u53EF\u5728\u300C\u9009\u4E2D\u9762\u677F\u300D\u91CC\u5199\u4E00\u53E5\u8BDD\u5E76\u6DFB\u52A0\u6279\u6CE8\uFF1B\u4FDD\u5B58\u540E\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002"
+        };
+      }
+      if (shown.length === 0) {
+        return { content: `\u5171\u6709 ${all.length} \u6761\u6279\u6CE8\uFF0C\u5168\u90E8\u5DF2\u89E3\u51B3\u3002\u4F20 include_resolved=true \u53EF\u67E5\u770B\u3002` };
+      }
+      const sorted = [...shown].sort((a, b) => a.createdAt - b.createdAt);
+      const body = sorted.map((c, i) => formatComment(c, i + 1, project)).join("\n");
+      const resolved = all.length - all.filter((c) => !c.resolved).length;
+      return {
+        content: `\u5F85\u5904\u7406\u6279\u6CE8 ${sorted.length} \u6761${resolved ? `\uFF08\u53E6\u6709 ${resolved} \u6761\u5DF2\u89E3\u51B3\uFF09` : ""}\uFF1A
+
+${body}
+
+\u8BF7\u9010\u6761\u6309 xpath \u5B9A\u4F4D\u5E76\u4FEE\u6539\uFF08\u901A\u5E38\u7528 canvas_upsert_page \u91CD\u5199\u8BE5\u9875 HTML\uFF09\uFF1B\u6539\u5B8C\u540E\u8C03\u7528 canvas_comments\uFF08action=resolve, ids=[...]\uFF09\u6807\u8BB0\u5DF2\u89E3\u51B3\u3002`
+      };
+    }
+    if (action === "resolve" || action === "reopen") {
+      const ids = Array.isArray(call.args.ids) ? call.args.ids.filter((v) => typeof v === "string") : [];
+      if (ids.length === 0) return { content: `${action} \u9700\u8981 ids\uFF08\u6279\u6CE8 id \u6570\u7EC4\uFF09\u3002`, isError: true };
+      const project = readProject(call.cwd);
+      const known = new Set((project.comments ?? []).map((c) => c.id));
+      const missing = ids.filter((id) => !known.has(id));
+      const changed = setCommentsResolved(call.cwd, ids, action === "resolve");
+      const { url } = await ensureServer(call.cwd);
+      const missLine = missing.length ? `
+\u672A\u627E\u5230\uFF1A${missing.join("\u3001")}` : "";
+      return {
+        content: `${action === "resolve" ? "\u5DF2\u6807\u8BB0" : "\u5DF2\u91CD\u65B0\u6253\u5F00"} ${changed} \u6761\u6279\u6CE8\u3002
+\u753B\u5E03 URL\uFF1A${url}${missLine}`
+      };
+    }
+    if (action === "remove") {
+      const ids = Array.isArray(call.args.ids) ? call.args.ids.filter((v) => typeof v === "string") : void 0;
+      const all = call.args.all === true;
+      if (!all && (!ids || ids.length === 0)) {
+        return { content: "remove \u9700\u8981 ids\uFF08\u6279\u6CE8 id \u6570\u7EC4\uFF09\uFF0C\u6216\u7528 all=true \u6E05\u7A7A\u5168\u90E8\u3002", isError: true };
+      }
+      const removed = removeComments(call.cwd, all ? void 0 : ids);
+      const { url } = await ensureServer(call.cwd);
+      return { content: `\u5DF2\u5220\u9664 ${removed} \u6761\u6279\u6CE8\u3002
+\u753B\u5E03 URL\uFF1A${url}` };
+    }
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / resolve / reopen / remove\u3002`, isError: true };
+  } catch (err) {
+    return { content: err.message, isError: true };
+  }
+}
 var tools = [
   {
     definition: {
@@ -3124,6 +3356,27 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     execute: canvasDesignSystem
+  },
+  {
+    definition: {
+      name: "canvas_comments",
+      description: "\u8BFB\u53D6/\u5904\u7406\u7528\u6237\u5728\u753B\u5E03\u4E0A\u7559\u4E0B\u7684\u5143\u7D20\u6279\u6CE8\uFF08\u7528\u6237\u5728\u753B\u5E03\u9009\u4E2D\u5143\u7D20\u540E\u5199\u4E00\u53E5\u8BDD\u6253\u56FE\u9489\uFF09\u3002action=list \u4E00\u6B21\u8FD4\u56DE\u5168\u90E8\u5F85\u5904\u7406\u6279\u6CE8\uFF08\u542B\u9875\u7801\u6807\u9898\u3001\u6807\u7B7E\u3001xpath\u3001\u5F53\u524D\u6587\u672C\u4E0E\u6279\u6CE8\u5185\u5BB9\uFF09\uFF0C\u636E\u6B64\u9010\u6761\u4FEE\u6539\uFF1B\u6539\u5B8C\u540E\u7528 resolve \u4F20 ids \u6807\u8BB0\u5DF2\u89E3\u51B3\uFF0Creopen \u91CD\u65B0\u6253\u5F00\uFF0Cremove \u5220\u9664\uFF08\u6216 all=true \u6E05\u7A7A\u5168\u90E8\uFF09\u3002\u7528\u6237\u8BF4\u300C\u753B\u5E03\u4E0A\u6709\u51E0\u5904\u8981\u6539\u300D\u300C\u6211\u5708\u4E86\u51E0\u5904\u95EE\u9898\u300D\u65F6\u7528\u5B83\u3002",
+      input_schema: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["list", "resolve", "reopen", "remove"], description: "list=\u5217\u51FA\u6279\u6CE8\uFF08\u9ED8\u8BA4\uFF09\uFF1Bresolve=\u6807\u8BB0\u5DF2\u89E3\u51B3\uFF1Breopen=\u91CD\u65B0\u6253\u5F00\uFF1Bremove=\u5220\u9664" },
+          ids: { type: "array", items: { type: "string" }, description: "resolve / reopen / remove \u4F7F\u7528\uFF1A\u6279\u6CE8 id \u6570\u7EC4" },
+          include_resolved: { type: "boolean", description: "list \u53EF\u9009\uFF1A\u662F\u5426\u4E00\u5E76\u5217\u51FA\u5DF2\u89E3\u51B3\u7684\u6279\u6CE8\uFF08\u9ED8\u8BA4 false\uFF09" },
+          all: { type: "boolean", description: "remove \u53EF\u9009\uFF1A\u6E05\u7A7A\u5168\u90E8\u6279\u6CE8\uFF08\u5FFD\u7565 ids\uFF09" }
+        },
+        required: ["action"]
+      }
+    },
+    pathParams: {},
+    requiresApproval: () => false,
+    isConcurrencySafe: () => false,
+    isEnabled: () => true,
+    execute: withBackupNotice(canvasComments)
   }
 ];
 

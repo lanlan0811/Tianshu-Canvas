@@ -11,7 +11,7 @@
 import { EventEmitter } from 'node:events'
 import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assertSafeId, InvalidInputError, isSafeId, newPageId } from './ids.js'
+import { assertSafeId, InvalidInputError, isSafeId, newCommentId, newPageId } from './ids.js'
 import type { DeviceType } from './device.js'
 
 export const PROJECT_DIR_NAME = '.tianshu-canvas'
@@ -68,12 +68,29 @@ export interface ProjectDesign {
   updatedAt: number
 }
 
+/**
+ * 元素批注：用户在画布上给某个元素钉一句话，AI 批量读取后逐条修改。
+ * `textContent` 与探针 payload 口径一致（trim、200 字），用于确认元素未被脚本改写。
+ */
+export interface Comment {
+  id: string
+  pageId: string
+  xpath: string
+  tagName: string
+  textContent?: string
+  note: string
+  createdAt: number
+  resolved: boolean
+  resolvedAt?: number
+}
+
 export interface Project {
   version: 1
   viewport: Viewport
   nodes: PageNode[]
   edges: Edge[]
   design?: ProjectDesign
+  comments?: Comment[]
 }
 
 /** 项目变更事件总线；服务端订阅后向浏览器广播。 */
@@ -129,8 +146,12 @@ function inspectProject(cwd: string): ProjectInspection {
   const project: Project = { version: 1, viewport: normalizeViewport(obj.viewport), nodes, edges }
   const design = normalizeDesign(obj.design)
   if (design) project.design = design
+  const rawComments = Array.isArray(obj.comments) ? obj.comments : []
+  const comments = rawComments.map(normalizeComment).filter((c): c is Comment => c !== null)
+  if (comments.length > 0) project.comments = comments
   return {
     project,
+    // 无效批注静默过滤（与 design 一致），不计入 dropped。
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length,
   }
 }
@@ -199,6 +220,30 @@ function normalizeDesign(v: unknown): ProjectDesign | null {
   if (typeof o.styleId !== 'string' || o.styleId.trim() === '') return null
   const updatedAt = typeof o.updatedAt === 'number' && Number.isFinite(o.updatedAt) ? o.updatedAt : 0
   return { styleId: o.styleId.trim(), updatedAt }
+}
+
+/** 归一化单条批注；字段缺失或不合法时返回 null（整条丢弃）。 */
+function normalizeComment(v: unknown): Comment | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  if (typeof o.id !== 'string' || o.id.trim() === '') return null
+  if (!isSafeId(o.pageId)) return null
+  if (typeof o.xpath !== 'string' || o.xpath.trim() === '') return null
+  if (typeof o.note !== 'string' || o.note.trim() === '') return null
+  const createdAt = typeof o.createdAt === 'number' && Number.isFinite(o.createdAt) ? o.createdAt : 0
+  const resolved = o.resolved === true
+  const comment: Comment = {
+    id: o.id.trim(),
+    pageId: o.pageId,
+    xpath: o.xpath,
+    tagName: typeof o.tagName === 'string' ? o.tagName : '',
+    note: o.note.trim(),
+    createdAt,
+    resolved,
+  }
+  if (typeof o.textContent === 'string') comment.textContent = o.textContent
+  if (resolved && typeof o.resolvedAt === 'number' && Number.isFinite(o.resolvedAt)) comment.resolvedAt = o.resolvedAt
+  return comment
 }
 
 function isPageNode(n: unknown): n is PageNode {
@@ -293,12 +338,17 @@ export function nextLayoutIndex(cwd: string): number {
 // 节点 / 边 编排
 // ---------------------------------------------------------------------------
 
-/** 删除节点（连带删除与其相连的边与页面文件）。 */
+/** 删除节点（连带删除与其相连的边、该页批注与页面文件）。 */
 export function removeNode(cwd: string, id: string): Project {
   assertSafeId(id)
   const project = readProject(cwd)
   project.nodes = project.nodes.filter((n) => n.id !== id)
   project.edges = project.edges.filter((e) => e.source !== id && e.target !== id)
+  if (project.comments) {
+    const keep = project.comments.filter((c) => c.pageId !== id)
+    if (keep.length > 0) project.comments = keep
+    else delete project.comments
+  }
   writeProjectAtomic(cwd, project)
   try {
     rmSync(join(pagesDir(cwd), `${id}.html`), { force: true })
@@ -426,4 +476,71 @@ export function writeSelection(cwd: string, selection: Selection): void {
   writeFileSync(tmp, JSON.stringify(selection, null, 2) + '\n', 'utf8')
   renameSync(tmp, file)
   projectEvents.emit('selection', { cwd })
+}
+
+// ---------------------------------------------------------------------------
+// 元素批注
+// ---------------------------------------------------------------------------
+
+export function readComments(cwd: string): Comment[] {
+  return readProject(cwd).comments ?? []
+}
+
+/** 给某个页面元素添加一条批注。pageId 必须对应已存在的节点。 */
+export function addComment(
+  cwd: string,
+  input: { pageId: string; xpath: string; tagName?: string; textContent?: string; note: string },
+): Comment {
+  assertSafeId(input.pageId)
+  if (!input.xpath || input.xpath.trim() === '') throw new InvalidInputError('批注缺少 xpath')
+  if (!input.note || input.note.trim() === '') throw new InvalidInputError('批注内容不能为空')
+  const project = readProject(cwd)
+  if (!project.nodes.some((n) => n.id === input.pageId)) {
+    throw new InvalidInputError(`节点不存在：${input.pageId}`)
+  }
+  const comment: Comment = {
+    id: newCommentId(),
+    pageId: input.pageId,
+    xpath: input.xpath,
+    tagName: input.tagName ?? '',
+    note: input.note.trim(),
+    createdAt: Date.now(),
+    resolved: false,
+  }
+  if (input.textContent !== undefined) comment.textContent = input.textContent
+  project.comments = [...(project.comments ?? []), comment]
+  writeProjectAtomic(cwd, project)
+  return comment
+}
+
+/** 批量标记批注为已解决 / 重新打开。返回命中的条数。 */
+export function setCommentsResolved(cwd: string, ids: string[], resolved: boolean): number {
+  const project = readProject(cwd)
+  const comments = project.comments ?? []
+  if (comments.length === 0) return 0
+  const wanted = new Set(ids)
+  let changed = 0
+  for (const c of comments) {
+    if (!wanted.has(c.id) || c.resolved === resolved) continue
+    c.resolved = resolved
+    if (resolved) c.resolvedAt = Date.now()
+    else delete c.resolvedAt
+    changed++
+  }
+  if (changed > 0) writeProjectAtomic(cwd, project)
+  return changed
+}
+
+/** 删除批注；不传 ids 时清空全部。返回删除条数。 */
+export function removeComments(cwd: string, ids?: string[]): number {
+  const project = readProject(cwd)
+  const comments = project.comments ?? []
+  if (comments.length === 0) return 0
+  const keep = ids ? comments.filter((c) => !ids.includes(c.id)) : []
+  const removed = comments.length - keep.length
+  if (removed === 0) return 0
+  if (keep.length > 0) project.comments = keep
+  else delete project.comments
+  writeProjectAtomic(cwd, project)
+  return removed
 }

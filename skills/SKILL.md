@@ -115,6 +115,10 @@ triggers:
   - `link`（传 `source`、`target`，可选 `label`）：页面间连线，表达页面流程。
   - `unlink`（传 `source`、`target`）：取消连线。
 - **导出**：`canvas_export`（`kind`: png / zip / both）——画布截图 PNG + 原型打包 ZIP。
+- **元素批注（批量改）**：用户在画布上选中元素后打图钉、写一句批注（存在 project.json 的 `comments[]`）。
+  用户说「我圈了几处」「画布上有几处要改」时，调用 `canvas_comments`（action=list）**一次读回全部待处理批注**，
+  按 xpath 逐条修改（通常用 `canvas_upsert_page` 重写该页），改完再用 `action=resolve` 传 ids 标记已解决。
+  也支持 `reopen`（重新打开）与 `remove`（删除，或 `all=true` 清空）。
 - 用户也可在画布面板点「复制修改请求」把选中项文本粘给你；或直接在画布上改文案/样式（会回写原型）。
 
 ## 约定
@@ -138,4 +142,5 @@ triggers:
 | `canvas_style` | 列出 / 查看 / 锁定 / 切换项目设计风格，取模板 HTML | 用户没指定风格时先 list 再问，选定后 set；写页面前 get；需要骨架时 template |
 | `canvas_check_style` | 只读检查页面是否符合当前风格 | 每次写完页面后；用户问「为什么风格不统一」时 |
 | `canvas_design_system` | 创建 / 查看 / 删除当前项目的自定义设计系统（含浅色 + 深色） | 用户要做「专属设计系统」时：问清配置后 create；list/get 查看；remove 删除 |
+| `canvas_comments` | 读取 / 处理画布元素批注（`action`: list / resolve / reopen / remove） | 用户圈了几处要改时：先 list 读全部，逐条改完再 resolve |
 | `canvas_export` | 导出 PNG / ZIP | 交付成果时 |

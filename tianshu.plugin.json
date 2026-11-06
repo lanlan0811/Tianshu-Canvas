@@ -41,6 +41,10 @@
         "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色）"
       },
       {
+        "name": "canvas_comments",
+        "description": "读取/处理用户在画布上留下的元素批注：列出待办、批量标记已解决/重开/删除"
+      },
+      {
         "name": "canvas_export",
         "description": "导出画布截图 PNG 与/或原型打包 ZIP"
       }

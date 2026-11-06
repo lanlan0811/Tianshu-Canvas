@@ -56,6 +56,9 @@
 
 - **选中反馈**：在画布上点击页面/元素（Ctrl 点击选最内层），用 `canvas_get_state` 读回；
   或点面板「复制修改请求」粘给 AI。
+- **元素批注**：选中元素后在面板写一句话即可打图钉（元素左上角显示编号、节点标题栏显示「批注 N」），
+  存在 `project.json` 的 `comments[]`；AI 用 `canvas_comments`（`action`: list / resolve / reopen / remove）
+  一次读回全部待处理批注，逐条改完后标记已解决。
 - **可视化编辑**：选中元素后直接改样式，不含子元素的元素还可改文案，修改回写到原型源文件（脚本生成的元素无法回写，会提示交给 AI）；面板可用头部「×」收起为右上角小标签，点击再展开。
 - **编排**：节点工具栏重命名/复制/删除；页面间连线。AI 侧用 `canvas_arrange`（`action`: remove / duplicate / link / unlink）。
 - **导出**：`canvas_export` 产出画布截图 PNG 与/或原型打包 ZIP。
@@ -68,7 +71,7 @@
 
 ```
 <cwd>/.tianshu-canvas/
-├── project.json          画布模型（节点/视口/风格锁定）
+├── project.json          画布模型（节点/视口/风格锁定/元素批注）
 ├── pages/<id>.html       每个页面的原型 HTML
 └── library/<id>/         自定义设计系统（tokens.json + meta.json，可选）
 ```

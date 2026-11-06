@@ -24,3 +24,8 @@ export function assertSafeId(id: unknown): asserts id is string {
 export function newPageId(): string {
   return 'page-' + randomUUID().replace(/-/g, '').slice(0, 8)
 }
+
+/** 生成形如 `cmt-3f2a91c4` 的批注 id。 */
+export function newCommentId(): string {
+  return 'cmt-' + randomUUID().replace(/-/g, '').slice(0, 8)
+}

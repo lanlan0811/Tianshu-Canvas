@@ -24,17 +24,21 @@ import { applyProjectStyle } from './designOps.js'
 import { injectProbe } from './probe.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
+  addComment,
   addEdge,
   moveNode,
   projectEvents,
   projectIssue,
+  readComments,
   readPageHtml,
   readProject,
   readSelection,
+  removeComments,
   removeEdge,
   removeNode,
   renameNode,
   duplicateNode,
+  setCommentsResolved,
   setViewport,
   writePageHtml,
   writeSelection,
@@ -239,6 +243,12 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     return sendJson(res, { selection: readSelection(cwd) })
   }
 
+  if (req.method === 'GET' && path === '/api/comments') {
+    const cwd = resolveCwd(url.searchParams.get('ws'))
+    if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
+    return sendJson(res, { comments: readComments(cwd) })
+  }
+
   if (req.method === 'GET' && path === '/api/page-html') {
     const cwd = resolveCwd(url.searchParams.get('ws'))
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
@@ -271,6 +281,7 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     }
     if (path === '/api/viewport') return handleViewport(req, res)
     if (path === '/api/selection') return handleSelection(req, res)
+    if (path === '/api/comments') return handleComments(req, res)
     if (path === '/api/page-html') return handlePageHtml(req, res)
     if (path === '/api/nodes') return handleNodes(req, res)
     if (path === '/api/edges') return handleEdges(req, res)
@@ -396,6 +407,34 @@ function handleSelection(req: http.IncomingMessage, res: http.ServerResponse): v
     }
     writeSelection(cwd, selection)
     return sendJson(res, { ok: true })
+  })
+}
+
+function handleComments(req: http.IncomingMessage, res: http.ServerResponse): void {
+  readJsonBody(req, res, (body) => {
+    const cwd = String(body.__cwd)
+    const op = String(body.op ?? '')
+    if (op === 'add') {
+      const comment = addComment(cwd, {
+        pageId: typeof body.pageId === 'string' ? body.pageId : '',
+        xpath: typeof body.xpath === 'string' ? body.xpath : '',
+        tagName: typeof body.tagName === 'string' ? body.tagName : undefined,
+        textContent: typeof body.textContent === 'string' ? body.textContent : undefined,
+        note: typeof body.note === 'string' ? body.note : '',
+      })
+      return sendJson(res, { ok: true, comment })
+    }
+    if (op === 'resolve') {
+      const ids = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string') : []
+      const changed = setCommentsResolved(cwd, ids, body.resolved !== false)
+      return sendJson(res, { ok: true, changed })
+    }
+    if (op === 'remove') {
+      const ids = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string') : undefined
+      const removed = removeComments(cwd, ids)
+      return sendJson(res, { ok: true, removed })
+    }
+    return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
   })
 }
 
