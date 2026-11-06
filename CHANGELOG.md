@@ -3,6 +3,32 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.5.0] - 2026-11-06
+
+三个新能力：**真实资源内联**、**设计系统反抽取**、**导出生产代码（Web + 多端）**。工具名不变（仍 8 个），新能力以参数 / `action` 形式并入现有工具。详细说明见 [release-0.5.0.md](release/release-0.5.0.md)。
+
+### 新增
+
+- **资源内联**（`canvas_upsert_page` 的 `inline_assets`）：把原型里会被画布 CSP 拦截的外链/相对路径资源抓取并内联为 `data:` URI（图片 / 字体 / CSS / SVG / 脚本）。**默认关闭，仅显式传参才触发**；相对路径需 `inline_assets_origin`；抓不到或超限的资源保留原引用并在返回里说明。
+- **设计系统反抽取**（`canvas_design_system` 的 `action=extract`）：从现有 HTML/CSS（`source` / `path`）或一个 URL 反推出一套**能通过严格 token 契约校验**的设计系统并创建。支持 `dry_run` 预览；返回里区分「观测 N 项 / 推断 M 项」。
+- **导出生产代码**（`canvas_style` 的 `action=codegen`）：
+  - Web：`target=react`（HTML→JSX 组件）/ `css-vars`（CSS 变量 + 无框架 HTML）/ `tailwind`（Tailwind 配置）。
+  - 多端：`target=ios|android|miniprogram` + `stack=swiftui|uikit|compose|xml|weapp|uniapp|taro`，产出**主题/Token 文件 + `design-spec.md` 规格清单**（确定性、已校验）；页面代码由 AI 按规格编写。
+  - 默认内联返回文件内容；`write_files=true` / `out_dir` 时落到 `.tianshu-canvas/exports/`。
+- **SSRF 安全抓取**（新模块 `src/netFetch.ts`）：协议白名单、内网/回环/链路本地拦截、连接钉在校验过的 IP（防 DNS rebinding）、重定向逐跳复验、体积与超时上限。
+
+### 变更
+
+- 抽出共享 CSS 解析器（`src/cssParse.ts`），由 `src/lint.ts` 与反抽取共用（行为不变）。
+- 技能新增两节**硬流程**：导出代码必须先问「目标」（多端再问「技术栈」）才可调用 `codegen`；反抽取建议先 `dry_run`。
+- 工具数仍为 8 个；`tianshu.plugin.json` 仅更新描述与版本。
+
+### 说明
+
+- 无 `project.json` 字段变化，旧项目无需迁移。
+- 反抽取是**确定性**的（同输入同输出）；多端 HTML→原生**必然有损**，产物明确标注保真度与人工校对点，不宣称像素级还原。
+- 测试由 63 个增至 95 个。
+
 ## [v0.4.2] - 2026-11-06
 
 移除 AI 侧的导出工具 `canvas_export`：导出改由用户在画布顶栏自行操作。工具由 9 个回到 8 个。详细说明见 [release-0.4.2.md](release/release-0.4.2.md)。

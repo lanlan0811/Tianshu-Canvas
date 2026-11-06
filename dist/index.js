@@ -7,8 +7,8 @@ function defineTianshuPlugin(spec) {
 
 // src/tools.ts
 import { spawn as spawn2 } from "node:child_process";
-import { existsSync as existsSync6, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "node:fs";
-import { join as join6 } from "node:path";
+import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync4 } from "node:fs";
+import { dirname, join as join6 } from "node:path";
 
 // src/device.ts
 var DEVICE_PRESETS = {
@@ -1235,24 +1235,10 @@ ${template.html.trim()}
   return { html, device: template.device, name: template.name };
 }
 
-// src/resources.ts
-var TAG_RESOURCE = /<(?:script|img|link|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|href|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
-var CSS_RESOURCE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)|@import\s+(?:"([^"]*)"|'([^']*)')/gi;
-var INLINE = /^(?:data:|blob:|about:|#)/i;
-function findBlockedResources(html) {
-  const found = /* @__PURE__ */ new Set();
-  for (const pattern of [TAG_RESOURCE, CSS_RESOURCE]) {
-    for (const match of html.matchAll(pattern)) {
-      const value = match.slice(1).find((group) => group !== void 0)?.trim();
-      if (value && !INLINE.test(value)) found.add(value);
-    }
-  }
-  return [...found];
-}
+// src/extract.ts
+import { existsSync as existsSync4, readFileSync as readFileSync4 } from "node:fs";
 
-// src/lint.ts
-var MAX_FINDINGS = 40;
-var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
+// src/cssParse.ts
 var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
 var FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi;
 var COLOR_PROP = /^(?:color|background(?:-color|-image)?|border(?:-(?:top|right|bottom|left|block|inline))*(?:-color)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|text-decoration(?:-color)?|caret-color|accent-color|column-rule(?:-color)?)$/;
@@ -1261,7 +1247,7 @@ var NAMED_COLORS = new Set(
 );
 var CSS_WORD = /(?<![\w-])[a-z]+(?![\w-])/gi;
 var VAR_REF = /var\(\s*(--ts-[A-Za-z0-9-]+)\s*\)/g;
-var CLASS_ATTR = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+var CLASS_ATTR_RE = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 var DATA_ICON = /data-icon\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 var EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi;
 var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/;
@@ -1356,6 +1342,877 @@ function snippetAt(html, offset, length = 80) {
   const end = lineEnd === -1 ? Math.min(html.length, start + length) : Math.min(lineEnd, start + length);
   return html.slice(start, end).trim();
 }
+function pxValues(value) {
+  if (/calc\(/i.test(value)) return [];
+  const literal = value.replace(/var\([^)]*\)/gi, " ");
+  const found = /* @__PURE__ */ new Set();
+  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
+  return [...found];
+}
+
+// src/resources.ts
+var TAG_RESOURCE = /<(?:script|img|link|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|href|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+var CSS_RESOURCE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)|@import\s+(?:"([^"]*)"|'([^']*)')/gi;
+var INLINE = /^(?:data:|blob:|about:|#)/i;
+function findBlockedResources(html) {
+  const found = /* @__PURE__ */ new Set();
+  for (const pattern of [TAG_RESOURCE, CSS_RESOURCE]) {
+    for (const match of html.matchAll(pattern)) {
+      const value = match.slice(1).find((group) => group !== void 0)?.trim();
+      if (value && !INLINE.test(value)) found.add(value);
+    }
+  }
+  return [...found];
+}
+
+// src/netFetch.ts
+import { lookup as dnsLookup } from "node:dns";
+import http from "node:http";
+import https from "node:https";
+import { isIP } from "node:net";
+var FetchError = class extends Error {
+};
+var DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
+var DEFAULT_DEADLINE_MS = 1e4;
+var DEFAULT_MAX_REDIRECTS = 3;
+var BLOCKED_V4 = [
+  { base: 0, bits: 8 },
+  // 0.0.0.0/8
+  { base: 167772160, bits: 8 },
+  // 10/8
+  { base: 1681915904, bits: 10 },
+  // 100.64/10 (CGNAT)
+  { base: 2130706432, bits: 8 },
+  // 127/8 (loopback)
+  { base: 2851995648, bits: 16 },
+  // 169.254/16 (link-local)
+  { base: 2886729728, bits: 12 },
+  // 172.16/12
+  { base: 3221225472, bits: 24 },
+  // 192.0.0/24
+  { base: 3232235520, bits: 16 },
+  // 192.168/16
+  { base: 3323068416, bits: 15 },
+  // 198.18/15 (benchmark)
+  { base: 3758096384, bits: 4 },
+  // 224/4 (multicast)
+  { base: 4026531840, bits: 4 }
+  // 240/4 (reserved)
+];
+function v4ToInt(ip) {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return NaN;
+  return (parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3]) >>> 0;
+}
+function ipv4Blocked(ip) {
+  const value = v4ToInt(ip);
+  if (!Number.isFinite(value)) return true;
+  for (const { base, bits } of BLOCKED_V4) {
+    const mask2 = bits === 0 ? 0 : 4294967295 << 32 - bits >>> 0;
+    if ((value & mask2) === (base & mask2)) return true;
+  }
+  return false;
+}
+function normalizeIp(raw) {
+  const value = raw.trim().replace(/^\[|\]$/g, "");
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(value);
+  if (mapped) return { family: 4, ip: mapped[1] };
+  const family = isIP(value);
+  if (family === 4) return { family: 4, ip: value };
+  if (family === 6) return { family: 6, ip: value.toLowerCase() };
+  return null;
+}
+function ipv6Blocked(ip) {
+  const value = ip.replace(/^\[|\]$/g, "").toLowerCase();
+  if (value === "::1" || value === "::") return true;
+  if (/^fe[89ab]/.test(value)) return true;
+  if (/^f[cd]/.test(value)) return true;
+  if (value.startsWith("2001:db8")) return true;
+  return false;
+}
+function isBlockedIp(raw) {
+  const parsed = normalizeIp(raw);
+  if (!parsed) return true;
+  return parsed.family === 4 ? ipv4Blocked(parsed.ip) : ipv6Blocked(parsed.ip);
+}
+async function assertUrlAllowed(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new FetchError(`\u4E0D\u662F\u5408\u6CD5 URL\uFF1A${rawUrl}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new FetchError(`\u4EC5\u5141\u8BB8 http/https\uFF1A${url.protocol}`);
+  }
+  if (url.username || url.password) {
+    throw new FetchError("\u4E0D\u5141\u8BB8 URL \u5185\u5D4C\u51ED\u636E\uFF08user:pass@\uFF09\u3002");
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host)) {
+    if (isBlockedIp(host)) throw new FetchError(`\u7981\u6B62\u8BBF\u95EE\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1A${host}`);
+    return { url, address: host, family: isIP(host) };
+  }
+  const addresses = await resolveAll(host);
+  if (addresses.length === 0) throw new FetchError(`\u65E0\u6CD5\u89E3\u6790\u4E3B\u673A\uFF1A${host}`);
+  for (const addr of addresses) {
+    if (isBlockedIp(addr.address)) throw new FetchError(`\u4E3B\u673A ${host} \u89E3\u6790\u5230\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1A${addr.address}`);
+  }
+  return { url, address: addresses[0].address, family: addresses[0].family };
+}
+function resolveAll(host) {
+  return new Promise((resolve, reject) => {
+    dnsLookup(host, { all: true }, (err, addresses) => {
+      if (err) reject(new FetchError(`DNS \u89E3\u6790\u5931\u8D25\uFF1A${host}\uFF08${err.message}\uFF09`));
+      else resolve(addresses);
+    });
+  });
+}
+function requestOnce(target, options, maxBytes, signal) {
+  return new Promise((resolve, reject) => {
+    const isHttps = target.url.protocol === "https:";
+    const mod = isHttps ? https : http;
+    const pinnedLookup = (_hostname, _opts, callback) => {
+      callback(null, target.address, target.family);
+    };
+    const req = mod.request(
+      {
+        protocol: target.url.protocol,
+        hostname: target.url.hostname.replace(/^\[|\]$/g, ""),
+        port: target.url.port || (isHttps ? 443 : 80),
+        path: target.url.pathname + target.url.search,
+        method: "GET",
+        // identity：不解压，避免 gzip 炸弹。
+        headers: { "Accept-Encoding": "identity", "User-Agent": "tianshu-canvas", ...options.headers },
+        lookup: pinnedLookup,
+        ...isHttps ? { servername: target.url.hostname.replace(/^\[|\]$/g, "") } : {},
+        signal
+      },
+      (res) => {
+        const chunks = [];
+        let size = 0;
+        res.on("data", (chunk) => {
+          size += chunk.length;
+          if (size > maxBytes) {
+            res.destroy(new FetchError(`\u54CD\u5E94\u8D85\u8FC7\u4F53\u79EF\u4E0A\u9650\uFF08${maxBytes} \u5B57\u8282\uFF09`));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on(
+          "end",
+          () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
+        );
+        res.on("error", reject);
+      }
+    );
+    req.on("error", (err) => {
+      if (signal.aborted) reject(new FetchError("\u6293\u53D6\u8D85\u65F6\u6216\u5DF2\u53D6\u6D88"));
+      else reject(new FetchError(`\u8BF7\u6C42\u5931\u8D25\uFF1A${err.message}`));
+    });
+    req.end();
+  });
+}
+async function fetchUrl(rawUrl, options = {}) {
+  if (options.fetchImpl) return options.fetchImpl(rawUrl, options);
+  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+  const deadline = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deadline);
+  timer.unref?.();
+  try {
+    let current = rawUrl;
+    for (let hop = 0; hop <= maxRedirects; hop++) {
+      const target = await assertUrlAllowed(current);
+      const res = await requestOnce(target, options, maxBytes, controller.signal);
+      if (res.status >= 300 && res.status < 400 && res.headers.location) {
+        if (hop === maxRedirects) throw new FetchError(`\u91CD\u5B9A\u5411\u6B21\u6570\u8D85\u8FC7 ${maxRedirects} \u6B21`);
+        current = new URL(String(res.headers.location), target.url).toString();
+        continue;
+      }
+      if (res.status < 200 || res.status >= 300) {
+        throw new FetchError(`HTTP ${res.status}\uFF1A${target.url.toString()}`);
+      }
+      const contentType = typeof res.headers["content-type"] === "string" ? res.headers["content-type"] : null;
+      return { body: res.body, url: target.url.toString(), contentType };
+    }
+    throw new FetchError("\u91CD\u5B9A\u5411\u5904\u7406\u5F02\u5E38");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function fetchText(rawUrl, options = {}) {
+  const result = await fetchUrl(rawUrl, options);
+  return { text: result.body.toString("utf8"), url: result.url, contentType: result.contentType };
+}
+
+// src/extract.ts
+var NEUTRAL_KEYS = ["0", "50", "100", "200", "300", "500", "700", "900"];
+var BRAND_KEYS = ["100", "300", "500", "600", "700"];
+var STATUS_KEYS = ["50", "500"];
+var STATUS_GROUPS = ["success", "warning", "danger", "info"];
+var SPACE_KEYS = ["0", "1", "2", "3", "4", "5", "6", "8", "10", "12", "16"];
+var RADIUS_KEYS = ["none", "sm", "md", "lg", "xl", "full"];
+var SIZE_KEYS = ["controlSm", "controlMd", "controlLg", "iconSm", "iconMd", "iconLg", "containerSm", "containerMd", "containerLg", "sidebar"];
+var FALLBACK = {
+  neutral: ["#ffffff", "#fafafa", "#f4f4f5", "#e4e4e7", "#d4d4d8", "#71717a", "#3f3f46", "#18181b"],
+  brand500: "#2563eb",
+  status: { success: "#15803d", warning: "#b45309", danger: "#dc2626", info: "#1d4ed8" },
+  fontSizes: [11, 12, 14, 17, 21, 26, 34, 48],
+  space: [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64],
+  radius: [0, 6, 10, 14, 20, 9999],
+  shadow: {
+    sm: "0 1px 2px rgba(0,0,0,0.04)",
+    md: "0 4px 16px rgba(0,0,0,0.08)",
+    lg: "0 12px 40px rgba(0,0,0,0.12)"
+  },
+  families: {
+    sans: "system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+    display: "system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+    mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  }
+};
+function toHex({ r, g, b }) {
+  const h = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+function parseColor(value) {
+  const text = value.trim();
+  const hex = parseHex(text);
+  if (hex) return { r: hex[0], g: hex[1], b: hex[2] };
+  const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
+  if (rgb) return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]) };
+  const hsl = /^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/i.exec(text);
+  if (hsl) {
+    const [h, s, l] = [Number(hsl[1]) / 360, Number(hsl[2]) / 100, Number(hsl[3]) / 100];
+    return hslToRgb(h, s, l);
+  }
+  return null;
+}
+function hslToRgb(h, s, l) {
+  if (s === 0) {
+    const v = l * 255;
+    return { r: v, g: v, b: v };
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const hue = (t) => {
+    let x = t;
+    if (x < 0) x += 1;
+    if (x > 1) x -= 1;
+    if (x < 1 / 6) return p + (q - p) * 6 * x;
+    if (x < 1 / 2) return q;
+    if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
+    return p;
+  };
+  return { r: hue(h + 1 / 3) * 255, g: hue(h) * 255, b: hue(h - 1 / 3) * 255 };
+}
+function rgbToHsl({ r, g, b }) {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === rr) h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6;
+  else if (max === gg) h = ((bb - rr) / d + 2) / 6;
+  else h = ((rr - gg) / d + 4) / 6;
+  return { h, s, l };
+}
+function luminanceOf(hex) {
+  const rgb = parseHex(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = rgb.map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function ensureContrast(fgHex, bgHex, min) {
+  const bgLum = luminanceOf(bgHex);
+  const darken2 = bgLum > 0.5;
+  let current = parseColor(fgHex);
+  if (!current) return fgHex;
+  for (let i = 0; i < 200; i++) {
+    if (contrast(toHex(current), bgHex) >= min) break;
+    const step = darken2 ? -6 : 6;
+    current = { r: current.r + step, g: current.g + step, b: current.b + step };
+    if (current.r <= 0 && current.g <= 0 && current.b <= 0) break;
+    if (current.r >= 255 && current.g >= 255 && current.b >= 255) break;
+  }
+  return toHex(current);
+}
+function mix(aHex, bHex, t) {
+  const a = parseColor(aHex);
+  const b = parseColor(bHex);
+  return toHex({ r: a.r + (b.r - a.r) * t, g: a.g + (b.g - a.g) * t, b: a.b + (b.b - a.b) * t });
+}
+function darken(hex, amount) {
+  return mix(hex, "#000000", amount);
+}
+var COLOR_HINT = /\b(?:color|background|border|fill|stroke|shadow|outline|accent|caret)\b/i;
+var COLOR_FN = /#[0-9a-fA-F]{3,8}\b|\brgba?\([^)]*\)|\bhsla?\([^)]*\)/gi;
+var COLOR_FN_TEST = /#[0-9a-fA-F]{3,8}\b|\brgba?\([^)]*\)|\bhsla?\([^)]*\)/i;
+var READABLE_SELECTOR = /(?:^|[\s,{])(?:body|html|:root|\.btn|\.button|button|\.primary|\.link|a)\b/i;
+function collectFromCss(css, into, weightBoost = 1) {
+  const segments = styleSegments(css);
+  const sources = segments.length ? segments : [{ start: 0, text: css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")) }];
+  for (const segment of sources) {
+    const boost = READABLE_SELECTOR.test(segment.text) ? weightBoost * 3 : weightBoost;
+    for (const decl of declarations(segment.text)) {
+      const prop = decl.prop;
+      if (COLOR_HINT.test(prop) || COLOR_FN_TEST.test(decl.raw)) {
+        for (const match of decl.raw.matchAll(COLOR_FN)) {
+          const rgb = parseColor(match[0]);
+          if (rgb) into.colors.push({ hex: toHex(rgb), weight: boost });
+        }
+      }
+      if (prop === "font-size") {
+        const px = firstPx(decl.value);
+        if (px !== null) into.fontSizes.push(px);
+      } else if (RADIUS_PROP.test(prop)) {
+        for (const px of pxList(decl.value)) into.radii.push(px);
+      } else if (SPACING_PROPS.test(prop)) {
+        for (const px of pxList(decl.value)) if (px > 0) into.spaces.push(px);
+      } else if (prop === "font-family") {
+        const first = decl.value.split(",")[0]?.trim().replace(/^['"]|['"]$/g, "");
+        if (first) into.families.push(decl.value.trim());
+      } else if (prop === "box-shadow" && !/url\(|@import|https?:/i.test(decl.value)) {
+        into.shadows.push(decl.value);
+      } else if (prop === "font-weight") {
+        const w = Number(decl.value);
+        if (Number.isFinite(w) && w >= 100 && w <= 900) into.weights.push(w);
+      }
+      const stroke = /^stroke-width$/.test(prop) ? /([\d.]+)/.exec(decl.value) : null;
+      if (stroke) into.iconStroke = Number(stroke[1]);
+    }
+  }
+}
+function firstPx(value) {
+  const list = pxList(value);
+  return list.length ? list[0] : null;
+}
+function pxList(value) {
+  if (/calc\(/i.test(value)) return [];
+  const found = [];
+  for (const match of value.matchAll(/(?<![\w.-])(\d+(?:\.\d+)?)px\b/g)) found.push(Number(match[1]));
+  return found;
+}
+function collectFromHtml(html) {
+  const links = [];
+  for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+    if (/\brel\s*=\s*["']?[^"'>]*stylesheet/i.test(match[0])) {
+      const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(match[0]);
+      const ref = (href?.[1] ?? href?.[2] ?? href?.[3] ?? "").trim();
+      if (ref) links.push(ref);
+    }
+  }
+  return { css: html, links };
+}
+async function gather(input, warnings) {
+  let htmlText = null;
+  let cssText = "";
+  if (typeof input.source === "string" && input.source.trim()) {
+    if (/<[a-z!/]/i.test(input.source)) htmlText = input.source;
+    else cssText = input.source;
+  } else if (input.file) {
+    if (!existsSync4(input.file)) throw new Error(`\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${input.file}`);
+    const text = readFileSync4(input.file, "utf8");
+    if (/\.css$/i.test(input.file) || !/<[a-z!/]/i.test(text)) cssText = text;
+    else htmlText = text;
+  } else if (input.url) {
+    const result = await fetchText(input.url, { fetchImpl: input.fetchImpl });
+    htmlText = result.text;
+  } else {
+    throw new Error("\u7F3A\u5C11\u8F93\u5165\uFF1A\u8BF7\u63D0\u4F9B source\uFF08\u5185\u8054 HTML/CSS\uFF09\u3001file\uFF08\u6587\u4EF6\u8DEF\u5F84\uFF09\u6216 url\u3002");
+  }
+  const parts = [];
+  if (cssText) parts.push(cssText);
+  if (htmlText) {
+    const { css, links } = collectFromHtml(htmlText);
+    parts.push(css);
+    const base = input.url;
+    for (const href of links.slice(0, 3)) {
+      try {
+        const abs = base ? new URL(href, base).toString() : href;
+        if (!/^https?:/i.test(abs)) continue;
+        const res = await fetchText(abs, { fetchImpl: input.fetchImpl });
+        parts.push(res.text);
+      } catch (err) {
+        warnings.push(`\u5916\u90E8\u6837\u5F0F\u8868\u6293\u53D6\u5931\u8D25\uFF1A${href}\uFF08${err.message}\uFF09`);
+      }
+    }
+  }
+  return { cssText: parts.join("\n"), htmlText };
+}
+function neutralRamp(colors) {
+  const observed = /* @__PURE__ */ new Map();
+  for (const c of colors) {
+    const hsl = rgbToHsl(parseColor(c.hex));
+    if (hsl.s < 0.12) observed.set(c.hex, (observed.get(c.hex) ?? 0) + c.weight);
+  }
+  const unique = [...observed.keys()].sort((a, b) => luminanceOf(b) - luminanceOf(a));
+  if (unique.length >= 8) {
+    const picked = NEUTRAL_KEYS.map((_, i) => unique[Math.round(i * (unique.length - 1) / (NEUTRAL_KEYS.length - 1))]);
+    return picked.map((hex) => ({ hex, observed: true }));
+  }
+  if (unique.length >= 2) {
+    const light = unique[0];
+    const dark = unique[unique.length - 1];
+    return NEUTRAL_KEYS.map((_, i) => {
+      if (i === 0) return { hex: light, observed: true };
+      if (i === NEUTRAL_KEYS.length - 1) return { hex: dark, observed: true };
+      const t = i / (NEUTRAL_KEYS.length - 1);
+      return { hex: mix(light, dark, t), observed: false };
+    });
+  }
+  return FALLBACK.neutral.map((hex) => ({ hex, observed: false }));
+}
+function pickStatus(colors) {
+  const bands = {
+    success: [80, 170],
+    warning: [30, 70],
+    danger: [330, 360],
+    info: [180, 260]
+  };
+  const out = {};
+  for (const group of STATUS_GROUPS) {
+    const [lo, hi] = bands[group];
+    const inBand = colors.filter((c) => {
+      const hsl = rgbToHsl(parseColor(c.hex));
+      if (hsl.s < 0.2 || hsl.l > 0.8 || hsl.l < 0.15) return false;
+      const deg = hsl.h * 360;
+      return group === "danger" ? deg >= lo || deg <= 20 : deg >= lo && deg <= hi;
+    });
+    if (inBand.length) {
+      const best = inBand.sort((a, b) => b.weight - a.weight || a.hex.localeCompare(b.hex))[0];
+      out[group] = { hex: best.hex, observed: true };
+    } else {
+      out[group] = { hex: FALLBACK.status[group], observed: false };
+    }
+  }
+  return out;
+}
+function pickBrand(colors) {
+  const colored = colors.filter((c) => {
+    const hsl = rgbToHsl(parseColor(c.hex));
+    return hsl.s >= 0.2 && hsl.l > 0.15 && hsl.l < 0.8;
+  });
+  if (!colored.length) return { hex: FALLBACK.brand500, observed: false };
+  const best = colored.sort((a, b) => b.weight - a.weight || a.hex.localeCompare(b.hex))[0];
+  return { hex: best.hex, observed: true };
+}
+async function extractTokens(input) {
+  const warnings = [];
+  const { cssText, htmlText } = await gather(input, warnings);
+  if (!cssText.trim()) warnings.push("\u672A\u4ECE\u8F93\u5165\u4E2D\u89E3\u6790\u5230\u4EFB\u4F55 CSS\uFF1B\u5C06\u751F\u6210\u4E00\u5957\u4E2D\u6027\u9ED8\u8BA4\u8BBE\u8BA1\u7CFB\u7EDF\u3002");
+  const analysis = { colors: [], fontSizes: [], radii: [], spaces: [], families: [], shadows: [], weights: [], iconStroke: null };
+  collectFromCss(cssText, analysis);
+  if (analysis.colors.length === 0 && analysis.fontSizes.length === 0) {
+    warnings.push("\u672A\u89E3\u6790\u5230\u4EFB\u4F55\u989C\u8272\u6216\u5B57\u53F7\u58F0\u660E\uFF1B\u5C06\u751F\u6210\u4E00\u5957\u4E2D\u6027\u9ED8\u8BA4\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u53EF\u5728\u8FD4\u56DE\u7684 tokens \u57FA\u7840\u4E0A\u518D\u8C03\uFF09\u3002");
+  }
+  let observed = 0;
+  let synthesized = 0;
+  const report = [];
+  const mark = (isObserved) => {
+    if (isObserved) {
+      observed++;
+      return "observed";
+    }
+    synthesized++;
+    return "synthesized";
+  };
+  const neutral = neutralRamp(analysis.colors);
+  const neutralHex = neutral.map((n) => n.hex);
+  for (const n of neutral) mark(n.observed);
+  report.push(`neutral  ${NEUTRAL_KEYS.map((k, i) => `${k}=${neutralHex[i]}`).join(" ")}`);
+  const brand = pickBrand(analysis.colors);
+  mark(brand.observed);
+  const brandScale = {
+    "100": mix(brand.hex, "#ffffff", 0.85),
+    "300": mix(brand.hex, "#ffffff", 0.45),
+    "500": brand.hex,
+    "600": darken(brand.hex, 0.08),
+    "700": darken(brand.hex, 0.18)
+  };
+  report.push(`brand    500=${brandScale["500"]}\uFF08${brand.observed ? "observed" : "synthesized"}\uFF09`);
+  const status = pickStatus(analysis.colors);
+  const statusScale = {};
+  for (const group of STATUS_GROUPS) {
+    const base = status[group];
+    mark(base.observed);
+    statusScale[group] = { "50": mix(base.hex, "#ffffff", 0.9), "500": base.hex };
+  }
+  report.push(`status   ${STATUS_GROUPS.map((g) => `${g}=${statusScale[g]["500"]}`).join(" ")}`);
+  const isDark = luminanceOf(neutralHex[NEUTRAL_KEYS.length - 1]) > 0.4 && luminanceOf(neutralHex[0]) < 0.25;
+  const lightEnd = isDark ? neutralHex[0] : neutralHex[0];
+  const darkEnd = isDark ? neutralHex[NEUTRAL_KEYS.length - 1] : neutralHex[NEUTRAL_KEYS.length - 1];
+  const bgCanvas = isDark ? darkEnd : lightEnd;
+  const bgSurface = isDark ? mix(darkEnd, "#000000", 0.15) : "#ffffff";
+  const textPrimaryRaw = isDark ? mix(lightEnd, "#ffffff", 0.6) : mix(darkEnd, "#000000", 0.1);
+  const textPrimary = ensureContrast(textPrimaryRaw, bgCanvas, 4.5);
+  const textPrimaryFixed = ensureContrast(textPrimary, bgSurface, 4.5);
+  const textSecondary = ensureContrast(mix(textPrimaryFixed, bgCanvas, 0.25), bgCanvas, 4.5);
+  const textMuted = ensureContrast(mix(textPrimaryFixed, bgCanvas, 0.5), bgCanvas, 3);
+  const actionPrimary = ensureContrast(brandScale["500"], isDark ? "#111111" : "#ffffff", 4.5);
+  const primitive = (group, step) => `${group}.${step}`;
+  neutralHex[NEUTRAL_KEYS.indexOf(isDark ? "900" : "0")] = isDark ? bgSurface : "#ffffff";
+  neutralHex[NEUTRAL_KEYS.indexOf(isDark ? "0" : "900")] = isDark ? textPrimaryFixed : textPrimaryFixed;
+  neutralHex[NEUTRAL_KEYS.indexOf("700")] = textSecondary;
+  neutralHex[NEUTRAL_KEYS.indexOf("500")] = textMuted;
+  brandScale["500"] = actionPrimary;
+  brandScale["600"] = darken(actionPrimary, 0.08);
+  const sizeRamp = analysis.fontSizes.filter((n) => n > 0).sort((a, b) => a - b);
+  const uniqSizes = [...new Set(sizeRamp)];
+  let sizes;
+  if (uniqSizes.length >= 4) {
+    const picked = FALLBACK.fontSizes.map((d, i) => uniqSizes[Math.round(i * (uniqSizes.length - 1) / (FALLBACK.fontSizes.length - 1))] ?? d);
+    sizes = monotonic(picked, FALLBACK.fontSizes);
+    mark(true);
+  } else {
+    sizes = FALLBACK.fontSizes;
+    mark(false);
+  }
+  report.push(`fontSize ${sizes.join(" ")}`);
+  const radiiRaw = [...new Set(analysis.radii.filter((n) => n >= 0))].sort((a, b) => a - b);
+  const radius = monotonic(
+    radiiRaw.length >= 3 ? RADIUS_KEYS.map((_, i) => radiiRaw[Math.min(radiiRaw.length - 1, Math.round((i + 1) / RADIUS_KEYS.length * radiiRaw.length))] ?? FALLBACK.radius[i]) : FALLBACK.radius,
+    FALLBACK.radius
+  );
+  radius[RADIUS_KEYS.length - 1] = 9999;
+  report.push(`radius   ${RADIUS_KEYS.map((k, i) => `${k}=${radius[i]}`).join(" ")}`);
+  const spaceUnit = analysis.spaces.length ? Math.min(Math.max(Math.min(...analysis.spaces), 2), 8) : 4;
+  const space = FALLBACK.space.map((v, i) => i === 0 ? 0 : Math.round(v * spaceUnit / 4));
+  report.push(`space    ${SPACE_KEYS.map((k, i) => `${k}=${space[i]}`).join(" ")}`);
+  const families = pickFamilies(analysis.families);
+  const weightSet = pickWeights(analysis.weights);
+  const shadow = analysis.shadows.length >= 1 ? buildShadows(analysis.shadows) : FALLBACK.shadow;
+  const iconStroke = analysis.iconStroke !== null ? Math.max(1, Math.min(2, analysis.iconStroke)) : 1.5;
+  const tokens = {
+    primitiveColors: {
+      neutral: zip(NEUTRAL_KEYS, neutralHex),
+      brand: zip(BRAND_KEYS, BRAND_KEYS.map((k) => brandScale[k])),
+      ...Object.fromEntries(STATUS_GROUPS.map((g) => [g, zip(STATUS_KEYS, STATUS_KEYS.map((k) => statusScale[g][k]))]))
+    },
+    semantic: buildSemantic({
+      isDark,
+      neutral: neutralHex,
+      brand: brandScale,
+      status: statusScale,
+      primitive
+    }),
+    font: {
+      families,
+      sizes: zip(FALLBACK.fontSizes.map((_, i) => ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl"][i]), sizes),
+      weights: weightSet,
+      lineHeights: { tight: 1.15, snug: 1.3, normal: 1.45, relaxed: 1.65 },
+      letterSpacing: { tight: "-0.02em", normal: "0", wide: "0.06em" }
+    },
+    space: zip(SPACE_KEYS, space),
+    radius: zip(RADIUS_KEYS, radius),
+    borderWidth: { hairline: 1, thin: 1.5, thick: 2 },
+    shadow,
+    size: zip(SIZE_KEYS, [28, 36, 44, 14, 18, 22, 640, 960, 1200, 248]),
+    motion: { fast: "120ms", base: "200ms", easing: "cubic-bezier(.2,.7,.3,1)" }
+  };
+  const out = {
+    color: { primitives: tokens.primitiveColors, semantic: tokens.semantic },
+    font: tokens.font,
+    space: tokens.space,
+    radius: tokens.radius,
+    borderWidth: tokens.borderWidth,
+    shadow: tokens.shadow,
+    size: tokens.size,
+    motion: tokens.motion
+  };
+  report.push(`\u5BF9\u6BD4\u5EA6\uFF1Atext.primary/bg.canvas=${contrast(textPrimaryFixed, bgCanvas).toFixed(2)}\uFF0Caction.primaryText/action.primary=${contrast("#ffffff", actionPrimary).toFixed(2)}`);
+  if (htmlText) {
+    const blocked = findBlockedResources(htmlText);
+    if (blocked.length) warnings.push(`\u6E90\u9875\u9762\u6709 ${blocked.length} \u5904\u5916\u94FE\u8D44\u6E90\uFF08\u4E0D\u5F71\u54CD\u98CE\u683C\u62BD\u53D6\uFF0C\u4F46\u7528\u4E8E\u539F\u578B\u65F6\u9700\u5185\u8054\uFF09\u3002`);
+  }
+  return {
+    tokens: out,
+    iconStyle: { strokeWidth: iconStroke, linecap: "round", linejoin: "round" },
+    report,
+    warnings,
+    observed,
+    synthesized
+  };
+}
+function monotonic(values, fallback) {
+  const out = [];
+  for (let i = 0; i < values.length; i++) {
+    const candidate = Number.isFinite(values[i]) && values[i] > 0 ? Math.round(values[i]) : Math.round(fallback[i] ?? i + 1);
+    const prev = out[out.length - 1];
+    out.push(prev === void 0 || candidate > prev ? candidate : prev + Math.max(1, Math.round(candidate * 0.1)));
+  }
+  return out;
+}
+function zip(keys, values) {
+  const out = {};
+  keys.forEach((k, i) => {
+    out[k] = values[i];
+  });
+  return out;
+}
+function pickFamilies(observed) {
+  const sans = observed[0] ?? FALLBACK.families.sans;
+  const monoObserved = observed.find((f) => /mono|consol|menlo|courier/i.test(f));
+  return { sans, display: sans, mono: monoObserved ?? FALLBACK.families.mono };
+}
+function pickWeights(observed) {
+  const has = (w) => observed.some((o) => Math.abs(o - w) <= 50);
+  return {
+    regular: has(400) ? 400 : 400,
+    medium: observed.find((o) => o >= 450 && o <= 550) ?? 500,
+    semibold: observed.find((o) => o >= 560 && o <= 640) ?? 600,
+    bold: observed.find((o) => o >= 650) ?? 700
+  };
+}
+function buildShadows(observed) {
+  const clean = observed.filter((s) => !/url\(|@import|https?:/i.test(s));
+  const pick = (i) => clean[Math.min(i, clean.length - 1)] ?? FALLBACK.shadow[["sm", "md", "lg"][i]];
+  return { sm: pick(0), md: pick(1), lg: pick(2) };
+}
+function buildSemantic(ctx) {
+  const n = (step) => ctx.primitive("neutral", step);
+  const b = (step) => ctx.primitive("brand", step);
+  const s = (group, step) => ctx.primitive(group, step);
+  const N = ctx.neutral;
+  const light = (i) => n(NEUTRAL_KEYS[i]);
+  const D = ctx.isDark;
+  return {
+    bg: {
+      canvas: D ? light(NEUTRAL_KEYS.length - 1) : light(0),
+      surface: D ? light(NEUTRAL_KEYS.length - 2) : light(0),
+      raised: D ? light(NEUTRAL_KEYS.length - 2) : light(0),
+      sunken: D ? light(0) : light(2),
+      inverse: D ? light(0) : light(NEUTRAL_KEYS.length - 1)
+    },
+    text: {
+      primary: D ? light(0) : light(NEUTRAL_KEYS.length - 1),
+      secondary: n("700"),
+      muted: n("500"),
+      inverse: D ? light(NEUTRAL_KEYS.length - 1) : light(0),
+      link: b("500")
+    },
+    border: {
+      default: D ? light(3) : light(3),
+      strong: D ? light(2) : light(4),
+      subtle: D ? light(4) : light(2),
+      focus: b("500")
+    },
+    action: {
+      primary: b("500"),
+      primaryHover: b("600"),
+      primaryText: D ? n("900") : n("0"),
+      secondary: D ? light(2) : light(2),
+      secondaryHover: D ? light(3) : light(3),
+      secondaryText: D ? light(0) : light(NEUTRAL_KEYS.length - 1),
+      ghostHover: b("100"),
+      danger: s("danger", "500"),
+      dangerText: D ? n("900") : n("0")
+    },
+    status: {
+      success: s("success", "500"),
+      successBg: s("success", "50"),
+      warning: s("warning", "500"),
+      warningBg: s("warning", "50"),
+      danger: s("danger", "500"),
+      dangerBg: s("danger", "50"),
+      info: s("info", "500"),
+      infoBg: s("info", "50")
+    },
+    chart: {
+      "1": b("500"),
+      "2": s("success", "500"),
+      "3": s("warning", "500"),
+      "4": s("info", "500"),
+      "5": s("danger", "500")
+    },
+    overlay: { scrim: "rgba(0,0,0,0.4)" }
+  };
+}
+
+// src/inlineAssets.ts
+var DEFAULT_MAX_PER = 2 * 1024 * 1024;
+var DEFAULT_MAX_TOTAL = 8 * 1024 * 1024;
+var TEXT_TYPES = /* @__PURE__ */ new Set(["text/css", "text/javascript", "application/javascript", "image/svg+xml"]);
+var EXT_MIME = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  svg: "image/svg+xml",
+  ico: "image/x-icon",
+  woff: "font/woff",
+  woff2: "font/woff2",
+  ttf: "font/ttf",
+  otf: "font/otf",
+  eot: "application/vnd.ms-fontobject",
+  css: "text/css",
+  js: "text/javascript",
+  mjs: "text/javascript",
+  json: "application/json"
+};
+function mimeFor(ref, contentType) {
+  const fromHeader = contentType?.split(";")[0]?.trim().toLowerCase();
+  const ext = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(ref)?.[1]?.toLowerCase();
+  return (fromHeader && fromHeader !== "application/octet-stream" ? fromHeader : void 0) ?? (ext && EXT_MIME[ext]) ?? "application/octet-stream";
+}
+function toDataUri(body, mime) {
+  if (TEXT_TYPES.has(mime)) {
+    return `data:${mime};charset=utf-8,${encodeURIComponent(body.toString("utf8"))}`;
+  }
+  return `data:${mime};base64,${body.toString("base64")}`;
+}
+function escapeScript(text) {
+  return text.replace(/<\/script/gi, "<\\/script");
+}
+function escapeStyle(text) {
+  return text.replace(/<\/style/gi, "<\\/style");
+}
+async function inlineCssUrls(css, ctx) {
+  const refs = [...css.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)/gi)];
+  let out = css;
+  for (const match of refs) {
+    const ref = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    if (!ref || /^(?:data:|blob:|about:|#)/i.test(ref)) continue;
+    const uri = await inlineOne(ref, ctx);
+    if (uri) out = out.replaceAll(match[0], `url("${uri}")`);
+  }
+  return out;
+}
+function resolveRef(ref, ctx) {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(ref)) {
+    return /^https?:/i.test(ref) ? ref : null;
+  }
+  if (!ctx.origin) return null;
+  try {
+    return new URL(ref, ctx.origin).toString();
+  } catch {
+    return null;
+  }
+}
+async function inlineOne(ref, ctx) {
+  const abs = resolveRef(ref, ctx);
+  if (!abs) {
+    ctx.skipped.push({ ref, reason: ctx.origin ? "\u4E0D\u652F\u6301\u7684\u8D44\u6E90\u7C7B\u578B" : "\u76F8\u5BF9\u8DEF\u5F84\u4F46\u672A\u63D0\u4F9B origin" });
+    return null;
+  }
+  const remaining = ctx.maxTotalBytes - ctx.used.total;
+  if (remaining <= 0) {
+    ctx.skipped.push({ ref, reason: "\u5DF2\u8FBE\u7D2F\u8BA1\u4F53\u79EF\u4E0A\u9650" });
+    return null;
+  }
+  try {
+    const result = await fetchUrl(abs, {
+      maxBytes: Math.min(ctx.maxBytesPer, remaining),
+      fetchImpl: ctx.fetchImpl
+    });
+    ctx.used.total += result.body.length;
+    ctx.inlined++;
+    return toDataUri(result.body, mimeFor(abs, result.contentType));
+  } catch (err) {
+    ctx.skipped.push({ ref, reason: err.message });
+    return null;
+  }
+}
+async function inlineAssets(html, options = {}) {
+  const ctx = {
+    origin: options.origin,
+    maxBytesPer: options.maxBytesPer ?? DEFAULT_MAX_PER,
+    maxTotalBytes: options.maxTotalBytes ?? DEFAULT_MAX_TOTAL,
+    used: { total: 0 },
+    fetchImpl: options.fetchImpl,
+    inlined: 0,
+    skipped: []
+  };
+  const blockedAtStart = findBlockedResources(html);
+  let out = html;
+  for (const match of [...out.matchAll(/<img\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]) {
+    const ref = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    if (!ref || /^(?:data:|blob:|about:|#)/i.test(ref)) continue;
+    const uri = await inlineOne(ref, ctx);
+    if (uri) out = out.replace(match[0], match[0].replace(ref, uri));
+  }
+  for (const match of [...out.matchAll(/<link\b[^>]*>/gi)]) {
+    const tag = match[0];
+    if (!/\brel\s*=\s*(?:"[^"]*stylesheet[^"]*"|'[^']*stylesheet[^']*'|stylesheet)/i.test(tag)) continue;
+    const hrefMatch = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag);
+    const ref = (hrefMatch?.[1] ?? hrefMatch?.[2] ?? hrefMatch?.[3] ?? "").trim();
+    if (!ref || /^(?:data:|blob:|about:|#)/i.test(ref)) continue;
+    const abs = resolveRef(ref, ctx);
+    if (!abs) {
+      ctx.skipped.push({ ref, reason: ctx.origin ? "\u4E0D\u652F\u6301\u7684\u8D44\u6E90\u7C7B\u578B" : "\u76F8\u5BF9\u8DEF\u5F84\u4F46\u672A\u63D0\u4F9B origin" });
+      continue;
+    }
+    try {
+      const result = await fetchUrl(abs, { maxBytes: ctx.maxBytesPer, fetchImpl: ctx.fetchImpl });
+      ctx.used.total += result.body.length;
+      const css = await inlineCssUrls(result.body.toString("utf8"), ctx);
+      out = out.replace(tag, `<style>${escapeStyle(css)}</style>`);
+      ctx.inlined++;
+    } catch (err) {
+      ctx.skipped.push({ ref, reason: err.message });
+    }
+  }
+  for (const match of [...out.matchAll(/<script\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>\s*<\/script>/gi)]) {
+    const ref = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    if (!ref || /^(?:data:|blob:|about:|#)/i.test(ref)) continue;
+    const abs = resolveRef(ref, ctx);
+    if (!abs) {
+      ctx.skipped.push({ ref, reason: ctx.origin ? "\u4E0D\u652F\u6301\u7684\u8D44\u6E90\u7C7B\u578B" : "\u76F8\u5BF9\u8DEF\u5F84\u4F46\u672A\u63D0\u4F9B origin" });
+      continue;
+    }
+    try {
+      const result = await fetchUrl(abs, { maxBytes: ctx.maxBytesPer, fetchImpl: ctx.fetchImpl });
+      ctx.used.total += result.body.length;
+      out = out.replace(match[0], `<script>${escapeScript(result.body.toString("utf8"))}</script>`);
+      ctx.inlined++;
+    } catch (err) {
+      ctx.skipped.push({ ref, reason: err.message });
+    }
+  }
+  out = await replaceStyleBlocks(out, ctx);
+  const handledRefs = /* @__PURE__ */ new Set([...ctx.skipped.map((s) => s.ref)]);
+  for (const ref of blockedAtStart) {
+    if (handledRefs.has(ref)) continue;
+    if (out.includes(ref)) {
+      ctx.skipped.push({ ref, reason: "\u4E0D\u652F\u6301\u7684\u8D44\u6E90\u7C7B\u578B\uFF08\u672A\u5185\u8054\uFF09" });
+    }
+  }
+  return { html: out, inlined: ctx.inlined, skipped: ctx.skipped };
+}
+async function replaceStyleBlocks(html, ctx) {
+  let out = html;
+  const styleBlocks = [...out.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)];
+  for (const match of styleBlocks) {
+    const inner = match[1] ?? "";
+    const replaced = await inlineCssUrls(inner, ctx);
+    if (replaced !== inner) {
+      out = out.replace(match[0], match[0].replace(inner, escapeStyle(replaced)));
+    }
+  }
+  const styleAttrs = [...out.matchAll(/(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)];
+  for (const match of styleAttrs) {
+    const inner = match[1] ?? match[2] ?? "";
+    const replaced = await inlineCssUrls(inner, ctx);
+    if (replaced !== inner) out = out.replace(match[0], match[0].replace(inner, replaced));
+  }
+  return out;
+}
+
+// src/lint.ts
+var MAX_FINDINGS = 40;
+var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
 function nearest(values, target) {
   const sorted = [...values].sort((a, b) => Math.abs(a - target) - Math.abs(b - target));
   return sorted.slice(0, 2);
@@ -1452,7 +2309,7 @@ function lintHtml(html, styleId, cwd) {
   for (const match of masked.matchAll(EMPTY_SVG)) {
     if (!/data-icon/.test(match[1] ?? "")) add("icon", match.index ?? 0, "\u7A7A <svg> \u7F3A\u5C11 data-icon \u540D\u79F0");
   }
-  for (const match of masked.matchAll(CLASS_ATTR)) {
+  for (const match of masked.matchAll(CLASS_ATTR_RE)) {
     const value = match[1] ?? match[2] ?? "";
     for (const cls of value.split(/\s+/).filter(Boolean)) {
       if (cls.startsWith("ts-") && !classSet.has(cls)) {
@@ -1463,13 +2320,6 @@ function lintHtml(html, styleId, cwd) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   findings.sort((a, b) => a.line - b.line);
   return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total };
-}
-function pxValues(value) {
-  if (/calc\(/i.test(value)) return [];
-  const literal = value.replace(/var\([^)]*\)/gi, " ");
-  const found = /* @__PURE__ */ new Set();
-  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
-  return [...found];
 }
 function formatLintReport(report, label) {
   const styleName = report.styleId ? report.styleName ?? report.styleId : null;
@@ -1489,10 +2339,674 @@ ${lines.join("\n")}
 \u6C47\u603B\uFF1A${summary}${tail}`;
 }
 
+// src/codegen.ts
+var ATTR_MAP = {
+  class: "className",
+  for: "htmlFor",
+  tabindex: "tabIndex",
+  colspan: "colSpan",
+  rowspan: "rowSpan",
+  readonly: "readOnly",
+  maxlength: "maxLength",
+  minlength: "minLength",
+  autofocus: "autoFocus",
+  autocomplete: "autoComplete",
+  cellpadding: "cellPadding",
+  cellspacing: "cellSpacing",
+  contenteditable: "contentEditable",
+  crossorigin: "crossOrigin",
+  datetime: "dateTime",
+  enctype: "encType",
+  formaction: "formAction",
+  frameborder: "frameBorder",
+  srcset: "srcSet",
+  usemap: "useMap",
+  novalidate: "noValidate",
+  spellcheck: "spellCheck"
+};
+var BOOLEAN_ATTRS = /* @__PURE__ */ new Set([
+  "disabled",
+  "checked",
+  "readonly",
+  "required",
+  "multiple",
+  "selected",
+  "autofocus",
+  "hidden",
+  "open",
+  "default",
+  "async",
+  "defer"
+]);
+var VOID_TAGS = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+var SVG_ATTRS = {
+  "stroke-width": "strokeWidth",
+  "stroke-linecap": "strokeLinecap",
+  "stroke-linejoin": "strokeLinejoin",
+  "fill-rule": "fillRule",
+  "clip-rule": "clipRule",
+  "clip-path": "clipPath",
+  "stroke-dasharray": "strokeDasharray",
+  "stroke-dashoffset": "strokeDashoffset",
+  "text-anchor": "textAnchor",
+  "font-size": "fontSize",
+  "font-family": "fontFamily",
+  "font-weight": "fontWeight",
+  "xlink:href": "xlinkHref",
+  "xml:space": "xmlSpace",
+  "stop-color": "stopColor",
+  "stop-opacity": "stopOpacity",
+  "preserveaspectratio": "preserveAspectRatio"
+};
+function camelCase(name) {
+  return name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+function styleToObject(value) {
+  const entries = value.split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
+    const idx = part.indexOf(":");
+    if (idx < 0) return null;
+    const prop = camelCase(part.slice(0, idx).trim());
+    const val = part.slice(idx + 1).trim().replace(/'/g, "\\'");
+    return `${prop}: '${val}'`;
+  }).filter((e) => e !== null);
+  return `{{ ${entries.join(", ")} }}`;
+}
+function attrsToJsx(rawAttrs) {
+  const parts = [];
+  const attrRe = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+  for (const match of rawAttrs.matchAll(attrRe)) {
+    const rawName = match[1];
+    const value = match[2] ?? match[3] ?? match[4];
+    const lower = rawName.toLowerCase();
+    if (lower.startsWith("on") && value !== void 0) continue;
+    const name = ATTR_MAP[lower] ?? SVG_ATTRS[lower] ?? (rawName.includes("-") || rawName.includes(":") ? rawName : camelCase(rawName));
+    if (value === void 0) {
+      if (BOOLEAN_ATTRS.has(lower)) parts.push(name);
+      else parts.push(`${name}={true}`);
+      continue;
+    }
+    if (lower === "style") {
+      parts.push(`style=${styleToObject(value)}`);
+      continue;
+    }
+    if (lower === "class") {
+      parts.push(`${name}="${value}"`);
+      continue;
+    }
+    if (/[{}]/.test(value)) parts.push(`${name}={${value}}`);
+    else parts.push(`${name}="${value.replace(/"/g, "&quot;")}"`);
+  }
+  return parts.length ? " " + parts.join(" ") : "";
+}
+function htmlToJsx(html) {
+  let body = html;
+  const bodyMatch = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html);
+  if (bodyMatch) body = bodyMatch[1];
+  else body = html.replace(/<!doctype[^>]*>/gi, "").replace(/<\/?(?:html|head)\b[^>]*>/gi, "");
+  let out = "";
+  let i = 0;
+  const tokens = /<!--[\s\S]*?-->|<\/([a-zA-Z][-a-zA-Z0-9]*)\s*>|<([a-zA-Z][-a-zA-Z0-9]*)((?:\s+[^>]*?)?)\/?>/g;
+  let match;
+  while ((match = tokens.exec(body)) !== null) {
+    const text = body.slice(i, match.index);
+    if (text) out += text.replace(/\{/g, "&#123;").replace(/\}/g, "&#125;");
+    i = match.index + match[0].length;
+    if (match[0].startsWith("<!--")) {
+      out += `{/* ${match[0].slice(4, -3).trim()} */}`;
+      continue;
+    }
+    if (match[1]) {
+      out += `</${match[1]}>`;
+      continue;
+    }
+    const tag = match[2];
+    const attrs = match[3] ?? "";
+    const lower = tag.toLowerCase();
+    const selfClosed = /\/>$/.test(match[0]) || VOID_TAGS.has(lower);
+    out += `<${tag}${attrsToJsx(attrs)}${selfClosed ? " />" : ">"}`;
+  }
+  const rest = body.slice(i);
+  if (rest) out += rest.replace(/\{/g, "&#123;").replace(/\}/g, "&#125;");
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+function toReactComponent(pageHtml, componentName = "CanvasPage") {
+  const jsx = htmlToJsx(pageHtml);
+  const component = `/**
+ * \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u6837\u5F0F\u4F9D\u8D56\u540C\u76EE\u5F55\u7684 components.css \u4E0E tokens.css\uFF08--ts-* \u53D8\u91CF\uFF09\u3002
+ * \u6CE8\u610F\uFF1A\u539F\u578B\u7684 <style> / \u5185\u8054\u6837\u5F0F\u65E0\u6CD5 1:1 \u6620\u5C04\u5230 JSX\uFF0C\u5FC5\u8981\u5904\u8BF7\u4EBA\u5DE5\u6821\u5BF9\u3002
+ */
+import './tokens.css'
+import './components.css'
+
+export default function ${componentName}() {
+  return (
+    ${jsx}
+  )
+}
+`;
+  return [{ name: `${componentName}.tsx`, content: component, language: "tsx" }];
+}
+function toFrameworklessHtml(pageHtml, bundle) {
+  const linked = pageHtml.replace(
+    /<\/head\s*>/i,
+    `  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./components.css">
+</head>`
+  );
+  const html = /<\/head\s*>/i.test(pageHtml) ? linked : `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./components.css">
+</head>
+<body>
+${pageHtml}
+</body>
+</html>
+`;
+  return [
+    { name: "index.html", content: html, language: "html" },
+    { name: "tokens.css", content: bundle.tokensCss, language: "css" },
+    { name: "components.css", content: bundle.componentsCss, language: "css" }
+  ];
+}
+function toTailwindConfig(input) {
+  const colors = Object.entries(input.colors).map(([k, v]) => `        '${k}': '${v}',`).join("\n");
+  const families = Object.entries(input.fontFamilies).map(([k, v]) => `        ${k}: [${v.split(",").map((f) => `'${f.trim().replace(/^['"]|['"]$/g, "")}'`).join(", ")}],`).join("\n");
+  const fontSizes = Object.entries(input.fontSizes).map(([k, v]) => `        '${k}': '${v}px',`).join("\n");
+  const spacing = input.spacing.map((v) => `        '${v}': '${v}px',`).join("\n");
+  const radius = input.radius.filter((v) => v < 9999).map((v) => `        'ts-${v}': '${v}px',`).join("\n");
+  const shadows = Object.entries(input.shadows).map(([k, v]) => `        '${k}': '${v}',`).join("\n");
+  return `/** \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\uFF1ATailwind \u4E3B\u9898\u6620\u5C04\uFF08\u503C\u6765\u81EA\u5F53\u524D\u8BBE\u8BA1\u7CFB\u7EDF tokens\uFF09\u3002 */
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./src/**/*.{html,js,jsx,ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+${colors}
+      },
+      fontFamily: {
+${families}
+      },
+      fontSize: {
+${fontSizes}
+      },
+      spacing: {
+${spacing}
+      },
+      borderRadius: {
+${radius}
+      },
+      boxShadow: {
+${shadows}
+      },
+    },
+  },
+  plugins: [],
+}
+`;
+}
+
+// src/codegen/tailwind-map.ts
+var TAILWIND_MAP = [
+  { id: "app", base: "ts-app", utilities: "flex min-h-[var(--ts-size-containerLg)] bg-[var(--ts-color-bg-canvas)] text-[var(--ts-color-text-primary)]" },
+  { id: "sidebar", base: "ts-sidebar", utilities: "w-[var(--ts-size-sidebar)] shrink-0 border-r border-[var(--ts-color-border-default)] bg-[var(--ts-color-bg-surface)]" },
+  { id: "main", base: "ts-main", utilities: "flex-1 min-w-0 bg-[var(--ts-color-bg-canvas)]" },
+  { id: "container", base: "ts-container", utilities: "mx-auto w-full max-w-[var(--ts-size-containerLg)] px-[var(--ts-space-6)]" },
+  { id: "stack", base: "ts-stack", utilities: "flex flex-col gap-[var(--ts-space-4)]" },
+  { id: "row", base: "ts-row", utilities: "flex flex-row items-center gap-[var(--ts-space-3)]" },
+  { id: "grid", base: "ts-grid", utilities: "grid gap-[var(--ts-space-4)]" },
+  { id: "section", base: "ts-section", utilities: "py-[var(--ts-space-6)]" },
+  { id: "button", base: "ts-btn", utilities: "inline-flex items-center justify-center gap-[var(--ts-space-2)] h-[var(--ts-size-controlMd)] px-[var(--ts-space-4)] rounded-[var(--ts-radius-md)] bg-[var(--ts-color-action-primary)] text-[var(--ts-color-action-primary-text)] font-[var(--ts-weight-medium)]" },
+  { id: "icon-button", base: "ts-icon-btn", utilities: "inline-flex items-center justify-center size-[var(--ts-size-controlMd)] rounded-[var(--ts-radius-md)] hover:bg-[var(--ts-color-action-ghost-hover)]" },
+  { id: "input", base: "ts-input", utilities: "h-[var(--ts-size-controlMd)] w-full px-[var(--ts-space-3)] rounded-[var(--ts-radius-md)] border border-[var(--ts-color-border-default)] bg-[var(--ts-color-bg-surface)] text-[var(--ts-color-text-primary)]" },
+  { id: "field", base: "ts-field", utilities: "flex flex-col gap-[var(--ts-space-2)]" },
+  { id: "select", base: "ts-select", utilities: "h-[var(--ts-size-controlMd)] px-[var(--ts-space-3)] rounded-[var(--ts-radius-md)] border border-[var(--ts-color-border-default)] bg-[var(--ts-color-bg-surface)]" },
+  { id: "switch", base: "ts-switch", utilities: "inline-flex h-[var(--ts-size-controlSm)] w-[calc(var(--ts-size-controlSm)*1.8)] items-center rounded-full bg-[var(--ts-color-border-strong)]" },
+  { id: "checkbox", base: "ts-check", utilities: "inline-flex size-[var(--ts-size-iconMd)] items-center justify-center rounded-[var(--ts-radius-sm)] border border-[var(--ts-color-border-default)]" },
+  { id: "card", base: "ts-card", utilities: "rounded-[var(--ts-radius-lg)] border border-[var(--ts-color-border-default)] bg-[var(--ts-color-bg-surface)] p-[var(--ts-space-5)] shadow-[var(--ts-shadow-sm)]" },
+  { id: "stat", base: "ts-stat", utilities: "flex flex-col gap-[var(--ts-space-1)]" },
+  { id: "badge", base: "ts-badge", utilities: "inline-flex items-center px-[var(--ts-space-2)] py-[var(--ts-space-1)] rounded-[var(--ts-radius-full)] text-[var(--ts-fs-xs)] font-[var(--ts-weight-medium)]" },
+  { id: "table", base: "ts-table", utilities: "w-full border-collapse text-[var(--ts-fs-md)]" },
+  { id: "nav", base: "ts-nav", utilities: "flex flex-col gap-[var(--ts-space-1)]" },
+  { id: "tabs", base: "ts-tabs", utilities: "flex flex-row gap-[var(--ts-space-2)] border-b border-[var(--ts-color-border-subtle)]" },
+  { id: "dialog", base: "ts-dialog", utilities: "rounded-[var(--ts-radius-lg)] bg-[var(--ts-color-bg-raised)] p-[var(--ts-space-6)] shadow-[var(--ts-shadow-lg)]" },
+  { id: "toast", base: "ts-toast", utilities: "rounded-[var(--ts-radius-md)] bg-[var(--ts-color-bg-inverse)] px-[var(--ts-space-4)] py-[var(--ts-space-3)] text-[var(--ts-color-text-inverse)] shadow-[var(--ts-shadow-md)]" },
+  { id: "avatar", base: "ts-avatar", utilities: "inline-flex size-[var(--ts-size-iconLg)] items-center justify-center overflow-hidden rounded-full bg-[var(--ts-color-bg-sunken)]" },
+  { id: "empty", base: "ts-empty", utilities: "flex flex-col items-center justify-center gap-[var(--ts-space-3)] py-[var(--ts-space-10)] text-[var(--ts-color-text-muted)]" },
+  { id: "progress", base: "ts-progress", utilities: "h-[var(--ts-space-2)] w-full overflow-hidden rounded-full bg-[var(--ts-color-bg-sunken)]" }
+];
+var TAILWIND_BY_BASE = Object.fromEntries(
+  TAILWIND_MAP.map((m) => [m.base, m.utilities])
+);
+
+// src/codegen/platforms.ts
+function defaultComponents() {
+  return TAILWIND_MAP.map((m) => ({ id: m.id, base: m.base }));
+}
+var STACKS = {
+  ios: ["swiftui", "uikit"],
+  android: ["compose", "xml"],
+  miniprogram: ["weapp", "uniapp", "taro"]
+};
+var PLATFORM_LABEL = {
+  ios: "iOS",
+  android: "Android",
+  miniprogram: "\u5C0F\u7A0B\u5E8F"
+};
+var STACK_LABEL = {
+  swiftui: "SwiftUI",
+  uikit: "UIKit",
+  compose: "Jetpack Compose",
+  xml: "XML \u5E03\u5C40",
+  weapp: "\u5FAE\u4FE1\u5C0F\u7A0B\u5E8F\u539F\u751F",
+  uniapp: "uni-app",
+  taro: "Taro"
+};
+var COMPONENT_HINTS = {
+  "ts-btn": { swiftui: "Button + .buttonStyle(.borderedProminent)", uikit: "UIButton(configuration: .filled())", compose: "Button", xml: "MaterialButton", weapp: '<button type="primary">', uniapp: '<button type="primary">', taro: "Button" },
+  "ts-input": { swiftui: "TextField", uikit: "UITextField", compose: "OutlinedTextField", xml: "TextInputLayout+TextInputEditText", weapp: "<input>", uniapp: "<input>", taro: "Input" },
+  "ts-card": { swiftui: "VStack + .background(.regularMaterial)", uikit: "UIView + layer.cornerRadius", compose: "Card", xml: "MaterialCardView", weapp: '<view class="card">', uniapp: '<view class="card">', taro: "View + Card" },
+  "ts-nav": { swiftui: "NavigationStack / TabView", uikit: "UITabBarController / UINavigationController", compose: "NavigationBar", xml: "BottomNavigationView", weapp: "tabBar\uFF08app.json\uFF09", uniapp: "tabBar\uFF08pages.json\uFF09", taro: "TabBar" },
+  "ts-tabs": { swiftui: "Picker(.segmented)", uikit: "UISegmentedControl", compose: "TabRow", xml: "TabLayout", weapp: "\u81EA\u5B9A\u4E49 view \u5207\u6362", uniapp: "<u-tabs>", taro: "Tabs" },
+  "ts-dialog": { swiftui: ".alert / .sheet", uikit: "UIAlertController / present", compose: "AlertDialog", xml: "MaterialAlertDialogBuilder", weapp: "wx.showModal", uniapp: "uni.showModal", taro: "Modal" },
+  "ts-toast": { swiftui: "overlay + animation", uikit: "\u81EA\u5B9A\u4E49 UIView", compose: "Snackbar", xml: "Snackbar", weapp: "wx.showToast", uniapp: "uni.showToast", taro: "Toast" },
+  "ts-avatar": { swiftui: "AsyncImage + .clipShape(Circle())", uikit: "UIImageView + cornerRadius", compose: "AsyncImage + CircleShape", xml: "ShapeableImageView", weapp: '<image class="avatar">', uniapp: '<image class="avatar">', taro: "Image" },
+  "ts-progress": { swiftui: "ProgressView(value:)", uikit: "UIProgressView", compose: "LinearProgressIndicator", xml: "LinearProgressIndicator", weapp: "<progress>", uniapp: "<progress>", taro: "Progress" },
+  "ts-table": { swiftui: "List / Table", uikit: "UITableView", compose: "LazyColumn", xml: "RecyclerView", weapp: "<view> \u5217\u8868 + scroll-view", uniapp: "<scroll-view>", taro: "ScrollView" }
+};
+var FIDELITY_NOTE = `## \u4FDD\u771F\u5EA6\u4E0E\u4EBA\u5DE5\u6821\u5BF9\u70B9
+
+- \u672C\u4EA7\u7269\u53EA\u4FDD\u8BC1**\u4E3B\u9898/Token \u4E0E\u89C4\u683C\u6E05\u5355**\u786E\u5B9A\u6027\u6B63\u786E\uFF1B**\u9875\u9762\u7ED3\u6784\u7531 AI \u6309\u89C4\u683C\u7F16\u5199**\uFF0C\u4E0D\u662F\u81EA\u52A8\u8F6C\u6362\u3002
+- HTML\u2192\u539F\u751F**\u5FC5\u7136\u6709\u635F**\uFF1Aflex/grid \u5E03\u5C40\u3001\u4F2A\u5143\u7D20\uFF08::before/::after\uFF09\u3001\u81EA\u5B9A\u4E49\u6EDA\u52A8\u3001CSS \u52A8\u753B/\u8FC7\u6E21\u3001
+  \u7EDD\u5BF9\u5B9A\u4F4D\u5C42\u7EA7\u7B49\u65E0\u6CD5 1:1 \u6620\u5C04\uFF0C\u9700\u8981\u6309\u5E73\u53F0\u60EF\u4F8B\u91CD\u5199\u3002
+- \u8BF7\u52FF\u628A\u672C\u4EA7\u7269\u5F53\u4F5C\u300C\u50CF\u7D20\u7EA7\u8FD8\u539F\u300D\uFF1B\u4E0A\u7EBF\u524D\u8BF7\u5728\u771F\u673A/\u6A21\u62DF\u5668\u4E0A\u9010\u5C4F\u6821\u5BF9\u3002`;
+function colorValue(raw) {
+  const trimmed = raw.trim();
+  const rgba = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+))?\s*\)$/i.exec(trimmed);
+  if (rgba) {
+    const hex = "#" + [rgba[1], rgba[2], rgba[3]].map((n) => Math.round(Number(n)).toString(16).padStart(2, "0")).join("");
+    return { hex, opacity: rgba[4] !== void 0 ? Number(rgba[4]) : 1 };
+  }
+  return { hex: trimmed.startsWith("#") ? trimmed : "#000000", opacity: 1 };
+}
+function constantName(semanticKey, style = "camel") {
+  const parts = semanticKey.split(".");
+  const camel = parts[0] + parts.slice(1).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("");
+  switch (style) {
+    case "snake":
+      return parts.join("_");
+    case "kebab":
+      return parts.join("-");
+    case "upperSnake":
+      return parts.join("_").replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
+    default:
+      return camel;
+  }
+}
+function designSpec(target, stack, input) {
+  const lines = [];
+  lines.push(`# \u8BBE\u8BA1\u89C4\u683C\u6E05\u5355\uFF08${PLATFORM_LABEL[target]} \xB7 ${STACK_LABEL[stack]}\uFF09`);
+  lines.push("");
+  lines.push("> \u7531\u5929\u67A2\u753B\u5E03\u4ECE\u5F53\u524D\u8BBE\u8BA1\u7CFB\u7EDF\u751F\u6210\u3002\u8BF7\u6309\u672C\u89C4\u683C\u7F16\u5199\u9875\u9762\u4EE3\u7801\u3002");
+  lines.push("");
+  lines.push("## \u8BED\u4E49\u8272");
+  lines.push("");
+  lines.push("| \u8BED\u4E49 | \u53D8\u91CF | \u503C | \u5EFA\u8BAE\u5E38\u91CF\u540D |");
+  lines.push("| --- | --- | --- | --- |");
+  for (const [key, value] of Object.entries(input.semantics)) {
+    lines.push(`| ${key} | \`${input.semanticVars[key] ?? ""}\` | \`${value}\` | \`${constantName(key, "camel")}\` |`);
+  }
+  lines.push("");
+  lines.push("## \u5B57\u9636");
+  lines.push("");
+  lines.push("| \u6863\u4F4D | px | pt/sp |");
+  lines.push("| --- | --- | --- |");
+  for (const [name, px] of Object.entries(input.fontSizes)) {
+    lines.push(`| ${name} | ${px}px | ${px}pt |`);
+  }
+  lines.push("");
+  lines.push(`\u5B57\u91CD\uFF1A${Object.entries(input.weights).map(([k, v]) => `${k}=${v}`).join("\u3001")}`);
+  lines.push(`\u884C\u9AD8\uFF1A${Object.entries(input.lineHeights).map(([k, v]) => `${k}=${v}`).join("\u3001")}`);
+  lines.push(`\u5B57\u4F53\u65CF\uFF1Asans=${input.fontFamilies.sans ?? ""}`);
+  lines.push(`\u7B49\u5BBD\uFF1A${input.fontFamilies.mono ?? ""}`);
+  lines.push("");
+  lines.push("## \u95F4\u8DDD / \u5706\u89D2 / \u9634\u5F71");
+  lines.push("");
+  lines.push(`\u95F4\u8DDD\u6863\u4F4D\uFF1A${input.spacing.join(", ")}\uFF08px\uFF09`);
+  lines.push(`\u5706\u89D2\uFF1A${Object.entries(input.radius).map(([k, v]) => `${k}=${v}`).join("\u3001")}`);
+  lines.push(`\u9634\u5F71\uFF1A${Object.entries(input.shadows).map(([k, v]) => `${k}=\`${v}\``).join("\u3001")}`);
+  lines.push("");
+  lines.push("> \u8BF4\u660E\uFF1A1px\uFF08CSS\uFF09\u2248 1pt\uFF08iOS\uFF09\u2248 1dp\uFF08Android\uFF09\u5728 @1x \u4E0B\u7B49\u4EF7\uFF1B\u5C0F\u7A0B\u5E8F\u7528 rpx \u65F6\u6309 750 \u8BBE\u8BA1\u5BBD\u6362\u7B97\u3002");
+  lines.push("");
+  lines.push("## \u7EC4\u4EF6\u6620\u5C04\u5EFA\u8BAE");
+  lines.push("");
+  lines.push("| ts-* \u7C7B | \u672C\u5E73\u53F0\u60EF\u7528\u6784\u4EF6 |");
+  lines.push("| --- | --- |");
+  for (const comp of input.components) {
+    const hint = COMPONENT_HINTS[comp.base]?.[stack];
+    if (hint) lines.push(`| \`${comp.base}\` | ${hint} |`);
+  }
+  lines.push("");
+  lines.push(FIDELITY_NOTE);
+  return lines.join("\n");
+}
+function swiftUiFiles(input) {
+  const colorLines = Object.entries(input.semantics).map(([key, value]) => {
+    const { hex, opacity } = colorValue(value);
+    const name = constantName(key, "camel");
+    return opacity < 1 ? `        public static let ${name} = Color(hex: "${hex}").opacity(${opacity})` : `        public static let ${name} = Color(hex: "${hex}")`;
+  }).join("\n");
+  const fontLines = Object.entries(input.fontSizes).map(([name, px]) => `        public static let ${name} = CGFloat(${px})`).join("\n");
+  const spacingLines = input.spacing.map((v) => `        public static let s${v} = CGFloat(${v})`).join("\n");
+  const swift = `import SwiftUI
+
+/// \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u7684\u8BBE\u8BA1 Token\u3002\u8BF7\u52FF\u624B\u6539\u3002
+public enum DesignTokens {
+    public enum Color_ {
+${colorLines}
+    }
+
+    public enum FontSize {
+${fontLines}
+    }
+
+    public enum Spacing {
+${spacingLines}
+    }
+
+    public enum Radius {
+${Object.entries(input.radius).filter(([, v]) => v < 9999).map(([k, v]) => `        public static let ${k} = CGFloat(${v})`).join("\n")}
+    }
+}
+
+public extension Color {
+    /// \u89E3\u6790 #rrggbb / #rgb\u3002
+    init(hex: String) {
+        let cleaned = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        let expanded = cleaned.count == 3 ? cleaned.map { "\\($0)\\($0)" }.joined() : cleaned
+        let value = UInt64(expanded, radix: 16) ?? 0
+        self.init(
+            .sRGB,
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255,
+            opacity: 1
+        )
+    }
+}
+`;
+  return [{ name: "DesignTokens.swift", content: swift, language: "swift" }];
+}
+function uiKitFiles(input) {
+  const header = `#import <UIKit/UIKit.h>
+
+/// \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u7684\u8BBE\u8BA1 Token\u3002\u8BF7\u52FF\u624B\u6539\u3002
+@interface TSDesignTokens : NSObject
+
+${Object.keys(input.semantics).map((k) => `+ (UIColor *)${constantName(k, "camel")};`).join("\n")}
+
++ (UIFont *)fontOfSize:(CGFloat)size weight:(UIFontWeight)weight;
++ (CGFloat)spacing:(NSInteger)step;
++ (CGFloat)radius:(NSString *)name;
+
+@end
+`;
+  const impl = `#import "TSDesignTokens.h"
+
+@implementation TSDesignTokens
+
++ (UIColor *)colorWithHex:(NSString *)hex {
+    NSString *cleaned = [hex hasPrefix:@"#"] ? [hex substringFromIndex:1] : hex;
+    unsigned int value = 0;
+    [[NSScanner scannerWithString:cleaned] scanHexInt:&value];
+    return [UIColor colorWithRed:((value >> 16) & 0xFF) / 255.0
+                           green:((value >> 8) & 0xFF) / 255.0
+                            blue:(value & 0xFF) / 255.0
+                           alpha:1.0];
+}
+
+${Object.entries(input.semantics).map(([key, value]) => `+ (UIColor *)${constantName(key, "camel")} { return [self colorWithHex:@"${colorValue(value).hex}"]; }`).join("\n")}
+
++ (UIFont *)fontOfSize:(CGFloat)size weight:(UIFontWeight)weight {
+    return [UIFont systemFontOfSize:size weight:weight];
+}
+
++ (CGFloat)spacing:(NSInteger)step {
+    static const CGFloat table[] = {${input.spacing.join(", ")}};
+    NSInteger count = ${input.spacing.length};
+    if (step < 0 || step >= count) return 0;
+    return table[step];
+}
+
++ (CGFloat)radius:(NSString *)name {
+    NSDictionary<NSString *, NSNumber *> *map = @{${Object.entries(input.radius).filter(([, v]) => v < 9999).map(([k, v]) => `@"${k}": @${v}`).join(", ")}};
+    return map[name].doubleValue;
+}
+
+@end
+`;
+  return [
+    { name: "TSDesignTokens.h", content: header, language: "objc" },
+    { name: "TSDesignTokens.m", content: impl, language: "objc" }
+  ];
+}
+function composeFiles(input) {
+  const colorKt = `package com.example.theme
+
+import androidx.compose.ui.graphics.Color
+
+// \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002
+${Object.entries(input.semantics).map(([key, value]) => {
+    const { hex, opacity } = colorValue(value);
+    const argb = `0x${opacity < 1 ? Math.round(opacity * 255).toString(16).padStart(2, "0") : "FF"}${hex.replace("#", "").toUpperCase()}`;
+    return `val ${constantName(key, "camel")} = Color(${argb})`;
+  }).join("\n")}
+`;
+  const typeKt = `package com.example.theme
+
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+// \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002
+object TsTypography {
+${Object.entries(input.fontSizes).map(([name, px]) => `    val ${name} = TextStyle(fontSize = ${px}.sp, fontWeight = FontWeight.Normal)`).join("\n")}
+}
+`;
+  const themeKt = `package com.example.theme
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
+
+// \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002
+private val TsColorScheme = lightColorScheme(
+    background = ${constantName("bg.canvas", "camel")},
+    surface = ${constantName("bg.surface", "camel")},
+    onBackground = ${constantName("text.primary", "camel")},
+    onSurface = ${constantName("text.primary", "camel")},
+    primary = ${constantName("action.primary", "camel")},
+    onPrimary = ${constantName("action.primaryText", "camel")},
+    outline = ${constantName("border.default", "camel")},
+)
+
+val TsShapes = MaterialTheme.shapes.copy(
+    small = RoundedCornerShape(${input.radius.sm ?? 6}.dp),
+    medium = RoundedCornerShape(${input.radius.md ?? 10}.dp),
+    large = RoundedCornerShape(${input.radius.lg ?? 14}.dp),
+)
+
+@Composable
+fun TsTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = TsColorScheme, shapes = TsShapes, content = content)
+}
+`;
+  return [
+    { name: "Color.kt", content: colorKt, language: "kotlin" },
+    { name: "Type.kt", content: typeKt, language: "kotlin" },
+    { name: "Theme.kt", content: themeKt, language: "kotlin" }
+  ];
+}
+function xmlFiles(input) {
+  const colors = `<?xml version="1.0" encoding="utf-8"?>
+<!-- \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002 -->
+<resources>
+${Object.entries(input.semantics).map(([key, value]) => `    <color name="${constantName(key, "snake")}">${colorValue(value).hex}</color>`).join("\n")}
+</resources>
+`;
+  const dimens = `<?xml version="1.0" encoding="utf-8"?>
+<!-- \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002 -->
+<resources>
+${input.spacing.map((v, i) => `    <dimen name="ts_space_${i}">${v}dp</dimen>`).join("\n")}
+${Object.entries(input.radius).filter(([, v]) => v < 9999).map(([k, v]) => `    <dimen name="ts_radius_${k}">${v}dp</dimen>`).join("\n")}
+</resources>
+`;
+  const themes = `<?xml version="1.0" encoding="utf-8"?>
+<!-- \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002 -->
+<resources>
+    <style name="Theme.Ts" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/${constantName("action.primary", "snake")}</item>
+        <item name="colorOnPrimary">@color/${constantName("action.primaryText", "snake")}</item>
+        <item name="android:colorBackground">@color/${constantName("bg.canvas", "snake")}</item>
+        <item name="colorSurface">@color/${constantName("bg.surface", "snake")}</item>
+        <item name="colorOnSurface">@color/${constantName("text.primary", "snake")}</item>
+        <item name="colorOutline">@color/${constantName("border.default", "snake")}</item>
+    </style>
+</resources>
+`;
+  return [
+    { name: "res/values/colors.xml", content: colors, language: "xml" },
+    { name: "res/values/dimens.xml", content: dimens, language: "xml" },
+    { name: "res/values/themes.xml", content: themes, language: "xml" }
+  ];
+}
+function weappFiles(input) {
+  const wxss = `/* \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002 */
+page {
+${Object.entries(input.semantics).map(([key, value]) => `  --${constantName(key, "kebab")}: ${colorValue(value).hex};`).join("\n")}
+${Object.entries(input.fontSizes).map(([name, px]) => `  --fs-${name}: ${px}px;`).join("\n")}
+${input.spacing.map((v, i) => `  --space-${i}: ${v}px;`).join("\n")}
+${Object.entries(input.radius).filter(([, v]) => v < 9999).map(([k, v]) => `  --radius-${k}: ${v}px;`).join("\n")}
+}
+`;
+  const themeJs = `// \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002
+module.exports = {
+  colors: {
+${Object.entries(input.semantics).map(([key, value]) => `    '${key}': '${colorValue(value).hex}',`).join("\n")}
+  },
+  fontSize: ${JSON.stringify(input.fontSizes, null, 2).replace(/\n/g, "\n  ")},
+  spacing: ${JSON.stringify(input.spacing)},
+}
+`;
+  return [
+    { name: "app.wxss", content: wxss, language: "css" },
+    { name: "theme.js", content: themeJs, language: "javascript" }
+  ];
+}
+function uniappFiles(input) {
+  const scss = `/* \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002 */
+${Object.entries(input.semantics).map(([key, value]) => `$ts-${constantName(key, "kebab")}: ${colorValue(value).hex};`).join("\n")}
+${Object.entries(input.fontSizes).map(([name, px]) => `$ts-fs-${name}: ${px}px;`).join("\n")}
+${input.spacing.map((v, i) => `$ts-space-${i}: ${v}px;`).join("\n")}
+${Object.entries(input.radius).filter(([, v]) => v < 9999).map(([k, v]) => `$ts-radius-${k}: ${v}px;`).join("\n")}
+`;
+  return [{ name: "uni.scss", content: scss, language: "scss" }];
+}
+function taroFiles(input) {
+  const scss = `/* \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u8BF7\u52FF\u624B\u6539\u3002 */
+:root {
+${Object.entries(input.semantics).map(([key, value]) => `  --ts-${constantName(key, "kebab")}: ${colorValue(value).hex};`).join("\n")}
+${Object.entries(input.fontSizes).map(([name, px]) => `  --ts-fs-${name}: ${px}px;`).join("\n")}
+${input.spacing.map((v, i) => `  --ts-space-${i}: ${v}px;`).join("\n")}
+${Object.entries(input.radius).filter(([, v]) => v < 9999).map(([k, v]) => `  --ts-radius-${k}: ${v}px;`).join("\n")}
+}
+`;
+  return [{ name: "app.scss", content: scss, language: "scss" }];
+}
+function parseCssVars(css) {
+  const out = {};
+  for (const match of css.matchAll(/(--ts-[A-Za-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    out[match[1]] = match[2].trim();
+  }
+  return out;
+}
+function semanticKeyFromPath(path) {
+  const parts = path.split(".");
+  return parts[0] === "color" ? parts.slice(1).join(".") : path;
+}
+function buildPlatformInput(style, components) {
+  const vars = parseCssVars(style.tokensCss);
+  const semantics = {};
+  const semanticVars = {};
+  for (const [path, entry] of Object.entries(style.manifest.resolvedSemantic)) {
+    const key = semanticKeyFromPath(path);
+    semantics[key] = entry.value;
+    semanticVars[key] = `--ts-${key.replace(/\./g, "-").replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`;
+  }
+  const fontSizes = {};
+  for (const [name, value] of Object.entries(vars)) {
+    const fs = /^--ts-fs-(.+)$/.exec(name);
+    if (fs) fontSizes[fs[1]] = parseFloat(value);
+  }
+  const spacing = Object.entries(vars).filter(([n]) => /^--ts-space-\d+$/.test(n)).sort((a, b) => Number(a[0].replace("--ts-space-", "")) - Number(b[0].replace("--ts-space-", ""))).map(([, v]) => parseFloat(v));
+  const radius = {};
+  for (const [name, value] of Object.entries(vars)) {
+    const r = /^--ts-radius-(.+)$/.exec(name);
+    if (r) radius[r[1]] = parseFloat(value);
+  }
+  const shadows = {};
+  for (const [name, value] of Object.entries(vars)) {
+    const s = /^--ts-shadow-(.+)$/.exec(name);
+    if (s) shadows[s[1]] = value;
+  }
+  const fontFamilies = {};
+  for (const [name, value] of Object.entries(vars)) {
+    const f = /^--ts-font-(.+)$/.exec(name);
+    if (f && !/^--ts-font-size/.test(name)) fontFamilies[f[1]] = value;
+  }
+  return {
+    semantics,
+    semanticVars,
+    fontFamilies,
+    fontSizes,
+    weights: { regular: 400, medium: 500, semibold: 600, bold: 700 },
+    lineHeights: { tight: 1.15, snug: 1.3, normal: 1.45, relaxed: 1.65 },
+    spacing: spacing.length ? spacing : [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64],
+    radius,
+    shadows,
+    components
+  };
+}
+var GENERATORS = {
+  swiftui: swiftUiFiles,
+  uikit: uiKitFiles,
+  compose: composeFiles,
+  xml: xmlFiles,
+  weapp: weappFiles,
+  uniapp: uniappFiles,
+  taro: taroFiles
+};
+function generatePlatformFiles(target, stack, input) {
+  const allowed = STACKS[target];
+  if (!allowed.includes(stack)) {
+    throw new Error(`\u6280\u672F\u6808 ${stack} \u4E0D\u5C5E\u4E8E ${PLATFORM_LABEL[target]}\uFF08\u53EF\u9009\uFF1A${allowed.join("/")}\uFF09`);
+  }
+  return [
+    { name: "design-spec.md", content: designSpec(target, stack, input), language: "markdown" },
+    ...GENERATORS[stack](input)
+  ];
+}
+
 // src/server.ts
-import http from "node:http";
+import http2 from "node:http";
 import { createHash as createHash2 } from "node:crypto";
-import { existsSync as existsSync5, readFileSync as readFileSync5, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
 import { join as join5 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
@@ -1791,7 +3305,7 @@ ${safe}
 
 // src/export.ts
 import { spawn } from "node:child_process";
-import { existsSync as existsSync4, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync4, readdirSync as readdirSync2, rmSync as rmSync3, statSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync5, readdirSync as readdirSync2, rmSync as rmSync3, statSync, writeFileSync as writeFileSync3 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as join4 } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -1808,7 +3322,7 @@ var BROWSER_CANDIDATES = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ].filter((p) => typeof p === "string" && p.length > 0);
 function resolveBrowser() {
-  return BROWSER_CANDIDATES.find((p) => existsSync4(p)) ?? null;
+  return BROWSER_CANDIDATES.find((p) => existsSync5(p)) ?? null;
 }
 function exportsDir(cwd) {
   return join4(projectDir(cwd), "exports");
@@ -1864,8 +3378,8 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
     if (exitCode !== null) {
       throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
     }
-    if (existsSync4(portFile)) {
-      const lines = readFileSync4(portFile, "utf8").split("\n");
+    if (existsSync5(portFile)) {
+      const lines = readFileSync5(portFile, "utf8").split("\n");
       const port = lines[0]?.trim();
       const wsPath = lines[1]?.trim();
       if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
@@ -1976,7 +3490,7 @@ async function exportPngOnce(cwd) {
     const name = `canvas-${stamp()}.png`;
     const path = join4(dir, name);
     await page.screenshot({ path, clip: clip ?? void 0 });
-    return { name, path, bytes: readFileSync4(path).length };
+    return { name, path, bytes: readFileSync5(path).length };
   } finally {
     await dispose();
   }
@@ -2075,13 +3589,13 @@ async function exportZip(cwd) {
   }
   entries.push({ name: "project.json", data: Buffer.from(JSON.stringify(project, null, 2), "utf8") });
   entries.push({ name: "index.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
-  const zip = buildZip(entries);
+  const zip2 = buildZip(entries);
   const dir = exportsDir(cwd);
   mkdirSync3(dir, { recursive: true });
   const name = `canvas-${stamp()}.zip`;
   const path = join4(dir, name);
-  writeFileSync3(path, zip);
-  return { name, path, bytes: zip.length };
+  writeFileSync3(path, zip2);
+  return { name, path, bytes: zip2.length };
 }
 async function runExport(cwd, kind) {
   const files = [];
@@ -2139,7 +3653,7 @@ async function listenWithFallback(server, preferred) {
 }
 async function ensureServer(cwd, preferredPort = DEFAULT_PORT) {
   if (!state) {
-    const server = http.createServer(handleRequest);
+    const server = http2.createServer(handleRequest);
     server.on("clientError", (_err, socket) => socket.destroy());
     const port = await listenWithFallback(server, preferredPort);
     server.unref();
@@ -2257,9 +3771,9 @@ function routeRequest(req, res) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
     const file = join5(exportsDir(cwd), name);
-    if (!existsSync5(file) || !statSync2(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    if (!existsSync6(file) || !statSync2(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
-    const data = readFileSync5(file);
+    const data = readFileSync6(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
     res.end(data);
     return;
@@ -2527,13 +4041,13 @@ function isLocalHost(host) {
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
   const file = join5(WEB_DIR, name);
-  if (!existsSync5(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
+  if (!existsSync6(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
   res.writeHead(200, headers);
-  res.end(readFileSync5(file));
+  res.end(readFileSync6(file));
 }
 function sendUntrustedHtml(res, html) {
   res.writeHead(200, {
@@ -2561,6 +4075,10 @@ function num(v) {
 }
 function positive(v) {
   return v !== void 0 && v > 0 ? Math.round(v) : void 0;
+}
+function kbToBytes(v) {
+  const n = num(v);
+  return n !== void 0 && n > 0 ? Math.round(n * 1024) : void 0;
 }
 function withBackupNotice(run) {
   return async (call) => {
@@ -2617,11 +4135,11 @@ async function canvasUpsertPage(call) {
   const htmlPath = str(args.html_path);
   let html;
   if (htmlPath) {
-    if (!existsSync6(htmlPath)) {
+    if (!existsSync7(htmlPath)) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A\u6587\u4EF6\u4E0D\u5B58\u5728 ${htmlPath}`, isError: true };
     }
     try {
-      html = readFileSync6(htmlPath, "utf8");
+      html = readFileSync7(htmlPath, "utf8");
     } catch (err) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
     }
@@ -2660,9 +4178,23 @@ async function canvasUpsertPage(call) {
       y = y ?? pos.y;
     }
   }
+  let assetNote = "";
+  let workHtml = html;
+  if (workHtml !== void 0 && args.inline_assets === true) {
+    const inlineResult = await inlineAssets(workHtml, {
+      origin: str(args.inline_assets_origin),
+      maxBytesPer: kbToBytes(args.inline_assets_max_kb)
+    });
+    workHtml = inlineResult.html;
+    const skipped = inlineResult.skipped;
+    assetNote = `
+\u8D44\u6E90\u5185\u8054\uFF1A\u6210\u529F ${inlineResult.inlined} \u9879` + (skipped.length ? `\uFF0C\u8DF3\u8FC7 ${skipped.length} \u9879\uFF1A
+${skipped.slice(0, 8).map((s) => `  - ${s.ref}\uFF08${s.reason}\uFF09`).join("\n")}${skipped.length > 8 ? `
+  \u2026\u7B49 ${skipped.length} \u9879` : ""}` : "");
+  }
   const styleId = currentStyleId(call.cwd);
-  const injection = html !== void 0 ? injectDesign(html, styleId, call.cwd) : null;
-  const pageHtml = injection ? injection.html : html;
+  const injection = workHtml !== void 0 ? injectDesign(workHtml, styleId, call.cwd) : null;
+  const pageHtml = injection ? injection.html : workHtml;
   const rel = pageHtml !== void 0 ? writePageHtml(call.cwd, id, pageHtml) : existing?.htmlPath ?? "";
   const now = Date.now();
   const node = {
@@ -2692,7 +4224,7 @@ async function canvasUpsertPage(call) {
 ` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join6(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
-\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
+\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
 }
@@ -2894,6 +4426,140 @@ ${iconLines.join("\n")}
 \u6A21\u677F\uFF1A${Object.keys(style.templates).join(" / ")}
 \u5199\u6CD5\uFF1A\u989C\u8272 var(--ts-color-*)\uFF1B\u56FE\u6807 <svg data-icon="\u540D\u5B57" class="ts-icon"></svg>\uFF08\u5199\u5165\u65F6\u81EA\u52A8\u5185\u8054\uFF09\u3002`;
 }
+var WEB_TARGETS = /* @__PURE__ */ new Set(["react", "css-vars", "tailwind"]);
+var PLATFORM_TARGETS = /* @__PURE__ */ new Set(["ios", "android", "miniprogram"]);
+function resolveCodegenHtml(call) {
+  const inline = str(call.args.html);
+  if (inline) return { html: inline, label: "\u4F20\u5165\u7684 HTML" };
+  const project = readProject(call.cwd);
+  const pageId = str(call.args.page_id);
+  if (pageId) {
+    const node = project.nodes.find((n) => n.id === pageId);
+    if (!node) return { html: null, label: "", error: `\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}` };
+    const html = readPageHtml(call.cwd, pageId);
+    if (html === null) return { html: null, label: "", error: `\u9875\u9762\u6587\u4EF6\u7F3A\u5931\uFF1A${pageId}` };
+    return { html, label: `\u9875\u9762\u300C${node.title}\u300D(id=${pageId})` };
+  }
+  if (project.nodes.length === 1) {
+    const node = project.nodes[0];
+    const html = readPageHtml(call.cwd, node.id);
+    if (html !== null) return { html, label: `\u9875\u9762\u300C${node.title}\u300D(id=${node.id})` };
+  }
+  if (project.nodes.length === 0) return { html: null, label: "", error: "\u753B\u5E03\u4E0A\u6CA1\u6709\u9875\u9762\uFF1B\u8BF7\u5148\u7528 canvas_upsert_page \u5199\u5165\u539F\u578B\uFF0C\u6216\u7528 html \u76F4\u63A5\u4F20\u5165\u3002" };
+  return { html: null, label: "", error: `\u753B\u5E03\u4E0A\u6709 ${project.nodes.length} \u4E2A\u9875\u9762\uFF0C\u8BF7\u7528 page_id \u6307\u5B9A\u4E00\u4E2A\uFF0C\u6216\u7528 html \u76F4\u63A5\u4F20\u5165\u3002` };
+}
+function buildCodegenFiles(call, target, stack) {
+  const resolved = resolveCodegenHtml(call);
+  if (resolved.error || resolved.html === null) return { files: [], label: "", error: resolved.error };
+  if (WEB_TARGETS.has(target)) {
+    const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
+    if (target === "react") {
+      return { files: toReactComponent(resolved.html).map((f) => ({ name: f.name, content: f.content })), label: resolved.label };
+    }
+    if (!styleId || styleId === "free") {
+      return { files: [], label: "", error: `${target} \u9700\u8981\u5DF2\u9501\u5B9A\u98CE\u683C\uFF08\u6216\u4F20 style_id\uFF09\uFF1B\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\u3002` };
+    }
+    const style = resolveDesignStyle(call.cwd, styleId);
+    if (!style) return { files: [], label: "", error: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}` };
+    if (target === "css-vars") {
+      return {
+        files: toFrameworklessHtml(resolved.html, { tokensCss: style.tokensCss, componentsCss: style.componentsCss }).map((f) => ({ name: f.name, content: f.content })),
+        label: resolved.label
+      };
+    }
+    const vars = parseCssVars(style.tokensCss);
+    const colors = {};
+    for (const [path, entry] of Object.entries(style.manifest.resolvedSemantic)) {
+      const key = path.replace(/^color\./, "").replace(/\./g, "-");
+      colors[key] = entry.value;
+    }
+    const fontSizes = {};
+    for (const [name, value] of Object.entries(vars)) {
+      const m = /^--ts-fs-(.+)$/.exec(name);
+      if (m) fontSizes[m[1]] = value.replace("px", "");
+    }
+    const spacing = style.manifest.spacing;
+    const shadows = {};
+    for (const [name, value] of Object.entries(vars)) {
+      const m = /^--ts-shadow-(.+)$/.exec(name);
+      if (m) shadows[m[1]] = value;
+    }
+    const families = { sans: vars["--ts-font-sans"] ?? "system-ui", display: vars["--ts-font-display"] ?? "system-ui", mono: vars["--ts-font-mono"] ?? "monospace" };
+    return {
+      files: [{ name: "tailwind.config.js", content: toTailwindConfig({ colors, fontFamilies: families, fontSizes, spacing, radius: style.manifest.radius, shadows }) }],
+      label: resolved.label
+    };
+  }
+  if (PLATFORM_TARGETS.has(target)) {
+    const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
+    if (!styleId || styleId === "free") return { files: [], label: "", error: `target=${target} \u9700\u8981\u5DF2\u9501\u5B9A\u98CE\u683C\uFF08\u6216\u4F20 style_id\uFF09\uFF1B\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\u3002` };
+    const style = resolveDesignStyle(call.cwd, styleId);
+    if (!style) return { files: [], label: "", error: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}` };
+    const platform = target;
+    const allowed = STACKS[platform];
+    const chosen = stack ?? allowed[0];
+    if (!allowed.includes(chosen)) {
+      return { files: [], label: "", error: `\u6280\u672F\u6808 ${stack} \u4E0D\u9002\u7528\u4E8E ${target}\uFF1B\u53EF\u9009\uFF1A${allowed.join(" / ")}\u3002` };
+    }
+    const input = buildPlatformInput(style, defaultComponents());
+    try {
+      return { files: generatePlatformFiles(platform, chosen, input).map((f) => ({ name: f.name, content: f.content })), label: `${resolved.label} \xB7 ${target}/${chosen}` };
+    } catch (err) {
+      return { files: [], label: "", error: err.message };
+    }
+  }
+  return { files: [], label: "", error: `\u672A\u77E5\u7684 target\uFF1A${target}\u3002Web\uFF1Areact / css-vars / tailwind\uFF1B\u591A\u7AEF\uFF1Aios / android / miniprogram\u3002` };
+}
+async function canvasCodegen(call) {
+  const target = str(call.args.target);
+  if (!target) {
+    return {
+      content: "codegen \u9700\u8981 target\u3002**\u5148\u95EE\u7528\u6237\u8981\u54EA\u79CD\u76EE\u6807**\uFF08\u4E0D\u8981\u81EA\u884C\u5047\u5B9A\uFF09\uFF1A\n  - react\uFF08React + TSX \u7EC4\u4EF6\uFF09/ css-vars\uFF08CSS \u53D8\u91CF + \u65E0\u6846\u67B6 HTML\uFF09/ tailwind\uFF08Tailwind \u914D\u7F6E + \u6620\u5C04\uFF09\n  - ios / android / miniprogram\uFF08\u591A\u7AEF\uFF1A\u63D2\u4EF6\u51FA\u300C\u4E3B\u9898/Token \u6587\u4EF6 + design-spec.md \u89C4\u683C\u300D\uFF0C\u9875\u9762\u4EE3\u7801\u7531\u4F60\u6309\u89C4\u683C\u7F16\u5199\uFF09\n\u9009\u591A\u7AEF\u65F6\u518D\u95EE**\u6280\u672F\u6808**\uFF08\u5B58\u5230 stack \u53C2\u6570\uFF09\uFF1Aios \u2208 swiftui/uikit\uFF1Bandroid \u2208 compose/xml\uFF1Bminiprogram \u2208 weapp/uniapp/taro\u3002",
+      isError: true
+    };
+  }
+  const { files, label, error } = buildCodegenFiles(call, target, str(call.args.stack));
+  if (error) return { content: error, isError: true };
+  const writeFiles = call.args.write_files === true || typeof call.args.out_dir === "string";
+  if (writeFiles) {
+    const base = str(call.args.out_dir) ?? join6(PROJECT_DIR_NAME, "exports", `${target}`);
+    const dir = join6(call.cwd, base);
+    for (const file of files) {
+      const abs = join6(dir, file.name);
+      mkdirSync4(dirname(abs), { recursive: true });
+      writeFileSync4(abs, file.content, "utf8");
+    }
+    return {
+      content: `\u5DF2\u751F\u6210 ${files.length} \u4E2A\u6587\u4EF6\uFF08${label}\uFF0Ctarget=${target}${call.args.stack ? `\uFF0Cstack=${call.args.stack}` : ""}\uFF09\uFF1A
+` + files.map((f) => `  - ${join6(base, f.name)}`).join("\n") + `
+
+${codegenCaveat(target)}`
+    };
+  }
+  const body = files.map((f) => `### ${f.name}
+
+\`\`\`
+${f.content}
+\`\`\``).join("\n\n");
+  return {
+    content: `\u5DF2\u751F\u6210 ${files.length} \u4E2A\u6587\u4EF6\uFF08${label}\uFF0Ctarget=${target}${call.args.stack ? `\uFF0Cstack=${call.args.stack}` : ""}\uFF09\uFF1A
+
+${body}
+
+\uFF08\u5982\u9700\u843D\u76D8\uFF1A\u4F20 write_files=true \u6216 out_dir\u3002<name> \u4F1A\u5199\u5230 <cwd>/.tianshu-canvas/exports/ \u4E0B\u3002\uFF09
+
+${codegenCaveat(target)}`
+  };
+}
+function codegenCaveat(target) {
+  if (target === "react") {
+    return "\u6CE8\u610F\uFF1A\u4EA7\u7269\u4F9D\u8D56\u540C\u76EE\u5F55\u7684 components.css \u4E0E tokens.css\uFF08--ts-* \u53D8\u91CF\uFF09\uFF1B\u539F\u578B\u7684 <style>/\u5185\u8054\u6837\u5F0F\u65E0\u6CD5 1:1 \u6620\u5C04\uFF0C\u5FC5\u8981\u5904\u8BF7\u4EBA\u5DE5\u6821\u5BF9\u3002";
+  }
+  if (PLATFORM_TARGETS.has(target)) {
+    return "\u6CE8\u610F\uFF1A\u591A\u7AEF\u4EA7\u7269\u53EA\u4FDD\u8BC1**\u4E3B\u9898/Token \u4E0E design-spec.md \u89C4\u683C**\u786E\u5B9A\u6027\u6B63\u786E\uFF1B**\u9875\u9762\u4EE3\u7801\u9700\u4F60\u6309\u89C4\u683C\u7F16\u5199**\uFF08HTML\u2192\u539F\u751F\u5FC5\u7136\u6709\u635F\uFF0Cflex/grid\u3001\u4F2A\u5143\u7D20\u3001\u81EA\u5B9A\u4E49\u6EDA\u52A8\u65E0\u6CD5 1:1\uFF09\u3002\u8BF7\u4E0D\u8981\u58F0\u79F0\u300C\u50CF\u7D20\u7EA7\u8FD8\u539F\u300D\u3002";
+  }
+  return "\u6CE8\u610F\uFF1A\u4EA7\u7269\u4E3A\u786E\u5B9A\u6027\u8F6C\u6362\uFF1B\u5982\u9875\u9762\u7528\u4E86\u590D\u6742\u5D4C\u5957\u6216\u811A\u672C\u751F\u6210\u7684\u7ED3\u6784\uFF0C\u8BF7\u4EBA\u5DE5\u6821\u5BF9\u3002";
+}
 async function canvasStyle(call) {
   const action = str(call.args.action) ?? "list";
   try {
@@ -2922,6 +4588,7 @@ async function canvasStyle(call) {
 \u753B\u5E03 URL\uFF1A${url}${missing}${scriptIconNote(result.scriptIcons)}`
       };
     }
+    if (action === "codegen") return await canvasCodegen(call);
     if (action === "template") {
       const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
       if (!styleId || styleId === "free") {
@@ -2939,7 +4606,7 @@ async function canvasStyle(call) {
 ` + doc.html
       };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template / codegen\u3002`, isError: true };
   } catch (err) {
     return { content: err.message, isError: true };
   }
@@ -3023,6 +4690,62 @@ ${all.content}` };
 
 \u6765\u6E90\uFF1A${isCustom ? `\u81EA\u5B9A\u4E49\uFF08${libraryDir(call.cwd)}\uFF09` : "\u5185\u7F6E"}${darkNote}` };
     }
+    if (action === "extract") {
+      const id = str(call.args.id);
+      if (!id) return { content: "extract \u9700\u8981 id\uFF08\u65B0\u5EFA\u7684\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
+      const filePath = str(call.args.path);
+      const url = str(call.args.url);
+      const source = str(call.args.source);
+      if (!source && !filePath && !url) {
+        return { content: "extract \u9700\u8981\u6765\u6E90\uFF1Asource\uFF08\u5185\u8054 HTML/CSS\uFF09\u3001path\uFF08\u5DE5\u4F5C\u533A\u5185\u6587\u4EF6\uFF09\u6216 url \u4E4B\u4E00\u3002", isError: true };
+      }
+      let extracted;
+      try {
+        extracted = await extractTokens({ source, file: filePath, url });
+      } catch (err) {
+        return { content: `\u53CD\u62BD\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
+      }
+      const summary = `\u4ECE\u6765\u6E90\u53CD\u62BD\u53D6\u8BBE\u8BA1\u7CFB\u7EDF\uFF08${extracted.report.length} \u7EC4\uFF09\uFF1A
+${extracted.report.map((r) => `  ${r}`).join("\n")}
+\u89C2\u6D4B ${extracted.observed} \u9879\u3001\u63A8\u65AD ${extracted.synthesized} \u9879\u3002` + (extracted.warnings.length ? `
+\u63D0\u793A\uFF1A${extracted.warnings.join("\uFF1B")}` : "");
+      if (call.args.dry_run === true) {
+        return {
+          content: `${summary}
+
+\uFF08dry_run\uFF1A\u672A\u5199\u5165\u3002\u4E0B\u9762\u662F\u5B8C\u6574 tokens\uFF0C\u53EF\u68C0\u67E5\u540E\u53BB\u6389 dry_run \u518D\u6267\u884C\uFF09
+\`\`\`json
+${JSON.stringify(extracted.tokens, null, 2)}
+\`\`\``
+        };
+      }
+      const result = createCustomStyle(call.cwd, id, extracted.tokens, {
+        name: call.args.name ?? `${id}\uFF08\u53CD\u62BD\u53D6\uFF09`,
+        tagline: call.args.tagline ?? "\u4ECE\u73B0\u6709\u9875\u9762\u53CD\u62BD\u53D6",
+        description: call.args.description ?? "\u7531 canvas_design_system extract \u4ECE\u73B0\u6709 HTML/CSS \u53CD\u62BD\u53D6\u751F\u6210\u3002",
+        tags: call.args.tags,
+        swatches: call.args.swatches ?? Object.values(extracted.tokens.color.primitives.neutral).slice(0, 4),
+        iconStyle: call.args.iconStyle ?? extracted.iconStyle,
+        overwrite: call.args.overwrite
+      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() });
+      invalidateDesignCache(call.cwd);
+      const setCurrent = call.args.set_current !== false;
+      let lockLine = "\u672A\u9501\u5B9A\uFF08\u5982\u9700\u4F7F\u7528\uFF1Acanvas_style action=set\uFF09\u3002";
+      if (setCurrent) {
+        const applied = applyProjectStyle(call.cwd, id);
+        const { url: canvasUrl } = await ensureServer(call.cwd);
+        lockLine = `\u5DF2\u9501\u5B9A\u4E3A\u5F53\u524D\u9879\u76EE\u98CE\u683C\uFF1A\u91CD\u5199 ${applied.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
+\u753B\u5E03 URL\uFF1A${canvasUrl}`;
+      }
+      return {
+        content: `${summary}
+
+\u5DF2\u521B\u5EFA\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${result.summary.name}\u300D\uFF08${id}\uFF09\u5E76\u5B8C\u6210\u6821\u9A8C\u3002
+\u6587\u4EF6\uFF1A${libraryDir(call.cwd)}/${id}/{tokens.json,meta.json}
+${lockLine}
+\uFF08\u53EA\u5728\u672C\u5DE5\u4F5C\u533A\u751F\u6548\uFF0C\u968F .tianshu-canvas/ \u4E00\u8D77\u88AB gitignore\u3002\uFF09`
+      };
+    }
     if (action === "create") {
       const id = str(call.args.id);
       if (!id) return { content: "create \u9700\u8981 id\uFF08\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
@@ -3069,7 +4792,7 @@ ${lockLine}${warnLine}
       }
       return { content: `\u5DF2\u5220\u9664\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${id}\u300D\u3002${unlinkLine}` };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acreate / list / get / remove\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acreate / extract / list / get / remove\u3002`, isError: true };
   } catch (err) {
     return { content: err.message, isError: true };
   }
@@ -3180,6 +4903,18 @@ var tools = [
             type: "string",
             enum: ["desktop", "tablet", "mobile", "free"],
             description: "\u8BBE\u5907\u9884\u8BBE\uFF08\u65B0\u5EFA\u9ED8\u8BA4 desktop\uFF1B\u66F4\u65B0\u7F3A\u7701\u4FDD\u6301\u539F\u8BBE\u5907\u4E0E\u5C3A\u5BF8\uFF09"
+          },
+          inline_assets: {
+            type: "boolean",
+            description: "\u53EF\u9009\uFF08\u9ED8\u8BA4 false\uFF09\uFF1A\u628A\u539F\u578B\u91CC\u4F1A\u88AB\u753B\u5E03 CSP \u62E6\u622A\u7684\u5916\u94FE/\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\u6293\u53D6\u5E76\u5185\u8054\u4E3A data: URI\uFF08\u56FE\u7247/\u5B57\u4F53/CSS/SVG/\u811A\u672C\uFF09\u3002\u76F8\u5BF9\u8DEF\u5F84\u9700\u8981\u540C\u65F6\u7ED9\u51FA inline_assets_origin\u3002\u6293\u53D6\u5931\u8D25\u6216\u8D85\u9650\u7684\u8D44\u6E90\u4FDD\u7559\u539F\u5F15\u7528\u5E76\u5728\u8FD4\u56DE\u91CC\u8BF4\u660E\u3002\u5F00\u542F\u524D\u8BF7\u786E\u8BA4\u8FD9\u4E9B\u5916\u90E8\u8D44\u6E90\u662F\u4F60\u4FE1\u4EFB\u7684\u6765\u6E90\u3002"
+          },
+          inline_assets_origin: {
+            type: "string",
+            description: "\u53EF\u9009\uFF1A\u5185\u8054\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\u65F6\u7684\u57FA\u51C6\u5730\u5740\uFF08\u5982 https://example.com/page\uFF09\uFF0C\u7528\u4E8E\u628A ./img/a.png \u89E3\u6790\u6210\u7EDD\u5BF9 URL\u3002"
+          },
+          inline_assets_max_kb: {
+            type: "integer",
+            description: "\u53EF\u9009\uFF1A\u5355\u4E2A\u5185\u8054\u8D44\u6E90\u7684\u4F53\u79EF\u4E0A\u9650\uFF08KB\uFF0C\u9ED8\u8BA4 2048\uFF0C\u786C\u9876 5120\uFF09\u3002"
           }
         },
         required: []
@@ -3233,16 +4968,30 @@ var tools = [
   {
     definition: {
       name: "canvas_style",
-      description: "\u67E5\u770B/\u9501\u5B9A/\u5207\u6362\u9879\u76EE\u7EA7\u8BBE\u8BA1\u98CE\u683C\uFF0C\u6216\u53D6\u4E00\u4EFD\u9875\u9762\u6A21\u677F HTML\u3002action=list \u5217\u51FA\u5168\u90E8\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF08\u7528\u6237\u6CA1\u6307\u5B9A\u98CE\u683C\u65F6\u636E\u6B64\u63D0\u95EE\uFF09\uFF1Bget \u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D\uFF1Bset \u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF08style_id=\u98CE\u683C id\uFF0Cfree \u8868\u793A\u89E3\u9664\u9501\u5B9A\uFF0C\u4F1A\u91CD\u5199\u6240\u6709\u9875\u9762\u5E76\u5237\u65B0\u753B\u5E03\uFF09\uFF1Btemplate \u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\u3002",
+      description: "\u67E5\u770B/\u9501\u5B9A/\u5207\u6362\u9879\u76EE\u7EA7\u8BBE\u8BA1\u98CE\u683C\uFF0C\u53D6\u9875\u9762\u6A21\u677F HTML\uFF0C\u6216\u628A\u8BBE\u8BA1**\u5BFC\u51FA\u4E3A\u751F\u4EA7\u4EE3\u7801**\u3002action=list \u5217\u51FA\u5168\u90E8\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF08\u7528\u6237\u6CA1\u6307\u5B9A\u98CE\u683C\u65F6\u636E\u6B64\u63D0\u95EE\uFF09\uFF1Bget \u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D\uFF1Bset \u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF08style_id=\u98CE\u683C id\uFF0Cfree \u8868\u793A\u89E3\u9664\u9501\u5B9A\uFF0C\u4F1A\u91CD\u5199\u6240\u6709\u9875\u9762\u5E76\u5237\u65B0\u753B\u5E03\uFF09\uFF1Btemplate \u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\uFF1Bcodegen \u751F\u6210\u751F\u4EA7\u4EE3\u7801\uFF08**\u5FC5\u987B\u5148\u95EE\u7528\u6237\u8981\u54EA\u79CD\u76EE\u6807**\uFF0C\u4E0D\u8981\u81EA\u884C\u5047\u5B9A\uFF09\u3002\ncodegen \u7684 target\uFF1Areact\uFF08React+TSX \u7EC4\u4EF6\uFF09/ css-vars\uFF08CSS \u53D8\u91CF+\u65E0\u6846\u67B6 HTML\uFF09/ tailwind\uFF08Tailwind \u914D\u7F6E\uFF09\uFF1B\u591A\u7AEF\uFF08ios / android / miniprogram\uFF09\u9700\u518D\u95EE**\u6280\u672F\u6808**\u5E76\u4F20\u5165 stack\uFF08ios: swiftui|uikit\uFF1Bandroid: compose|xml\uFF1Bminiprogram: weapp|uniapp|taro\uFF09\u3002\u591A\u7AEF\u4EA7\u7269\u662F\u300C\u4E3B\u9898/Token \u6587\u4EF6 + design-spec.md \u89C4\u683C\u6E05\u5355\u300D\uFF0C**\u9875\u9762\u4EE3\u7801\u7531\u4F60\u6309\u89C4\u683C\u7F16\u5199**\uFF08HTML\u2192\u539F\u751F\u5FC5\u7136\u6709\u635F\uFF0C\u4E0D\u5F97\u58F0\u79F0\u50CF\u7D20\u7EA7\u8FD8\u539F\uFF09\u3002",
       input_schema: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["list", "get", "set", "template"], description: "list=\u5217\u51FA\u98CE\u683C\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bset=\u9501\u5B9A/\u5207\u6362\uFF1Btemplate=\u53D6\u6A21\u677F" },
+          action: { type: "string", enum: ["list", "get", "set", "template", "codegen"], description: "list=\u5217\u51FA\u98CE\u683C\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bset=\u9501\u5B9A/\u5207\u6362\uFF1Btemplate=\u53D6\u6A21\u677F\uFF1Bcodegen=\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801" },
           style_id: {
             type: "string",
-            description: "\u98CE\u683C id\uFF08set/get/template \u4F7F\u7528\uFF09\uFF0C\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u5747\u53EF\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
+            description: "\u98CE\u683C id\uFF08set/get/template/codegen \u4F7F\u7528\uFF09\uFF0C\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u5747\u53EF\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
           },
-          template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" }
+          template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" },
+          target: {
+            type: "string",
+            enum: ["react", "css-vars", "tailwind", "ios", "android", "miniprogram"],
+            description: "codegen\uFF1A\u76EE\u6807\u3002Web\uFF1Areact / css-vars / tailwind\uFF1B\u591A\u7AEF\uFF1Aios / android / miniprogram\uFF08\u9700\u914D\u5408 stack\uFF09"
+          },
+          stack: {
+            type: "string",
+            enum: ["swiftui", "uikit", "compose", "xml", "weapp", "uniapp", "taro"],
+            description: "codegen \u591A\u7AEF\u4E13\u7528\uFF1A\u6280\u672F\u6808\u3002ios\u2192swiftui|uikit\uFF1Bandroid\u2192compose|xml\uFF1Bminiprogram\u2192weapp|uniapp|taro\u3002Web \u76EE\u6807\u5FFD\u7565\u3002"
+          },
+          page_id: { type: "string", description: "codegen\uFF1A\u8981\u8F6C\u6362\u7684\u9875\u9762 id\uFF1B\u7701\u7565\u65F6\u82E5\u753B\u5E03\u53EA\u6709\u4E00\u4E2A\u9875\u9762\u5219\u7528\u5B83" },
+          html: { type: "string", description: "codegen\uFF1A\u76F4\u63A5\u4F20\u5165\u6E90 HTML\uFF08\u4F18\u5148\u4E8E page_id\uFF09" },
+          out_dir: { type: "string", description: "codegen\uFF1A\u843D\u76D8\u76EE\u5F55\uFF08\u76F8\u5BF9 cwd\uFF1B\u9ED8\u8BA4 .tianshu-canvas/exports/<target>/\uFF09" },
+          write_files: { type: "boolean", description: "codegen\uFF1A\u662F\u5426\u5199\u5230\u78C1\u76D8\uFF08\u9ED8\u8BA4 false\uFF0C\u76F4\u63A5\u8FD4\u56DE\u6587\u4EF6\u5185\u5BB9\uFF09" }
         },
         required: ["action"]
       }
@@ -3279,11 +5028,15 @@ var tools = [
   {
     definition: {
       name: "canvas_design_system",
-      description: '\u5728**\u5F53\u524D\u9879\u76EE**\u521B\u5EFA/\u67E5\u770B/\u5220\u9664\u4E00\u5957\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u4EC5\u672C\u5DE5\u4F5C\u533A\u751F\u6548\uFF0C\u5B58 .tianshu-canvas/library/\uFF09\u3002\u7528\u6237\u8BF4\u300C\u8981\u505A\u4E00\u5957\u8BBE\u8BA1\u7CFB\u7EDF\u300D\u65F6\u7528\u5B83\uFF1A\u5148\u4E3B\u52A8\u95EE\u6E05\u914D\u7F6E\uFF08\u914D\u8272\u3001\u5706\u89D2\u3001\u5B57\u53F7\u3001\u5B57\u4F53\u3001\u52A8\u6548\u3001\u9634\u5F71\u3001\u63A7\u4EF6\u5C3A\u5BF8\u3001\u662F\u5426\u8981\u6DF1\u8272\uFF09\uFF0C\u7136\u540E action=create \u4F20\u5165\u5B8C\u6574 tokens\u3002\ntokens \u5951\u7EA6\uFF08\u503C\u81EA\u7531\u3001\u53D8\u91CF\u540D\u5FC5\u987B\u4E0E\u5185\u7F6E\u98CE\u683C\u4E00\u81F4\uFF09\uFF1A\n- color.primitives\uFF1Aneutral{0,50,100,200,300,500,700,900}\u3001brand{100,300,500,600,700}\u3001success{50,500}\u3001warning{50,500}\u3001danger{50,500}\u3001info{50,500}\uFF0C\u503C\u5747\u4E3A #hex\u3002\n- color.semantic\uFF08\u6D45\u8272\uFF09\u4E0E color.semanticDark\uFF08\u6DF1\u8272\uFF0C\u540C\u7ED3\u6784\uFF09\uFF1A\u4E03\u7EC4\u2014\u2014bg{canvas,surface,raised,sunken,inverse}\u3001text{primary,secondary,muted,inverse,link}\u3001border{default,strong,subtle,focus}\u3001action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}\u3001status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}\u3001chart{1,2,3,4,5}\u3001overlay{scrim}\uFF1B\u503C\u5199 "\u7EC4.\u6B65"\uFF08\u5982 neutral.900\uFF09\u6216 #hex/rgba()\u3002\n- font\uFF1Afamilies{sans,display,mono}\u3001sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)\u3001weights{regular,medium,semibold,bold}\u3001lineHeights{tight,snug,normal,relaxed}\u3001letterSpacing{tight,normal,wide}\u3002\n- space\uFF08\u952E 0..16\uFF0C\u503C\u987B\u4E25\u683C\u9012\u589E\uFF09\u3001radius{none,sm,md,lg,xl,full}\uFF08\u503C\u9012\u589E\uFF0Cfull=9999\uFF09\u3001borderWidth{hairline,thin,thick}\u3001size{controlSm..containerLg,sidebar}\u3001shadow{sm,md,lg}\u3001motion{fast,base,easing}\u3002\n\u5199\u5165\u524D\u4F1A\u6821\u9A8C\uFF1A\u5BF9\u6BD4\u5EA6\uFF08\u6D45\u8272\u4E0E\u6DF1\u8272\u5404\u4E00\u904D\uFF0C\u6B63\u6587\u22654.5\uFF09\u3001\u5C3A\u5EA6\u9012\u589E\u3001\u53D8\u91CF\u540D\u8986\u76D6\u5171\u4EAB\u7EC4\u4EF6/\u6A21\u677F\uFF1B\u4E0D\u901A\u8FC7\u4F1A\u8FD4\u56DE\u9010\u6761\u9519\u8BEF\u3002\u6DF1\u8272\u7528\u9875\u9762\u6839\u5143\u7D20 class="dark" \u5207\u6362\u3002\u7EC4\u4EF6\uFF08ts-*\uFF09\u4E0E\u56FE\u6807\u4E3A\u5171\u4EAB\u8D44\u6E90\uFF0C\u4E0D\u652F\u6301\u6269\u5C55\u3002',
+      description: '\u5728**\u5F53\u524D\u9879\u76EE**\u521B\u5EFA/\u67E5\u770B/\u5220\u9664\u4E00\u5957\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u4EC5\u672C\u5DE5\u4F5C\u533A\u751F\u6548\uFF0C\u5B58 .tianshu-canvas/library/\uFF09\u3002\u7528\u6237\u8BF4\u300C\u8981\u505A\u4E00\u5957\u8BBE\u8BA1\u7CFB\u7EDF\u300D\u65F6\u7528\u5B83\uFF1A\u5148\u4E3B\u52A8\u95EE\u6E05\u914D\u7F6E\uFF08\u914D\u8272\u3001\u5706\u89D2\u3001\u5B57\u53F7\u3001\u5B57\u4F53\u3001\u52A8\u6548\u3001\u9634\u5F71\u3001\u63A7\u4EF6\u5C3A\u5BF8\u3001\u662F\u5426\u8981\u6DF1\u8272\uFF09\uFF0C\u7136\u540E action=create \u4F20\u5165\u5B8C\u6574 tokens\u3002\ntokens \u5951\u7EA6\uFF08\u503C\u81EA\u7531\u3001\u53D8\u91CF\u540D\u5FC5\u987B\u4E0E\u5185\u7F6E\u98CE\u683C\u4E00\u81F4\uFF09\uFF1A\n- color.primitives\uFF1Aneutral{0,50,100,200,300,500,700,900}\u3001brand{100,300,500,600,700}\u3001success{50,500}\u3001warning{50,500}\u3001danger{50,500}\u3001info{50,500}\uFF0C\u503C\u5747\u4E3A #hex\u3002\n- color.semantic\uFF08\u6D45\u8272\uFF09\u4E0E color.semanticDark\uFF08\u6DF1\u8272\uFF0C\u540C\u7ED3\u6784\uFF09\uFF1A\u4E03\u7EC4\u2014\u2014bg{canvas,surface,raised,sunken,inverse}\u3001text{primary,secondary,muted,inverse,link}\u3001border{default,strong,subtle,focus}\u3001action{primary,primaryHover,primaryText,secondary,secondaryHover,secondaryText,ghostHover,danger,dangerText}\u3001status{success,successBg,warning,warningBg,danger,dangerBg,info,infoBg}\u3001chart{1,2,3,4,5}\u3001overlay{scrim}\uFF1B\u503C\u5199 "\u7EC4.\u6B65"\uFF08\u5982 neutral.900\uFF09\u6216 #hex/rgba()\u3002\n- font\uFF1Afamilies{sans,display,mono}\u3001sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)\u3001weights{regular,medium,semibold,bold}\u3001lineHeights{tight,snug,normal,relaxed}\u3001letterSpacing{tight,normal,wide}\u3002\n- space\uFF08\u952E 0..16\uFF0C\u503C\u987B\u4E25\u683C\u9012\u589E\uFF09\u3001radius{none,sm,md,lg,xl,full}\uFF08\u503C\u9012\u589E\uFF0Cfull=9999\uFF09\u3001borderWidth{hairline,thin,thick}\u3001size{controlSm..containerLg,sidebar}\u3001shadow{sm,md,lg}\u3001motion{fast,base,easing}\u3002\n\u5199\u5165\u524D\u4F1A\u6821\u9A8C\uFF1A\u5BF9\u6BD4\u5EA6\uFF08\u6D45\u8272\u4E0E\u6DF1\u8272\u5404\u4E00\u904D\uFF0C\u6B63\u6587\u22654.5\uFF09\u3001\u5C3A\u5EA6\u9012\u589E\u3001\u53D8\u91CF\u540D\u8986\u76D6\u5171\u4EAB\u7EC4\u4EF6/\u6A21\u677F\uFF1B\u4E0D\u901A\u8FC7\u4F1A\u8FD4\u56DE\u9010\u6761\u9519\u8BEF\u3002\u6DF1\u8272\u7528\u9875\u9762\u6839\u5143\u7D20 class="dark" \u5207\u6362\u3002\u7EC4\u4EF6\uFF08ts-*\uFF09\u4E0E\u56FE\u6807\u4E3A\u5171\u4EAB\u8D44\u6E90\uFF0C\u4E0D\u652F\u6301\u6269\u5C55\u3002\naction=extract\uFF1A**\u4ECE\u73B0\u6709 HTML/CSS\uFF08\u6216\u4E00\u4E2A URL\uFF09\u53CD\u63A8**\u51FA\u4E00\u5957\u80FD\u901A\u8FC7\u4E0A\u8FF0\u6821\u9A8C\u7684\u8BBE\u8BA1\u7CFB\u7EDF \u2014\u2014 \u7528\u6237\u8BF4\u300C\u7167\u8FD9\u4E2A\u7AD9\u70B9\u7684\u98CE\u683C\u505A\u300D\u300C\u7528\u8FD9\u4E2A\u9875\u9762\u7684\u914D\u8272\u300D\u65F6\u7528\u5B83\u3002\u4F20 source\uFF08\u5185\u8054 HTML/CSS\uFF09\u3001path\uFF08\u5DE5\u4F5C\u533A\u5185 .html/.css \u6587\u4EF6\uFF09\u6216 url \u4E4B\u4E00\uFF1B\u5148\u7528 dry_run=true \u9884\u89C8 tokens\u3002',
       input_schema: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["create", "list", "get", "remove"], description: "create=\u521B\u5EFA\uFF1Blist=\u5217\u51FA\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bremove=\u5220\u9664" },
+          action: { type: "string", enum: ["create", "extract", "list", "get", "remove"], description: "create=\u521B\u5EFA\uFF1Bextract=\u4ECE\u73B0\u6709 HTML/CSS/URL \u53CD\u62BD\u53D6\uFF1Blist=\u5217\u51FA\uFF1Bget=\u67E5\u770B\u7EC6\u8282\uFF1Bremove=\u5220\u9664" },
+          source: { type: "string", description: "extract\uFF1A\u5185\u8054 HTML \u6216 CSS \u6587\u672C\uFF08\u6700\u9AD8\u4F18\u5148\uFF09" },
+          path: { type: "string", description: "extract\uFF1A\u5DE5\u4F5C\u533A\u5185\u7684 HTML/CSS \u6587\u4EF6\u8DEF\u5F84" },
+          url: { type: "string", description: "extract\uFF1A\u8FDC\u7A0B\u9875\u9762 URL\uFF08\u4EC5 http/https\uFF1B\u4F1A\u505A SSRF \u9632\u62A4\uFF0C\u7981\u5185\u7F51\uFF09" },
+          dry_run: { type: "boolean", description: "extract\uFF1A\u53EA\u9884\u89C8\uFF08\u8FD4\u56DE\u6458\u8981 + \u5B8C\u6574 tokens\uFF09\uFF0C\u4E0D\u5199\u76D8\uFF08\u9ED8\u8BA4 false\uFF09" },
           id: { type: "string", description: "\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF1B\u4E0D\u5F97\u4E0E\u5185\u7F6E\u98CE\u683C\u91CD\u540D" },
           name: { type: "string", description: "create\uFF1A\u98CE\u683C\u663E\u793A\u540D" },
           tagline: { type: "string", description: "create\uFF1A\u4E00\u53E5\u8BDD\u63CF\u8FF0" },
@@ -3355,7 +5108,13 @@ var index_default = defineTianshuPlugin({
   }
 });
 export {
+  assertUrlAllowed,
   index_default as default,
+  extractTokens,
+  fetchUrl,
+  inlineAssets,
+  isBlockedIp,
   resolveBrowser,
+  toDataUri,
   tools
 };

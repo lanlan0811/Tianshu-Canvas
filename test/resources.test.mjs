@@ -31,7 +31,18 @@ try {
   assert.ok(!clean.isError, clean.content)
   assert.doesNotMatch(clean.content, /画布 CSP 会拦截/)
 
-  console.log('OK 资源提示: 外链与相对路径会提示，内联内容与普通链接不提示')
+  // 内联默认关闭：不传 inline_assets 时不做任何抓取（相对路径资源仍照常提示）。
+  const notInlined = await upsert(`<img src="./photo.png">`)
+  assert.ok(!notInlined.isError, notInlined.content)
+  assert.doesNotMatch(notInlined.content, /资源内联/, '未显式开启时不应尝试内联')
+
+  // 显式开启但没有 origin：相对路径保留原引用并说明原因（不触网）。
+  const opened = await tools.canvas_upsert_page.execute({ input: { html: '<img src="./photo.png">', inline_assets: true }, cwd })
+  assert.ok(!opened.isError, opened.content)
+  assert.match(opened.content, /资源内联/)
+  assert.match(opened.content, /未提供 origin/)
+
+  console.log('OK 资源提示: 外链与相对路径会提示，内联内容与普通链接不提示；内联仅在显式开启时触发')
 } finally {
   rmSync(cwd, { recursive: true, force: true })
 }

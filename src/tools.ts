@@ -8,8 +8,8 @@
  * v0.2.0：10 个工具精简为 5 个（open / upsert_page / get_state / arrange / export）。
  */
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
 import {
   designStyleExists,
@@ -30,9 +30,13 @@ import {
   removeCustomStyle,
 } from './designCustom.js'
 import { applyProjectStyle, currentStyleId, templateDocument } from './designOps.js'
+import { extractTokens } from './extract.js'
+import { inlineAssets } from './inlineAssets.js'
 import { isSafeId, newPageId } from './ids.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
+import { toReactComponent, toFrameworklessHtml, toTailwindConfig } from './codegen.js'
+import { buildPlatformInput, defaultComponents, generatePlatformFiles, parseCssVars, STACKS, type PlatformStack, type PlatformTarget } from './codegen/platforms.js'
 import {
   addEdge,
   autoLayoutPosition,
@@ -95,6 +99,12 @@ function num(v: unknown): number | undefined {
 
 function positive(v: number | undefined): number | undefined {
   return v !== undefined && v > 0 ? Math.round(v) : undefined
+}
+
+/** 把 KB 参数换算成字节；缺省/非法时返回 undefined（由 inlineAssets 用默认值）。 */
+function kbToBytes(v: unknown): number | undefined {
+  const n = num(v)
+  return n !== undefined && n > 0 ? Math.round(n * 1024) : undefined
 }
 
 /** 写入前若备份过有问题的项目文件，把备份路径告诉调用方（宿主只透传 content）。 */
@@ -222,10 +232,28 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     }
   }
 
+  // 资源内联（可选）：把会被 CSP 拦截的外链/相对路径抓取成 data: URI。
+  // 必须在 injectDesign 之前：注入块本身无外链，先内联可让后续 blocked 提示基于最终 HTML。
+  let assetNote = ''
+  let workHtml = html
+  if (workHtml !== undefined && args.inline_assets === true) {
+    const inlineResult = await inlineAssets(workHtml, {
+      origin: str(args.inline_assets_origin),
+      maxBytesPer: kbToBytes(args.inline_assets_max_kb),
+    })
+    workHtml = inlineResult.html
+    const skipped = inlineResult.skipped
+    assetNote =
+      `\n资源内联：成功 ${inlineResult.inlined} 项` +
+      (skipped.length
+        ? `，跳过 ${skipped.length} 项：\n${skipped.slice(0, 8).map((s) => `  - ${s.ref}（${s.reason}）`).join('\n')}${skipped.length > 8 ? `\n  …等 ${skipped.length} 项` : ''}`
+        : '')
+  }
+
   // 设计系统是项目级锁定：写入时自动内联 token/组件样式并展开图标。
   const styleId = currentStyleId(call.cwd)
-  const injection = html !== undefined ? injectDesign(html, styleId, call.cwd) : null
-  const pageHtml = injection ? injection.html : html
+  const injection = workHtml !== undefined ? injectDesign(workHtml, styleId, call.cwd) : null
+  const pageHtml = injection ? injection.html : workHtml
 
   const rel = pageHtml !== undefined ? writePageHtml(call.cwd, id, pageHtml) : (existing?.htmlPath ?? '')
   const now = Date.now()
@@ -265,6 +293,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       `项目：${projectHint(call.cwd)}` +
       styleLine +
       missingLine +
+      assetNote +
       scriptIconNote(injection?.scriptIcons ?? []) +
       (blocked.length
         ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
@@ -490,6 +519,153 @@ function formatStyleBrief(cwd: string, styleId: string): string {
   )
 }
 
+// ---------------------------------------------------------------------------
+// codegen（canvas_style 的 action=codegen）：设计 → 生产代码
+// ---------------------------------------------------------------------------
+
+const WEB_TARGETS = new Set(['react', 'css-vars', 'tailwind'])
+const PLATFORM_TARGETS = new Set<PlatformTarget>(['ios', 'android', 'miniprogram'])
+
+/** 取页面 HTML：优先内联 html 参数，其次 page_id，再次当前唯一页面。 */
+function resolveCodegenHtml(call: ToolCall): { html: string | null; label: string; error?: string } {
+  const inline = str(call.args.html)
+  if (inline) return { html: inline, label: '传入的 HTML' }
+  const project = readProject(call.cwd)
+  const pageId = str(call.args.page_id)
+  if (pageId) {
+    const node = project.nodes.find((n) => n.id === pageId)
+    if (!node) return { html: null, label: '', error: `页面不存在：${pageId}` }
+    const html = readPageHtml(call.cwd, pageId)
+    if (html === null) return { html: null, label: '', error: `页面文件缺失：${pageId}` }
+    return { html, label: `页面「${node.title}」(id=${pageId})` }
+  }
+  if (project.nodes.length === 1) {
+    const node = project.nodes[0]!
+    const html = readPageHtml(call.cwd, node.id)
+    if (html !== null) return { html, label: `页面「${node.title}」(id=${node.id})` }
+  }
+  if (project.nodes.length === 0) return { html: null, label: '', error: '画布上没有页面；请先用 canvas_upsert_page 写入原型，或用 html 直接传入。' }
+  return { html: null, label: '', error: `画布上有 ${project.nodes.length} 个页面，请用 page_id 指定一个，或用 html 直接传入。` }
+}
+
+/** 组装 codegen 的文件产物列表。 */
+function buildCodegenFiles(call: ToolCall, target: string, stack: string | undefined): { files: { name: string; content: string }[]; label: string; error?: string } {
+  const resolved = resolveCodegenHtml(call)
+  if (resolved.error || resolved.html === null) return { files: [], label: '', error: resolved.error }
+
+  if (WEB_TARGETS.has(target)) {
+    const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
+    if (target === 'react') {
+      return { files: toReactComponent(resolved.html).map((f) => ({ name: f.name, content: f.content })), label: resolved.label }
+    }
+    if (!styleId || styleId === 'free') {
+      return { files: [], label: '', error: `${target} 需要已锁定风格（或传 style_id）；当前为自由发挥。` }
+    }
+    const style = resolveDesignStyle(call.cwd, styleId)
+    if (!style) return { files: [], label: '', error: `未知的设计风格：${styleId}` }
+    if (target === 'css-vars') {
+      return {
+        files: toFrameworklessHtml(resolved.html, { tokensCss: style.tokensCss, componentsCss: style.componentsCss }).map((f) => ({ name: f.name, content: f.content })),
+        label: resolved.label,
+      }
+    }
+    // tailwind
+    const vars = parseCssVars(style.tokensCss)
+    const colors: Record<string, string> = {}
+    for (const [path, entry] of Object.entries(style.manifest.resolvedSemantic)) {
+      const key = path.replace(/^color\./, '').replace(/\./g, '-')
+      colors[key] = entry.value
+    }
+    const fontSizes: Record<string, string> = {}
+    for (const [name, value] of Object.entries(vars)) {
+      const m = /^--ts-fs-(.+)$/.exec(name)
+      if (m) fontSizes[m[1]!] = value.replace('px', '')
+    }
+    const spacing = style.manifest.spacing
+    const shadows: Record<string, string> = {}
+    for (const [name, value] of Object.entries(vars)) {
+      const m = /^--ts-shadow-(.+)$/.exec(name)
+      if (m) shadows[m[1]!] = value
+    }
+    const families: Record<string, string> = { sans: vars['--ts-font-sans'] ?? 'system-ui', display: vars['--ts-font-display'] ?? 'system-ui', mono: vars['--ts-font-mono'] ?? 'monospace' }
+    return {
+      files: [{ name: 'tailwind.config.js', content: toTailwindConfig({ colors, fontFamilies: families, fontSizes, spacing, radius: style.manifest.radius, shadows }) }],
+      label: resolved.label,
+    }
+  }
+
+  if (PLATFORM_TARGETS.has(target as PlatformTarget)) {
+    const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
+    if (!styleId || styleId === 'free') return { files: [], label: '', error: `target=${target} 需要已锁定风格（或传 style_id）；当前为自由发挥。` }
+    const style = resolveDesignStyle(call.cwd, styleId)
+    if (!style) return { files: [], label: '', error: `未知的设计风格：${styleId}` }
+    const platform = target as PlatformTarget
+    const allowed = STACKS[platform]
+    const chosen = (stack ?? allowed[0]!) as PlatformStack
+    if (!allowed.includes(chosen)) {
+      return { files: [], label: '', error: `技术栈 ${stack} 不适用于 ${target}；可选：${allowed.join(' / ')}。` }
+    }
+    const input = buildPlatformInput(style, defaultComponents())
+    try {
+      return { files: generatePlatformFiles(platform, chosen, input).map((f) => ({ name: f.name, content: f.content })), label: `${resolved.label} · ${target}/${chosen}` }
+    } catch (err) {
+      return { files: [], label: '', error: (err as Error).message }
+    }
+  }
+
+  return { files: [], label: '', error: `未知的 target：${target}。Web：react / css-vars / tailwind；多端：ios / android / miniprogram。` }
+}
+
+async function canvasCodegen(call: ToolCall): Promise<ToolResult> {
+  const target = str(call.args.target)
+  if (!target) {
+    return {
+      content:
+        'codegen 需要 target。**先问用户要哪种目标**（不要自行假定）：\n' +
+        '  - react（React + TSX 组件）/ css-vars（CSS 变量 + 无框架 HTML）/ tailwind（Tailwind 配置 + 映射）\n' +
+        '  - ios / android / miniprogram（多端：插件出「主题/Token 文件 + design-spec.md 规格」，页面代码由你按规格编写）\n' +
+        '选多端时再问**技术栈**（存到 stack 参数）：ios ∈ swiftui/uikit；android ∈ compose/xml；miniprogram ∈ weapp/uniapp/taro。',
+      isError: true,
+    }
+  }
+  const { files, label, error } = buildCodegenFiles(call, target, str(call.args.stack))
+  if (error) return { content: error, isError: true }
+
+  const writeFiles = call.args.write_files === true || typeof call.args.out_dir === 'string'
+  if (writeFiles) {
+    const base = str(call.args.out_dir) ?? join(PROJECT_DIR_NAME, 'exports', `${target}`)
+    const dir = join(call.cwd, base)
+    for (const file of files) {
+      const abs = join(dir, file.name)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, file.content, 'utf8')
+    }
+    return {
+      content:
+        `已生成 ${files.length} 个文件（${label}，target=${target}${call.args.stack ? `，stack=${call.args.stack}` : ''}）：\n` +
+        files.map((f) => `  - ${join(base, f.name)}`).join('\n') +
+        `\n\n${codegenCaveat(target)}`,
+    }
+  }
+
+  const body = files.map((f) => `### ${f.name}\n\n\`\`\`\n${f.content}\n\`\`\``).join('\n\n')
+  return {
+    content:
+      `已生成 ${files.length} 个文件（${label}，target=${target}${call.args.stack ? `，stack=${call.args.stack}` : ''}）：\n\n${body}\n\n` +
+      `（如需落盘：传 write_files=true 或 out_dir。<name> 会写到 <cwd>/.tianshu-canvas/exports/ 下。）\n\n${codegenCaveat(target)}`,
+  }
+}
+
+function codegenCaveat(target: string): string {
+  if (target === 'react') {
+    return '注意：产物依赖同目录的 components.css 与 tokens.css（--ts-* 变量）；原型的 <style>/内联样式无法 1:1 映射，必要处请人工校对。'
+  }
+  if (PLATFORM_TARGETS.has(target as PlatformTarget)) {
+    return '注意：多端产物只保证**主题/Token 与 design-spec.md 规格**确定性正确；**页面代码需你按规格编写**（HTML→原生必然有损，flex/grid、伪元素、自定义滚动无法 1:1）。请不要声称「像素级还原」。'
+  }
+  return '注意：产物为确定性转换；如页面用了复杂嵌套或脚本生成的结构，请人工校对。'
+}
+
 async function canvasStyle(call: ToolCall): Promise<ToolResult> {
   const action = str(call.args.action) ?? 'list'
   try {
@@ -523,6 +699,8 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       }
     }
 
+    if (action === 'codegen') return await canvasCodegen(call)
+
     if (action === 'template') {
       const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
       if (!styleId || styleId === 'free') {
@@ -541,7 +719,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       }
     }
 
-    return { content: `未知的 action：${action}。可选：list / get / set / template。`, isError: true }
+    return { content: `未知的 action：${action}。可选：list / get / set / template / codegen。`, isError: true }
   } catch (err) {
     return { content: (err as Error).message, isError: true }
   }
@@ -634,6 +812,60 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       return { content: `${brief}\n\n来源：${isCustom ? `自定义（${libraryDir(call.cwd)}）` : '内置'}${darkNote}` }
     }
 
+    if (action === 'extract') {
+      const id = str(call.args.id)
+      if (!id) return { content: 'extract 需要 id（新建的风格 id：字母数字/_/-，1–64 位）。', isError: true }
+      const filePath = str(call.args.path)
+      const url = str(call.args.url)
+      const source = str(call.args.source)
+      if (!source && !filePath && !url) {
+        return { content: 'extract 需要来源：source（内联 HTML/CSS）、path（工作区内文件）或 url 之一。', isError: true }
+      }
+      let extracted
+      try {
+        extracted = await extractTokens({ source, file: filePath, url })
+      } catch (err) {
+        return { content: `反抽取失败：${(err as Error).message}`, isError: true }
+      }
+      const summary =
+        `从来源反抽取设计系统（${extracted.report.length} 组）：\n${extracted.report.map((r) => `  ${r}`).join('\n')}\n` +
+        `观测 ${extracted.observed} 项、推断 ${extracted.synthesized} 项。` +
+        (extracted.warnings.length ? `\n提示：${extracted.warnings.join('；')}` : '')
+
+      if (call.args.dry_run === true) {
+        return {
+          content:
+            `${summary}\n\n（dry_run：未写入。下面是完整 tokens，可检查后去掉 dry_run 再执行）\n` +
+            `\`\`\`json\n${JSON.stringify(extracted.tokens, null, 2)}\n\`\`\``,
+        }
+      }
+
+      const result = createCustomStyle(call.cwd, id, extracted.tokens, {
+        name: call.args.name ?? `${id}（反抽取）`,
+        tagline: call.args.tagline ?? '从现有页面反抽取',
+        description: call.args.description ?? '由 canvas_design_system extract 从现有 HTML/CSS 反抽取生成。',
+        tags: call.args.tags,
+        swatches: call.args.swatches ?? Object.values((extracted.tokens.color as { primitives: { neutral: Record<string, string> } }).primitives.neutral).slice(0, 4),
+        iconStyle: call.args.iconStyle ?? extracted.iconStyle,
+        overwrite: call.args.overwrite,
+      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() })
+      invalidateDesignCache(call.cwd)
+
+      const setCurrent = call.args.set_current !== false
+      let lockLine = '未锁定（如需使用：canvas_style action=set）。'
+      if (setCurrent) {
+        const applied = applyProjectStyle(call.cwd, id)
+        const { url: canvasUrl } = await ensureServer(call.cwd)
+        lockLine = `已锁定为当前项目风格：重写 ${applied.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${canvasUrl}`
+      }
+      return {
+        content:
+          `${summary}\n\n已创建自定义设计系统「${result.summary.name}」（${id}）并完成校验。\n` +
+          `文件：${libraryDir(call.cwd)}/${id}/{tokens.json,meta.json}\n${lockLine}\n` +
+          `（只在本工作区生效，随 .tianshu-canvas/ 一起被 gitignore。）`,
+      }
+    }
+
     if (action === 'create') {
       const id = str(call.args.id)
       if (!id) return { content: 'create 需要 id（风格 id：字母数字/_/-，1–64 位）。', isError: true }
@@ -686,7 +918,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       return { content: `已删除自定义设计系统「${id}」。${unlinkLine}` }
     }
 
-    return { content: `未知的 action：${action}。可选：create / list / get / remove。`, isError: true }
+    return { content: `未知的 action：${action}。可选：create / extract / list / get / remove。`, isError: true }
   } catch (err) {
     return { content: (err as Error).message, isError: true }
   }
@@ -816,6 +1048,20 @@ export const tools: TpiTool[] = [
             enum: ['desktop', 'tablet', 'mobile', 'free'],
             description: '设备预设（新建默认 desktop；更新缺省保持原设备与尺寸）',
           },
+          inline_assets: {
+            type: 'boolean',
+            description:
+              '可选（默认 false）：把原型里会被画布 CSP 拦截的外链/相对路径资源抓取并内联为 data: URI（图片/字体/CSS/SVG/脚本）。' +
+              '相对路径需要同时给出 inline_assets_origin。抓取失败或超限的资源保留原引用并在返回里说明。开启前请确认这些外部资源是你信任的来源。',
+          },
+          inline_assets_origin: {
+            type: 'string',
+            description: '可选：内联相对路径资源时的基准地址（如 https://example.com/page），用于把 ./img/a.png 解析成绝对 URL。',
+          },
+          inline_assets_max_kb: {
+            type: 'integer',
+            description: '可选：单个内联资源的体积上限（KB，默认 2048，硬顶 5120）。',
+          },
         },
         required: [],
       },
@@ -874,19 +1120,37 @@ export const tools: TpiTool[] = [
     definition: {
       name: 'canvas_style',
       description:
-        '查看/锁定/切换项目级设计风格，或取一份页面模板 HTML。' +
+        '查看/锁定/切换项目级设计风格，取页面模板 HTML，或把设计**导出为生产代码**。' +
         'action=list 列出全部可选风格与当前状态（用户没指定风格时据此提问）；get 查看某风格的 token/组件类/图标名；' +
         'set 锁定或切换风格（style_id=风格 id，free 表示解除锁定，会重写所有页面并刷新画布）；' +
-        'template 取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page。',
+        'template 取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page；' +
+        'codegen 生成生产代码（**必须先问用户要哪种目标**，不要自行假定）。\n' +
+        'codegen 的 target：react（React+TSX 组件）/ css-vars（CSS 变量+无框架 HTML）/ tailwind（Tailwind 配置）；' +
+        '多端（ios / android / miniprogram）需再问**技术栈**并传入 stack（ios: swiftui|uikit；android: compose|xml；miniprogram: weapp|uniapp|taro）。' +
+        '多端产物是「主题/Token 文件 + design-spec.md 规格清单」，**页面代码由你按规格编写**（HTML→原生必然有损，不得声称像素级还原）。',
       input_schema: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['list', 'get', 'set', 'template'], description: 'list=列出风格；get=查看细节；set=锁定/切换；template=取模板' },
+          action: { type: 'string', enum: ['list', 'get', 'set', 'template', 'codegen'], description: 'list=列出风格；get=查看细节；set=锁定/切换；template=取模板；codegen=导出生产代码' },
           style_id: {
             type: 'string',
-            description: '风格 id（set/get/template 使用），内置或自定义均可；free 表示解除锁定',
+            description: '风格 id（set/get/template/codegen 使用），内置或自定义均可；free 表示解除锁定',
           },
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
+          target: {
+            type: 'string',
+            enum: ['react', 'css-vars', 'tailwind', 'ios', 'android', 'miniprogram'],
+            description: 'codegen：目标。Web：react / css-vars / tailwind；多端：ios / android / miniprogram（需配合 stack）',
+          },
+          stack: {
+            type: 'string',
+            enum: ['swiftui', 'uikit', 'compose', 'xml', 'weapp', 'uniapp', 'taro'],
+            description: 'codegen 多端专用：技术栈。ios→swiftui|uikit；android→compose|xml；miniprogram→weapp|uniapp|taro。Web 目标忽略。',
+          },
+          page_id: { type: 'string', description: 'codegen：要转换的页面 id；省略时若画布只有一个页面则用它' },
+          html: { type: 'string', description: 'codegen：直接传入源 HTML（优先于 page_id）' },
+          out_dir: { type: 'string', description: 'codegen：落盘目录（相对 cwd；默认 .tianshu-canvas/exports/<target>/）' },
+          write_files: { type: 'boolean', description: 'codegen：是否写到磁盘（默认 false，直接返回文件内容）' },
         },
         required: ['action'],
       },
@@ -939,11 +1203,17 @@ export const tools: TpiTool[] = [
         '- font：families{sans,display,mono}、sizes{xs,sm,md,lg,xl,2xl,3xl,4xl}(px)、weights{regular,medium,semibold,bold}、lineHeights{tight,snug,normal,relaxed}、letterSpacing{tight,normal,wide}。\n' +
         '- space（键 0..16，值须严格递增）、radius{none,sm,md,lg,xl,full}（值递增，full=9999）、borderWidth{hairline,thin,thick}、size{controlSm..containerLg,sidebar}、shadow{sm,md,lg}、motion{fast,base,easing}。\n' +
         '写入前会校验：对比度（浅色与深色各一遍，正文≥4.5）、尺度递增、变量名覆盖共享组件/模板；不通过会返回逐条错误。' +
-        '深色用页面根元素 class="dark" 切换。组件（ts-*）与图标为共享资源，不支持扩展。',
+        '深色用页面根元素 class="dark" 切换。组件（ts-*）与图标为共享资源，不支持扩展。\n' +
+        'action=extract：**从现有 HTML/CSS（或一个 URL）反推**出一套能通过上述校验的设计系统 —— 用户说「照这个站点的风格做」「用这个页面的配色」时用它。' +
+        '传 source（内联 HTML/CSS）、path（工作区内 .html/.css 文件）或 url 之一；先用 dry_run=true 预览 tokens。',
       input_schema: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['create', 'list', 'get', 'remove'], description: 'create=创建；list=列出；get=查看细节；remove=删除' },
+          action: { type: 'string', enum: ['create', 'extract', 'list', 'get', 'remove'], description: 'create=创建；extract=从现有 HTML/CSS/URL 反抽取；list=列出；get=查看细节；remove=删除' },
+          source: { type: 'string', description: 'extract：内联 HTML 或 CSS 文本（最高优先）' },
+          path: { type: 'string', description: 'extract：工作区内的 HTML/CSS 文件路径' },
+          url: { type: 'string', description: 'extract：远程页面 URL（仅 http/https；会做 SSRF 防护，禁内网）' },
+          dry_run: { type: 'boolean', description: 'extract：只预览（返回摘要 + 完整 tokens），不写盘（默认 false）' },
           id: { type: 'string', description: '风格 id：字母数字/_/-，1–64 位；不得与内置风格重名' },
           name: { type: 'string', description: 'create：风格显示名' },
           tagline: { type: 'string', description: 'create：一句话描述' },

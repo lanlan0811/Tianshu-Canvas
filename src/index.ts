@@ -38,3 +38,6 @@ export default defineTianshuPlugin({
 // 供测试直接使用（loader 只读 .default，忽略这些命名导出）。
 export { tools } from './tools.js'
 export { resolveBrowser } from './export.js'
+export { assertUrlAllowed, isBlockedIp, fetchUrl } from './netFetch.js'
+export { inlineAssets, toDataUri } from './inlineAssets.js'
+export { extractTokens } from './extract.js'

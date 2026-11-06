@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.4.2",
-  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排（导出在画布顶栏由用户自行操作）",
+  "version": "0.5.0",
+  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取、导出生产代码（Web 与多端）",
   "runtime": "agent",
   "entry": "dist/index.js",
   "capabilities": [
@@ -18,7 +18,7 @@
       },
       {
         "name": "canvas_upsert_page",
-        "description": "新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸）"
+        "description": "新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）"
       },
       {
         "name": "canvas_get_state",
@@ -30,7 +30,7 @@
       },
       {
         "name": "canvas_style",
-        "description": "列出/查看/锁定/切换项目级设计风格，或取页面模板 HTML"
+        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码（React/TSX、CSS 变量、Tailwind、iOS/Android/小程序）"
       },
       {
         "name": "canvas_check_style",
@@ -38,7 +38,7 @@
       },
       {
         "name": "canvas_design_system",
-        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色）"
+        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/，含浅色与深色），或从现有 HTML/CSS/URL 反抽取一套"
       },
       {
         "name": "canvas_comments",
