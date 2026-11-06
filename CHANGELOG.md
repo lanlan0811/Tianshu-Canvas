@@ -3,6 +3,25 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.7.3] - 2026-11-06
+
+画布换上专属应用图标（顶栏品牌标 / favicon / 空态插画统一），并修复 Windows 上 `dist/` 换行符导致 CI 误判「产物与源码不一致」。详细说明见 [release-0.7.3.md](release/release-0.7.3.md)。
+
+### 新增
+
+- **专属应用图标**：顶栏品牌标（22px）、浏览器 favicon（64px）、空态插画（132px，含浮动与投影）三处统一为应用图标，替换原先的手绘占位方块 / 线框 favicon / 虚线画板。
+- 三张手绘便签小方片保留，改为绕图标分布（右上琥珀 / 右侧薄荷 / 左下天蓝），各自倾角与错开的浮动动画。
+- README 顶部加横幅头图（`assets/banner.png`）与应用图标（`assets/icon.png` + `icon-512.png`，透明底）。
+
+### 变更
+
+- 图标由 esbuild 的 `dataurl` loader 在构建期内联进 `canvas.js`（`web/src/brand-icon.png`，384px 量化 256 色，约 12KB），不新增静态资源路由，符合画布 CSP `img-src 'self' data: blob:`。
+- favicon 改由 `scripts/build.mjs` 的 `__FAVICON__` 占位替换（源 `web/favicon.png`），`web/index.html` 不再内嵌 base64。
+
+### 修复
+
+- **`dist/` 换行符导致 CI 失败**：`web/index.html` 在 Windows（`core.autocrlf=true`）下是 CRLF，构建直接复制会让 `dist/web/index.html` 带 CRLF 入库，与 Linux CI 重建的 LF 逐字节不等。构建时统一归一化为 LF。
+
 ## [v0.7.2] - 2026-11-06
 
 修复技能（skill）流程契约失效：把「先给画布链接、再问设计风格」等硬顺序从**懒加载的技能正文**搬进**始终注入的工具描述与参数描述**。详细说明见 [release-0.7.2.md](release/release-0.7.2.md)。

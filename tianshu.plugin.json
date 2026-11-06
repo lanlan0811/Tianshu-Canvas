@@ -3,7 +3,7 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包",
   "runtime": "agent",
   "entry": "dist/index.mjs",
