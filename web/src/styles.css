@@ -189,8 +189,11 @@ body {
 }
 
 .empty-state__art {
+  position: relative;
   display: grid;
   place-items: center;
+  width: 260px;
+  height: 180px;
 }
 
 .empty-state__brand {
@@ -208,6 +211,50 @@ body {
   }
   50% {
     transform: translateY(-7px);
+  }
+}
+
+/* 三张便签小方片：绕图标浮动，延续手绘白板风，用 --rot 控制各自倾角 */
+.empty-state__note {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid var(--ink);
+  border-radius: 7px 3px 8px 4px / 4px 8px 3px 7px;
+  box-shadow: var(--shadow-note);
+  animation: note-float 3.2s ease-in-out infinite;
+}
+
+.empty-state__note--1 {
+  top: 6px;
+  right: 22px;
+  background: var(--amber);
+  --rot: 8deg;
+}
+
+.empty-state__note--2 {
+  top: 56px;
+  right: -2px;
+  background: var(--mint);
+  --rot: -6deg;
+  animation-delay: 0.4s;
+}
+
+.empty-state__note--3 {
+  bottom: 14px;
+  left: 16px;
+  background: var(--sky);
+  --rot: 4deg;
+  animation-delay: 0.8s;
+}
+
+@keyframes note-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(-6px) rotate(var(--rot, 0deg));
   }
 }
 
@@ -298,8 +345,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .empty-state__brand {
+  .empty-state__brand,
+  .empty-state__note {
     animation: none;
+  }
+  .empty-state__brand {
     filter: none;
   }
 }

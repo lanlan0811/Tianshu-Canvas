@@ -39,6 +39,10 @@ export function EmptyState() {
     <div className="empty-state">
       <div className="empty-state__art">
         <img className="empty-state__brand" src={brandIcon} alt="" width={132} height={132} />
+        {/* 三张便签小方片：轻微浮动，用 --rot 控制各自倾角 */}
+        <span className="empty-state__note empty-state__note--1" aria-hidden="true" />
+        <span className="empty-state__note empty-state__note--2" aria-hidden="true" />
+        <span className="empty-state__note empty-state__note--3" aria-hidden="true" />
       </div>
 
       <p className="empty-state__title">画布还是空白的</p>
