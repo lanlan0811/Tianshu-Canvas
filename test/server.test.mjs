@@ -126,6 +126,7 @@ try {
     'tianshu-inkstone',
     'tianshu-vapor',
     'tianshu-saffron',
+    'tianshu-aurora',
   ])
   assert.ok(catalog.notice.includes('无隶属'))
 

@@ -1,0 +1,12 @@
+{
+  "id": "tianshu-aurora",
+  "name": "天枢·霞光",
+  "tagline": "岚蓝底、樱粉点缀",
+  "description": "浅蓝紫铺底、白卡片托起内容，柔和蓝作主操作、樱粉作点缀；大圆角与彩色柔光投影带来通透感，标题用几何无衬线字体、正文行距宽松。适合个人主页、作品集与轻营销落地页。",
+  "tags": ["aurora", "periwinkle", "soft"],
+  "swatches": ["#f2f4ff", "#ffffff", "#4a6fd8", "#f77daa"],
+  "version": 1,
+  "iconStyle": { "strokeWidth": 2, "linecap": "round", "linejoin": "round" },
+  "license": "本项目原创配色；图标为本项目自行绘制的通用线性几何图形（见 NOTICE.md）",
+  "notice": "非官方风格；与各品牌无隶属关系。"
+}

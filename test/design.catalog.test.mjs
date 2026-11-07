@@ -20,6 +20,7 @@ const STYLES = [
   'tianshu-inkstone',
   'tianshu-vapor',
   'tianshu-saffron',
+  'tianshu-aurora',
 ]
 
 const FORBIDDEN = [

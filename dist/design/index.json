@@ -1431,6 +1431,149 @@
           "requiresScript": true
         }
       ]
+    },
+    {
+      "id": "tianshu-aurora",
+      "name": "天枢·霞光",
+      "tagline": "岚蓝底、樱粉点缀",
+      "description": "浅蓝紫铺底、白卡片托起内容，柔和蓝作主操作、樱粉作点缀；大圆角与彩色柔光投影带来通透感，标题用几何无衬线字体、正文行距宽松。适合个人主页、作品集与轻营销落地页。",
+      "tags": [
+        "aurora",
+        "periwinkle",
+        "soft"
+      ],
+      "swatches": [
+        "#f2f4ff",
+        "#ffffff",
+        "#4a6fd8",
+        "#f77daa"
+      ],
+      "fonts": {
+        "sans": "'Poppins', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+        "display": "'Poppins', 'Noto Sans SC', 'PingFang SC', sans-serif",
+        "mono": "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+      },
+      "iconStyle": {
+        "strokeWidth": 2,
+        "linecap": "round",
+        "linejoin": "round"
+      },
+      "counts": {
+        "icons": 77,
+        "components": 26,
+        "templates": 2,
+        "interactions": 16
+      },
+      "templates": [
+        {
+          "id": "dashboard",
+          "name": "数据看板",
+          "device": "desktop"
+        },
+        {
+          "id": "landing",
+          "name": "落地页",
+          "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
+        }
+      ]
     }
   ]
 }

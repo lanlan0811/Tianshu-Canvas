@@ -81,6 +81,14 @@
       "description": "麦纸色铺底、暖褐字色，藏红花橙作唯一强强调；中等圆角与衬线标题带来手工印刷的温度。适合内容社区、阅读产品、活动页与需要亲和力的运营后台。",
       "tags": ["wheat", "saffron", "warm"],
       "swatches": ["#fbf5e9", "#ffffff", "#a35f08", "#33281a"]
+    },
+    {
+      "id": "tianshu-aurora",
+      "name": "天枢·霞光",
+      "tagline": "岚蓝底、樱粉点缀",
+      "description": "浅蓝紫铺底、白卡片托起内容，柔和蓝作主操作、樱粉作点缀；大圆角与彩色柔光投影带来通透感，标题用几何无衬线字体、正文行距宽松。适合个人主页、作品集与轻营销落地页。",
+      "tags": ["aurora", "periwinkle", "soft"],
+      "swatches": ["#f2f4ff", "#ffffff", "#4a6fd8", "#f77daa"]
     }
   ]
 }
