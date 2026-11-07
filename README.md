@@ -17,7 +17,7 @@
 
 > 画布内核为 [React Flow](https://github.com/xyflow/xyflow)（`@xyflow/react`，MIT）。
 
-> **官网**：<https://tianshu-canvas.lanaiw.top>
+> **Tianshu-Canvas 官网**：<https://tianshu-canvas.lanaiw.top>
 
 ## 安装
 
