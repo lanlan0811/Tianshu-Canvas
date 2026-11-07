@@ -29,6 +29,8 @@
 > **要求**：仓库根目录就是插件根（`tianshu.plugin.json` 在根目录）。
 > 安装后需**新建会话**才生效。
 
+> 天枢 Harness 官方仓库：<https://github.com/huiliyi37/Tianshu-harness>
+
 ## 如何使用 Tianshu-Canvas
 
 不用记工具名，直接用自然语言提需求即可。下面是几组可直接复制粘贴的示例，
@@ -132,10 +134,25 @@ D 天枢原创 E 自由发挥」，选定后才开始写页面。
 - 内置 10 套风格可供选择，也可在画布顶栏直接切换：
   苹果风、谷歌风、Claude 风、天枢原创（宣纸青绿）、芭比风、NERV 风（深色）、极简风，
   以及三套原创风格：天枢·砚（石墨纸 + 朱砂，含深色）、天枢·雾（雾蓝 + 靛紫，含深色）、天枢·麦（麦纸 + 藏红花）。
-- `canvas_style` — `list` 列出可选风格、`get` 查看 token 与组件类、`set` 锁定/切换/解绑、`template` 取页面骨架 HTML。
+- `canvas_style` — `list` 列出可选风格、`get` 查看 token/组件类/图标/交互清单、`set` 锁定/切换/解绑、
+  `template` 取页面骨架 HTML、`interaction` 取交互模式骨架。
 - `canvas_check_style` — 只读检查页面是否符合当前风格（裸色值、越界间距、目录外图标等），只报告不阻塞。
 - 锁定后写入页面时，工具会**自动内联** token 与组件样式，并把 `<svg data-icon="名字">` 展开为当前风格的内联 SVG。
 - 风格数据说明与无隶属声明见 [`design-systems/`](design-systems/README.md)。
+
+### 交互库
+
+页面内交互（tab / 弹窗 / 抽屉 / 下拉 / 折叠面板 / 轻提示 / 骨架屏 / 进度条 / 表单校验 / 分段控件 /
+开关 / 步骤条 / 分页 / 可排序表格 / 日期选择 / 提示气泡，共 16 种）用**声明式标记**（`data-ts-*` + `ts-*` 类）
+声明，**不需要手写交互 JS**：写入时工具会按「页面是否用到」自动注入共享样式与**单一共享运行时**，
+并随设计系统注入块一起幂等剥离。运行时遵守画布沙箱：不发起网络请求、不读写本地存储。
+
+### 多页前端
+
+页面之间可用**真实链接**互跳（`<a href="page-xxxx.html">` / `<a data-nav="page-xxxx">` / `<a href="标题.html">`）。
+画布上点击链接会选中并定位到目标页面节点；写入时链接会被规范化成目标页面 id（换标题 slug 也可，
+重名会报错；目标页稍后创建会自动补齐）。用户在画布顶栏「导出」时，这些页面会被打成**一套可直接打开的多页站**：
+`index.html` 导航首页 + `pages/*.html` 真实互链 + 共享 `assets/*.css`（旧 iframe 画廊保留为 `overview.html`）。
 
 #### 自定义设计系统
 
@@ -283,9 +300,11 @@ src/             Node 侧（入口/工具/本地服务/项目模型/设计系统
   adapters/        真实代码库适配器（shadcn/Tailwind、Ant Design）
   audit/           Design CI（契约 / a11y / PNG diff / 视觉回归 / 漂移）
   brand.ts         品牌记忆与可移植品牌包
+  nav.ts           页面间跳转解析与写入时规范化
+  site.ts          多页静态站组装（导航首页 + 共享资源标签）
   codegen*.ts      React/TSX、CSS 变量、Tailwind、多端主题与规格
 web/             画布前端（React + React Flow）→ dist/web/canvas.js
-design-systems/  设计系统源数据（风格 token / 组件 / 图标 / 模板）→ dist/design/
+design-systems/  设计系统源数据（风格 token / 组件 / 图标 / 模板 / 交互库）→ dist/design/
 assets/          应用图标与横幅（icon.png 透明底源图 + icon-512.png 展示版 + banner.png 头图）
 dist/            构建产物（提交进仓库）
 test/            契约 / 项目 / 服务 / 设计系统 / 选中 / 导出 / 抓取 / 内联 / 反抽取 / 代码生成 / 适配器 / 审计 / 品牌 / 探针 e2e 测试（node:test，跑构建产物）
