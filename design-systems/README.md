@@ -18,7 +18,7 @@ design-systems/
 │  ├─ components.json         组件契约（26 个组件，全部风格共享）
 │  └─ components.css          组件样式（只使用 --ts-* 变量，全部风格共享）
 ├─ interactions/
-│  ├─ interactions.json       交互库契约（16 个交互模式，全部风格共享）
+│  ├─ interactions.json       交互库契约（23 个交互模式，全部风格共享）
 │  ├─ interactions.css        交互样式（只使用 --ts-* 变量，全部风格共享）
 │  └─ interactions.js         单一共享运行时（原生 JS，存在性守卫）
 ├─ templates/
@@ -34,8 +34,9 @@ design-systems/
 
 ## interactions（交互库）
 
-- 16 个模式：tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton /
-  progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker。
+- 23 个模式：tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton /
+  progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker /
+  scroll-progress / sticky-header / scroll-reveal / tilt-card / mobile-nav / copy-code / toc-outline。
 - 声明式：页面用 `data-ts-*` 根标记 + 交互 `ts-*` 类；写入时工具按「页面是否用到」决定是否注入
   `interactions.css` 与 `interactions.js`（幂等，随 ds 注入块一起剥离）。
 - **复用**组件目录已有类（`ts-tabs`/`ts-tab`/`ts-dialog`/`ts-toast`/`ts-switch`/`ts-progress`/`ts-table`），
@@ -60,5 +61,5 @@ design-systems/
 
 构建期会拒绝：缺字段、语义引用不可解析、非 `--ts-` 前缀变量、对比度不足（正文 < 4.5）、
 组件类与 CSS 不一致、模板引用未知类/图标/token、模板含外链或脚本、跨风格 key 集合不一致。
-交互库另有校验：条目必须 16 个且 id 唯一、类名 `ts-` 前缀且在 CSS 中定义、复用类必须存在于组件契约、
+交互库另有校验：条目必须 23 个且 id 唯一、类名 `ts-` 前缀且在 CSS 中定义、复用类必须存在于组件契约、
 骨架只用已声明类、`interactions.css` 变量必须已定义、`interactions.js` 禁 `fetch`/XHR/本地存储/cookie/外链/`</script`。

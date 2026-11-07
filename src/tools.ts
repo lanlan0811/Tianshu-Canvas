@@ -1597,7 +1597,7 @@ export const tools: TpiTool[] = [
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
           interaction_id: {
             type: 'string',
-            description: 'action=interaction 时使用：交互模式 id（如 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker）',
+            description: 'action=interaction 时使用：交互模式 id（如 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker / scroll-progress / sticky-header / scroll-reveal / tilt-card / mobile-nav / copy-code / toc-outline）',
           },
           target: {
             type: 'string',

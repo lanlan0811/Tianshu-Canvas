@@ -415,7 +415,7 @@ export function validateTemplateHtml(label, html, template, allClasses, iconSet,
 
 export function validateInteractions(interactionsDoc, interactionsCss, interactionsJs, manifest, errors, warnings) {
   if (interactionsDoc?.schema !== 1) errors.push('interactions.schema 必须是 1')
-  const expected = 16
+  const expected = 23
   const list = interactionsDoc?.interactions ?? []
   if (list.length !== expected) errors.push(`交互条目必须为 ${expected} 个，当前 ${list.length}`)
 

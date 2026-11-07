@@ -32,7 +32,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -141,6 +141,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -175,7 +217,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -284,6 +326,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -318,7 +402,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -427,6 +511,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -461,7 +587,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -570,6 +696,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -604,7 +772,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -713,6 +881,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -747,7 +957,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -856,6 +1066,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -890,7 +1142,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -999,6 +1251,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -1033,7 +1327,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -1142,6 +1436,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -1176,7 +1512,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -1285,6 +1621,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -1319,7 +1697,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -1428,6 +1806,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]
@@ -1462,7 +1882,7 @@
         "icons": 77,
         "components": 26,
         "templates": 2,
-        "interactions": 16
+        "interactions": 23
       },
       "templates": [
         {
@@ -1571,6 +1991,48 @@
           "id": "date-picker",
           "name": "日期选择",
           "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-progress",
+          "name": "滚动进度",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "sticky-header",
+          "name": "吸顶头部",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "scroll-reveal",
+          "name": "视口渐显",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tilt-card",
+          "name": "倾斜卡片",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "mobile-nav",
+          "name": "移动端菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "copy-code",
+          "name": "代码复制",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "toc-outline",
+          "name": "大纲侧栏",
+          "category": "navigation",
           "requiresScript": true
         }
       ]

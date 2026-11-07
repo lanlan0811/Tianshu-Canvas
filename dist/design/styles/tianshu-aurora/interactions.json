@@ -395,6 +395,167 @@
       ],
       "api": "点输入框展开月历；←→↑↓ 移动、Enter 选中、Esc 关闭；自动维护 ts-i-datepicker__day--today/--selected 与输入框值，选中时派发 ts:change（detail 为 'YYYY-MM-DD'）。日历全部在内存计算，不依赖后端。",
       "skeletonHtml": "<div class=\"ts-i-datepicker\" data-ts-datepicker>\n  <input class=\"ts-input ts-i-datepicker__input\" readonly data-ts-value=\"2026-11-07\" aria-label=\"选择日期\" />\n  <div class=\"ts-i-datepicker__popup\" hidden></div>\n</div>"
+    },
+    {
+      "id": "scroll-progress",
+      "name": "滚动进度",
+      "category": "navigation",
+      "classes": [
+        "ts-i-scroll-progress",
+        "ts-i-scroll-progress--visible",
+        "ts-i-scroll-progress__ring",
+        "ts-i-scroll-progress__track",
+        "ts-i-scroll-progress__value",
+        "ts-i-scroll-progress__icon",
+        "ts-i-scroll-progress__label"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-scroll-progress",
+      "requiredStructure": [
+        "<div class=\"ts-i-scroll-progress\" data-ts-scroll-progress role=\"button\" tabindex=\"0\" aria-label=\"返回顶部\">",
+        "内含 <svg class=\"ts-i-scroll-progress__ring\" viewBox=\"0 0 100 100\">（track + value 两个圆）与 <span class=\"ts-i-scroll-progress__label\">"
+      ],
+      "requiredAttrs": [
+        "data-ts-threshold：滚动多少像素后显形（默认 300）；data-ts-label：无障碍与提示文案（默认「返回顶部」）"
+      ],
+      "api": "滚动时用 rAF 节流更新圆环（strokeDashoffset）与百分比文本；滚动超过阈值加 ts-i-scroll-progress--visible；点击或 Enter/Space 平滑回到顶部（尊重 prefers-reduced-motion）。",
+      "skeletonHtml": "<div class=\"ts-i-scroll-progress\" data-ts-scroll-progress role=\"button\" tabindex=\"0\" aria-label=\"返回顶部\">\n  <svg class=\"ts-i-scroll-progress__ring\" viewBox=\"0 0 100 100\" aria-hidden=\"true\">\n    <circle class=\"ts-i-scroll-progress__track\" cx=\"50\" cy=\"50\" r=\"45\"></circle>\n    <circle class=\"ts-i-scroll-progress__value\" cx=\"50\" cy=\"50\" r=\"45\"></circle>\n  </svg>\n  <span class=\"ts-i-scroll-progress__icon\" aria-hidden=\"true\"><svg data-icon=\"arrow-up\" class=\"ts-icon\"></svg></span>\n  <span class=\"ts-i-scroll-progress__label\">0%</span>\n</div>"
+    },
+    {
+      "id": "sticky-header",
+      "name": "吸顶头部",
+      "category": "navigation",
+      "classes": [
+        "ts-i-sticky-header",
+        "ts-i-sticky-header--scrolled",
+        "ts-i-sticky-header--hidden"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-sticky",
+      "requiredStructure": [
+        "<header class=\"ts-i-sticky-header\" data-ts-sticky>…</header>（内层可放 ts-nav 组件）"
+      ],
+      "requiredAttrs": [
+        "data-ts-scroll-threshold：超过该滚动量加 --scrolled（默认 50）；data-ts-hide-threshold：超过该滚动量且向下滚时加 --hidden（默认 100）"
+      ],
+      "api": "滚动时用 rAF 节流：超过 scroll-threshold 加 ts-i-sticky-header--scrolled；向下滚且超过 hide-threshold 加 ts-i-sticky-header--hidden，向上滚立即复现。收缩与上滑的具体外观由 token 与 CSS 决定，脚本只维护状态类。",
+      "skeletonHtml": "<header class=\"ts-i-sticky-header\" data-ts-sticky>\n  <div class=\"ts-nav\">\n    <span class=\"ts-nav__brand\">品牌</span>\n    <nav class=\"ts-nav__links\">\n      <a class=\"ts-nav__link ts-nav__link--active\" href=\"#\">首页</a>\n      <a class=\"ts-nav__link\" href=\"#\">文档</a>\n    </nav>\n  </div>\n</header>"
+    },
+    {
+      "id": "scroll-reveal",
+      "name": "视口渐显",
+      "category": "feedback",
+      "classes": [
+        "ts-i-reveal",
+        "ts-i-reveal--armed",
+        "ts-i-reveal--up",
+        "ts-i-reveal--left",
+        "ts-i-reveal--right",
+        "ts-i-reveal--visible"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-reveal",
+      "requiredStructure": [
+        "<div class=\"ts-i-reveal ts-i-reveal--up\" data-ts-reveal>…</div>",
+        "可选父容器 data-ts-reveal-group 让子项依次入场"
+      ],
+      "requiredAttrs": [
+        "方向类 ts-i-reveal--up|left|right（默认 up）；data-ts-delay 毫秒延迟（可选）"
+      ],
+      "api": "IntersectionObserver 进入视口即加 ts-i-reveal--visible（只触发一次），data-ts-delay 控制错峰。运行时先把根元素标记为 ts-i-reveal--armed 才启用初始位移，因此无脚本时内容照常可见，不会永久隐形。",
+      "skeletonHtml": "<div class=\"ts-stack\" data-ts-reveal-group>\n  <div class=\"ts-card ts-i-reveal ts-i-reveal--up\" data-ts-reveal><div class=\"ts-card__body\">第一段内容</div></div>\n  <div class=\"ts-card ts-i-reveal ts-i-reveal--up\" data-ts-reveal><div class=\"ts-card__body\">第二段内容</div></div>\n</div>"
+    },
+    {
+      "id": "tilt-card",
+      "name": "倾斜卡片",
+      "category": "feedback",
+      "classes": [
+        "ts-i-tilt",
+        "ts-i-tilt--armed",
+        "ts-i-tilt__inner"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-tilt",
+      "requiredStructure": [
+        "<div class=\"ts-i-tilt\" data-ts-tilt><div class=\"ts-i-tilt__inner\">…</div></div>"
+      ],
+      "requiredAttrs": [
+        "data-ts-max-tilt：最大倾角（默认 12 度）；内容需包在 ts-i-tilt__inner 里才会跟随透视"
+      ],
+      "api": "指针移动时按相对卡片中心的位置计算 rotateX/rotateY 透视，指针离开回正。仅对支持悬停与精细指针的设备启用（pointer: fine，运行时加 ts-i-tilt--armed）；触屏与键盘不受影响。",
+      "skeletonHtml": "<div class=\"ts-i-tilt\" data-ts-tilt>\n  <div class=\"ts-i-tilt__inner\">\n    <div class=\"ts-card\"><div class=\"ts-card__body\">悬停查看立体效果</div></div>\n  </div>\n</div>"
+    },
+    {
+      "id": "mobile-nav",
+      "name": "移动端菜单",
+      "category": "navigation",
+      "classes": [
+        "ts-i-mobile-nav",
+        "ts-i-mobile-nav--open",
+        "ts-i-mobile-nav--locked",
+        "ts-i-mobile-nav__toggle",
+        "ts-i-mobile-nav__bar",
+        "ts-i-mobile-nav__backdrop"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-mobile-nav",
+      "requiredStructure": [
+        "<nav class=\"ts-i-mobile-nav\" data-ts-mobile-nav>",
+        "内含 <button class=\"ts-i-mobile-nav__toggle\">（三条 <span class=\"ts-i-mobile-nav__bar\">）、<div class=\"ts-i-mobile-nav__backdrop\"> 与承载链接的 <div class=\"ts-nav__links\">"
+      ],
+      "requiredAttrs": [
+        "toggle 需 aria-expanded/aria-controls/aria-label；被控面板需 id"
+      ],
+      "api": "点 toggle 开合，自动维护 ts-i-mobile-nav--open 与 aria-expanded；点遮罩、Esc（焦点归还 toggle）或点菜单里的链接即关闭；打开时给 <html> 加 ts-i-mobile-nav--locked 锁滚动。宽屏下自动复位并隐藏 toggle。",
+      "skeletonHtml": "<nav class=\"ts-i-mobile-nav\" data-ts-mobile-nav>\n  <button class=\"ts-i-mobile-nav__toggle\" type=\"button\" aria-expanded=\"false\" aria-controls=\"mnav-menu\" aria-label=\"打开导航菜单\">\n    <span class=\"ts-i-mobile-nav__bar\"></span><span class=\"ts-i-mobile-nav__bar\"></span><span class=\"ts-i-mobile-nav__bar\"></span>\n  </button>\n  <div class=\"ts-i-mobile-nav__backdrop\"></div>\n  <div class=\"ts-nav__links\" id=\"mnav-menu\">\n    <a class=\"ts-nav__link ts-nav__link--active\" href=\"#\">首页</a>\n    <a class=\"ts-nav__link\" href=\"#\">文档</a>\n  </div>\n</nav>"
+    },
+    {
+      "id": "copy-code",
+      "name": "代码复制",
+      "category": "data",
+      "classes": [
+        "ts-i-copy",
+        "ts-i-copy--done",
+        "ts-i-copy__code",
+        "ts-i-copy__btn"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-copy",
+      "requiredStructure": [
+        "<div class=\"ts-i-copy\" data-ts-copy><pre class=\"ts-i-copy__code\">…</pre><button class=\"ts-i-copy__btn\" data-ts-copy-btn>…</button></div>"
+      ],
+      "requiredAttrs": [
+        "待复制文本取自 ts-i-copy__code 的文本内容；按钮写 data-ts-copy-btn；成功文案用 data-ts-copied-label=\"已复制\"（默认「已复制」）"
+      ],
+      "api": "点按钮优先用 navigator.clipboard.writeText；不可用时（画布 iframe 是 opaque origin 沙箱，剪贴板 API 可能被拒）退回临时 textarea + execCommand。成功加 ts-i-copy--done 并把按钮文案换成 data-ts-copied-label，约 1600ms 后复原。",
+      "skeletonHtml": "<div class=\"ts-i-copy\" data-ts-copy>\n  <pre class=\"ts-i-copy__code\">npm run build</pre>\n  <button class=\"ts-i-copy__btn\" data-ts-copy-btn data-ts-copied-label=\"已复制\" aria-label=\"复制代码\"><svg data-icon=\"copy\" class=\"ts-icon\"></svg></button>\n</div>"
+    },
+    {
+      "id": "toc-outline",
+      "name": "大纲侧栏",
+      "category": "navigation",
+      "classes": [
+        "ts-i-toc",
+        "ts-i-toc--open",
+        "ts-i-toc__toggle",
+        "ts-i-toc__backdrop",
+        "ts-i-toc__panel",
+        "ts-i-toc__title",
+        "ts-i-toc__list",
+        "ts-i-toc__link",
+        "ts-i-toc__link--active"
+      ],
+      "requiresScript": true,
+      "rootAttr": "data-ts-toc",
+      "requiredStructure": [
+        "<aside class=\"ts-i-toc\" data-ts-toc>",
+        "内含 ts-i-toc__toggle（按钮）、ts-i-toc__backdrop、ts-i-toc__panel（内含 ts-i-toc__title / ts-i-toc__list / ts-i-toc__link）"
+      ],
+      "requiredAttrs": [
+        "链接 href 指向页面内锚点（#小节 id）；toggle 需 aria-expanded/aria-controls/aria-label"
+      ],
+      "api": "滚动时高亮当前小节（ts-i-toc__link--active + aria-current），只读取页面锚点位置，不发网络请求。窄屏可折叠：点 toggle 开合，点链接 / 遮罩 / Esc 关闭并把焦点归还 toggle。",
+      "skeletonHtml": "<aside class=\"ts-i-toc\" data-ts-toc>\n  <button class=\"ts-i-toc__toggle\" type=\"button\" aria-expanded=\"false\" aria-controls=\"toc-panel\" aria-label=\"打开目录\"><svg data-icon=\"list\" class=\"ts-icon\"></svg></button>\n  <div class=\"ts-i-toc__backdrop\"></div>\n  <nav class=\"ts-i-toc__panel\" id=\"toc-panel\" aria-label=\"目录\">\n    <p class=\"ts-i-toc__title\">目录</p>\n    <div class=\"ts-i-toc__list\">\n      <a class=\"ts-i-toc__link ts-i-toc__link--active\" href=\"#sec-1\">第一节</a>\n      <a class=\"ts-i-toc__link\" href=\"#sec-2\">第二节</a>\n    </div>\n  </nav>\n</aside>"
     }
   ]
 }

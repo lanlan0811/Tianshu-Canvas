@@ -81,7 +81,7 @@ test('交互库：canvas_style get 列清单，action=interaction 取骨架', as
   try {
     await tools.canvas_style.execute({ input: { action: 'set', style_id: 'apple' }, cwd })
     const get = await tools.canvas_style.execute({ input: { action: 'get' }, cwd })
-    assert.match(get.content, /交互库（16）/)
+    assert.match(get.content, /交互库（23）/)
 
     const one = await tools.canvas_style.execute({ input: { action: 'interaction', interaction_id: 'modal' }, cwd })
     assert.ok(!one.isError, one.content)

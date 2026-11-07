@@ -68891,7 +68891,7 @@ var tools = [
           template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" },
           interaction_id: {
             type: "string",
-            description: "action=interaction \u65F6\u4F7F\u7528\uFF1A\u4EA4\u4E92\u6A21\u5F0F id\uFF08\u5982 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker\uFF09"
+            description: "action=interaction \u65F6\u4F7F\u7528\uFF1A\u4EA4\u4E92\u6A21\u5F0F id\uFF08\u5982 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker / scroll-progress / sticky-header / scroll-reveal / tilt-card / mobile-nav / copy-code / toc-outline\uFF09"
           },
           target: {
             type: "string",

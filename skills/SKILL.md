@@ -80,7 +80,7 @@ triggers:
 用户要「专属设计系统」时用 `canvas_design_system`（见第 2 步的自定义分支）。要点：
 
 - **只在本工作区生效**，存在 `.tianshu-canvas/library/`（随项目数据一起被 gitignore，不随仓库分发）。
-- **只能改 token，不能扩展组件/图标/交互**：`ts-*` 组件类（26 个）、图标名（77 个）与交互库（16 个模式）都是共享的，
+- **只能改 token，不能扩展组件/图标/交互**：`ts-*` 组件类（26 个）、图标名（77 个）与交互库（23 个模式）都是共享的，
   自定义风格只决定它们的颜色 / 字体 / 间距 / 圆角 / 阴影 / 尺寸。不要发明新的 `ts-` 类或图标名。
 - **变量名必须与内置风格完全一致**（工具会校验），值自由。
 - **tokens 契约**（`canvas_design_system` 的 `create` 参数；值自由、键名固定）：
@@ -139,7 +139,8 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
 
 - 先 `canvas_style`（action=get）看「交互库」清单；取某个交互的骨架用
   `canvas_style`（action=interaction, interaction_id=tabs|modal|drawer|dropdown|accordion|toast|
-  tooltip|loading-skeleton|progress|form-validation|segmented|switch|stepper|pagination|sortable-table|date-picker）。
+  tooltip|loading-skeleton|progress|form-validation|segmented|switch|stepper|pagination|sortable-table|date-picker|
+  scroll-progress|sticky-header|scroll-reveal|tilt-card|mobile-nav|copy-code|toc-outline）。
 - 用 `data-ts-*` 根标记 + 交互 `ts-*` 类表达（如 `<div class="ts-i-tabs" data-ts-tabs>`）；
   可用类与结构以 action=interaction 返回的说明为准，**不要发明新的 ts- 类**。
 - 只有页面用到交互时才会注入运行时；未用的页面保持轻量。切换/解绑风格会连带剥离运行时。

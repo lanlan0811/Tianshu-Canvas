@@ -72,15 +72,15 @@ test('设计系统：各风格的变量/组件类/模板同构', () => {
     assert.deepEqual(Object.keys(templates).sort(), Object.keys(baseTemplates).sort())
   }
   assert.ok(base.vars.length > 80, '变量数量应覆盖颜色/字体/间距/圆角/阴影/尺寸')
-  assert.equal((base.interactionIds ?? []).length, 16, '交互库应有 16 个模式')
+  assert.equal((base.interactionIds ?? []).length, 23, '交互库应有 23 个模式')
 })
 
-test('设计系统：交互库产物受约束（16 个、无禁用能力/外链）', () => {
-  assert.equal(catalog.styles[0].counts.interactions, 16)
+test('设计系统：交互库产物受约束（23 个、无禁用能力/外链）', () => {
+  assert.equal(catalog.styles[0].counts.interactions, 23)
   const interactions = JSON.parse(readFileSync(join(designDir, 'styles', STYLES[0], 'interactions.json'), 'utf8'))
-  assert.equal(interactions.interactions.length, 16)
+  assert.equal(interactions.interactions.length, 23)
   const ids = interactions.interactions.map((i) => i.id)
-  assert.equal(new Set(ids).size, 16, '交互 id 不得重复')
+  assert.equal(new Set(ids).size, 23, '交互 id 不得重复')
   for (const entry of interactions.interactions) {
     assert.ok(entry.rootAttr.startsWith('data-ts-'), `交互 ${entry.id} 的 rootAttr 必须是 data-ts-*`)
     assert.ok(typeof entry.requiresScript === 'boolean')

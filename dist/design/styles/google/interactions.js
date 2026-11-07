@@ -499,6 +499,291 @@
     });
   }
 
+  /* ---------------- scroll-progress：圆形进度 + 回到顶部 ---------------- */
+
+  var RADIUS = 45;
+  var CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+  function reduceMotion() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function frameThrottle(fn) {
+    var pending = false;
+    return function () {
+      if (pending) return;
+      pending = true;
+      var run = function () { pending = false; fn(); };
+      if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
+      else window.setTimeout(run, 16);
+    };
+  }
+
+  function initScrollProgress(root) {
+    var value = root.querySelector('.ts-i-scroll-progress__value');
+    var label = root.querySelector('.ts-i-scroll-progress__label');
+    var threshold = parseInt(root.getAttribute('data-ts-threshold'), 10);
+    if (isNaN(threshold)) threshold = 300;
+    if (value) {
+      value.style.strokeDasharray = String(CIRCUMFERENCE);
+      value.style.strokeDashoffset = String(CIRCUMFERENCE);
+    }
+
+    var update = frameThrottle(function () {
+      var doc = document.documentElement;
+      var scrollable = (doc.scrollHeight || 0) - window.innerHeight;
+      var ratio = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0;
+      if (value) value.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - ratio));
+      if (label) label.textContent = Math.round(ratio * 100) + '%';
+      root.classList.toggle('ts-i-scroll-progress--visible', window.scrollY > threshold);
+      root.setAttribute('aria-hidden', window.scrollY > threshold ? 'false' : 'true');
+    });
+
+    function backToTop() {
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' });
+      }
+      emit(root, 'ts:back-to-top', null);
+    }
+
+    root.addEventListener('click', backToTop);
+    root.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); backToTop(); }
+    });
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  }
+
+  /* ---------------- sticky-header：吸顶 + 上滑隐藏 ---------------- */
+
+  function initStickyHeaders() {
+    qsa(document, '[data-ts-sticky]').forEach(function (header) {
+      var scrollAt = parseInt(header.getAttribute('data-ts-scroll-threshold'), 10);
+      var hideAt = parseInt(header.getAttribute('data-ts-hide-threshold'), 10);
+      if (isNaN(scrollAt)) scrollAt = 50;
+      if (isNaN(hideAt)) hideAt = 100;
+      var lastY = window.scrollY || 0;
+
+      var update = frameThrottle(function () {
+        var y = window.scrollY || 0;
+        header.classList.toggle('ts-i-sticky-header--scrolled', y > scrollAt);
+        if (!reduceMotion() && y > hideAt && y > lastY) header.classList.add('ts-i-sticky-header--hidden');
+        else header.classList.remove('ts-i-sticky-header--hidden');
+        lastY = y;
+      });
+
+      window.addEventListener('scroll', update, { passive: true });
+      update();
+    });
+  }
+
+  /* ---------------- scroll-reveal：入视口渐显 ---------------- */
+
+  function initScrollReveal() {
+    var roots = qsa(document, '[data-ts-reveal]');
+    if (!roots.length) return;
+
+    function show(el) { el.classList.add('ts-i-reveal--visible'); }
+
+    if (typeof IntersectionObserver !== 'function') {
+      roots.forEach(show);
+      return;
+    }
+
+    // 组内子项按序错峰：未显式给 data-ts-delay 时用序号 × 步长。
+    var groups = qsa(document, '[data-ts-reveal-group]');
+    for (var g = 0; g < groups.length; g++) {
+      var step = 90;
+      qsa(groups[g], '[data-ts-reveal]').forEach(function (el, i) {
+        if (!el.hasAttribute('data-ts-delay')) el.setAttribute('data-ts-delay', String(i * step));
+      });
+    }
+
+    // 先武装（启用初始位移），再观察，避免无脚本时内容永久隐形。
+    roots.forEach(function (el) { el.classList.add('ts-i-reveal--armed'); });
+
+    var observer = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        if (!entry.isIntersecting) continue;
+        var el = entry.target;
+        var delay = parseInt(el.getAttribute('data-ts-delay'), 10);
+        if (delay > 0) window.setTimeout(function (node) { return function () { show(node); }; }(el), delay);
+        else show(el);
+        observer.unobserve(el);
+      }
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+    roots.forEach(function (el) { observer.observe(el); });
+  }
+
+  /* ---------------- tilt-card：指针倾斜 ---------------- */
+
+  function initTiltCards() {
+    var fine = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
+    if (!fine || reduceMotion()) return;
+    qsa(document, '[data-ts-tilt]').forEach(function (root) {
+      var inner = root.querySelector('.ts-i-tilt__inner');
+      if (!inner) return;
+      var max = parseFloat(root.getAttribute('data-ts-max-tilt'));
+      if (isNaN(max) || max <= 0) max = 12;
+      root.classList.add('ts-i-tilt--armed');
+
+      root.addEventListener('mousemove', function (e) {
+        var rect = root.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        var x = (e.clientX - rect.left) / rect.width;
+        var y = (e.clientY - rect.top) / rect.height;
+        var rotateY = (x - 0.5) * 2 * max;
+        var rotateX = (0.5 - y) * 2 * max;
+        inner.style.transform = 'rotateX(' + rotateX.toFixed(2) + 'deg) rotateY(' + rotateY.toFixed(2) + 'deg)';
+      });
+
+      root.addEventListener('mouseleave', function () { inner.style.transform = ''; });
+    });
+  }
+
+  /* ---------------- mobile-nav：汉堡菜单 ---------------- */
+
+  function initMobileNavs() {
+    qsa(document, '[data-ts-mobile-nav]').forEach(function (root) {
+      var toggle = root.querySelector('.ts-i-mobile-nav__toggle');
+      var backdrop = root.querySelector('.ts-i-mobile-nav__backdrop');
+      if (!toggle) return;
+      var openLabel = toggle.getAttribute('aria-label') || '';
+
+      function setOpen(open, focusToggle) {
+        root.classList.toggle('ts-i-mobile-nav--open', open);
+        document.documentElement.classList.toggle('ts-i-mobile-nav--locked', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (focusToggle) toggle.focus();
+      }
+
+      toggle.addEventListener('click', function () { setOpen(!root.classList.contains('ts-i-mobile-nav--open'), false); });
+      if (backdrop) backdrop.addEventListener('click', function () { setOpen(false, false); });
+      qsa(root, 'a[href]').forEach(function (link) {
+        link.addEventListener('click', function () { setOpen(false, false); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && root.classList.contains('ts-i-mobile-nav--open')) setOpen(false, true);
+      });
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 768 && root.classList.contains('ts-i-mobile-nav--open')) setOpen(false, false);
+      });
+      if (openLabel) toggle.setAttribute('aria-label', openLabel);
+    });
+  }
+
+  /* ---------------- copy-code：复制按钮 ---------------- */
+
+  function fallbackCopy(text) {
+    var area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.top = '-1000px';
+    document.body.appendChild(area);
+    var ok = false;
+    try {
+      area.select();
+      ok = document.execCommand && document.execCommand('copy');
+    } catch (e) { ok = false; }
+    document.body.removeChild(area);
+    return !!ok;
+  }
+
+  function initCopyBlocks() {
+    qsa(document, '[data-ts-copy]').forEach(function (root) {
+      var btn = root.querySelector('[data-ts-copy-btn]');
+      var code = root.querySelector('.ts-i-copy__code');
+      if (!btn || !code) return;
+      var original = btn.textContent;
+      var doneLabel = btn.getAttribute('data-ts-copied-label') || '已复制';
+      var timer = null;
+
+      function succeed() {
+        root.classList.add('ts-i-copy--done');
+        btn.textContent = doneLabel;
+        emit(root, 'ts:copied', { text: code.textContent || '' });
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+          root.classList.remove('ts-i-copy--done');
+          btn.textContent = original;
+        }, 1600);
+      }
+
+      btn.addEventListener('click', function () {
+        var text = code.textContent || '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(succeed, function () { if (fallbackCopy(text)) succeed(); });
+        } else if (fallbackCopy(text)) {
+          succeed();
+        }
+      });
+    });
+  }
+
+  /* ---------------- toc-outline：大纲侧栏 ---------------- */
+
+  function initTocOutlines() {
+    qsa(document, '[data-ts-toc]').forEach(function (root) {
+      var toggle = root.querySelector('.ts-i-toc__toggle');
+      var backdrop = root.querySelector('.ts-i-toc__backdrop');
+      var links = qsa(root, '.ts-i-toc__link');
+      if (!links.length) return;
+
+      var targets = [];
+      for (var i = 0; i < links.length; i++) {
+        var href = links[i].getAttribute('href') || '';
+        if (href.charAt(0) !== '#') continue;
+        var node = document.getElementById(href.slice(1));
+        if (node) targets.push({ link: links[i], node: node });
+      }
+      if (!targets.length) return;
+
+      function setOpen(open, focusToggle) {
+        root.classList.toggle('ts-i-toc--open', open);
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (focusToggle && toggle) toggle.focus();
+      }
+
+      function activate(link) {
+        for (var k = 0; k < links.length; k++) {
+          var on = links[k] === link;
+          links[k].classList.toggle('ts-i-toc__link--active', on);
+          if (on) links[k].setAttribute('aria-current', 'true');
+          else links[k].removeAttribute('aria-current');
+        }
+      }
+
+      var update = frameThrottle(function () {
+        var current = targets[0];
+        var line = (window.scrollY || 0) + 120;
+        for (var k = 0; k < targets.length; k++) {
+          var top = targets[k].node.getBoundingClientRect().top + (window.scrollY || 0);
+          if (top <= line) current = targets[k];
+        }
+        activate(current.link);
+      });
+
+      if (toggle) {
+        toggle.addEventListener('click', function () { setOpen(!root.classList.contains('ts-i-toc--open'), false); });
+      }
+      if (backdrop) backdrop.addEventListener('click', function () { setOpen(false, false); });
+      links.forEach(function (link) {
+        link.addEventListener('click', function () { activate(link); setOpen(false, false); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && root.classList.contains('ts-i-toc--open')) setOpen(false, true);
+      });
+
+      window.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+      update();
+    });
+  }
+
   /* ---------------- init ---------------- */
 
   function init() {
@@ -515,6 +800,13 @@
     qsa(document, '[data-ts-pagination]').forEach(initPagination);
     initSortableTables();
     initDatePickers();
+    qsa(document, '[data-ts-scroll-progress]').forEach(initScrollProgress);
+    initStickyHeaders();
+    initScrollReveal();
+    initTiltCards();
+    initMobileNavs();
+    initCopyBlocks();
+    initTocOutlines();
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeActiveOverlay();
