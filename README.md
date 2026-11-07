@@ -1,5 +1,15 @@
 <img src="assets/banner.png" alt="Tianshu-Canvas — 让 AI 拥有一个可视化的前端设计工作台" width="100%">
 
+<p align="center">
+  <a href="https://github.com/lanlan0811/Tianshu-Canvas/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/lanlan0811/Tianshu-Canvas/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D24.22.1%20%3C27-339933?logo=node.js&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white">
+  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black">
+  <img alt="React Flow" src="https://img.shields.io/badge/React%20Flow-12-FF0072?logo=reactflow&logoColor=white">
+  <img alt="esbuild" src="https://img.shields.io/badge/esbuild-0.24-FFCF00?logo=esbuild&logoColor=black">
+  <img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-blue">
+</p>
+
 # Tianshu-Canvas · 画布设计
 
 天枢（Tianshu）插件：把**前端设计原型**写入一块可平移缩放的**无限画布**。
