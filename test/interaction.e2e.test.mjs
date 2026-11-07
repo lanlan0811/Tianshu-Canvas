@@ -174,15 +174,28 @@ test('交互 e2e：画布侧原生默认行为 + 交互库脚本可运行', { sk
     assert.ok(copyState.done, `复制后应加 --done：${JSON.stringify(copyState)}`)
     assert.equal(copyState.label, '已复制', '按钮应换成已复制文案')
 
-    // tilt-card：指针在卡片上移动后 inner 产生透视变换
-    await frame.evaluate(() => {
-      const el = document.getElementById('tilt')
-      const r = el.getBoundingClientRect()
-      el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width * 0.8, clientY: r.top + r.height * 0.2 }))
-    })
-    await sleep(150)
-    const tiltTransform = await frame.evaluate(() => document.getElementById('tilt-inner').style.transform)
-    assert.match(tiltTransform, /rotate[XY]\(/, `鼠标移动后应有倾斜：${tiltTransform}`)
+    // tilt-card：只对「精细指针且非减弱动效」的环境启用（headless CI 上 pointer:fine 为假）。
+    // 支持则必须出现透视变换；不支持则必须环境确实不支持，不允许悄悄跳过。
+    const tiltEnv = await frame.evaluate(() => ({
+      armed: document.getElementById('tilt').classList.contains('ts-i-tilt--armed'),
+      fine: window.matchMedia('(pointer: fine)').matches,
+      reduced: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    }))
+    if (tiltEnv.armed) {
+      await frame.evaluate(() => {
+        const el = document.getElementById('tilt')
+        const r = el.getBoundingClientRect()
+        el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width * 0.8, clientY: r.top + r.height * 0.2 }))
+      })
+      await sleep(150)
+      const tiltTransform = await frame.evaluate(() => document.getElementById('tilt-inner').style.transform)
+      assert.match(tiltTransform, /rotate[XY]\(/, `鼠标移动后应有倾斜：${tiltTransform}`)
+    } else {
+      assert.ok(
+        !tiltEnv.fine || tiltEnv.reduced,
+        `未武装 tilt-card，但环境支持精细指针且未减弱动效：${JSON.stringify(tiltEnv)}`,
+      )
+    }
 
     // scroll-reveal：运行时应武装元素（进视口后加 --visible；iframe 内元素默认已在视口）
     assert.ok(
