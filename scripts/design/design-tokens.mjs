@@ -146,7 +146,7 @@ export function tokensToCss(tokens) {
 }
 
 /** 生成运行时 manifest（注入与 lint 共用）。 */
-export function buildManifest(tokens, { icons, componentClasses }) {
+export function buildManifest(tokens, { icons, componentClasses, interactionClasses, interactionIds }) {
   const { vars, resolvedSemantic } = flattenTokens(tokens)
   return {
     schema: 'tianshu-design-manifest/1',
@@ -158,6 +158,8 @@ export function buildManifest(tokens, { icons, componentClasses }) {
     fontFamilies: Object.values(tokens.font.families),
     iconNames: [...icons],
     componentClasses: [...componentClasses],
+    interactionClasses: [...(interactionClasses ?? [])],
+    interactionIds: [...(interactionIds ?? [])],
     resolvedSemantic,
   }
 }

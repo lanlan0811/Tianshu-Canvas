@@ -64,4 +64,13 @@ export function validateTemplateHtml(
 
 export function validateConsistency(styles: unknown[], errors: string[]): void
 
+export function validateInteractions(
+  interactionsDoc: unknown,
+  interactionsCss: string,
+  interactionsJs: string,
+  manifest: { vars: string[]; componentClasses: string[] },
+  errors: string[],
+  warnings: string[],
+): { allClasses: Set<string>; ownClasses: string[]; ids: string[]; rootAttrs: string[] }
+
 export { buildManifest }

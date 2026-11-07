@@ -19,8 +19,12 @@ export interface ContractUsage {
   unknownVars: string[]
   /** 页面里出现的 ts-* 组件类。 */
   classes: string[]
-  /** 越界的组件类（不在 manifest.componentClasses 里）。 */
+  /** 越界的组件类（不在组件类或交互类契约里）。 */
   unknownClasses: string[]
+  /** 页面里出现、且属于交互库独有类的 ts-*（供审计展示）。 */
+  interactionClasses: string[]
+  /** 用到交互标记/类但页面缺少交互运行时（会静默失效）。 */
+  missingInteractionRuntime: boolean
 }
 
 export interface ContractResult {
@@ -53,13 +57,20 @@ export function collectUsage(html: string, manifest: DesignManifest | null): Con
   for (const m of html.matchAll(/(?:^|[;{\s])(--ts-[A-Za-z0-9-]+)\s*:/g)) vars.add(m[1]!)
   const classes = new Set(collectClasses(html))
   const knownVars = new Set(manifest?.vars ?? [])
-  const knownClasses = new Set(manifest?.componentClasses ?? [])
+  const interactionClasses = new Set(manifest?.interactionClasses ?? [])
+  // 合法类 = 组件类 ∪ 交互类（两者都是 ts-* 契约的一部分）。
+  const knownClasses = new Set([...(manifest?.componentClasses ?? []), ...interactionClasses])
+  const usedInteractions = [...classes].filter((c) => interactionClasses.has(c))
+  const hasMarker = /\bdata-ts-[a-z0-9-]+\b/.test(html)
+  const injected = /id="tianshu-interactions"/.test(html)
   return {
     vars: [...vars].sort(),
     unusedVars: manifest ? manifest.vars.filter((v) => !vars.has(v)) : [],
     unknownVars: manifest ? [...vars].filter((v) => !knownVars.has(v)).sort() : [],
     classes: [...classes].sort(),
     unknownClasses: manifest ? [...classes].filter((c) => !knownClasses.has(c)).sort() : [],
+    interactionClasses: usedInteractions.sort(),
+    missingInteractionRuntime: (hasMarker || usedInteractions.length > 0) && !injected,
   }
 }
 
@@ -68,7 +79,7 @@ export function computeContract(html: string, styleId: string | null, cwd: strin
   const usage = collectUsage(html, manifest)
   const byRule: Record<string, number> = {}
   for (const issue of report.findings) byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1
-  const penalty = report.total + usage.unknownVars.length + usage.unknownClasses.length
+  const penalty = report.total + usage.unknownVars.length + usage.unknownClasses.length + (usage.missingInteractionRuntime ? 1 : 0)
   const score = penalty === 0 ? 1 : Number(Math.max(0, 1 - penalty / Math.max(10, report.total + penalty)).toFixed(4))
   return { styleId, total: report.total, byRule, usage, score, testFile: renderTestFile({ styleId, usage }) }
 }
@@ -115,6 +126,12 @@ test('只使用共享组件类', () => {
 test('风格标识一致', () => {
   assert.equal(STYLE, STYLE, '风格：' + String(STYLE))
 })
+
+test('用到交互时必须带运行时', () => {
+  const hasMarker = /\\bdata-ts-[a-z0-9-]+\\b/.test(html)
+  const injected = /id="tianshu-interactions"/.test(html)
+  assert.ok(!hasMarker || injected, '页面用到交互但缺少注入的运行时（交互不会生效）')
+})
 `
 }
 
@@ -127,6 +144,8 @@ export function formatContractReport(result: ContractResult, label: string): str
   if (result.total) lines.push(`按规则：${Object.entries(result.byRule).map(([k, v]) => `${k}×${v}`).join('、')}`)
   if (result.usage.unknownVars.length) lines.push(`契约外变量：${result.usage.unknownVars.slice(0, 10).join('、')}`)
   if (result.usage.unknownClasses.length) lines.push(`契约外类：${result.usage.unknownClasses.slice(0, 10).join('、')}`)
+  if (result.usage.interactionClasses.length) lines.push(`交互类：${result.usage.interactionClasses.slice(0, 10).join('、')}`)
+  if (result.usage.missingInteractionRuntime) lines.push('警告：用到交互但缺少运行时，交互不会生效（用 canvas_upsert_page 重新写入以自动注入）')
   if (result.usage.unusedVars.length) lines.push(`未使用的变量 ${result.usage.unusedVars.length} 个（不算错误，漂移检测会跟踪）`)
   if (result.score === 1) lines.push('结论：完全符合当前设计系统。')
   return lines.join('\n')

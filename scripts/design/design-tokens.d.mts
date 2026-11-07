@@ -33,6 +33,8 @@ export interface DesignManifest {
   fontFamilies: string[]
   iconNames: string[]
   componentClasses: string[]
+  interactionClasses: string[]
+  interactionIds: string[]
   resolvedSemantic: Record<string, SemanticEntry>
 }
 
@@ -52,7 +54,7 @@ export function flattenDarkSemantic(tokens: Tokens): TokenVar[]
 export function tokensToCss(tokens: Tokens): string
 export function buildManifest(
   tokens: Tokens,
-  options: { icons: string[]; componentClasses: string[] },
+  options: { icons: string[]; componentClasses: string[]; interactionClasses?: string[]; interactionIds?: string[] },
 ): DesignManifest
 export function luminance(hex: string): number
 export function parseHex(hex: string): number[] | null

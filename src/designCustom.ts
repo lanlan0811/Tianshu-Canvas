@@ -18,7 +18,7 @@ import { assertSafeId, InvalidInputError, isSafeId } from './ids.js'
 import { projectDir } from './project.js'
 import { buildManifest, tokensToCss, type DesignManifest } from '../scripts/design/design-tokens.mjs'
 import { auditForbidden, validateTokens } from '../scripts/design/design-validate.mjs'
-import type { DesignIconSet, DesignStyleSummary, DesignTemplate, ResolvedStyle } from './design.js'
+import type { DesignIconSet, DesignInteraction, DesignInteractionLibrary, DesignStyleSummary, DesignTemplate, ResolvedStyle } from './design.js'
 
 export const LIBRARY_DIR_NAME = 'library'
 
@@ -75,22 +75,47 @@ function sharedAssets(builtinDir: string, builtinId: string, iconStyle: DesignIc
   componentsCss: string
   templates: Record<string, DesignTemplate>
   icons: DesignIconSet
+  interactions: DesignInteractionLibrary
 } {
   const dir = join(builtinDir, 'styles', builtinId)
   const componentsCss = readFileSync(join(dir, 'components.css'), 'utf8')
   const templates = readJson(join(dir, 'templates.json'), 'templates.json') as Record<string, DesignTemplate>
   const raw = readJson(join(dir, 'icons.json'), 'icons.json') as { viewBox: string; icons: Record<string, string> }
-  return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons } }
+  const interactions = readInteractionLibrary(dir)
+  return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons }, interactions }
 }
 
-/** 校验：自定义 token 必须覆盖共享 CSS 与模板里引用的全部 --ts-* 变量。 */
-function assertCoversSharedVars(manifest: DesignManifest, componentsCss: string, templates: Record<string, DesignTemplate>, errors: string[]): void {
+/** 读取内置风格的交互库产物（与 design.ts 的同名逻辑一致，避免循环依赖而各自实现）。 */
+function readInteractionLibrary(dir: string): DesignInteractionLibrary {
+  const empty: DesignInteractionLibrary = { css: '', js: '', catalog: {}, rootAttrs: [] }
+  try {
+    const doc = readJson(join(dir, 'interactions.json'), 'interactions.json') as { interactions?: DesignInteraction[] }
+    const catalog: Record<string, DesignInteraction> = {}
+    const rootAttrs: string[] = []
+    for (const entry of doc.interactions ?? []) {
+      catalog[entry.id] = entry
+      if (entry.rootAttr) rootAttrs.push(entry.rootAttr)
+    }
+    return {
+      css: readFileSync(join(dir, 'interactions.css'), 'utf8'),
+      js: readFileSync(join(dir, 'interactions.js'), 'utf8'),
+      catalog,
+      rootAttrs,
+    }
+  } catch {
+    return empty
+  }
+}
+
+/** 校验：自定义 token 必须覆盖共享 CSS（组件/交互）与模板里引用的全部 --ts-* 变量。 */
+function assertCoversSharedVars(manifest: DesignManifest, componentsCss: string, templates: Record<string, DesignTemplate>, interactionsCss: string, errors: string[]): void {
   const known = new Set(manifest.vars)
   const needed = collectVars(componentsCss)
+  for (const v of collectVars(interactionsCss)) needed.add(v)
   for (const tpl of Object.values(templates)) for (const v of collectVars(tpl.html)) needed.add(v)
   const missing = [...needed].filter((v) => !known.has(v))
   if (missing.length) {
-    errors.push(`tokens 缺少共享组件/模板所需的变量（会样式悬空）：${missing.slice(0, 8).join('、')}${missing.length > 8 ? ` 等 ${missing.length} 个` : ''}`)
+    errors.push(`tokens 缺少共享组件/模板/交互所需的变量（会样式悬空）：${missing.slice(0, 8).join('、')}${missing.length > 8 ? ` 等 ${missing.length} 个` : ''}`)
   }
 }
 
@@ -144,6 +169,8 @@ export function compileCustomStyle(cwd: string, id: string, builtinDir: string):
   const manifest = buildManifest(tokens, {
     icons: contract.iconNames,
     componentClasses: contract.componentClasses,
+    interactionClasses: contract.interactionClasses,
+    interactionIds: contract.interactionIds,
   })
 
   const templates = shared.templates
@@ -156,8 +183,19 @@ export function compileCustomStyle(cwd: string, id: string, builtinDir: string):
     swatches: Array.isArray(meta.swatches) ? meta.swatches.map(String) : [],
     fonts: (tokens.font?.families ?? {}) as Record<string, string>,
     iconStyle,
-    counts: { icons: manifest.iconNames.length, components: contract.componentCount, templates: Object.keys(templates).length },
+    counts: {
+      icons: manifest.iconNames.length,
+      components: contract.componentCount,
+      templates: Object.keys(templates).length,
+      interactions: Object.keys(shared.interactions.catalog).length,
+    },
     templates: Object.entries(templates).map(([tid, t]) => ({ id: tid, name: t.name, device: t.device })),
+    interactions: Object.values(shared.interactions.catalog).map((it) => ({
+      id: it.id,
+      name: it.name,
+      category: it.category,
+      requiresScript: it.requiresScript,
+    })),
   }
 
   return {
@@ -167,6 +205,7 @@ export function compileCustomStyle(cwd: string, id: string, builtinDir: string):
     manifest,
     icons: shared.icons,
     templates,
+    interactions: shared.interactions,
   }
 }
 
@@ -178,6 +217,9 @@ interface SharedContract {
   builtinId: string
   componentClasses: string[]
   iconNames: string[]
+  /** 交互库独有类与交互 id（自定义风格复用，不扩展）。 */
+  interactionClasses: string[]
+  interactionIds: string[]
   /** 组件数量（= 内置 catalog 的 counts.components，与类名数量不同）。 */
   componentCount: number
 }
@@ -203,6 +245,8 @@ function sharedContract(builtinDir: string): SharedContract {
     builtinId,
     componentClasses: manifest.componentClasses,
     iconNames: Object.keys(icons.icons),
+    interactionClasses: manifest.interactionClasses ?? [],
+    interactionIds: manifest.interactionIds ?? [],
     componentCount: index.styles[0]?.counts?.components ?? 0,
   }
   sharedContractCache.set(builtinDir, value)
@@ -286,11 +330,16 @@ export function createCustomStyle(
   const contract = sharedContract(builtinDir)
   const manifest =
     errors.length === 0
-      ? buildManifest(tokens, { icons: contract.iconNames, componentClasses: contract.componentClasses })
+      ? buildManifest(tokens, {
+          icons: contract.iconNames,
+          componentClasses: contract.componentClasses,
+          interactionClasses: contract.interactionClasses,
+          interactionIds: contract.interactionIds,
+        })
       : null
   if (manifest) {
-    const { componentsCss, templates } = sharedAssets(builtinDir, contract.builtinId, iconStyle as DesignIconSet['stroke'])
-    assertCoversSharedVars(manifest, componentsCss, templates, errors)
+    const { componentsCss, templates, interactions } = sharedAssets(builtinDir, contract.builtinId, iconStyle as DesignIconSet['stroke'])
+    assertCoversSharedVars(manifest, componentsCss, templates, interactions.css, errors)
     // 与内置风格变量名集合逐项对齐（自定义值自由，但名字必须全覆盖）。
     const builtinManifest = readJson(
       join(builtinDir, 'styles', contract.builtinId, 'tokens.manifest.json'),

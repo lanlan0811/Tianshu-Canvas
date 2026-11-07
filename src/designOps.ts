@@ -87,3 +87,32 @@ export function templateDocument(cwd: string, styleId: string, templateId: strin
     `${template.html.trim()}\n</body>\n</html>\n`
   return { html, device: template.device, name: template.name }
 }
+
+/** 取一个交互模式的骨架与用法说明（供 canvas_style action=interaction）。 */
+export function interactionDocument(cwd: string, styleId: string, interactionId: string): {
+  name: string
+  category: string
+  requiresScript: boolean
+  rootAttr: string
+  requiredStructure: string[]
+  requiredAttrs: string[]
+  api: string
+  classes: string[]
+  skeletonHtml: string
+} | null {
+  const style = resolveDesignStyle(cwd, styleId)
+  if (!style) return null
+  const entry = style.interactions.catalog[interactionId]
+  if (!entry) return null
+  return {
+    name: entry.name,
+    category: entry.category,
+    requiresScript: entry.requiresScript,
+    rootAttr: entry.rootAttr,
+    requiredStructure: entry.requiredStructure ?? [],
+    requiredAttrs: entry.requiredAttrs ?? [],
+    api: entry.api ?? '',
+    classes: entry.classes ?? [],
+    skeletonHtml: entry.skeletonHtml ?? '',
+  }
+}

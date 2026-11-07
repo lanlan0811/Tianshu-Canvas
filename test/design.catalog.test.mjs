@@ -50,7 +50,7 @@ test('设计系统：清单与全部风格产物齐全', () => {
   assert.ok(catalog.notice.includes('无隶属'), '必须有与品牌无隶属关系的声明')
   assert.deepEqual(catalog.styles.map((s) => s.id), STYLES)
   for (const id of STYLES) {
-    for (const file of ['meta.json', 'tokens.css', 'tokens.manifest.json', 'components.css', 'icons.json', 'templates.json']) {
+    for (const file of ['meta.json', 'tokens.css', 'tokens.manifest.json', 'components.css', 'icons.json', 'templates.json', 'interactions.json', 'interactions.css', 'interactions.js']) {
       assert.ok(existsSync(join(designDir, 'styles', id, file)), `缺少 ${id}/${file}`)
     }
   }
@@ -64,11 +64,33 @@ test('设计系统：各风格的变量/组件类/模板同构', () => {
   for (const m of manifests.slice(1)) {
     assert.deepEqual([...m.vars].sort(), [...base.vars].sort(), `${m.id} 的变量集合与 ${base.id} 不一致`)
     assert.deepEqual([...m.componentClasses].sort(), [...base.componentClasses].sort())
+    assert.deepEqual([...(m.interactionClasses ?? [])].sort(), [...(base.interactionClasses ?? [])].sort())
+    assert.deepEqual([...(m.interactionIds ?? [])].sort(), [...(base.interactionIds ?? [])].sort())
     const templates = JSON.parse(readFileSync(join(designDir, 'styles', m.id, 'templates.json'), 'utf8'))
     const baseTemplates = JSON.parse(readFileSync(join(designDir, 'styles', base.id, 'templates.json'), 'utf8'))
     assert.deepEqual(Object.keys(templates).sort(), Object.keys(baseTemplates).sort())
   }
   assert.ok(base.vars.length > 80, '变量数量应覆盖颜色/字体/间距/圆角/阴影/尺寸')
+  assert.equal((base.interactionIds ?? []).length, 16, '交互库应有 16 个模式')
+})
+
+test('设计系统：交互库产物受约束（16 个、无禁用能力/外链）', () => {
+  assert.equal(catalog.styles[0].counts.interactions, 16)
+  const interactions = JSON.parse(readFileSync(join(designDir, 'styles', STYLES[0], 'interactions.json'), 'utf8'))
+  assert.equal(interactions.interactions.length, 16)
+  const ids = interactions.interactions.map((i) => i.id)
+  assert.equal(new Set(ids).size, 16, '交互 id 不得重复')
+  for (const entry of interactions.interactions) {
+    assert.ok(entry.rootAttr.startsWith('data-ts-'), `交互 ${entry.id} 的 rootAttr 必须是 data-ts-*`)
+    assert.ok(typeof entry.requiresScript === 'boolean')
+    assert.ok(entry.skeletonHtml && entry.skeletonHtml.length > 0)
+    for (const cls of entry.classes) assert.ok(cls.startsWith('ts-'), `交互 ${entry.id} 类名须 ts- 前缀`)
+  }
+  // 运行时禁用的浏览器能力（画布沙箱与导出站都禁用）
+  const js = readFileSync(join(designDir, 'styles', STYLES[0], 'interactions.js'), 'utf8')
+  for (const bad of [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\blocalStorage\b/, /\bsessionStorage\b/, /document\s*\.\s*cookie/, /https?:\/\//, /<\/script/i]) {
+    assert.ok(!bad.test(js), `interactions.js 命中了禁用模式 ${bad}`)
+  }
 })
 
 test('设计系统：图标数量与模板内容受约束', () => {

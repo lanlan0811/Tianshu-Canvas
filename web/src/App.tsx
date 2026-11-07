@@ -66,6 +66,24 @@ const defaultEdgeOptions = {
 /** .page-node 上下边框之和：节点高度要多出这一点，iframe 视口才等于内容高度。 */
 const NODE_BORDER = 2
 
+/**
+ * 页面内链接 → 目标页面 id（导入时链接已被工具规范化为 `<id>.html`）。
+ * data-nav 优先；否则取 href 的 basename 去 .html 后精确匹配页面 id。
+ */
+function resolveNavTarget(nav: { href: string | null; nav: string | null }, ids: Set<string>): string | null {
+  if (nav.nav && ids.has(nav.nav)) return nav.nav
+  const href = nav.href ?? ''
+  if (!href || /^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|\/\/|#)/.test(href)) return null
+  let base = (href.split(/[?#]/)[0] ?? '').split('/').pop() ?? ''
+  base = base.replace(/\.html?$/i, '')
+  try {
+    base = decodeURIComponent(base)
+  } catch {
+    /* 非法百分号编码保持原样 */
+  }
+  return ids.has(base) ? base : null
+}
+
 function toFlowNodes(
   project: ApiProject,
   contentHeights: Map<string, number>,
@@ -196,6 +214,20 @@ function Canvas() {
     [baseOnNodesChange],
   )
 
+  // 侧栏点击 / 页面内链接跳转：选中该页并定位到它
+  const selectAndFit = useCallback(
+    (id: string) => {
+      const node = nodesRef.current.find((n) => n.id === id)
+      if (!node) return
+      const sel: ApiSelection = { pageId: id, kind: 'page', at: Date.now() }
+      setSelection(sel)
+      markElementSelected(sel)
+      void postSelection(ws, id, 'page')
+      void fitView({ nodes: [{ id }], padding: 0.5, maxZoom: 1, duration: 600 })
+    },
+    [fitView],
+  )
+
   // 探针桥
   useProbeBridge({
     onReady: (pageId) => {
@@ -239,6 +271,11 @@ function Canvas() {
       // 程序设置视口时 onMove 没有事件对象，不会保存，这里补上。
       if (!exporting) postViewport(ws, next)
     },
+    onNavigate: (_pageId, nav) => {
+      const ids = new Set(nodesRef.current.map((n) => n.id))
+      const target = resolveNavTarget(nav, ids)
+      if (target) selectAndFit(target)
+    },
   })
 
   // 节点级选中（点节点空白/标题）→ 记录为页面级选中
@@ -250,20 +287,6 @@ function Canvas() {
       void postSelection(ws, node.id, 'page')
     },
     [],
-  )
-
-  // 侧栏点击：选中该页并定位到它
-  const selectAndFit = useCallback(
-    (id: string) => {
-      const node = nodesRef.current.find((n) => n.id === id)
-      if (!node) return
-      const sel: ApiSelection = { pageId: id, kind: 'page', at: Date.now() }
-      setSelection(sel)
-      markElementSelected(sel)
-      void postSelection(ws, id, 'page')
-      void fitView({ nodes: [{ id }], padding: 0.5, maxZoom: 1, duration: 600 })
-    },
-    [fitView],
   )
 
   // 右键菜单：节点 / 空白
@@ -503,7 +526,7 @@ function Canvas() {
         )}
         {!exporting && <ZoomControls />}
         {!exporting && !showIdle && (
-          <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层）</div>
+          <div className="hint">空格/中键拖拽 平移 · Ctrl+滚轮 缩放 · 滚轮 平移 · 点击选中元素（Ctrl 点击选最内层） · 点页面内链接跳到对应页</div>
         )}
         {!exporting && (
           <SelectionPanel

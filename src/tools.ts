@@ -37,6 +37,8 @@ import {
   isBuiltinStyle,
   loadDesignCatalog,
   resolveDesignStyle,
+  stripDesign,
+  type ResolvedStyle,
 } from './design.js'
 import {
   compileCustomStyle,
@@ -46,7 +48,7 @@ import {
   loadCustomSummaries,
   removeCustomStyle,
 } from './designCustom.js'
-import { applyProjectStyle, currentStyleId, templateDocument } from './designOps.js'
+import { applyProjectStyle, currentStyleId, interactionDocument, templateDocument } from './designOps.js'
 import { extractTokens } from './extract.js'
 import { inlineAssets } from './inlineAssets.js'
 import { isSafeId, newPageId } from './ids.js'
@@ -74,11 +76,13 @@ import {
   takeProjectBackup,
   upsertNode,
   writePageHtml,
+  writeProject,
   type Comment,
   type PageNode,
   type Project,
   type Selection,
 } from './project.js'
+import { mayHaveNavLinks, rewriteNavLinks, type PageRef } from './nav.js'
 import { currentUrl, ensureServer } from './server.js'
 
 export interface ToolCall {
@@ -280,6 +284,27 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
         : '')
   }
 
+  // 页面间跳转：把手写链接规范化成 <id>.html（歧义报错，未命中放行）。
+  const pageTitle = str(args.title) ?? existing?.title ?? id
+  let navNote = ''
+  if (workHtml !== undefined) {
+    const pages = pageRefsWith(project, { id, title: pageTitle })
+    const nav = rewriteNavLinks(workHtml, pages, '')
+    if (nav.ambiguous.length) {
+      const detail = nav.ambiguous
+        .map((a) => `  - 「${a.ref}」命中多个页面：${a.ids.join('、')}；请改用真实页面 id 或 data-nav`)
+        .join('\n')
+      return {
+        content: `页面跳转链接存在歧义，未写入：\n${detail}\n\n（同名标题会产生相同 slug，改用 <a href="<id>.html"> 或 <a data-nav="<id>">）`,
+        isError: true,
+      }
+    }
+    workHtml = nav.html
+    if (nav.unresolved.length) {
+      navNote = `\n注意：这些链接未匹配到页面，已原样保留（若目标页稍后创建会自动补齐）：${nav.unresolved.slice(0, 8).join('、')}。`
+    }
+  }
+
   // 设计系统是项目级锁定：写入时自动内联 token/组件样式并展开图标。
   const styleId = currentStyleId(call.cwd)
   const injection = workHtml !== undefined ? injectDesign(workHtml, styleId, call.cwd) : null
@@ -290,7 +315,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
   const node: PageNode = {
     id,
     type: 'page',
-    title: str(args.title) ?? existing?.title ?? id,
+    title: pageTitle,
     x,
     y,
     width: size.width,
@@ -302,6 +327,9 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     updatedAt: now,
   }
   upsertNode(call.cwd, node)
+
+  // 前向引用补齐：本次写入若引入/改名了页面，其它页里此前无法解析的链接现在可能可解析。
+  const backfilled = backfillNavLinks(call.cwd)
 
   // 确保画布服务在跑，这样返回里一定带可点击的画布 URL（用户能看到）。
   const { url } = await ensureServer(call.cwd)
@@ -324,11 +352,59 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       styleLine +
       missingLine +
       assetNote +
+      navNote +
+      (backfilled.length ? `\n页面跳转：已补齐 ${backfilled.length} 个页面的前向链接（${backfilled.join('、')}）。` : '') +
       scriptIconNote(injection?.scriptIcons ?? []) +
       (blocked.length
         ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
         : ''),
   }
+}
+
+/** 页面引用集合：项目现有页面 + 本次写入的页面（覆盖同 id 的旧标题）。 */
+function pageRefsWith(project: Project, self: PageRef): PageRef[] {
+  const refs = project.nodes.map((n) => ({ id: n.id, title: n.title }))
+  const idx = refs.findIndex((r) => r.id === self.id)
+  if (idx >= 0) refs[idx] = { id: self.id, title: self.title }
+  else refs.push({ id: self.id, title: self.title })
+  return refs
+}
+
+/**
+ * 前向引用补齐：对每个页面重跑链接规范化，仅当确实改写了才写盘并 bump htmlRev。
+ * 变更检测 + 只写变化页，避免无谓的整画布重载。
+ */
+function backfillNavLinks(cwd: string): string[] {
+  const project = readProject(cwd)
+  const pages = project.nodes.map((n) => ({ id: n.id, title: n.title }))
+  if (pages.length === 0) return []
+  const changed: string[] = []
+  for (const node of project.nodes) {
+    try {
+      const html = readPageHtml(cwd, node.id)
+      if (html === null || !mayHaveNavLinks(html)) continue
+      // 注入块内含链接的可能性极低；先剥离再判断，避免把注入块也当作链接源。
+      const stripped = stripDesign(html)
+      if (!mayHaveNavLinks(stripped)) continue
+      const nav = rewriteNavLinks(stripped, pages, '')
+      if (nav.rewritten === 0 || nav.ambiguous.length) continue
+      const reinjected = injectDesign(nav.html, currentStyleId(cwd), cwd)
+      const next = reinjected.html
+      if (next === html) continue
+      writePageHtml(cwd, node.id, next)
+      const stamped = readProject(cwd)
+      const target = stamped.nodes.find((n) => n.id === node.id)
+      if (target) {
+        target.htmlRev = Date.now()
+        target.updatedAt = Date.now()
+        writeProject(cwd, stamped)
+      }
+      changed.push(node.title)
+    } catch {
+      // 单个页面的文件损坏/越界不该拖垮本次写入；跳过即可（它本来就无法被补齐）。
+    }
+  }
+  return changed
 }
 
 // ---------------------------------------------------------------------------
@@ -498,7 +574,7 @@ function formatStyleList(cwd: string): string {
     const tag = isBuiltinStyle(s.id) ? '内置' : '自定义'
     return (
       `- ${s.name}（${s.id}）[${tag}]：${s.tagline}\n` +
-      `  色板 ${s.swatches.join(' ')}；图标 ${s.counts.icons} 个、组件 ${s.counts.components} 个；模板 ${templates || '无'}`
+      `  色板 ${s.swatches.join(' ')}；图标 ${s.counts.icons} 个、组件 ${s.counts.components} 个、交互 ${s.counts.interactions ?? 0} 个；模板 ${templates || '无'}`
     )
   })
   return (
@@ -550,9 +626,35 @@ function formatStyleBrief(cwd: string, styleId: string): string {
     `间距：${spacing.join(' ')}\n圆角：${radiusVars.join(' ')}\n阴影：${shadows.join(' ')}\n尺寸：${sizesBox.join(' ')}\n动效：${motion.join(' ')}\n\n` +
     `组件类（${manifest.componentClasses.length}）：${manifest.componentClasses.join(' ')}\n\n` +
     `图标（${icons.length}）：\n${iconLines.join('\n')}\n\n` +
+    formatInteractionList(style) +
     `模板：${Object.keys(style.templates).join(' / ')}\n` +
     `写法：颜色 var(--ts-color-*)；图标 <svg data-icon="名字" class="ts-icon"></svg>（写入时自动内联）。`
   )
+}
+
+/** 交互库清单（get 与 list 复用）。 */
+function formatInteractionList(style: ResolvedStyle): string {
+  const ids = manifest_interactionIds(style)
+  if (ids.length === 0) return ''
+  const byCat = new Map<string, string[]>()
+  for (const id of ids) {
+    const entry = style.interactions.catalog[id]
+    if (!entry) continue
+    const list = byCat.get(entry.category) ?? []
+    list.push(`${id}（${entry.name}）`)
+    byCat.set(entry.category, list)
+  }
+  const lines = [...byCat.entries()].map(([cat, items]) => `  ${cat}：${items.join('、')}`)
+  return (
+    `交互库（${ids.length}）：用 data-ts-* 标记 + 交互 ts-* 类声明，写入时自动注入共享运行时。\n${lines.join('\n')}\n` +
+    `  取骨架与用法：canvas_style（action=interaction, interaction_id=<id>）。\n\n`
+  )
+}
+
+function manifest_interactionIds(style: ResolvedStyle): string[] {
+  const fromManifest = style.manifest.interactionIds ?? []
+  if (fromManifest.length) return fromManifest
+  return Object.keys(style.interactions.catalog)
 }
 
 // ---------------------------------------------------------------------------
@@ -776,7 +878,35 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       }
     }
 
-    return { content: `未知的 action：${action}。可选：list / get / set / template / codegen。`, isError: true }
+    if (action === 'interaction') {
+      const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
+      if (!styleId || styleId === 'free') {
+        return { content: 'interaction 需要已锁定的风格，或显式传 style_id（交互库随风格提供）。', isError: true }
+      }
+      const interactionId = str(call.args.interaction_id)
+      if (!interactionId) {
+        const style = resolveDesignStyle(call.cwd, styleId)
+        const available = style ? Object.keys(style.interactions.catalog).join(' / ') : ''
+        return { content: `interaction 需要 interaction_id。可选：${available}`, isError: true }
+      }
+      const doc = interactionDocument(call.cwd, styleId, interactionId)
+      if (!doc) {
+        return { content: `未知的交互模式：${interactionId}。用 canvas_style（action=get）查看交互清单。`, isError: true }
+      }
+      const struct = doc.requiredStructure.length ? `必需结构：\n${doc.requiredStructure.map((s) => `  - ${s}`).join('\n')}\n` : ''
+      const attrs = doc.requiredAttrs.length ? `必需属性：\n${doc.requiredAttrs.map((s) => `  - ${s}`).join('\n')}\n` : ''
+      return {
+        content:
+          `交互「${doc.name}」（${interactionId}，分类 ${doc.category}）\n` +
+          `根标记：${doc.rootAttr}${doc.requiresScript ? '（需要脚本，写入时自动注入运行时）' : '（纯 CSS，无需脚本）'}\n` +
+          `用到类：${doc.classes.join(' ')}\n${struct}${attrs}` +
+          `行为：${doc.api}\n\n` +
+          `骨架（把它放进页面，按需改文案/数量；写入时工具会注入交互样式与运行时）：\n\n${doc.skeletonHtml}\n\n` +
+          `注意：不要自己写这套交互的 JS——共享运行时会随页面自动注入；脚本里不要用 fetch / 本地存储（沙箱禁用）。`,
+      }
+    }
+
+    return { content: `未知的 action：${action}。可选：list / get / set / template / interaction / codegen。`, isError: true }
   } catch (err) {
     return { content: (err as Error).message, isError: true }
   }
@@ -1447,23 +1577,28 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_style',
-      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续',
+      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，取交互模式骨架，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['list', 'get', 'set', 'template', 'codegen'],
+            enum: ['list', 'get', 'set', 'template', 'interaction', 'codegen'],
             description:
-              'list=列出全部可选风格与当前状态（用户没指定风格时据此提问）；get=查看某风格的 token/组件类/图标名；' +
+              'list=列出全部可选风格与当前状态（用户没指定风格时据此提问）；get=查看某风格的 token/组件类/图标名/交互清单；' +
               'set=锁定或切换风格；template=取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page；' +
+              'interaction=取某个交互模式（tabs/modal/drawer 等）的骨架 HTML 与用法，可直接放进页面；' +
               'codegen=导出生产代码（**必须先问用户要哪种目标**，不要自行假定）',
           },
           style_id: {
             type: 'string',
-            description: '风格 id（set/get/template/codegen 使用），内置或自定义均可；free 表示解除锁定',
+            description: '风格 id（set/get/template/interaction/codegen 使用），内置或自定义均可；free 表示解除锁定',
           },
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
+          interaction_id: {
+            type: 'string',
+            description: 'action=interaction 时使用：交互模式 id（如 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker）',
+          },
           target: {
             type: 'string',
             enum: ['react', 'css-vars', 'tailwind', 'shadcn', 'antd', 'ios', 'android', 'miniprogram'],

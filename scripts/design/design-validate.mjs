@@ -413,7 +413,82 @@ export function validateTemplateHtml(label, html, template, allClasses, iconSet,
   auditForbidden(label, html, errors)
 }
 
-/** 跨风格一致性：变量名、组件类、模板 id 必须完全一致。 */
+export function validateInteractions(interactionsDoc, interactionsCss, interactionsJs, manifest, errors, warnings) {
+  if (interactionsDoc?.schema !== 1) errors.push('interactions.schema 必须是 1')
+  const expected = 16
+  const list = interactionsDoc?.interactions ?? []
+  if (list.length !== expected) errors.push(`交互条目必须为 ${expected} 个，当前 ${list.length}`)
+
+  const defined = definedClasses(interactionsCss)
+  const allClasses = new Set()
+  const ids = new Set()
+  const rootAttrs = new Set()
+  for (const entry of list) {
+    if (!entry.id || !entry.rootAttr) errors.push(`交互缺少 id/rootAttr：${JSON.stringify(entry.id)}`)
+    if (ids.has(entry.id)) errors.push(`交互 id 重复：${entry.id}`)
+    ids.add(entry.id)
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.id ?? '')) errors.push(`交互 id 不合法：${entry.id}`)
+    if (rootAttrs.has(entry.rootAttr)) errors.push(`交互 rootAttr 重复：${entry.rootAttr}`)
+    rootAttrs.add(entry.rootAttr)
+    if (!/^data-ts-[a-z0-9-]+$/.test(entry.rootAttr ?? '')) errors.push(`交互 ${entry.id} 的 rootAttr 必须是 data-ts-*：${entry.rootAttr}`)
+    if (typeof entry.requiresScript !== 'boolean') errors.push(`交互 ${entry.id} 的 requiresScript 必须是布尔`)
+    if (!entry.skeletonHtml || String(entry.skeletonHtml).trim() === '') errors.push(`交互 ${entry.id} 缺少 skeletonHtml`)
+    if (!Array.isArray(entry.classes) || entry.classes.length === 0) {
+      errors.push(`交互 ${entry.id} 缺少 classes`)
+      continue
+    }
+    for (const className of entry.classes) {
+      if (!className.startsWith('ts-')) errors.push(`交互 ${entry.id} 的类名必须以 ts- 开头：${className}`)
+      if (allClasses.has(className) && !(entry.reused ?? []).includes(className)) {
+        errors.push(`交互类名重复：${className}`)
+      }
+      allClasses.add(className)
+      // 复用自组件目录的类在 components.css 里定义，不在本文件要求。
+      const isReused = (entry.reused ?? []).includes(className)
+      if (!isReused && !defined.has(className)) errors.push(`交互类在 interactions.css 中没有定义：.${className}`)
+    }
+    // 复用自组件目录的类不在本文件定义，但必须存在于全局契约。
+    for (const className of entry.reused ?? []) {
+      if (!entry.classes.includes(className)) errors.push(`交互 ${entry.id} 的 reused 类 ${className} 必须同时出现在 classes 中`)
+      if (!manifest.componentClasses.includes(className)) {
+        errors.push(`交互 ${entry.id} 复用了一个组件目录里不存在的类：${className}`)
+      }
+    }
+    for (const match of String(entry.skeletonHtml).matchAll(CLASS_ATTR)) {
+      for (const cls of (match[1] ?? match[2] ?? '').split(/\s+/).filter(Boolean)) {
+        if (cls.startsWith('ts-') && !allClasses.has(cls) && !manifest.componentClasses.includes(cls)) {
+          errors.push(`交互 ${entry.id} 的骨架使用了未声明的类：${cls}`)
+        }
+      }
+    }
+    auditForbidden(`交互 ${entry.id}`, String(entry.skeletonHtml), errors)
+  }
+
+  for (const name of cssVars(interactionsCss)) {
+    if (!manifest.vars.includes(name)) errors.push(`interactions.css 使用了未定义的变量：${name}`)
+  }
+  auditForbidden('interactions.css', interactionsCss, errors)
+
+  // 运行时禁用的浏览器能力（在画布沙箱与导出站里都会失败）。
+  const forbiddenApis = [
+    ['fetch', /\bfetch\s*\(/],
+    ['XMLHttpRequest', /\bXMLHttpRequest\b/],
+    ['localStorage', /\blocalStorage\b/],
+    ['sessionStorage', /\bsessionStorage\b/],
+    ['document.cookie', /document\s*\.\s*cookie/],
+  ]
+  for (const [label, pattern] of forbiddenApis) {
+    if (pattern.test(interactionsJs)) errors.push(`interactions.js 使用了沙箱禁用的能力：${label}`)
+  }
+  if (/https?:\/\//.test(interactionsJs)) errors.push('interactions.js 含外链 URL')
+  if (/<\/script/i.test(interactionsJs)) errors.push('interactions.js 含 </script（内联注入会截断脚本）')
+  if (/<script|<style/i.test(interactionsJs)) errors.push('interactions.js 含 <script/<style 标签')
+
+  // 交互独有类 = 交互清单里声明、但组件目录没有的类；复用的组件类不重复登记。
+  const componentSet = new Set(manifest.componentClasses)
+  const ownClasses = [...allClasses].filter((c) => !componentSet.has(c))
+  return { allClasses, ownClasses, ids: [...ids], rootAttrs: [...rootAttrs] }
+}
 export function validateConsistency(styles, errors) {
   const first = styles[0]
   if (!first) return
@@ -440,6 +515,20 @@ export function validateConsistency(styles, errors) {
     const te = [...tb].filter((v) => !ta.has(v))
     if (tm.length || te.length) {
       errors.push(`风格 ${style.id} 的模板 id 与 ${first.id} 不一致：缺 ${tm.join(', ') || '无'}；多 ${te.join(', ') || '无'}`)
+    }
+    const ia = new Set(first.manifest.interactionClasses ?? [])
+    const ib = new Set(style.manifest.interactionClasses ?? [])
+    const im = [...ia].filter((v) => !ib.has(v))
+    const ie = [...ib].filter((v) => !ia.has(v))
+    if (im.length || ie.length) {
+      errors.push(`风格 ${style.id} 的交互类与 ${first.id} 不一致：缺 ${im.slice(0, 5).join(', ') || '无'}；多 ${ie.slice(0, 5).join(', ') || '无'}`)
+    }
+    const la = new Set(first.manifest.interactionIds ?? [])
+    const lb = new Set(style.manifest.interactionIds ?? [])
+    const lm = [...la].filter((v) => !lb.has(v))
+    const le = [...lb].filter((v) => !la.has(v))
+    if (lm.length || le.length) {
+      errors.push(`风格 ${style.id} 的交互 id 与 ${first.id} 不一致：缺 ${lm.join(', ') || '无'}；多 ${le.join(', ') || '无'}`)
     }
   }
 }

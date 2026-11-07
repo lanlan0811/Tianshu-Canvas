@@ -31,6 +31,8 @@ export interface ProbeHandlers {
     pageId: string,
     e: { deltaX: number; deltaY: number; ctrlKey: boolean; metaKey: boolean; clientX: number; clientY: number },
   ) => void
+  /** 页面内点击了链接：请求画布跳转到对应页面节点。 */
+  onNavigate?: (pageId: string, nav: { href: string | null; nav: string | null; xpath: string }) => void
 }
 
 /** pageId ↔ iframe contentWindow 双向映射。 */
@@ -101,6 +103,11 @@ export function useProbeBridge(handlers: ProbeHandlers): void {
         case '__vd_wheel_forward':
           h.onWheel?.(pageId, data.payload as never)
           break
+        case '__vd_request_navigate': {
+          const p = data.payload as { href?: string | null; nav?: string | null; xpath?: string } | null
+          if (p) h.onNavigate?.(pageId, { href: p.href ?? null, nav: p.nav ?? null, xpath: p.xpath ?? '' })
+          break
+        }
         default:
           break
       }

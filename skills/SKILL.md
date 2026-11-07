@@ -80,7 +80,7 @@ triggers:
 用户要「专属设计系统」时用 `canvas_design_system`（见第 2 步的自定义分支）。要点：
 
 - **只在本工作区生效**，存在 `.tianshu-canvas/library/`（随项目数据一起被 gitignore，不随仓库分发）。
-- **只能改 token，不能扩展组件与图标**：`ts-*` 组件类（23 个）与图标名（77 个）是共享的，
+- **只能改 token，不能扩展组件/图标/交互**：`ts-*` 组件类（26 个）、图标名（77 个）与交互库（16 个模式）都是共享的，
   自定义风格只决定它们的颜色 / 字体 / 间距 / 圆角 / 阴影 / 尺寸。不要发明新的 `ts-` 类或图标名。
 - **变量名必须与内置风格完全一致**（工具会校验），值自由。
 - **tokens 契约**（`canvas_design_system` 的 `create` 参数；值自由、键名固定）：
@@ -115,6 +115,37 @@ triggers:
   - 每次写入后，把画布 URL 一并回给用户，方便其刷新查看。
 - **多页**：每页一个节点，画布会自动排布；重复「写 HTML → 写入」即可。
 - **查看 / 确认**：`canvas_get_state` 一次返回所有页面节点、连线、用户当前选中项和画布 URL。
+
+### 页面间跳转（多页站）
+
+页面之间用**真实链接**互跳，工具会在写入时把它们规范化成目标页面 id：
+
+- `<a href="page-3f2a91c4.html">`（**推荐**，真实页面 id，最稳）
+- `<a data-nav="page-3f2a91c4">`（显式声明，可不写 href）
+- `<a href="产品详情.html">`（按页面 `title` 的 slug 匹配，**要求该标题唯一**；同名会报错）
+
+规则：画布上点击这类链接会**选中并定位到目标页面节点**（不是页内跳转、不新开窗口）；
+Ctrl/⌘+点击只选中该链接元素以便编辑。外链（http(s)/mailto 等）、`#` 锚点原样保留、不参与跳转。
+写入时若目标页还不存在（前向引用），链接会先保留、等目标页创建后自动补齐；标题重名导致的
+slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画布连线）只表达流程，不生成导航。
+
+导出（用户点画布顶栏「导出」）会把这些页面打成一个**可直接打开的多页站**：
+`index.html` 导航首页 + `pages/<id>.html` 真实互链 + 共享 `assets/tokens.css`/`components.css`
+（旧 iframe 画廊保留为 `overview.html`）。
+
+### 页面内交互（交互库）
+
+界面交互**不要自己写一套 JS**——用交互库声明式标记，写入时工具会自动注入共享样式与运行时：
+
+- 先 `canvas_style`（action=get）看「交互库」清单；取某个交互的骨架用
+  `canvas_style`（action=interaction, interaction_id=tabs|modal|drawer|dropdown|accordion|toast|
+  tooltip|loading-skeleton|progress|form-validation|segmented|switch|stepper|pagination|sortable-table|date-picker）。
+- 用 `data-ts-*` 根标记 + 交互 `ts-*` 类表达（如 `<div class="ts-i-tabs" data-ts-tabs>`）；
+  可用类与结构以 action=interaction 返回的说明为准，**不要发明新的 ts- 类**。
+- 只有页面用到交互时才会注入运行时；未用的页面保持轻量。切换/解绑风格会连带剥离运行时。
+- **硬约束（违反会失效）**：脚本只能内联写在 `<script>`；**禁止 `fetch`/XHR**（页面 CSP 禁 connect）；
+  **禁止 `localStorage`/`sessionStorage`/`document.cookie`**（iframe 无同源，会抛异常），需要状态就用内存变量；
+  表单只做前端校验（`form-action 'none'`，不会真的提交）。脚本动态生成的元素在画布上不可选中回写。
 
 ## 迭代与交付（v0.2.0）
 
@@ -233,7 +264,7 @@ triggers:
 | `canvas_upsert_page` | 新增页面，或更新已有页面（HTML / 标题 / 位置 / 尺寸）；`inline_assets` 可内联被拦资源 | 已 `canvas_open` 且已生成原型后；重命名、移动也用它 |
 | `canvas_get_state` | 读取页面列表、连线、用户当前选中项、画布 URL | 需要查看/确认，或用户选中元素后据此修改 |
 | `canvas_arrange` | 删除 / 复制页面、连线 / 取消连线（`action` 选择） | 编排画布、表达页面流程时 |
-| `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template；导出代码时**先问目标（多端再问技术栈）**再 codegen |
+| `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板或交互骨架 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template / interaction；导出代码时**先问目标（多端再问技术栈）**再 codegen |
 | `canvas_check_style` | 只读检查页面是否符合当前风格 | 每次写完页面后；用户问「为什么风格不统一」时 |
 | `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`extract` 反抽取；`import` 从仓库主题导入；`export` / `import_pack` 品牌包 | 用户要做「专属设计系统」时：问清配置后 create；要「照这个站点的风格」时 extract（先 dry_run）；要接入现有项目主题时 import；要交接/迁移时 export / import_pack |
 | `canvas_audit` | 设计 CI：契约、可访问性、视觉回归、设计漂移（`action`: contract / a11y / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |

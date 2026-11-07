@@ -31,7 +31,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -43,6 +44,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -75,7 +174,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -87,6 +187,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -119,7 +317,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -131,6 +330,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -163,7 +460,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -175,6 +473,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -207,7 +603,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -219,6 +616,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -251,7 +746,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -263,6 +759,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -295,7 +889,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -307,6 +902,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -339,7 +1032,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -351,6 +1045,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -383,7 +1175,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -395,6 +1188,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     },
@@ -427,7 +1318,8 @@
       "counts": {
         "icons": 77,
         "components": 26,
-        "templates": 2
+        "templates": 2,
+        "interactions": 16
       },
       "templates": [
         {
@@ -439,6 +1331,104 @@
           "id": "landing",
           "name": "落地页",
           "device": "desktop"
+        }
+      ],
+      "interactions": [
+        {
+          "id": "tabs",
+          "name": "标签页",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "modal",
+          "name": "模态弹窗",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "drawer",
+          "name": "抽屉",
+          "category": "overlay",
+          "requiresScript": true
+        },
+        {
+          "id": "dropdown",
+          "name": "下拉菜单",
+          "category": "navigation",
+          "requiresScript": true
+        },
+        {
+          "id": "accordion",
+          "name": "折叠面板",
+          "category": "navigation",
+          "requiresScript": false
+        },
+        {
+          "id": "toast",
+          "name": "轻提示",
+          "category": "feedback",
+          "requiresScript": true
+        },
+        {
+          "id": "tooltip",
+          "name": "提示气泡",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "loading-skeleton",
+          "name": "骨架屏",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "progress",
+          "name": "进度条",
+          "category": "feedback",
+          "requiresScript": false
+        },
+        {
+          "id": "form-validation",
+          "name": "表单校验",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "segmented",
+          "name": "分段控件",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "switch",
+          "name": "开关",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "stepper",
+          "name": "步骤条",
+          "category": "form",
+          "requiresScript": true
+        },
+        {
+          "id": "pagination",
+          "name": "分页",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "sortable-table",
+          "name": "可排序表格",
+          "category": "data",
+          "requiresScript": true
+        },
+        {
+          "id": "date-picker",
+          "name": "日期选择",
+          "category": "data",
+          "requiresScript": true
         }
       ]
     }

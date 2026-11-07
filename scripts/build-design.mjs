@@ -12,6 +12,7 @@ import {
   validateComponents,
   validateConsistency,
   validateIcons,
+  validateInteractions,
   validateTemplateHtml,
   validateTemplates,
   validateTokens,
@@ -94,6 +95,9 @@ export function buildDesignSystems({ root, dist }) {
   const componentsDoc = readJson(join(sourceDir, 'components', 'components.json'), 'components.json')
   const componentsCss = readFileSync(join(sourceDir, 'components', 'components.css'), 'utf8').replace(/\r\n/g, '\n')
   const iconsDoc = readJson(join(sourceDir, 'icons', 'core.json'), 'icons/core.json')
+  const interactionsDoc = readJson(join(sourceDir, 'interactions', 'interactions.json'), 'interactions.json')
+  const interactionsCss = readFileSync(join(sourceDir, 'interactions', 'interactions.css'), 'utf8').replace(/\r\n/g, '\n')
+  const interactionsJs = readFileSync(join(sourceDir, 'interactions', 'interactions.js'), 'utf8').replace(/\r\n/g, '\n')
   const templatesDoc = readJson(join(sourceDir, 'templates', 'templates.json'), 'templates.json')
   const templateBodies = new Map()
   for (const template of templatesDoc.templates ?? []) {
@@ -125,6 +129,20 @@ export function buildDesignSystems({ root, dist }) {
   const classSet = validateComponents(componentsDoc, componentsCss, representativeManifest, errors, warnings)
   const componentClasses = [...classSet]
 
+  // 交互库只在全局校验一次；它的类与组件类合并成同一份 ts-* 契约。
+  // 先用「仅含组件类」的 manifest 校验交互，拿到 interactionClasses 后再并入最终 manifest。
+  const interactionManifest = { vars: representativeManifest.vars ?? [], componentClasses }
+  const interactionResult = validateInteractions(
+    interactionsDoc,
+    interactionsCss,
+    interactionsJs,
+    interactionManifest,
+    errors,
+    warnings,
+  )
+  const interactionClasses = interactionResult.ownClasses
+  const interactionIds = interactionResult.ids
+
   for (const id of styleIds) {
     const dir = join(stylesRoot, id)
     const meta = readJson(join(dir, 'meta.json'), `${id}/meta.json`)
@@ -140,7 +158,7 @@ export function buildDesignSystems({ root, dist }) {
     let manifest = null
     if (styleErrors.length === 0) {
       try {
-        manifest = buildManifest(tokens, { icons: iconNames, componentClasses })
+        manifest = buildManifest(tokens, { icons: iconNames, componentClasses, interactionClasses, interactionIds })
       } catch (err) {
         styleErrors.push(`manifest 生成失败：${err.message}`)
       }
@@ -205,6 +223,10 @@ export function buildDesignSystems({ root, dist }) {
     writeText(join(outDir, 'tokens.css'), style.tokensCss)
     writeJson(join(outDir, 'tokens.manifest.json'), style.manifest)
     writeText(join(outDir, 'components.css'), componentsCss)
+    // 交互库与风格无关（差异全在 token），每个风格复制同一份。
+    writeText(join(outDir, 'interactions.css'), interactionsCss)
+    writeText(join(outDir, 'interactions.js'), interactionsJs)
+    writeJson(join(outDir, 'interactions.json'), interactionsDoc)
     writeJson(join(outDir, 'icons.json'), {
       viewBox: style.iconsDoc.viewBox,
       stroke: style.meta.iconStyle,
@@ -238,8 +260,15 @@ export function buildDesignSystems({ root, dist }) {
         icons: style.manifest.iconNames.length,
         components: (componentsDoc.components ?? []).length,
         templates: Object.keys(templates).length,
+        interactions: (interactionsDoc.interactions ?? []).length,
       },
       templates: style.templates.map((t) => ({ id: t.id, name: t.name, device: t.device })),
+      interactions: (interactionsDoc.interactions ?? []).map((it) => ({
+        id: it.id,
+        name: it.name,
+        category: it.category,
+        requiresScript: it.requiresScript,
+      })),
     })
   }
 

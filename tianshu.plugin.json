@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "0.7.4",
-  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包",
+  "version": "0.8.0",
+  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、可视化编辑与编排、页面间跳转与交互库、多页静态站导出、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包",
   "runtime": "agent",
   "entry": "dist/index.mjs",
   "capabilities": [
@@ -31,7 +31,7 @@
       },
       {
         "name": "canvas_style",
-        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续"
+        "description": "列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，取交互模式骨架，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续"
       },
       {
         "name": "canvas_check_style",

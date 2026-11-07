@@ -61118,7 +61118,7 @@ ${darkLines.join("\n")}
   }
   return css;
 }
-function buildManifest(tokens, { icons, componentClasses }) {
+function buildManifest(tokens, { icons, componentClasses, interactionClasses, interactionIds }) {
   const { vars, resolvedSemantic } = flattenTokens(tokens);
   return {
     schema: "tianshu-design-manifest/1",
@@ -61130,6 +61130,8 @@ function buildManifest(tokens, { icons, componentClasses }) {
     fontFamilies: Object.values(tokens.font.families),
     iconNames: [...icons],
     componentClasses: [...componentClasses],
+    interactionClasses: [...interactionClasses ?? []],
+    interactionIds: [...interactionIds ?? []],
     resolvedSemantic
   };
 }
@@ -61397,15 +61399,37 @@ function sharedAssets(builtinDir, builtinId, iconStyle) {
   const componentsCss = readFileSync2(join3(dir, "components.css"), "utf8");
   const templates = readJson(join3(dir, "templates.json"), "templates.json");
   const raw = readJson(join3(dir, "icons.json"), "icons.json");
-  return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons } };
+  const interactions = readInteractionLibrary(dir);
+  return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons }, interactions };
 }
-function assertCoversSharedVars(manifest, componentsCss, templates, errors) {
+function readInteractionLibrary(dir) {
+  const empty = { css: "", js: "", catalog: {}, rootAttrs: [] };
+  try {
+    const doc = readJson(join3(dir, "interactions.json"), "interactions.json");
+    const catalog = {};
+    const rootAttrs = [];
+    for (const entry of doc.interactions ?? []) {
+      catalog[entry.id] = entry;
+      if (entry.rootAttr) rootAttrs.push(entry.rootAttr);
+    }
+    return {
+      css: readFileSync2(join3(dir, "interactions.css"), "utf8"),
+      js: readFileSync2(join3(dir, "interactions.js"), "utf8"),
+      catalog,
+      rootAttrs
+    };
+  } catch {
+    return empty;
+  }
+}
+function assertCoversSharedVars(manifest, componentsCss, templates, interactionsCss, errors) {
   const known = new Set(manifest.vars);
   const needed = collectVars(componentsCss);
+  for (const v2 of collectVars(interactionsCss)) needed.add(v2);
   for (const tpl of Object.values(templates)) for (const v2 of collectVars(tpl.html)) needed.add(v2);
   const missing = [...needed].filter((v2) => !known.has(v2));
   if (missing.length) {
-    errors.push(`tokens \u7F3A\u5C11\u5171\u4EAB\u7EC4\u4EF6/\u6A21\u677F\u6240\u9700\u7684\u53D8\u91CF\uFF08\u4F1A\u6837\u5F0F\u60AC\u7A7A\uFF09\uFF1A${missing.slice(0, 8).join("\u3001")}${missing.length > 8 ? ` \u7B49 ${missing.length} \u4E2A` : ""}`);
+    errors.push(`tokens \u7F3A\u5C11\u5171\u4EAB\u7EC4\u4EF6/\u6A21\u677F/\u4EA4\u4E92\u6240\u9700\u7684\u53D8\u91CF\uFF08\u4F1A\u6837\u5F0F\u60AC\u7A7A\uFF09\uFF1A${missing.slice(0, 8).join("\u3001")}${missing.length > 8 ? ` \u7B49 ${missing.length} \u4E2A` : ""}`);
   }
 }
 function loadCustomSummaries(cwd, builtinDir) {
@@ -61438,7 +61462,9 @@ function compileCustomStyle(cwd, id, builtinDir) {
   const shared = sharedAssets(builtinDir, contract.builtinId, iconStyle);
   const manifest = buildManifest(tokens, {
     icons: contract.iconNames,
-    componentClasses: contract.componentClasses
+    componentClasses: contract.componentClasses,
+    interactionClasses: contract.interactionClasses,
+    interactionIds: contract.interactionIds
   });
   const templates = shared.templates;
   const summary = {
@@ -61450,8 +61476,19 @@ function compileCustomStyle(cwd, id, builtinDir) {
     swatches: Array.isArray(meta.swatches) ? meta.swatches.map(String) : [],
     fonts: tokens.font?.families ?? {},
     iconStyle,
-    counts: { icons: manifest.iconNames.length, components: contract.componentCount, templates: Object.keys(templates).length },
-    templates: Object.entries(templates).map(([tid, t]) => ({ id: tid, name: t.name, device: t.device }))
+    counts: {
+      icons: manifest.iconNames.length,
+      components: contract.componentCount,
+      templates: Object.keys(templates).length,
+      interactions: Object.keys(shared.interactions.catalog).length
+    },
+    templates: Object.entries(templates).map(([tid, t]) => ({ id: tid, name: t.name, device: t.device })),
+    interactions: Object.values(shared.interactions.catalog).map((it) => ({
+      id: it.id,
+      name: it.name,
+      category: it.category,
+      requiresScript: it.requiresScript
+    }))
   };
   return {
     summary,
@@ -61459,7 +61496,8 @@ function compileCustomStyle(cwd, id, builtinDir) {
     componentsCss: shared.componentsCss,
     manifest,
     icons: shared.icons,
-    templates
+    templates,
+    interactions: shared.interactions
   };
 }
 var sharedContractCache = /* @__PURE__ */ new Map();
@@ -61476,6 +61514,8 @@ function sharedContract(builtinDir) {
     builtinId,
     componentClasses: manifest.componentClasses,
     iconNames: Object.keys(icons.icons),
+    interactionClasses: manifest.interactionClasses ?? [],
+    interactionIds: manifest.interactionIds ?? [],
     componentCount: index.styles[0]?.counts?.components ?? 0
   };
   sharedContractCache.set(builtinDir, value);
@@ -61530,10 +61570,15 @@ function createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options) {
   validateTokens(tokens, id, errors, warnings);
   auditForbidden("meta.json", JSON.stringify(meta), errors);
   const contract = sharedContract(builtinDir);
-  const manifest = errors.length === 0 ? buildManifest(tokens, { icons: contract.iconNames, componentClasses: contract.componentClasses }) : null;
+  const manifest = errors.length === 0 ? buildManifest(tokens, {
+    icons: contract.iconNames,
+    componentClasses: contract.componentClasses,
+    interactionClasses: contract.interactionClasses,
+    interactionIds: contract.interactionIds
+  }) : null;
   if (manifest) {
-    const { componentsCss, templates } = sharedAssets(builtinDir, contract.builtinId, iconStyle);
-    assertCoversSharedVars(manifest, componentsCss, templates, errors);
+    const { componentsCss, templates, interactions } = sharedAssets(builtinDir, contract.builtinId, iconStyle);
+    assertCoversSharedVars(manifest, componentsCss, templates, interactions.css, errors);
     const builtinManifest = readJson(
       join3(builtinDir, "styles", contract.builtinId, "tokens.manifest.json"),
       "tokens.manifest.json"
@@ -61648,7 +61693,8 @@ function resolveDesignStyle(cwd, id) {
         componentsCss: readFileSync3(join4(dir, "components.css"), "utf8"),
         manifest: readJson2(join4(dir, "tokens.manifest.json")),
         icons: readJson2(join4(dir, "icons.json")),
-        templates: readJson2(join4(dir, "templates.json"))
+        templates: readJson2(join4(dir, "templates.json")),
+        interactions: readInteractionLibrary2(dir)
       };
     } catch (err) {
       throw new Error(`\u8BBE\u8BA1\u98CE\u683C\u300C${id}\u300D\u7684\u6784\u5EFA\u4EA7\u7269\u4E0D\u5B8C\u6574\uFF1A${err.message}`);
@@ -61656,6 +61702,26 @@ function resolveDesignStyle(cwd, id) {
   }
   styleCache.set(key, resolved);
   return resolved;
+}
+function readInteractionLibrary2(dir) {
+  const empty = { css: "", js: "", catalog: {}, rootAttrs: [] };
+  try {
+    const doc = readJson2(join4(dir, "interactions.json"));
+    const catalog = {};
+    const rootAttrs = [];
+    for (const entry of doc.interactions ?? []) {
+      catalog[entry.id] = entry;
+      if (entry.rootAttr) rootAttrs.push(entry.rootAttr);
+    }
+    return {
+      css: readFileSync3(join4(dir, "interactions.css"), "utf8"),
+      js: readFileSync3(join4(dir, "interactions.js"), "utf8"),
+      catalog,
+      rootAttrs
+    };
+  } catch {
+    return empty;
+  }
 }
 function stripDesign(html) {
   return html.replace(START_RE, "");
@@ -61714,17 +61780,24 @@ function expandIcons(html, set) {
 function injectDesign(html, styleId, cwd) {
   const stripped = stripDesign(html);
   if (styleId === null) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] };
   }
   const style = resolveDesignStyle(cwd, styleId);
   if (!style) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] };
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] };
   }
   const icons = expandIcons(stripped, style.icons);
+  const used = detectInteractions(stripped, style);
+  let extra = "";
+  if (used.length) {
+    extra = `<style id="tianshu-interactions" data-tianshu-ds="interactions">${escapeStyleText(style.interactions.css)}</style>
+<script id="tianshu-interactions" data-tianshu-ds="interactions" defer>${escapeScriptText(style.interactions.js)}</script>
+`;
+  }
   const block = `${BLOCK_START} style=${style.summary.id} version=${style.manifest.version}-->
 <style id="tianshu-tokens" data-tianshu-ds="tokens" data-style="${style.summary.id}" data-version="${style.manifest.version}">${escapeStyleText(style.tokensCss)}</style>
 <style id="tianshu-components" data-tianshu-ds="components">${escapeStyleText(style.componentsCss)}</style>
-${BLOCK_END}
+` + extra + `${BLOCK_END}
 `;
   const offset = findInsertOffset(icons.html);
   const result = icons.html.slice(0, offset) + "\n" + block + icons.html.slice(offset);
@@ -61734,8 +61807,35 @@ ${BLOCK_END}
     injected: true,
     usedIcons: icons.usedIcons,
     missingIcons: icons.missingIcons,
-    scriptIcons: icons.scriptIcons
+    scriptIcons: icons.scriptIcons,
+    interactionsUsed: used
   };
+}
+function escapeScriptText(js) {
+  return js.replace(/<\/script/gi, "<\\/script");
+}
+function detectInteractions(html, style) {
+  const lib = style.interactions;
+  if (!lib.css) return [];
+  const masked = maskSegments(html);
+  const ownClasses = new Set(style.manifest.interactionClasses);
+  const used = [];
+  for (const id of style.manifest.interactionIds) {
+    const entry = lib.catalog[id];
+    if (!entry) continue;
+    let hit = entry.rootAttr ? masked.includes(entry.rootAttr) : false;
+    if (!hit) hit = (entry.classes ?? []).some((c) => ownClasses.has(c) && classUsedIn(masked, c));
+    if (hit) used.push(id);
+  }
+  return used;
+}
+var CLASS_ATTR_SCAN = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+function classUsedIn(maskedHtml, className) {
+  for (const match of maskedHtml.matchAll(CLASS_ATTR_SCAN)) {
+    const value = match[1] ?? match[2] ?? "";
+    if (value.split(/\s+/).includes(className)) return true;
+  }
+  return false;
 }
 
 // src/codegen/tailwind-map.ts
@@ -64207,7 +64307,7 @@ function pxValues(value) {
 
 // src/lint.ts
 var MAX_FINDINGS = 40;
-var RULES = ["color", "font", "spacing", "radius", "icon", "component", "token", "resource"];
+var RULES = ["color", "font", "spacing", "radius", "icon", "component", "interaction", "token", "resource"];
 function nearest(values, target) {
   const sorted = [...values].sort((a2, b2) => Math.abs(a2 - target) - Math.abs(b2 - target));
   return sorted.slice(0, 2);
@@ -64244,7 +64344,8 @@ function lintHtml(html, styleId, cwd) {
   const manifest = style.manifest;
   const varSet = new Set(manifest.vars);
   const iconSet = new Set(manifest.iconNames);
-  const classSet = new Set(manifest.componentClasses);
+  const classSet = /* @__PURE__ */ new Set([...manifest.componentClasses, ...manifest.interactionClasses ?? []]);
+  const interactionClassSet = new Set(manifest.interactionClasses ?? []);
   const familySet = new Set(manifest.fontFamilies.map((f) => f.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase()));
   const spacing = new Set(manifest.spacing);
   const radius = new Set(manifest.radius);
@@ -64312,9 +64413,29 @@ function lintHtml(html, styleId, cwd) {
       }
     }
   }
+  if (!hasRuntimeInjection(html)) {
+    const used = usedInteractions(masked, interactionClassSet);
+    if (used.length) {
+      add("interaction", 0, `\u7528\u5230\u4EA4\u4E92\uFF08${used.slice(0, 6).join("\u3001")}${used.length > 6 ? " \u7B49" : ""}\uFF09\u4F46\u7F3A\u5C11\u4EA4\u4E92\u8FD0\u884C\u65F6\uFF1B\u8BF7\u7528 canvas_upsert_page \u91CD\u65B0\u5199\u5165\u4EE5\u81EA\u52A8\u6CE8\u5165`);
+    }
+  }
   const total = Object.values(counts).reduce((a2, b2) => a2 + b2, 0);
   findings.sort((a2, b2) => a2.line - b2.line);
   return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total };
+}
+function hasRuntimeInjection(html) {
+  return /id="tianshu-interactions"/.test(html);
+}
+function usedInteractions(masked, interactionClasses) {
+  const out = /* @__PURE__ */ new Set();
+  for (const match of masked.matchAll(/\bdata-ts-([a-z0-9-]+)\b/g)) out.add("data-ts-" + match[1]);
+  for (const match of masked.matchAll(CLASS_ATTR_RE)) {
+    const value = match[1] ?? match[2] ?? "";
+    for (const cls of value.split(/\s+/).filter(Boolean)) {
+      if (interactionClasses.has(cls)) out.add(cls);
+    }
+  }
+  return [...out];
 }
 function formatLintReport(report, label) {
   const styleName = report.styleId ? report.styleName ?? report.styleId : null;
@@ -64350,13 +64471,19 @@ function collectUsage(html, manifest) {
   for (const m of html.matchAll(/(?:^|[;{\s])(--ts-[A-Za-z0-9-]+)\s*:/g)) vars.add(m[1]);
   const classes = new Set(collectClasses(html));
   const knownVars = new Set(manifest?.vars ?? []);
-  const knownClasses = new Set(manifest?.componentClasses ?? []);
+  const interactionClasses = new Set(manifest?.interactionClasses ?? []);
+  const knownClasses = /* @__PURE__ */ new Set([...manifest?.componentClasses ?? [], ...interactionClasses]);
+  const usedInteractions2 = [...classes].filter((c) => interactionClasses.has(c));
+  const hasMarker = /\bdata-ts-[a-z0-9-]+\b/.test(html);
+  const injected = /id="tianshu-interactions"/.test(html);
   return {
     vars: [...vars].sort(),
     unusedVars: manifest ? manifest.vars.filter((v2) => !vars.has(v2)) : [],
     unknownVars: manifest ? [...vars].filter((v2) => !knownVars.has(v2)).sort() : [],
     classes: [...classes].sort(),
-    unknownClasses: manifest ? [...classes].filter((c) => !knownClasses.has(c)).sort() : []
+    unknownClasses: manifest ? [...classes].filter((c) => !knownClasses.has(c)).sort() : [],
+    interactionClasses: usedInteractions2.sort(),
+    missingInteractionRuntime: (hasMarker || usedInteractions2.length > 0) && !injected
   };
 }
 function computeContract(html, styleId, cwd, manifest) {
@@ -64364,7 +64491,7 @@ function computeContract(html, styleId, cwd, manifest) {
   const usage2 = collectUsage(html, manifest);
   const byRule = {};
   for (const issue of report.findings) byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1;
-  const penalty = report.total + usage2.unknownVars.length + usage2.unknownClasses.length;
+  const penalty = report.total + usage2.unknownVars.length + usage2.unknownClasses.length + (usage2.missingInteractionRuntime ? 1 : 0);
   const score = penalty === 0 ? 1 : Number(Math.max(0, 1 - penalty / Math.max(10, report.total + penalty)).toFixed(4));
   return { styleId, total: report.total, byRule, usage: usage2, score, testFile: renderTestFile({ styleId, usage: usage2 }) };
 }
@@ -64406,6 +64533,12 @@ test('\u53EA\u4F7F\u7528\u5171\u4EAB\u7EC4\u4EF6\u7C7B', () => {
 test('\u98CE\u683C\u6807\u8BC6\u4E00\u81F4', () => {
   assert.equal(STYLE, STYLE, '\u98CE\u683C\uFF1A' + String(STYLE))
 })
+
+test('\u7528\u5230\u4EA4\u4E92\u65F6\u5FC5\u987B\u5E26\u8FD0\u884C\u65F6', () => {
+  const hasMarker = /\\bdata-ts-[a-z0-9-]+\\b/.test(html)
+  const injected = /id="tianshu-interactions"/.test(html)
+  assert.ok(!hasMarker || injected, '\u9875\u9762\u7528\u5230\u4EA4\u4E92\u4F46\u7F3A\u5C11\u6CE8\u5165\u7684\u8FD0\u884C\u65F6\uFF08\u4EA4\u4E92\u4E0D\u4F1A\u751F\u6548\uFF09')
+})
 `;
 }
 function formatContractReport(result, label) {
@@ -64416,6 +64549,8 @@ function formatContractReport(result, label) {
   if (result.total) lines.push(`\u6309\u89C4\u5219\uFF1A${Object.entries(result.byRule).map(([k, v2]) => `${k}\xD7${v2}`).join("\u3001")}`);
   if (result.usage.unknownVars.length) lines.push(`\u5951\u7EA6\u5916\u53D8\u91CF\uFF1A${result.usage.unknownVars.slice(0, 10).join("\u3001")}`);
   if (result.usage.unknownClasses.length) lines.push(`\u5951\u7EA6\u5916\u7C7B\uFF1A${result.usage.unknownClasses.slice(0, 10).join("\u3001")}`);
+  if (result.usage.interactionClasses.length) lines.push(`\u4EA4\u4E92\u7C7B\uFF1A${result.usage.interactionClasses.slice(0, 10).join("\u3001")}`);
+  if (result.usage.missingInteractionRuntime) lines.push("\u8B66\u544A\uFF1A\u7528\u5230\u4EA4\u4E92\u4F46\u7F3A\u5C11\u8FD0\u884C\u65F6\uFF0C\u4EA4\u4E92\u4E0D\u4F1A\u751F\u6548\uFF08\u7528 canvas_upsert_page \u91CD\u65B0\u5199\u5165\u4EE5\u81EA\u52A8\u6CE8\u5165\uFF09");
   if (result.usage.unusedVars.length) lines.push(`\u672A\u4F7F\u7528\u7684\u53D8\u91CF ${result.usage.unusedVars.length} \u4E2A\uFF08\u4E0D\u7B97\u9519\u8BEF\uFF0C\u6F02\u79FB\u68C0\u6D4B\u4F1A\u8DDF\u8E2A\uFF09`);
   if (result.score === 1) lines.push("\u7ED3\u8BBA\uFF1A\u5B8C\u5168\u7B26\u5408\u5F53\u524D\u8BBE\u8BA1\u7CFB\u7EDF\u3002");
   return lines.join("\n");
@@ -64497,6 +64632,23 @@ ${template.html.trim()}
 </html>
 `;
   return { html, device: template.device, name: template.name };
+}
+function interactionDocument(cwd, styleId, interactionId) {
+  const style = resolveDesignStyle(cwd, styleId);
+  if (!style) return null;
+  const entry = style.interactions.catalog[interactionId];
+  if (!entry) return null;
+  return {
+    name: entry.name,
+    category: entry.category,
+    requiresScript: entry.requiresScript,
+    rootAttr: entry.rootAttr,
+    requiredStructure: entry.requiredStructure ?? [],
+    requiredAttrs: entry.requiredAttrs ?? [],
+    api: entry.api ?? "",
+    classes: entry.classes ?? [],
+    skeletonHtml: entry.skeletonHtml ?? ""
+  };
 }
 
 // src/probe.ts
@@ -64699,13 +64851,41 @@ var PROBE_SCRIPT = [
   '  document.addEventListener("click", function(e){',
   "    if (isEditable(e.target)) return;",
   "    ensureStyle();",
-  '    var el = resolveAtPoint(e.clientX, e.clientY, (e.metaKey || e.ctrlKey) ? "direct" : "descend");',
+  "    var multi = e.metaKey || e.ctrlKey;",
+  '    var el = resolveAtPoint(e.clientX, e.clientY, multi ? "direct" : "descend");',
   "    if (!el) return;",
-  "    if (e.preventDefault) e.preventDefault();",
-  "    if (!(e.metaKey || e.ctrlKey)) scopeXpath = getXPath(el);",
+  "    // \u53EA\u62E6\u622A\u300C\u4F1A\u5BFC\u81F4\u9875\u9762\u5BFC\u822A\u7684\u94FE\u63A5\u300D\uFF1B\u5176\u4F59\u4E00\u5F8B\u653E\u884C\u9ED8\u8BA4\u884C\u4E3A\uFF0C\u8BA9 details/label/checkbox",
+  "    // \u7B49\u539F\u751F\u4EA4\u4E92\u7167\u5E38\u5DE5\u4F5C\uFF08\u65B0\u7A97\u53E3\u7B49\u5916\u94FE\u4ECD\u963B\u6B62\uFF0C\u907F\u514D iframe \u81EA\u8EAB\u5BFC\u822A\u79BB\u5F00\u539F\u578B\uFF09\u3002",
+  "    var anchor = nearestAnchor(el);",
+  "    var navRef = null;",
+  "    if (anchor && !multi) {",
+  '      var rawHref = anchor.getAttribute("href") || "";',
+  '      var dataNav = anchor.getAttribute("data-nav");',
+  '      if (dataNav || (rawHref && rawHref.charAt(0) !== "#")) {',
+  "        if (e.preventDefault) e.preventDefault();",
+  "        if (dataNav || !isExternal(rawHref)) navRef = { href: rawHref || null, nav: dataNav, xpath: getXPath(el) };",
+  "      }",
+  "      // \u7EAF # \u951A\u70B9\uFF1A\u4E0D\u62E6\u622A\uFF0C\u8BA9\u9875\u5185\u6EDA\u52A8\u751F\u6548\u3002",
+  "    }",
+  "    if (!multi) scopeXpath = getXPath(el);",
   "    setSelected(el);",
   '    post("__vd_proto_element_selected", payload(el));',
+  '    if (navRef) post("__vd_request_navigate", navRef);',
   "  }, true);",
+  "",
+  "  function nearestAnchor(el){",
+  "    var node = el;",
+  "    while (node && node.nodeType === 1) {",
+  '      if (node.tagName && node.tagName.toLowerCase() === "a") return node;',
+  "      node = node.parentElement;",
+  "    }",
+  "    return null;",
+  "  }",
+  "",
+  "  function isExternal(href){",
+  "    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) return true;",
+  '    return href.indexOf("//") === 0;',
+  "  }",
   "",
   "  var hoverRaf = 0;",
   '  document.addEventListener("mousemove", function(e){',
@@ -65249,6 +65429,162 @@ function send(res, status, type, body) {
   res.end(body);
 }
 
+// src/nav.ts
+var SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+function titleSlug(title) {
+  return String(title ?? "").normalize("NFC").trim().toLowerCase().replace(/\s+/g, "-").replace(/[\\/:*?"<>|#?&=%+]+/g, "-").replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+}
+function parseNavRef(href, dataNav) {
+  const nav = (dataNav ?? "").trim();
+  const raw = (href ?? "").trim();
+  if (!nav && !raw) return null;
+  if (nav) return { dataNav: nav, href: raw || null };
+  if (raw.startsWith("#")) return null;
+  if (raw.startsWith("//")) return null;
+  if (SCHEME_RE.test(raw)) return null;
+  return { dataNav: null, href: raw };
+}
+function hrefKey(href) {
+  let s = href.split(/[?#]/)[0] ?? "";
+  s = s.split("/").pop() ?? s;
+  s = s.replace(/\.html?$/i, "");
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+  }
+  return s.normalize("NFC").toLowerCase();
+}
+function resolveNavRef(ref, pages) {
+  const idSet = new Set(pages.map((p) => p.id));
+  if (ref.dataNav) {
+    return { target: idSet.has(ref.dataNav) ? ref.dataNav : null, ambiguous: [] };
+  }
+  if (!ref.href) return { target: null, ambiguous: [] };
+  const key = hrefKey(ref.href);
+  if (!key) return { target: null, ambiguous: [] };
+  if (idSet.has(key)) return { target: key, ambiguous: [] };
+  const slugMatches = pages.filter((p) => titleSlug(p.title) === key).map((p) => p.id);
+  if (slugMatches.length === 1) return { target: slugMatches[0], ambiguous: [] };
+  if (slugMatches.length > 1) return { target: null, ambiguous: slugMatches };
+  return { target: null, ambiguous: [] };
+}
+var ANCHOR_RE = /<a\b([^>]*)>/gi;
+var ATTR_RE = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+function maskSegments2(html) {
+  const mask2 = (text) => text.replace(/[^\n]/g, " ");
+  return html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, mask2).replace(/<style\b[\s\S]*?<\/style\s*>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
+}
+function readAttr2(attrs, name) {
+  for (const m of attrs.matchAll(ATTR_RE)) {
+    if (m[1].toLowerCase() === name) return (m[2] ?? m[3] ?? "").trim();
+  }
+  return null;
+}
+function rewriteNavLinks(html, pages, hrefPrefix) {
+  const unresolved = [];
+  const ambiguous = [];
+  let rewritten = 0;
+  const masked = maskSegments2(html);
+  const edits = [];
+  for (const m of masked.matchAll(ANCHOR_RE)) {
+    const start = m.index ?? 0;
+    const end = start + m[0].length;
+    const attrs = m[1] ?? "";
+    const href = readAttr2(attrs, "href");
+    const dataNav = readAttr2(attrs, "data-nav");
+    const ref = parseNavRef(href, dataNav);
+    if (!ref) continue;
+    const res = resolveNavRef(ref, pages);
+    if (res.ambiguous.length) {
+      ambiguous.push({ ref: ref.dataNav ?? ref.href ?? "", ids: res.ambiguous });
+      continue;
+    }
+    if (!res.target) {
+      unresolved.push(ref.dataNav ?? ref.href ?? "");
+      continue;
+    }
+    const wanted = `${hrefPrefix}${res.target}.html`;
+    let next;
+    if (href !== null) {
+      if (href === wanted) continue;
+      next = m[0].replace(/(\bhref\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s>]+)/i, `$1"${wanted}"`);
+    } else {
+      next = m[0].replace(/\s*(\/?>)$/, ` href="${wanted}"$1`);
+    }
+    edits.push({ start, end, text: next });
+    rewritten++;
+  }
+  if (!edits.length) return { html, rewritten: 0, unresolved, ambiguous };
+  let out = "";
+  let cursor = 0;
+  for (const edit of edits) {
+    out += html.slice(cursor, edit.start) + edit.text;
+    cursor = edit.end;
+  }
+  out += html.slice(cursor);
+  return { html: out, rewritten, unresolved, ambiguous };
+}
+function mayHaveNavLinks(html) {
+  return /<a\b[^>]*(?:href|data-nav)\s*=/i.test(html);
+}
+
+// src/site.ts
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+function injectBeforeHeadClose(html, tags) {
+  if (!tags) return html;
+  const match = /<\/head\s*>/i.exec(html);
+  if (!match) return html;
+  return html.slice(0, match.index) + tags + html.slice(match.index);
+}
+function sharedLinkTags(assets, prefix) {
+  const tags = [];
+  if (assets.tokensCss !== void 0) tags.push(`  <link rel="stylesheet" href="${prefix}/tokens.css">
+`);
+  if (assets.componentsCss !== void 0) tags.push(`  <link rel="stylesheet" href="${prefix}/components.css">
+`);
+  if (assets.interactionsCss !== void 0) tags.push(`  <link rel="stylesheet" href="${prefix}/interactions.css">
+`);
+  if (assets.interactionsJs !== void 0) tags.push(`  <script src="${prefix}/interactions.js" defer></script>
+`);
+  return tags.join("");
+}
+function pageUsesInteractions(html) {
+  return /\bdata-ts-[a-z0-9-]+\b/.test(html) || /\bts-i-[a-z0-9-]+\b/.test(html);
+}
+function navHomeHtml(pages, options) {
+  const links = pages.map((p) => `      <li><a href="pages/${encodeURIComponent(p.id)}.html">${escapeHtml(p.title)}</a></li>`).join("\n");
+  const head = options.hasAssets ? `  <link rel="stylesheet" href="assets/tokens.css">
+  <link rel="stylesheet" href="assets/components.css">
+` : "";
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(options.title)}</title>
+${head}  <style>
+    nav ul { list-style: none; padding: 0; display: grid; gap: 8px; }
+    nav a { display: block; padding: 12px 16px; border: 1px solid currentColor; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <main class="ts-container" style="padding:32px 16px">
+    <h1>${escapeHtml(options.title)}</h1>
+    <p>\u5171 ${pages.length} \u4E2A\u9875\u9762\u3002\u70B9\u51FB\u8FDB\u5165\uFF1B\u9875\u9762\u95F4\u7684\u94FE\u63A5\u53EF\u76F4\u63A5\u4E92\u76F8\u8DF3\u8F6C\u3002</p>
+    <nav>
+      <ul>
+${links}
+      </ul>
+    </nav>
+    <p><a href="overview.html">\u5168\u90E8\u539F\u578B\u7F29\u7565\u56FE \u2192</a></p>
+  </main>
+</body>
+</html>
+`;
+}
+
 // src/export.ts
 var BROWSER_CANDIDATES = [
   process.env.TIANSHU_CANVAS_BROWSER,
@@ -65521,7 +65857,7 @@ function buildZip(entries) {
 function galleryHtml(cwd) {
   const project = readProject(cwd);
   const cards = project.nodes.map(
-    (n) => `<section><h2>${escapeHtml(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1.5px solid #2b2b2b;border-radius:12px 5px 14px 6px/6px 13px 5px 12px;background:#fffdf8"></iframe></section>`
+    (n) => `<section><h2>${escapeHtml2(n.title)} <small>${n.width}\xD7${n.height}</small></h2><iframe src="pages/${encodeURIComponent(n.id)}.html" style="width:${n.width}px;height:${n.height}px;max-width:100%;border:1.5px solid #2b2b2b;border-radius:12px 5px 14px 6px/6px 13px 5px 12px;background:#fffdf8"></iframe></section>`
   ).join("\n");
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u539F\u578B\u96C6</title>
@@ -65532,18 +65868,49 @@ iframe{display:block}</style></head>
 ${cards || "<p>\uFF08\u65E0\u9875\u9762\uFF09</p>"}
 </body></html>`;
 }
-function escapeHtml(s) {
+function escapeHtml2(s) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 async function exportZip(cwd) {
   const project = readProject(cwd);
+  const pages = project.nodes.map((n) => ({ id: n.id, title: n.title, html: "" }));
+  const styleId = currentStyleId(cwd);
+  const style = styleId && styleId !== "free" ? resolveDesignStyle(cwd, styleId) : null;
+  const assets = style ? { tokensCss: style.tokensCss, componentsCss: style.componentsCss } : {};
+  let needsInteractions = false;
+  for (let i = 0; i < project.nodes.length; i++) {
+    const node = project.nodes[i];
+    const raw = readPageHtml(cwd, node.id);
+    if (raw === null) continue;
+    let html = style ? stripDesign(raw) : raw;
+    html = rewriteNavLinks(html, pages, "").html;
+    if (style && pageUsesInteractions(html)) {
+      needsInteractions = true;
+    }
+    pages[i].html = html;
+  }
+  if (style && needsInteractions) {
+    assets.interactionsCss = style.interactions.css;
+    assets.interactionsJs = style.interactions.js;
+  }
   const entries = [];
-  for (const node of project.nodes) {
-    const html = readPageHtml(cwd, node.id);
-    if (html !== null) entries.push({ name: `pages/${node.id}.html`, data: Buffer.from(html, "utf8") });
+  for (const page of pages) {
+    if (!page.html) continue;
+    const withAssets = style ? injectBeforeHeadClose(page.html, sharedLinkTags(assets, "../assets")) : page.html;
+    entries.push({ name: `pages/${page.id}.html`, data: Buffer.from(withAssets, "utf8") });
+  }
+  if (style) {
+    if (assets.tokensCss !== void 0) entries.push({ name: "assets/tokens.css", data: Buffer.from(assets.tokensCss, "utf8") });
+    if (assets.componentsCss !== void 0) entries.push({ name: "assets/components.css", data: Buffer.from(assets.componentsCss, "utf8") });
+    if (assets.interactionsCss !== void 0) entries.push({ name: "assets/interactions.css", data: Buffer.from(assets.interactionsCss, "utf8") });
+    if (assets.interactionsJs !== void 0) entries.push({ name: "assets/interactions.js", data: Buffer.from(assets.interactionsJs, "utf8") });
   }
   entries.push({ name: "project.json", data: Buffer.from(JSON.stringify(project, null, 2), "utf8") });
-  entries.push({ name: "index.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
+  entries.push({ name: "overview.html", data: Buffer.from(galleryHtml(cwd), "utf8") });
+  entries.push({
+    name: "index.html",
+    data: Buffer.from(navHomeHtml(pages.filter((p) => p.html), { title: "\u5929\u67A2\u753B\u5E03\u8BBE\u8BA1 \xB7 \u7AD9\u70B9", hasAssets: Boolean(style) }), "utf8")
+  });
   const zip2 = buildZip(entries);
   const dir = exportsDir(cwd);
   assertInsideWorkspace(cwd, dir, "\u5BFC\u51FA\u76EE\u5F55");
@@ -67317,6 +67684,27 @@ async function canvasUpsertPage(call) {
 ${skipped.slice(0, 8).map((s) => `  - ${s.ref}\uFF08${s.reason}\uFF09`).join("\n")}${skipped.length > 8 ? `
   \u2026\u7B49 ${skipped.length} \u9879` : ""}` : "");
   }
+  const pageTitle = str(args.title) ?? existing?.title ?? id;
+  let navNote = "";
+  if (workHtml !== void 0) {
+    const pages = pageRefsWith(project, { id, title: pageTitle });
+    const nav = rewriteNavLinks(workHtml, pages, "");
+    if (nav.ambiguous.length) {
+      const detail = nav.ambiguous.map((a2) => `  - \u300C${a2.ref}\u300D\u547D\u4E2D\u591A\u4E2A\u9875\u9762\uFF1A${a2.ids.join("\u3001")}\uFF1B\u8BF7\u6539\u7528\u771F\u5B9E\u9875\u9762 id \u6216 data-nav`).join("\n");
+      return {
+        content: `\u9875\u9762\u8DF3\u8F6C\u94FE\u63A5\u5B58\u5728\u6B67\u4E49\uFF0C\u672A\u5199\u5165\uFF1A
+${detail}
+
+\uFF08\u540C\u540D\u6807\u9898\u4F1A\u4EA7\u751F\u76F8\u540C slug\uFF0C\u6539\u7528 <a href="<id>.html"> \u6216 <a data-nav="<id>">\uFF09`,
+        isError: true
+      };
+    }
+    workHtml = nav.html;
+    if (nav.unresolved.length) {
+      navNote = `
+\u6CE8\u610F\uFF1A\u8FD9\u4E9B\u94FE\u63A5\u672A\u5339\u914D\u5230\u9875\u9762\uFF0C\u5DF2\u539F\u6837\u4FDD\u7559\uFF08\u82E5\u76EE\u6807\u9875\u7A0D\u540E\u521B\u5EFA\u4F1A\u81EA\u52A8\u8865\u9F50\uFF09\uFF1A${nav.unresolved.slice(0, 8).join("\u3001")}\u3002`;
+    }
+  }
   const styleId = currentStyleId(call.cwd);
   const injection = workHtml !== void 0 ? injectDesign(workHtml, styleId, call.cwd) : null;
   const pageHtml = injection ? injection.html : workHtml;
@@ -67325,7 +67713,7 @@ ${skipped.slice(0, 8).map((s) => `  - ${s.ref}\uFF08${s.reason}\uFF09`).join("\n
   const node = {
     id,
     type: "page",
-    title: str(args.title) ?? existing?.title ?? id,
+    title: pageTitle,
     x: x2,
     y,
     width: size.width,
@@ -67337,6 +67725,7 @@ ${skipped.slice(0, 8).map((s) => `  - ${s.ref}\uFF08${s.reason}\uFF09`).join("\n
     updatedAt: now2
   };
   upsertNode(call.cwd, node);
+  const backfilled = backfillNavLinks(call.cwd);
   const { url } = await ensureServer(call.cwd);
   const blocked = pageHtml !== void 0 ? findBlockedResources(pageHtml) : [];
   const styleLine = injection ? injection.injected ? `
@@ -67349,9 +67738,47 @@ ${skipped.slice(0, 8).map((s) => `  - ${s.ref}\uFF08${s.reason}\uFF09`).join("\n
 ` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join17(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
-\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
+\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + navNote + (backfilled.length ? `
+\u9875\u9762\u8DF3\u8F6C\uFF1A\u5DF2\u8865\u9F50 ${backfilled.length} \u4E2A\u9875\u9762\u7684\u524D\u5411\u94FE\u63A5\uFF08${backfilled.join("\u3001")}\uFF09\u3002` : "") + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
+}
+function pageRefsWith(project, self2) {
+  const refs = project.nodes.map((n) => ({ id: n.id, title: n.title }));
+  const idx = refs.findIndex((r) => r.id === self2.id);
+  if (idx >= 0) refs[idx] = { id: self2.id, title: self2.title };
+  else refs.push({ id: self2.id, title: self2.title });
+  return refs;
+}
+function backfillNavLinks(cwd) {
+  const project = readProject(cwd);
+  const pages = project.nodes.map((n) => ({ id: n.id, title: n.title }));
+  if (pages.length === 0) return [];
+  const changed = [];
+  for (const node of project.nodes) {
+    try {
+      const html = readPageHtml(cwd, node.id);
+      if (html === null || !mayHaveNavLinks(html)) continue;
+      const stripped = stripDesign(html);
+      if (!mayHaveNavLinks(stripped)) continue;
+      const nav = rewriteNavLinks(stripped, pages, "");
+      if (nav.rewritten === 0 || nav.ambiguous.length) continue;
+      const reinjected = injectDesign(nav.html, currentStyleId(cwd), cwd);
+      const next = reinjected.html;
+      if (next === html) continue;
+      writePageHtml(cwd, node.id, next);
+      const stamped = readProject(cwd);
+      const target = stamped.nodes.find((n) => n.id === node.id);
+      if (target) {
+        target.htmlRev = Date.now();
+        target.updatedAt = Date.now();
+        writeProject(cwd, stamped);
+      }
+      changed.push(node.title);
+    } catch {
+    }
+  }
+  return changed;
 }
 function formatSelection(selection, project) {
   const node = project.nodes.find((n) => n.id === selection.pageId);
@@ -67492,7 +67919,7 @@ function formatStyleList(cwd) {
     const templates = s.templates.map((t) => t.name).join(" / ");
     const tag = isBuiltinStyle(s.id) ? "\u5185\u7F6E" : "\u81EA\u5B9A\u4E49";
     return `- ${s.name}\uFF08${s.id}\uFF09[${tag}]\uFF1A${s.tagline}
-  \u8272\u677F ${s.swatches.join(" ")}\uFF1B\u56FE\u6807 ${s.counts.icons} \u4E2A\u3001\u7EC4\u4EF6 ${s.counts.components} \u4E2A\uFF1B\u6A21\u677F ${templates || "\u65E0"}`;
+  \u8272\u677F ${s.swatches.join(" ")}\uFF1B\u56FE\u6807 ${s.counts.icons} \u4E2A\u3001\u7EC4\u4EF6 ${s.counts.components} \u4E2A\u3001\u4EA4\u4E92 ${s.counts.interactions ?? 0} \u4E2A\uFF1B\u6A21\u677F ${templates || "\u65E0"}`;
   });
   return `${catalog.notice}
 
@@ -67553,8 +67980,31 @@ ${semanticLines.join("\uFF1B")}
 \u56FE\u6807\uFF08${icons.length}\uFF09\uFF1A
 ${iconLines.join("\n")}
 
-\u6A21\u677F\uFF1A${Object.keys(style.templates).join(" / ")}
+` + formatInteractionList(style) + `\u6A21\u677F\uFF1A${Object.keys(style.templates).join(" / ")}
 \u5199\u6CD5\uFF1A\u989C\u8272 var(--ts-color-*)\uFF1B\u56FE\u6807 <svg data-icon="\u540D\u5B57" class="ts-icon"></svg>\uFF08\u5199\u5165\u65F6\u81EA\u52A8\u5185\u8054\uFF09\u3002`;
+}
+function formatInteractionList(style) {
+  const ids = manifest_interactionIds(style);
+  if (ids.length === 0) return "";
+  const byCat = /* @__PURE__ */ new Map();
+  for (const id of ids) {
+    const entry = style.interactions.catalog[id];
+    if (!entry) continue;
+    const list = byCat.get(entry.category) ?? [];
+    list.push(`${id}\uFF08${entry.name}\uFF09`);
+    byCat.set(entry.category, list);
+  }
+  const lines = [...byCat.entries()].map(([cat, items]) => `  ${cat}\uFF1A${items.join("\u3001")}`);
+  return `\u4EA4\u4E92\u5E93\uFF08${ids.length}\uFF09\uFF1A\u7528 data-ts-* \u6807\u8BB0 + \u4EA4\u4E92 ts-* \u7C7B\u58F0\u660E\uFF0C\u5199\u5165\u65F6\u81EA\u52A8\u6CE8\u5165\u5171\u4EAB\u8FD0\u884C\u65F6\u3002
+${lines.join("\n")}
+  \u53D6\u9AA8\u67B6\u4E0E\u7528\u6CD5\uFF1Acanvas_style\uFF08action=interaction, interaction_id=<id>\uFF09\u3002
+
+`;
+}
+function manifest_interactionIds(style) {
+  const fromManifest = style.manifest.interactionIds ?? [];
+  if (fromManifest.length) return fromManifest;
+  return Object.keys(style.interactions.catalog);
 }
 var WEB_TARGETS = /* @__PURE__ */ new Set(["react", "css-vars", "tailwind", "shadcn", "antd"]);
 var PLATFORM_TARGETS = /* @__PURE__ */ new Set(["ios", "android", "miniprogram"]);
@@ -67753,7 +68203,41 @@ async function canvasStyle(call) {
 ` + doc.html
       };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template / codegen\u3002`, isError: true };
+    if (action === "interaction") {
+      const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
+      if (!styleId || styleId === "free") {
+        return { content: "interaction \u9700\u8981\u5DF2\u9501\u5B9A\u7684\u98CE\u683C\uFF0C\u6216\u663E\u5F0F\u4F20 style_id\uFF08\u4EA4\u4E92\u5E93\u968F\u98CE\u683C\u63D0\u4F9B\uFF09\u3002", isError: true };
+      }
+      const interactionId = str(call.args.interaction_id);
+      if (!interactionId) {
+        const style = resolveDesignStyle(call.cwd, styleId);
+        const available = style ? Object.keys(style.interactions.catalog).join(" / ") : "";
+        return { content: `interaction \u9700\u8981 interaction_id\u3002\u53EF\u9009\uFF1A${available}`, isError: true };
+      }
+      const doc = interactionDocument(call.cwd, styleId, interactionId);
+      if (!doc) {
+        return { content: `\u672A\u77E5\u7684\u4EA4\u4E92\u6A21\u5F0F\uFF1A${interactionId}\u3002\u7528 canvas_style\uFF08action=get\uFF09\u67E5\u770B\u4EA4\u4E92\u6E05\u5355\u3002`, isError: true };
+      }
+      const struct = doc.requiredStructure.length ? `\u5FC5\u9700\u7ED3\u6784\uFF1A
+${doc.requiredStructure.map((s) => `  - ${s}`).join("\n")}
+` : "";
+      const attrs = doc.requiredAttrs.length ? `\u5FC5\u9700\u5C5E\u6027\uFF1A
+${doc.requiredAttrs.map((s) => `  - ${s}`).join("\n")}
+` : "";
+      return {
+        content: `\u4EA4\u4E92\u300C${doc.name}\u300D\uFF08${interactionId}\uFF0C\u5206\u7C7B ${doc.category}\uFF09
+\u6839\u6807\u8BB0\uFF1A${doc.rootAttr}${doc.requiresScript ? "\uFF08\u9700\u8981\u811A\u672C\uFF0C\u5199\u5165\u65F6\u81EA\u52A8\u6CE8\u5165\u8FD0\u884C\u65F6\uFF09" : "\uFF08\u7EAF CSS\uFF0C\u65E0\u9700\u811A\u672C\uFF09"}
+\u7528\u5230\u7C7B\uFF1A${doc.classes.join(" ")}
+${struct}${attrs}\u884C\u4E3A\uFF1A${doc.api}
+
+\u9AA8\u67B6\uFF08\u628A\u5B83\u653E\u8FDB\u9875\u9762\uFF0C\u6309\u9700\u6539\u6587\u6848/\u6570\u91CF\uFF1B\u5199\u5165\u65F6\u5DE5\u5177\u4F1A\u6CE8\u5165\u4EA4\u4E92\u6837\u5F0F\u4E0E\u8FD0\u884C\u65F6\uFF09\uFF1A
+
+${doc.skeletonHtml}
+
+\u6CE8\u610F\uFF1A\u4E0D\u8981\u81EA\u5DF1\u5199\u8FD9\u5957\u4EA4\u4E92\u7684 JS\u2014\u2014\u5171\u4EAB\u8FD0\u884C\u65F6\u4F1A\u968F\u9875\u9762\u81EA\u52A8\u6CE8\u5165\uFF1B\u811A\u672C\u91CC\u4E0D\u8981\u7528 fetch / \u672C\u5730\u5B58\u50A8\uFF08\u6C99\u7BB1\u7981\u7528\uFF09\u3002`
+      };
+    }
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template / interaction / codegen\u3002`, isError: true };
   } catch (err) {
     return { content: err.message, isError: true };
   }
@@ -68391,20 +68875,24 @@ var tools = [
   {
     definition: {
       name: "canvas_style",
-      description: "\u5217\u51FA/\u67E5\u770B/\u9501\u5B9A/\u5207\u6362\u9879\u76EE\u7EA7\u8BBE\u8BA1\u98CE\u683C\uFF0C\u53D6\u9875\u9762\u6A21\u677F HTML\uFF0C\u6216\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\u3002\u7528\u6237\u672A\u6307\u5B9A\u98CE\u683C\u65F6\u5148\u7528 action=list \u5217\u51FA\u5E76\u628A\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\uFF0C\u7B49\u56DE\u7B54\u540E\u518D\u7EE7\u7EED",
+      description: "\u5217\u51FA/\u67E5\u770B/\u9501\u5B9A/\u5207\u6362\u9879\u76EE\u7EA7\u8BBE\u8BA1\u98CE\u683C\uFF0C\u53D6\u9875\u9762\u6A21\u677F HTML\uFF0C\u53D6\u4EA4\u4E92\u6A21\u5F0F\u9AA8\u67B6\uFF0C\u6216\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\u3002\u7528\u6237\u672A\u6307\u5B9A\u98CE\u683C\u65F6\u5148\u7528 action=list \u5217\u51FA\u5E76\u628A\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\uFF0C\u7B49\u56DE\u7B54\u540E\u518D\u7EE7\u7EED",
       input_schema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["list", "get", "set", "template", "codegen"],
-            description: "list=\u5217\u51FA\u5168\u90E8\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF08\u7528\u6237\u6CA1\u6307\u5B9A\u98CE\u683C\u65F6\u636E\u6B64\u63D0\u95EE\uFF09\uFF1Bget=\u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D\uFF1Bset=\u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF1Btemplate=\u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\uFF1Bcodegen=\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\uFF08**\u5FC5\u987B\u5148\u95EE\u7528\u6237\u8981\u54EA\u79CD\u76EE\u6807**\uFF0C\u4E0D\u8981\u81EA\u884C\u5047\u5B9A\uFF09"
+            enum: ["list", "get", "set", "template", "interaction", "codegen"],
+            description: "list=\u5217\u51FA\u5168\u90E8\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF08\u7528\u6237\u6CA1\u6307\u5B9A\u98CE\u683C\u65F6\u636E\u6B64\u63D0\u95EE\uFF09\uFF1Bget=\u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D/\u4EA4\u4E92\u6E05\u5355\uFF1Bset=\u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF1Btemplate=\u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\uFF1Binteraction=\u53D6\u67D0\u4E2A\u4EA4\u4E92\u6A21\u5F0F\uFF08tabs/modal/drawer \u7B49\uFF09\u7684\u9AA8\u67B6 HTML \u4E0E\u7528\u6CD5\uFF0C\u53EF\u76F4\u63A5\u653E\u8FDB\u9875\u9762\uFF1Bcodegen=\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\uFF08**\u5FC5\u987B\u5148\u95EE\u7528\u6237\u8981\u54EA\u79CD\u76EE\u6807**\uFF0C\u4E0D\u8981\u81EA\u884C\u5047\u5B9A\uFF09"
           },
           style_id: {
             type: "string",
-            description: "\u98CE\u683C id\uFF08set/get/template/codegen \u4F7F\u7528\uFF09\uFF0C\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u5747\u53EF\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
+            description: "\u98CE\u683C id\uFF08set/get/template/interaction/codegen \u4F7F\u7528\uFF09\uFF0C\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u5747\u53EF\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
           },
           template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" },
+          interaction_id: {
+            type: "string",
+            description: "action=interaction \u65F6\u4F7F\u7528\uFF1A\u4EA4\u4E92\u6A21\u5F0F id\uFF08\u5982 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker\uFF09"
+          },
           target: {
             type: "string",
             enum: ["react", "css-vars", "tailwind", "shadcn", "antd", "ios", "android", "miniprogram"],
@@ -68623,7 +69111,12 @@ export {
   fetchUrl,
   inlineAssets,
   isBlockedIp,
+  mayHaveNavLinks,
+  parseNavRef,
   resolveBrowser,
+  resolveNavRef,
+  rewriteNavLinks,
+  titleSlug,
   toDataUri,
   tools
 };

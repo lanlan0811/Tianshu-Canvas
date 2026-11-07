@@ -14,6 +14,10 @@ import { projectDir, readPageHtml, readProject } from './project.js'
 import { assertInsideWorkspace, writeFileAtomic } from './paths.js'
 import { warnUser } from './host.js'
 import { ensureServer } from './server.js'
+import { resolveDesignStyle, stripDesign } from './design.js'
+import { currentStyleId } from './designOps.js'
+import { rewriteNavLinks } from './nav.js'
+import { injectBeforeHeadClose, navHomeHtml, pageUsesInteractions, sharedLinkTags, type SiteAssets, type SitePage } from './site.js'
 
 export type ExportKind = 'png' | 'zip' | 'both'
 
@@ -393,13 +397,52 @@ function escapeHtml(s: string): string {
 
 export async function exportZip(cwd: string): Promise<ExportFile> {
   const project = readProject(cwd)
+  const pages: SitePage[] = project.nodes.map((n) => ({ id: n.id, title: n.title, html: '' }))
+
+  // 共享样式：仅当项目锁定风格时产出（自由发挥则页面自带样式，不抽离）。
+  const styleId = currentStyleId(cwd)
+  const style = styleId && styleId !== 'free' ? resolveDesignStyle(cwd, styleId) : null
+  const assets: SiteAssets = style
+    ? { tokensCss: style.tokensCss, componentsCss: style.componentsCss }
+    : {}
+
+  let needsInteractions = false
+  for (let i = 0; i < project.nodes.length; i++) {
+    const node = project.nodes[i]!
+    const raw = readPageHtml(cwd, node.id)
+    if (raw === null) continue
+    let html = style ? stripDesign(raw) : raw
+    html = rewriteNavLinks(html, pages, '').html
+    if (style && pageUsesInteractions(html)) {
+      needsInteractions = true
+    }
+    pages[i]!.html = html
+  }
+  if (style && needsInteractions) {
+    assets.interactionsCss = style.interactions.css
+    assets.interactionsJs = style.interactions.js
+  }
+
   const entries: ZipEntry[] = []
-  for (const node of project.nodes) {
-    const html = readPageHtml(cwd, node.id)
-    if (html !== null) entries.push({ name: `pages/${node.id}.html`, data: Buffer.from(html, 'utf8') })
+  for (const page of pages) {
+    if (!page.html) continue
+    const withAssets = style
+      ? injectBeforeHeadClose(page.html, sharedLinkTags(assets, '../assets'))
+      : page.html
+    entries.push({ name: `pages/${page.id}.html`, data: Buffer.from(withAssets, 'utf8') })
+  }
+  if (style) {
+    if (assets.tokensCss !== undefined) entries.push({ name: 'assets/tokens.css', data: Buffer.from(assets.tokensCss, 'utf8') })
+    if (assets.componentsCss !== undefined) entries.push({ name: 'assets/components.css', data: Buffer.from(assets.componentsCss, 'utf8') })
+    if (assets.interactionsCss !== undefined) entries.push({ name: 'assets/interactions.css', data: Buffer.from(assets.interactionsCss, 'utf8') })
+    if (assets.interactionsJs !== undefined) entries.push({ name: 'assets/interactions.js', data: Buffer.from(assets.interactionsJs, 'utf8') })
   }
   entries.push({ name: 'project.json', data: Buffer.from(JSON.stringify(project, null, 2), 'utf8') })
-  entries.push({ name: 'index.html', data: Buffer.from(galleryHtml(cwd), 'utf8') })
+  entries.push({ name: 'overview.html', data: Buffer.from(galleryHtml(cwd), 'utf8') })
+  entries.push({
+    name: 'index.html',
+    data: Buffer.from(navHomeHtml(pages.filter((p) => p.html), { title: '天枢画布设计 · 站点', hasAssets: Boolean(style) }), 'utf8'),
+  })
 
   const zip = buildZip(entries)
   const dir = exportsDir(cwd)

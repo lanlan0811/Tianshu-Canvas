@@ -3,6 +3,30 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.8.0] - 2026-11-07
+
+从「单个 HTML 原型」升级为「完整一套多页前端」：新增**交互库**（16 个声明式交互模式 + 自动注入共享运行时）、
+**页面间跳转**（画布内点链接定位到目标页；链接在写入时规范化）、**多页静态站导出**（导航首页 + 真实互链 + 共享样式），
+并精修画布点击语义（不再吞掉原生默认行为）。详细说明见 [release-0.8.0.md](release/release-0.8.0.md)。
+
+### 新增
+
+- **交互库（`design-systems/interactions/`）**：16 个交互模式（tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker），声明式标记（`data-ts-*` + `ts-*` 类），与组件库同构（全风格共享、随构建分发、`canvas_style` 可列清单与取骨架）。写入页面时**按是否用到**自动注入共享样式与**单一共享运行时**，幂等、可剥离。运行时遵守沙箱：不发起网络请求、不读写本地存储。
+- **页面间跳转**：页面里用 `<a href="page-xxxx.html">` / `<a data-nav="page-xxxx">` / `<a href="标题.html">` 表达跳转；写入时规范化为目标页面 id（标题 slug 匹配、重名报错、前向引用自动补齐）。画布上点击链接**选中并定位到目标页面节点**。
+- **多页静态站导出**：导出 ZIP 升级为 `index.html` 导航首页 + `pages/*.html` 真实互链 + 共享 `assets/{tokens,components,interactions}.*`；旧 iframe 画廊保留为 `overview.html`。
+- **`canvas_style` 新增 `action=interaction`**：取单个交互模式的骨架 HTML 与用法；`action=get` 增列交互清单。
+
+### 变更
+
+- **画布点击语义精修**：探针不再对每次点击无条件 `preventDefault()`——只拦截会导致页面导航的链接，其余放行原生默认行为（`<details>` 折叠、`<label for>` 聚焦、复选框等恢复可用）。Ctrl/⌘+点击仍只选中以便编辑。
+- 自定义设计系统（`library/`）复用内置交互库契约（与组件/图标/模板一致，只换 token）。
+
+### 测试
+
+- 新增 `test/nav.test.mjs`、`test/design.interact.inject.test.mjs`、`test/nav.e2e.test.mjs`、`test/interaction.e2e.test.mjs`
+  （画布侧原生默认行为与交互库脚本、导出侧 `file://` 真点导航与按钮）；扩充 `test/export.test.mjs`、`test/design.catalog.test.mjs`。
+  共 141 项通过。
+
 ## [v0.7.4] - 2026-11-07
 
 针对 XiaoSi 插件库技术反馈（0.7.1 复审）的安全修复版本：修掉两条已复现的安全边界问题（SSRF 映射地址绕过、工作区符号链接越界读写），恢复截图/视觉回归的 Chromium 沙箱，并按平台要求补齐第三方许可与数据用途说明。详细说明见 [release-0.7.4.md](release/release-0.7.4.md)。

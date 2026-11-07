@@ -33,6 +33,13 @@ export interface DesignTemplateSummary {
   device: string
 }
 
+export interface DesignInteractionSummary {
+  id: string
+  name: string
+  category: string
+  requiresScript: boolean
+}
+
 export interface DesignStyleSummary {
   id: string
   name: string
@@ -42,8 +49,10 @@ export interface DesignStyleSummary {
   swatches: string[]
   fonts: Record<string, string>
   iconStyle: { strokeWidth: number; linecap?: string; linejoin?: string }
-  counts: { icons: number; components: number; templates: number }
+  counts: { icons: number; components: number; templates: number; interactions?: number }
   templates: DesignTemplateSummary[]
+  /** 交互模式摘要（旧 catalog 可能缺省）。 */
+  interactions?: DesignInteractionSummary[]
 }
 
 export interface DesignCatalog {
@@ -67,6 +76,10 @@ export interface DesignManifest {
   fontFamilies: string[]
   iconNames: string[]
   componentClasses: string[]
+  /** 交互库独有类（不含复用自组件目录的类）。 */
+  interactionClasses: string[]
+  /** 交互模式 id 列表。 */
+  interactionIds: string[]
   resolvedSemantic: Record<string, SemanticEntry>
 }
 
@@ -85,6 +98,31 @@ export interface DesignTemplate {
   html: string
 }
 
+export interface DesignInteraction {
+  id: string
+  name: string
+  category: string
+  classes: string[]
+  reused?: string[]
+  requiresScript: boolean
+  rootAttr: string
+  requiredStructure: string[]
+  requiredAttrs: string[]
+  api: string
+  skeletonHtml: string
+}
+
+export interface DesignInteractionLibrary {
+  /** 全部交互样式（全风格共享）。 */
+  css: string
+  /** 单一共享运行时（全风格共享）。 */
+  js: string
+  /** 交互模式清单（供 action=interaction 取用）。 */
+  catalog: Record<string, DesignInteraction>
+  /** 触发注入的根属性名（如 data-ts-tabs）。 */
+  rootAttrs: string[]
+}
+
 export interface ResolvedStyle {
   summary: DesignStyleSummary
   tokensCss: string
@@ -92,6 +130,7 @@ export interface ResolvedStyle {
   manifest: DesignManifest
   icons: DesignIconSet
   templates: Record<string, DesignTemplate>
+  interactions: DesignInteractionLibrary
 }
 
 export interface InjectResult {
@@ -102,6 +141,8 @@ export interface InjectResult {
   missingIcons: string[]
   /** 写在脚本里、因此没有展开的图标名。 */
   scriptIcons: string[]
+  /** 页面实际用到、因而注入了运行时的交互模式 id（未用则为空）。 */
+  interactionsUsed: string[]
 }
 
 /**
@@ -216,6 +257,7 @@ export function resolveDesignStyle(cwd: string | undefined, id: string): Resolve
         manifest: readJson<DesignManifest>(join(dir, 'tokens.manifest.json')),
         icons: readJson<DesignIconSet>(join(dir, 'icons.json')),
         templates: readJson<Record<string, DesignTemplate>>(join(dir, 'templates.json')),
+        interactions: readInteractionLibrary(dir),
       }
     } catch (err) {
       throw new Error(`设计风格「${id}」的构建产物不完整：${(err as Error).message}`)
@@ -231,6 +273,31 @@ export function resetDesignCache(): void {
   customCatalogCache.clear()
   styleCache.clear()
   resetSharedContractCache()
+}
+
+/**
+ * 读取某风格的交互库产物（css/js/清单）。产物缺失时返回空库，
+ * 让交互降级为「不注入」，而不是让整页注入失败——交互是增强，不是必需。
+ */
+function readInteractionLibrary(dir: string): DesignInteractionLibrary {
+  const empty: DesignInteractionLibrary = { css: '', js: '', catalog: {}, rootAttrs: [] }
+  try {
+    const doc = readJson<{ interactions?: DesignInteraction[] }>(join(dir, 'interactions.json'))
+    const catalog: Record<string, DesignInteraction> = {}
+    const rootAttrs: string[] = []
+    for (const entry of doc.interactions ?? []) {
+      catalog[entry.id] = entry
+      if (entry.rootAttr) rootAttrs.push(entry.rootAttr)
+    }
+    return {
+      css: readFileSync(join(dir, 'interactions.css'), 'utf8'),
+      js: readFileSync(join(dir, 'interactions.js'), 'utf8'),
+      catalog,
+      rootAttrs,
+    }
+  } catch {
+    return empty
+  }
 }
 
 export function getDesignTemplate(cwd: string | undefined, styleId: string, templateId: string): { summary: DesignStyleSummary; meta: DesignTemplate } | null {
@@ -341,18 +408,26 @@ function expandIcons(
 export function injectDesign(html: string, styleId: string | null, cwd?: string): InjectResult {
   const stripped = stripDesign(html)
   if (styleId === null) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] }
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] }
   }
   const style = resolveDesignStyle(cwd, styleId)
   if (!style) {
-    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [] }
+    return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] }
   }
 
   const icons = expandIcons(stripped, style.icons)
+  const used = detectInteractions(stripped, style)
+  let extra = ''
+  if (used.length) {
+    extra =
+      `<style id="tianshu-interactions" data-tianshu-ds="interactions">${escapeStyleText(style.interactions.css)}</style>\n` +
+      `<script id="tianshu-interactions" data-tianshu-ds="interactions" defer>${escapeScriptText(style.interactions.js)}</script>\n`
+  }
   const block =
     `${BLOCK_START} style=${style.summary.id} version=${style.manifest.version}-->\n` +
     `<style id="tianshu-tokens" data-tianshu-ds="tokens" data-style="${style.summary.id}" data-version="${style.manifest.version}">${escapeStyleText(style.tokensCss)}</style>\n` +
     `<style id="tianshu-components" data-tianshu-ds="components">${escapeStyleText(style.componentsCss)}</style>\n` +
+    extra +
     `${BLOCK_END}\n`
 
   const offset = findInsertOffset(icons.html)
@@ -364,7 +439,43 @@ export function injectDesign(html: string, styleId: string | null, cwd?: string)
     usedIcons: icons.usedIcons,
     missingIcons: icons.missingIcons,
     scriptIcons: icons.scriptIcons,
+    interactionsUsed: used,
   }
+}
+
+/** 转义脚本里的 `</script`，避免内联注入时提前结束脚本。 */
+function escapeScriptText(js: string): string {
+  return js.replace(/<\/script/gi, '<\\/script')
+}
+
+/**
+ * 探测页面用到了哪些交互模式：命中根属性（data-ts-*）或交互独有类即算使用。
+ * 先掩码 script/style/注释，避免把脚本里出现的名字误判为「用了该交互」。
+ */
+function detectInteractions(html: string, style: ResolvedStyle): string[] {
+  const lib = style.interactions
+  if (!lib.css) return []
+  const masked = maskSegments(html)
+  const ownClasses = new Set(style.manifest.interactionClasses)
+  const used: string[] = []
+  for (const id of style.manifest.interactionIds) {
+    const entry = lib.catalog[id]
+    if (!entry) continue
+    let hit = entry.rootAttr ? masked.includes(entry.rootAttr) : false
+    if (!hit) hit = (entry.classes ?? []).some((c) => ownClasses.has(c) && classUsedIn(masked, c))
+    if (hit) used.push(id)
+  }
+  return used
+}
+
+/** 页面里是否出现了某个类（按 class 属性整体匹配，避免子串误判）。 */
+const CLASS_ATTR_SCAN = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/g
+function classUsedIn(maskedHtml: string, className: string): boolean {
+  for (const match of maskedHtml.matchAll(CLASS_ATTR_SCAN)) {
+    const value = match[1] ?? match[2] ?? ''
+    if (value.split(/\s+/).includes(className)) return true
+  }
+  return false
 }
 
 /** 判断页面当前注入的是哪个风格（无标记返回 null）。 */
