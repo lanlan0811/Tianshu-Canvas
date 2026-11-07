@@ -47,6 +47,7 @@ Thumbs.db
 .rivet/
 AGENTS.md
 CLAUDE.md
+.rivet.md
 
 # 画布项目数据（工作区内，不应入库）
 .tianshu-canvas/
