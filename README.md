@@ -225,14 +225,21 @@ D 天枢原创 E 自由发挥」，选定后才开始写页面。
 
 | 功能 | 触发条件 | 抓取目标 | 随请求发出的数据 |
 |---|---|---|---|
-| **资源内联**（`canvas_upsert_page` 的 `inline_assets=true`） | 仅当显式传参时 | 页面 HTML 里的外链资源（`<img>` / `<script src>` / `<link rel=stylesheet>` / CSS 与 `style` 里的 `url()`）；相对路径需 `inline_assets_origin` 提供基准地址 | 仅 HTTP GET 目标 URL 本身 + 固定 `User-Agent: tianshu-canvas`；**不发送页面内容、路径、项目数据或任何凭据** |
-| **设计系统反抽取**（`canvas_design_system`，`action=create` 且 `source` 为 URL） | 仅当用户把 URL 作为抽取源时 | 用户给出的那个 URL（通常是一个在线页面的 HTML/CSS） | 同上：仅 GET 该 URL + 固定 UA |
+| **资源内联**（`canvas_upsert_page` 的 `inline_assets=true`） | 仅当显式传参时 | 页面 HTML 里的外链资源（`<img>` / `<script src>` / `<link rel=stylesheet>` / CSS 与 `style` 里的 `url()`）；相对路径按 `inline_assets_origin` 解析 | 仅 HTTP GET 目标 URL（**含其路径与查询参数**）+ 固定 `User-Agent: tianshu-canvas`；不发送页面内容、项目数据或任何凭据 |
+| **设计系统反抽取**（`canvas_design_system`，`action=extract` 且来源为 URL） | 仅当用户把 URL 作为抽取源时 | **不止一个 URL**：先取用户给出的那个页面，再取该页面里 `<link rel=stylesheet>` 引用的**最多 3 个外部样式表**（相对路径按页面 URL 解析）。这些样式表**可以位于其它主机**（例如 CDN 域名） | 同上：每个请求只发 GET 目标 URL（含路径与查询参数）+ 固定 UA |
+
+两个功能都**跟随重定向**（最多 3 跳），每一跳的目标主机都可能与上一跳不同，
+且**每一跳都会重新执行下面的 SSRF 校验**。
 
 抓取前会做 SSRF 校验：仅允许 http/https、拒绝内网/回环/链路本地地址及其映射形式
 （含 `::ffff:` 十六进制与点分两种写法、NAT64、6to4、Teredo 等），逐跳重定向重新校验，
 并把连接固定到已核验的 IP，防 DNS rebinding。
 
-> **与遥测的区别**：上表是「用户显式要求抓取某个 URL」时的正常网络行为，请求目标由用户
+> **不要把敏感信息放进 URL**：HTTP 请求会把目标 URL 的**路径与查询参数**原样发给目标主机
+> （这是 HTTP 协议本身的行为），因此这些内容必须视为已对外披露——令牌、密钥、隐私数据不要写进
+> 被抽取或被内联的 URL。
+>
+> **与遥测的区别**：上表是「用户显式要求抓取某个 URL」时的正常网络行为，起始目标由用户
 > 输入决定；本插件**没有**任何后台遥测/心跳/更新检查。字体或图片等**相对路径**资源在内联时
 > 会按 `inline_assets_origin` 解析，请勿把该参数指向非预期站点。
 

@@ -52,7 +52,7 @@ import { applyProjectStyle, currentStyleId, interactionDocument, templateDocumen
 import { extractTokens } from './extract.js'
 import { inlineAssets } from './inlineAssets.js'
 import { isSafeId, newPageId } from './ids.js'
-import { PathBoundaryError } from './paths.js'
+import { PathBoundaryError, readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
 import { toReactComponent, toFrameworklessHtml, toTailwindConfig } from './codegen.js'
@@ -183,9 +183,11 @@ function writeUrlHint(cwd: string, url: string): void {
   // 官方约定：worker（子会话）不写用户数据，避免重复写入。
   if (isWorkerSession()) return
   try {
-    writeFileSync(join(cwd, PROJECT_DIR_NAME, 'url.txt'), url + '\n', 'utf8')
+    // url.txt 是隐式写入：必须与页面/项目文件同源走边界保护——
+    // 固定临时文件 + 跟随链接的 writeFileSync 曾被用来覆盖工作区外的文件。
+    writeFileInWorkspace(cwd, join(cwd, PROJECT_DIR_NAME, 'url.txt'), url + '\n', '画布地址文件')
   } catch {
-    /* 目录可能尚未创建；忽略 */
+    /* 目录可能尚未创建，或路径越界；都不影响画布本身可用 */
   }
 }
 
@@ -217,7 +219,8 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       return { content: `读取失败：文件不存在 ${htmlPath}`, isError: true }
     }
     try {
-      html = readFileSync(htmlPath, 'utf8')
+      // 工作区内的来源文件按边界校验；工作区外（用户显式指定）只拒叶子链接。
+      html = readTextInWorkspace(call.cwd, htmlPath, '原型文件')
     } catch (err) {
       return { content: `读取失败：${(err as Error).message}`, isError: true }
     }
@@ -796,8 +799,10 @@ async function canvasCodegen(call: ToolCall): Promise<ToolResult> {
     const base = isAbsolute(raw) ? raw : join(call.cwd, raw)
     for (const file of files) {
       const abs = join(base, file.name)
+      // 代码生成产物同样走统一边界：工作区内拒绝链接越界，工作区外（用户显式指定的
+      // out_dir）用独占随机临时文件，避免跟随被预置的叶子链接。
       mkdirSync(dirname(abs), { recursive: true })
-      writeFileSync(abs, file.content, 'utf8')
+      writeFileAtomic(call.cwd, abs, file.content)
     }
     return {
       content:
@@ -1013,7 +1018,8 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       }
       let extracted
       try {
-        extracted = await extractTokens({ source, file: filePath, url })
+        // 传入 cwd：工作区内的来源文件按边界校验，越界链接一律拒绝。
+        extracted = await extractTokens({ source, file: filePath, url, cwd: filePath ? call.cwd : undefined })
       } catch (err) {
         return { content: `反抽取失败：${(err as Error).message}`, isError: true }
       }
@@ -1190,7 +1196,11 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       const rawOut = str(call.args.out_dir)
       const dir = rawOut ? (isAbsolute(rawOut) ? rawOut : join(call.cwd, rawOut)) : join(call.cwd, PROJECT_DIR_NAME, 'exports')
       const file = join(dir, `${id}.json`)
-      exportBrandPack(call.cwd, pack, file)
+      try {
+        exportBrandPack(call.cwd, pack, file)
+      } catch (err) {
+        return { content: `品牌包导出失败：${(err as Error).message}`, isError: true }
+      }
       return {
         content:
           `已导出品牌包「${pack.name}」（${id}）：${file}\n` +
@@ -1205,9 +1215,16 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       if (!rawPath) return { content: 'import_pack 需要 pack_path（品牌包 JSON 的路径）。', isError: true }
       const file = isAbsolute(rawPath) ? rawPath : join(call.cwd, rawPath)
       if (!existsSync(file)) return { content: `品牌包不存在：${file}`, isError: true }
+      let raw: string
+      try {
+        // 工作区内的路径按边界拒绝越界读；工作区外按用户显式指定，但拒绝叶子符号链接。
+        raw = readTextInWorkspace(call.cwd, file, '品牌包')
+      } catch (err) {
+        return { content: `品牌包读取失败：${(err as Error).message}`, isError: true }
+      }
       let pack: unknown
       try {
-        pack = JSON.parse(readFileSync(file, 'utf8'))
+        pack = JSON.parse(raw)
       } catch (err) {
         return { content: `品牌包不是合法 JSON：${(err as Error).message}`, isError: true }
       }
@@ -1305,10 +1322,11 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
         mkdirSync(base, { recursive: true })
         const written: string[] = []
         for (const { page, result } of results) {
+          // 审计产物同样走统一边界：不跟随被预置的叶子链接。
           const htmlPath = join(base, `${page.id}.html`)
-          writeFileSync(htmlPath, page.html, 'utf8')
+          writeFileAtomic(call.cwd, htmlPath, page.html)
           const testPath = join(base, `${page.id}.audit.test.mjs`)
-          writeFileSync(testPath, result.testFile, 'utf8')
+          writeFileAtomic(call.cwd, testPath, result.testFile)
           written.push(testPath)
         }
         writeLine = `\n\n已落盘：${written.join('、')}`
@@ -1332,8 +1350,8 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       })
       const dir = str(call.args.out_dir) ? (isAbsolute(str(call.args.out_dir)!) ? str(call.args.out_dir)! : join(call.cwd, str(call.args.out_dir)!)) : snapshotDir(call.cwd)
       const file = join(dir, 'snapshot.json')
-      const before = readSnapshot(file)
-      writeSnapshot(file, snapshot)
+      const before = readSnapshot(call.cwd, file)
+      writeSnapshot(call.cwd, file, snapshot)
       if (!before) {
         return { content: `已写入首个设计快照：${file}\n（下次运行 drift 会展示与本次的差集。）` }
       }

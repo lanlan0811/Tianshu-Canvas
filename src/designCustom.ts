@@ -12,9 +12,10 @@
  * 经 esbuild 打进 dist/index.js；类型由同名 .d.mts 提供。
  */
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertSafeId, InvalidInputError, isSafeId } from './ids.js'
+import { assertInsideWorkspace, readTextInWorkspace, writeFileInWorkspace } from './paths.js'
 import { projectDir } from './project.js'
 import { buildManifest, tokensToCss, type DesignManifest } from '../scripts/design/design-tokens.mjs'
 import { auditForbidden, validateTokens } from '../scripts/design/design-validate.mjs'
@@ -56,15 +57,21 @@ export function stampLibrary(cwd: string): string {
     hash.update(id)
     for (const file of ['tokens.json', 'meta.json']) {
       const abs = join(dir, id, file)
-      hash.update(existsSync(abs) ? readFileSync(abs, 'utf8') : '\0')
+      try {
+        hash.update(existsSync(abs) ? readTextInWorkspace(cwd, abs, `${id}/${file}`) : '\0')
+      } catch {
+        // 指向工作区外的链接：按不可信内容处理，不把它读进来。
+        hash.update('\0')
+      }
     }
   }
   return hash.digest('hex')
 }
 
-function readJson(file: string, label: string): unknown {
+/** 读 JSON；`cwd` 给出时按工作区边界校验（library 内的文件都是工作区数据）。 */
+function readJson(file: string, label: string, cwd?: string): unknown {
   try {
-    return JSON.parse(readFileSync(file, 'utf8'))
+    return JSON.parse(cwd ? readTextInWorkspace(cwd, file, label) : readFileSync(file, 'utf8'))
   } catch (err) {
     throw new InvalidInputError(`${label} 不是合法 JSON：${(err as Error).message}`)
   }
@@ -160,8 +167,9 @@ export function compileCustomStyle(cwd: string, id: string, builtinDir: string):
   if (!existsSync(tokensFile) || !existsSync(metaFile)) {
     throw new InvalidInputError(`自定义设计系统不存在：${id}`)
   }
-  const tokens = readJson(tokensFile, `${id}/tokens.json`) as Record<string, any>
-  const meta = readJson(metaFile, `${id}/meta.json`) as Record<string, any>
+  // library/<id>/ 及两个文件都是工作区数据：读前按边界校验，链接越界即拒绝。
+  const tokens = readJson(tokensFile, `${id}/tokens.json`, cwd) as Record<string, any>
+  const meta = readJson(metaFile, `${id}/meta.json`, cwd) as Record<string, any>
 
   const iconStyle = meta.iconStyle as DesignIconSet['stroke']
   const contract = sharedContract(builtinDir)
@@ -262,11 +270,9 @@ export function resetSharedContractCache(): void {
 // create / remove
 // ---------------------------------------------------------------------------
 
-function writeJsonAtomic(file: string, value: unknown): void {
-  mkdirSync(join(file, '..'), { recursive: true })
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n', 'utf8')
-  renameSync(tmp, file)
+function writeJsonAtomic(cwd: string, file: string, value: unknown): void {
+  // 自定义设计系统产物走统一边界：library/ 自身或其叶子被预置成链接时拒绝。
+  writeFileInWorkspace(cwd, file, JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n')
 }
 
 /**
@@ -357,8 +363,8 @@ export function createCustomStyle(
   }
 
   const dir = customStyleDir(cwd, id)
-  writeJsonAtomic(join(dir, 'tokens.json'), tokens)
-  writeJsonAtomic(join(dir, 'meta.json'), meta)
+  writeJsonAtomic(cwd, join(dir, 'tokens.json'), tokens)
+  writeJsonAtomic(cwd, join(dir, 'meta.json'), meta)
 
   const summary = compileCustomStyle(cwd, id, builtinDir).summary
   return { id, summary, warnings }
@@ -369,6 +375,8 @@ export function removeCustomStyle(cwd: string, id: unknown): void {
   if (!isSafeId(id)) throw new InvalidInputError(`非法 id：${String(id)}`)
   const dir = join(libraryDir(cwd), id)
   if (!existsSync(dir)) throw new InvalidInputError(`自定义设计系统不存在：${id}`)
+  // 删除前按边界校验：library/<id> 若被预置成指向工作区外的目录联接，删它等于删外部目录。
+  assertInsideWorkspace(cwd, dir, '自定义设计系统目录')
   rmSync(dir, { recursive: true, force: true })
 }
 

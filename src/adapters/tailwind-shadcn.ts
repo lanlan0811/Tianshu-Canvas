@@ -13,6 +13,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CodeFile } from '../codegen.js'
+import { readTextInWorkspace } from '../paths.js'
 import { classesOf, parseHtml, textOf, walkElements, type HtmlNode } from '../htmlTree.js'
 import { materializeTokens } from './import.js'
 import { toHex } from './color.js'
@@ -211,7 +212,8 @@ export const shadcnAdapter: Adapter = {
       ? (() => {
           const abs = sourcePath.startsWith(cwd) ? sourcePath : join(cwd, sourcePath)
           if (!existsSync(abs)) return null
-          const css = readFileSync(abs, 'utf8')
+          // 工作区内的来源文件按边界校验，避免经链接读到工作区外。
+          const css = readTextInWorkspace(cwd, abs, '样式文件')
           const colors: Record<string, string> = {}
           const radii: Record<string, number> = {}
           for (const [name, raw] of Object.entries(readCssVars(css, 'root'))) {

@@ -10,10 +10,11 @@
  *  - 品牌包是可移植的单 JSON，导出 → 换机器 → 导入后视觉一致。
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { customStyleDir, libraryDir } from './designCustom.js'
 import { projectDir } from './project.js'
+import { readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { stableHash } from './adapters/color.js'
 
 export function memoryDir(cwd: string): string {
@@ -57,7 +58,7 @@ export function readMemory(cwd: string): BrandMemory {
   const file = memoryFile(cwd)
   if (!existsSync(file)) return { ...EMPTY, styles: {} }
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as BrandMemory
+    const parsed = JSON.parse(readTextInWorkspace(cwd, file, '品牌记忆')) as BrandMemory
     if (parsed.schemaVersion !== 1 || typeof parsed.styles !== 'object' || parsed.styles === null) {
       return { ...EMPTY, styles: {} }
     }
@@ -68,11 +69,8 @@ export function readMemory(cwd: string): BrandMemory {
 }
 
 function writeMemory(cwd: string, memory: BrandMemory): void {
-  const file = memoryFile(cwd)
-  mkdirSync(join(file, '..'), { recursive: true })
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, JSON.stringify(memory, null, 2).replace(/\r\n/g, '\n') + '\n', 'utf8')
-  renameSync(tmp, file)
+  // 品牌记忆是隐式写入：走统一边界 + 独占随机临时文件，不跟随被预置的叶子链接。
+  writeFileInWorkspace(cwd, memoryFile(cwd), JSON.stringify(memory, null, 2).replace(/\r\n/g, '\n') + '\n', '品牌记忆')
 }
 
 /** 从页面 HTML 统计组件/图标/变量用量。 */
@@ -176,8 +174,8 @@ export function buildBrandPack(cwd: string, styleId: string, builtinDir: string)
   if (!existsSync(tokensFile) || !existsSync(metaFile)) {
     throw new Error(`「${styleId}」不是自定义设计系统（内置风格不能导出为品牌包）。`)
   }
-  const tokens = JSON.parse(readFileSync(tokensFile, 'utf8')) as Record<string, unknown>
-  const meta = JSON.parse(readFileSync(metaFile, 'utf8')) as Record<string, unknown>
+  const tokens = JSON.parse(readTextInWorkspace(cwd, tokensFile, '自定义风格 tokens')) as Record<string, unknown>
+  const meta = JSON.parse(readTextInWorkspace(cwd, metaFile, '自定义风格 meta')) as Record<string, unknown>
   const memory = readMemory(cwd).styles[styleId] ?? emptyStyleMemory()
   const payload = {
     schemaVersion: 1 as const,
@@ -210,7 +208,6 @@ export function verifyBrandPack(pack: unknown): string[] {
 
 /** 导出到文件（由调用方决定路径，默认 .tianshu-canvas/exports/<id>.json）。 */
 export function exportBrandPack(cwd: string, pack: BrandPack, file: string): void {
-  mkdirSync(join(file, '..'), { recursive: true })
   // 稳定序列化：同一品牌包重复导出字节一致。
   const ordered = {
     schemaVersion: pack.schemaVersion,
@@ -222,20 +219,18 @@ export function exportBrandPack(cwd: string, pack: BrandPack, file: string): voi
     checks: pack.checks,
     checksum: pack.checksum,
   }
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, JSON.stringify(ordered, null, 2).replace(/\r\n/g, '\n') + '\n', 'utf8')
-  renameSync(tmp, file)
+  const data = JSON.stringify(ordered, null, 2).replace(/\r\n/g, '\n') + '\n'
+  // 工作区内走边界校验后落盘；工作区外按用户显式指定的出口路径（仍用独占随机临时文件）。
+  mkdirSync(dirname(resolve(file)), { recursive: true })
+  if (file.startsWith(projectDir(cwd))) writeFileInWorkspace(cwd, file, data, '品牌包')
+  else writeFileAtomic(cwd, file, data)
 }
 
 /** 导入：写回 library/<id>，并恢复用量记忆。调用方负责过 validateTokens 与重名检查。 */
 export function importBrandPack(cwd: string, pack: BrandPack): void {
   const dir = join(libraryDir(cwd), pack.id)
-  mkdirSync(dir, { recursive: true })
   const write = (name: string, value: unknown): void => {
-    const file = join(dir, name)
-    const tmp = file + '.tmp'
-    writeFileSync(tmp, JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n', 'utf8')
-    renameSync(tmp, file)
+    writeFileInWorkspace(cwd, join(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n')
   }
   write('tokens.json', pack.tokens)
   write('meta.json', pack.meta)

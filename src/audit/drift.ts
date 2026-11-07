@@ -7,8 +7,9 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { readTextInWorkspace, writeFileInWorkspace } from '../paths.js'
 import type { DesignManifest } from '../design.js'
 import { collectUsage } from './contract.js'
 
@@ -101,21 +102,18 @@ export function diffSnapshots(before: DesignSnapshot, after: DesignSnapshot): Dr
 }
 
 /** 读快照文件；不存在返回 null。 */
-export function readSnapshot(file: string): DesignSnapshot | null {
+export function readSnapshot(cwd: string, file: string): DesignSnapshot | null {
   if (!existsSync(file)) return null
   try {
-    return JSON.parse(readFileSync(file, 'utf8')) as DesignSnapshot
+    return JSON.parse(readTextInWorkspace(cwd, file, '设计快照')) as DesignSnapshot
   } catch {
     return null
   }
 }
 
-/** 原子写快照。 */
-export function writeSnapshot(file: string, snapshot: DesignSnapshot): void {
-  mkdirSync(join(file, '..'), { recursive: true })
-  const tmp = file + '.tmp'
-  writeFileSync(tmp, JSON.stringify(snapshot, null, 2).replace(/\r\n/g, '\n') + '\n', 'utf8')
-  renameSync(tmp, file)
+/** 原子写快照（走统一边界 + 独占随机临时文件）。 */
+export function writeSnapshot(cwd: string, file: string, snapshot: DesignSnapshot): void {
+  writeFileInWorkspace(cwd, file, JSON.stringify(snapshot, null, 2).replace(/\r\n/g, '\n') + '\n', '设计快照')
 }
 
 export function formatDriftReport(result: DriftResult, before: string, after: string): string {

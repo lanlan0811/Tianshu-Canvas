@@ -11,6 +11,7 @@
  *  - **契约优先**：键集合固定镜像契约，样本不足时用内置确定性回退值，绝不产出缺键。
  */
 import { existsSync, readFileSync } from 'node:fs'
+import { readTextInWorkspace } from './paths.js'
 import { contrast, parseHex } from '../scripts/design/design-tokens.mjs'
 import { declarations, styleSegments, SPACING_PROPS, RADIUS_PROP } from './cssParse.js'
 import { findBlockedResources } from './resources.js'
@@ -21,6 +22,8 @@ export interface ExtractInput {
   source?: string
   /** 工作区内文件绝对路径（已过路径守卫）。 */
   file?: string
+  /** 工作区根：给出时对 `file` 追加工作区边界校验（拒绝越界符号链接）。 */
+  cwd?: string
   /** 远程 URL（SSRF 安全抓取）。 */
   url?: string
   /** 测试注入。 */
@@ -281,7 +284,11 @@ async function gather(input: ExtractInput, warnings: string[]): Promise<{ cssTex
     else cssText = input.source
   } else if (input.file) {
     if (!existsSync(input.file)) throw new Error(`文件不存在：${input.file}`)
-    const text = readFileSync(input.file, 'utf8')
+    // 工作区内的源文件按边界校验（链接指向工作区外一律拒绝）；
+    // 没给 cwd（纯函数调用）时退回普通读取。
+    const text = input.cwd
+      ? readTextInWorkspace(input.cwd, input.file, '来源文件')
+      : readFileSync(input.file, 'utf8')
     if (/\.css$/i.test(input.file) || !/<[a-z!/]/i.test(text)) cssText = text
     else htmlText = text
   } else if (input.url) {

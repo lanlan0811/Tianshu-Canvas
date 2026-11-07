@@ -9,7 +9,7 @@
  * 变更后 emit 事件，供本地服务广播 SSE。
  */
 import { EventEmitter } from 'node:events'
-import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertSafeId, InvalidInputError, isSafeId, newCommentId, newPageId } from './ids.js'
 import { assertInsideWorkspace, assertReadableFile, writeFileAtomic } from './paths.js'
@@ -131,6 +131,8 @@ interface ProjectInspection {
 function inspectProject(cwd: string): ProjectInspection {
   const file = projectFile(cwd)
   if (!existsSync(file)) return { project: emptyProject(), dropped: 0 }
+  // project.json 可能是指向工作区外的符号链接；读前按真实路径拒绝。
+  assertReadableFile(cwd, file, '项目文件')
   const raw = readFileSync(file, 'utf8')
   let parsed: unknown
   try {
@@ -183,16 +185,21 @@ export function takeProjectBackup(cwd: string): string | null {
   return path
 }
 
-/** 写入会丢弃无法识别的内容，因此覆盖前先复制一份；用复制而非改名，原文件直到原子替换前都在。 */
+/** 写入会丢弃无法识别的内容，因此覆盖前先备份一份；备份是工作区内数据，同样走边界校验。 */
 function backupDamagedProject(cwd: string): void {
   const { problem, dropped } = inspectProject(cwd)
   if (!problem && dropped === 0) return
   const file = projectFile(cwd)
+  assertReadableFile(cwd, file, '项目文件')
+  const data = readFileSync(file, 'utf8')
   const stamp = Date.now()
   for (let n = 0; n < 1000; n++) {
     const dest = n === 0 ? `${file}.corrupt-${stamp}` : `${file}.corrupt-${stamp}-${n}`
+    if (existsSync(dest)) continue
+    // 独占创建（rename 前先建随机临时文件，再由 writeFileAtomic 落到最终名）——
+    // 若同名目标被预置为链接，这里会拒绝而不是跟随。
     try {
-      copyFileSync(file, dest, constants.COPYFILE_EXCL)
+      writeFileAtomic(cwd, dest, data)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') continue
       throw err
@@ -262,6 +269,8 @@ function isEdge(e: unknown): e is Edge {
 
 function writeProjectAtomic(cwd: string, project: Project, notify = true): void {
   assertInsideWorkspace(cwd, projectDir(cwd), '项目目录')
+  // pages/ 可能被预置成指向工作区外的目录联接；建它之前先按边界校验。
+  assertInsideWorkspace(cwd, pagesDir(cwd), '页面目录')
   mkdirSync(pagesDir(cwd), { recursive: true })
   backupDamagedProject(cwd)
   writeFileAtomic(cwd, projectFile(cwd), JSON.stringify(project, null, 2) + '\n')
@@ -479,6 +488,8 @@ export function readSelection(cwd: string): Selection | null {
   const file = selectionFile(cwd)
   if (!existsSync(file)) return null
   try {
+    // 选中项是工作区数据；指向外部的链接不做读取（读会泄露外部文件内容）。
+    assertReadableFile(cwd, file, '选中项')
     const parsed = JSON.parse(readFileSync(file, 'utf8')) as Selection
     if (!parsed || typeof parsed.pageId !== 'string') return null
     return parsed

@@ -8,9 +8,10 @@
  * gitignore 忽略，团队若要共享基线，需把 baseline_dir 指到仓库内可提交的位置。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchBrowser, resolveBrowser } from '../export.js'
+import { assertInsideWorkspace, writeFileInWorkspace } from '../paths.js'
 import { projectDir, readProject } from '../project.js'
 import { ensureServer } from '../server.js'
 import { decodePng, diffPng, type DiffResult } from './png.js'
@@ -122,8 +123,8 @@ export function writeBaselines(cwd: string, styleId: string, dir: string): Promi
       for (const node of project.nodes) {
         const buf = await capturePage(page, url, node.id)
         const file = baselineFile(dir, styleId, node.id, node.deviceType)
-        mkdirSync(join(file, '..'), { recursive: true })
-        writeFileSync(file, buf)
+        // 基线是隐式写入：走统一边界 + 独占随机临时文件。
+        writeFileInWorkspace(cwd, file, buf, '视觉基线')
         written.push({ pageId: node.id, title: node.title, file, bytes: buf.length })
       }
     })
@@ -150,20 +151,24 @@ export function compareWithBaselines(
         if (!existsSync(file)) {
           missing.push(`${node.title}（${node.id}）`)
           if (options.updateMissing) {
-            mkdirSync(join(file, '..'), { recursive: true })
-            writeFileSync(file, buf)
+            writeFileInWorkspace(cwd, file, buf, '视觉基线')
             written.push({ pageId: node.id, title: node.title, file, bytes: buf.length })
           }
           continue
         }
         const plainBaseline = join(file, '..', `${node.id}@${node.deviceType}@2x.plain.png`)
+        const readBaseline = (p: string): Buffer => {
+          // 基线是工作区数据：读前按边界校验，指向工作区外的链接一律拒绝。
+          assertInsideWorkspace(cwd, p, '视觉基线')
+          return readFileSync(p)
+        }
         if (existsSync(plainBaseline)) {
-          const a = decodePng(readFileSync(plainBaseline))
+          const a = decodePng(readBaseline(plainBaseline))
           const b = decodePng(buf)
           compared.push({ pageId: node.id, title: node.title, baseline: plainBaseline, diff: diffPng(a, b, { threshold: options.threshold }) })
         } else {
           // 基线是直接截图产物，直接解码。
-          const a = decodePng(readFileSync(file))
+          const a = decodePng(readBaseline(file))
           const b = decodePng(buf)
           compared.push({ pageId: node.id, title: node.title, baseline: file, diff: diffPng(a, b, { threshold: options.threshold }) })
         }

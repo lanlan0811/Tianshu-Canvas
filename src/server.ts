@@ -19,7 +19,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertSafeId, InvalidInputError } from './ids.js'
-import { PathBoundaryError } from './paths.js'
+import { assertReadableFile, PathBoundaryError } from './paths.js'
 import { loadDesignCatalog } from './design.js'
 import { applyProjectStyle } from './designOps.js'
 import { injectProbe } from './probe.js'
@@ -272,6 +272,13 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     const file = join(exportsDir(cwd), name)
     // name='.' 能通过上面的过滤并指向 exports 目录本身。
     if (!existsSync(file) || !statSync(file).isFile()) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+    // 导出物是工作区数据：经符号链接指向工作区外时按 403 拒绝（不把外部文件发出去）。
+    try {
+      assertReadableFile(cwd, file, '导出文件')
+    } catch (err) {
+      if (err instanceof PathBoundaryError) return send(res, 403, 'text/plain; charset=utf-8', 'forbidden')
+      return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+    }
     const type = name.endsWith('.png') ? 'image/png' : 'application/zip'
     const data = readFileSync(file)
     res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' })

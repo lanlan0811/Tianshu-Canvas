@@ -96,6 +96,56 @@ test('可用 fetchImpl 注入（URL 输入，无真实网络）', async () => {
   assert.deepEqual(errors, [])
 })
 
+/**
+ * 回归（技术反馈 0.8.1 阻断项二）：反抽取的实际请求面比「用户给的那个 URL」大得多。
+ * 它还会抓取页面里 `<link rel=stylesheet>` 引用的外部样式表（最多 3 个），
+ * 这些样式表**可以位于其它主机**；相对路径按页面 URL 解析。说明文案必须与此相符。
+ */
+test('URL 反抽取：会抓取最多 3 个外部样式表，含跨站与相对路径', async () => {
+  const html = `<html><head>
+    <link rel="stylesheet" href="/local.css">
+    <link rel="stylesheet" href="https://cdn.other.example/lib.css">
+    <link rel="stylesheet" href="../up.css">
+    <link rel="stylesheet" href="/fourth.css">
+  </head><body><style>body{color:#123456;background:#fafafa}</style></body></html>`
+  const requests = []
+  const css = '.x{color:#123456;background:#fafafa;font-size:14px}'
+  await extractTokens({
+    url: 'https://site.example.com/dir/page.html',
+    fetchImpl: async (url) => {
+      requests.push(url)
+      return url.includes('page.html')
+        ? { body: Buffer.from(html, 'utf8'), url, contentType: 'text/html' }
+        : { body: Buffer.from(css, 'utf8'), url, contentType: 'text/css' }
+    },
+  })
+  assert.equal(requests[0], 'https://site.example.com/dir/page.html', '首个请求是用户给出的页面')
+  // 相对路径按页面 URL 解析；跨站样式表照抓；最多 3 个（第四个被截断）。
+  assert.deepEqual(requests.slice(1), [
+    'https://site.example.com/local.css',
+    'https://cdn.other.example/lib.css',
+    'https://site.example.com/up.css',
+  ])
+  assert.ok(!requests.some((u) => u.includes('fourth.css')), '超出 3 个的样式表不再抓取')
+  assert.ok(requests.some((u) => u.startsWith('https://cdn.other.example/')), '跨站样式表确实被请求')
+})
+
+test('URL 反抽取：请求携带目标 URL 的路径与查询参数（不得当作私密）', async () => {
+  const requests = []
+  await extractTokens({
+    url: 'https://site.example.com/a/b/page.html?theme=dark&token=NOT-SECRET',
+    fetchImpl: async (url) => {
+      requests.push(url)
+      return { body: Buffer.from('<style>body{color:#222;background:#fff}</style>', 'utf8'), url, contentType: 'text/html' }
+    },
+  })
+  assert.ok(
+    requests[0].includes('?theme=dark&token=NOT-SECRET'),
+    '查询参数会随请求发出（说明必须提示不要把敏感信息放进 URL）',
+  )
+  assert.ok(requests[0].includes('/a/b/page.html'), '路径同样会随请求发出')
+})
+
 test('action=extract 端到端：dry_run 不落盘，正式执行落盘 tokens.json/meta.json', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'tsc-extract-e2e-'))
   try {

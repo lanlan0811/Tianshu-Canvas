@@ -14,6 +14,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CodeFile } from '../codegen.js'
+import { readTextInWorkspace } from '../paths.js'
 import { classesOf, textOf, type HtmlNode } from '../htmlTree.js'
 import { materializeTokens } from './import.js'
 import type { Adapter, AdapterContext, AdapterId, Detection, ImportResult } from './types.js'
@@ -105,7 +106,8 @@ export const antdAdapter: Adapter = {
     if (sourcePath) {
       const abs = sourcePath.startsWith(cwd) ? sourcePath : join(cwd, sourcePath)
       if (!existsSync(abs)) throw new Error(`找不到主题文件：${sourcePath}`)
-      const text = readFileSync(abs, 'utf8')
+      // 工作区内的来源文件按边界校验，避免经链接读到工作区外。
+      const text = readTextInWorkspace(cwd, abs, '主题文件')
       literal = readLiteral(text)
       source = sourcePath
     } else {

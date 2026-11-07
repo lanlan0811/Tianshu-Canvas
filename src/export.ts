@@ -11,7 +11,7 @@ import type { Browser } from 'puppeteer-core'
 import { join } from 'node:path'
 import { deflateRawSync } from 'node:zlib'
 import { projectDir, readPageHtml, readProject } from './project.js'
-import { assertInsideWorkspace, writeFileAtomic } from './paths.js'
+import { assertInsideWorkspace, assertWritableTarget, writeFileAtomic } from './paths.js'
 import { warnUser } from './host.js'
 import { ensureServer } from './server.js'
 import { resolveDesignStyle, stripDesign } from './design.js'
@@ -279,6 +279,9 @@ async function exportPngOnce(cwd: string): Promise<ExportFile> {
     mkdirSync(dir, { recursive: true })
     const name = `canvas-${stamp()}.png`
     const path = join(dir, name)
+    // 截图无法先写到临时文件再改名（Chromium 直接落盘），因此写入前拒一次叶子链接，
+    // 避免跟随被预置的链接把 PNG 写到工作区外。
+    assertWritableTarget(cwd, path, '截图导出目标')
     await page.screenshot({ path, clip: clip ?? undefined })
     return { name, path, bytes: readFileSync(path).length }
   } finally {

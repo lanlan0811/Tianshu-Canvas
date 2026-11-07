@@ -153,3 +153,111 @@ test('钉住的 lookup 兼容 Node 的 all 数组回调（真实域名抓取回�
     await new Promise((resolve) => server.close(resolve))
   }
 })
+
+/**
+ * 回归（技术反馈 0.8.1 阻断项二·逐跳校验，真实路径）：不要只用复刻的 lookup 回调。
+ * 这里用一个**真实**的本地 HTTP 服务做重定向端点，验证 `fetchUrl` 走完整真实抓取路径时：
+ *   - 追到映射回环地址（`::ffff:127.0.0.1`）的那一跳会被拒；
+ *   - 拒绝发生在真正连接之前（服务端收不到第二次请求）。
+ */
+/**
+ * 回归（技术反馈 0.8.1 阻断项二·逐跳校验，真实网络）：不要只用复刻的 lookup 回调。
+ *
+ * 用本机**真实公网 IPv6 地址**做首跳：`http://[公网v6]:port/` 合法通过校验，
+ * 返回 302 指向 `http://127.0.0.1:port/`，第二跳必须被逐跳校验拒绝、且**不得真正
+ * 连上**回环服务（服务端收不到请求）。没有可用公网地址时跳过（不假绿）。
+ */
+test('真实抓取路径：公网首跳重定向到回环，第二跳被逐跳校验拒绝且未连上', async () => {
+  const { networkInterfaces } = await import('node:os')
+  const publicV6 = Object.values(networkInterfaces())
+    .flat()
+    .find((a) => a && a.family === 'IPv6' && !a.internal && /^[23]/.test(a.address))
+  if (!publicV6) return // 离线或没有公网地址：跳过。
+
+  let targetHits = 0
+  const target = http.createServer((_req, res) => {
+    targetHits++
+    res.writeHead(200, { 'content-type': 'text/plain' })
+    res.end('SECRET')
+  })
+  await new Promise((resolve) => target.listen(0, '127.0.0.1', resolve))
+  const targetPort = target.address().port
+
+  const redirector = http.createServer((_req, res) => {
+    res.writeHead(302, { location: `http://127.0.0.1:${targetPort}/` })
+    res.end()
+  })
+  const bound = await new Promise((resolve) => {
+    redirector.once('error', () => resolve(false))
+    redirector.listen(0, publicV6.address, () => resolve(true))
+  })
+  if (!bound) {
+    await new Promise((resolve) => target.close(resolve))
+    return // 环境不允许绑定公网地址：跳过。
+  }
+  const redirectPort = redirector.address().port
+  try {
+    await assert.rejects(
+      () => fetchUrl(`http://[${publicV6.address}]:${redirectPort}/`, { deadlineMs: 8000, maxBytes: 1024 }),
+      /禁止访问内网\/保留地址/,
+      '第二跳（回环）必须被逐跳校验拒绝',
+    )
+    assert.equal(targetHits, 0, '被拒的第二跳不得真正连上回环服务')
+  } finally {
+    await new Promise((resolve) => redirector.close(resolve))
+    await new Promise((resolve) => target.close(resolve))
+  }
+})
+
+/**
+ * 回归（技术反馈 0.8.1 阻断项二·映射回环）：`::ffff:7f00:1` 等十六进制写法
+ * 在**真实抓取路径**上也要被拦（不只是 `isBlockedIp` 单测）。
+ */
+test('真实抓取路径：映射回环的十六进制写法在 URL 里同样被拒', async () => {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain' })
+    res.end('INTERNAL')
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address()
+  try {
+    for (const host of [`[::ffff:7f00:1]`, `[::ffff:127.0.0.1]`, `[::7f00:1]`, `[64:ff9b::7f00:1]`]) {
+      await assert.rejects(
+        () => fetchUrl(`http://${host}:${port}/`, { deadlineMs: 3000, maxBytes: 1024 }),
+        /禁止访问内网\/保留地址/,
+        `${host} 不得被抓取`,
+      )
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+  }
+})
+
+/**
+ * 回归（技术反馈 0.8.1 阻断项二·合法目标）：公网地址必须仍然抓得到——
+ * 接受一个真实 IPv6 字面量（本机公网地址），证明修复没有把正常抓取路径一刀切。
+ * 无法取得可用公网地址（离线 CI）时跳过，避免假绿。
+ */
+test('真实抓取路径：公网地址（IPv6 字面量 + 真实 HTTP）可被抓取', async () => {
+  const { networkInterfaces } = await import('node:os')
+  const candidate = Object.values(networkInterfaces())
+    .flat()
+    .find((a) => a && a.family === 'IPv6' && !a.internal && !a.address.startsWith('fe80'))
+  if (!candidate) return // 离线或只有内网地址：无从验证，跳过（不假绿）。
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain' })
+    res.end('PUBLIC-OK')
+  })
+  const listening = await new Promise((resolve) => {
+    server.once('error', () => resolve(false))
+    server.listen(0, candidate.address, () => resolve(true))
+  })
+  if (!listening) return // 环境不支持绑定该地址，跳过。
+  const { port } = server.address()
+  try {
+    const result = await fetchUrl(`http://[${candidate.address}]:${port}/`, { deadlineMs: 5000, maxBytes: 1024 })
+    assert.equal(result.body.toString(), 'PUBLIC-OK')
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+  }
+})
