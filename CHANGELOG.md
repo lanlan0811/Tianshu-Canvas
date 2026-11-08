@@ -3,6 +3,26 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.8.3] - 2026-11-08
+
+安全修复版：设计系统**自动导入**仍可读取工作区外文件（`components.json` 配置路径、
+`globals.css` / `tailwind.config.*` / `src/App.tsx` 等候选文件为符号链接或目录联接）。
+详细说明见 [release-0.8.3.md](release/release-0.8.3.md)。
+
+### 安全修复
+
+- **自动导入的工作区边界**：`action=import` 在自动发现主题文件时按裸路径读取，
+  `components.json` 写成 `../outside/x.css`、或候选文件是指向工作区外的符号链接 /
+  Windows 目录联接，都会把工作区外的文件读进来（已复现）。修复：新增
+  `confineToWorkspace` / `readConfined`（先 open 再 `fstat` + realpath 复检，
+  `O_NOFOLLOW` 可用时让叶子链接直接 open 失败），并让 `package.json`、`components.json`、
+  `tailwind.config.*`、`globals.css` 候选与 `src/**` 扫描全部走该入口。
+
+### 变更
+
+- 测试数 154 → 161（新增 7 条自动导入边界回归）。
+- 版本号 0.8.2 → 0.8.3。
+
 ## [v0.8.2] - 2026-11-08
 
 安全修复版：修掉 XiaoSi 复审的两个阻断项（工作区外文件覆盖、网络用途说明与实际不符），

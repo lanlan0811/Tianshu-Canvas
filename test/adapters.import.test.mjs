@@ -3,7 +3,7 @@
  * 断言的是构建产物（dist/index.mjs），与其它测试一致。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -66,7 +66,13 @@ async function importStyle(cwd, args) {
   return tool('canvas_design_system').execute({ args: { action: 'import', ...args }, cwd, sessionId: 'test' })
 }
 
-async function test(name, fn) {
+async function test(name, optionsOrFn, maybeFn) {
+  const options = typeof optionsOrFn === 'function' ? {} : optionsOrFn
+  const fn = typeof optionsOrFn === 'function' ? optionsOrFn : maybeFn
+  if (options.skip) {
+    console.log(`↷ ${name}（跳过：${options.skip}）`)
+    return
+  }
   try {
     await fn()
     console.log(`✔ ${name}`)
@@ -177,4 +183,125 @@ await test('反例：对比度不足的导入会被 token 契约拒绝', async (
   }
 })
 
-console.log('OK 适配器导入：shadcn/AntD 的观测、推断、确定性与反例全部通过')
+// ---------------------------------------------------------------------------
+// 回归（技术反馈 0.8.2）：自动导入不得读取工作区外文件
+// ---------------------------------------------------------------------------
+
+/** 外部文件里的哨兵色；出现在返回结果里即视为越界读取。 */
+const SECRET = '#7f00ff'
+const SECRET_CSS = `:root{--primary:${SECRET};--background:#ffffff;--foreground:#111111;--radius:0.75rem}`
+
+function canSymlink() {
+  const b = mkdtempSync(join(tmpdir(), 'tsc-probe-'))
+  try {
+    symlinkSync(join(b, 'x'), join(b, 'y'), 'file')
+    return true
+  } catch {
+    return false
+  } finally {
+    rmSync(b, { recursive: true, force: true })
+  }
+}
+
+const CAN_SYMLINK = canSymlink()
+const skipIfNoSymlink = CAN_SYMLINK ? false : '当前环境不允许创建符号链接（Windows 需开发者模式或管理员）'
+
+/** 建工作区 + 工作区外的私有主题文件；返回 { base, cwd, outside }。 */
+function leakWorkspace() {
+  const base = mkdtempSync(join(tmpdir(), 'tsc-leak-'))
+  const cwd = join(base, 'workspace')
+  const outside = join(base, 'outside')
+  mkdirSync(cwd, { recursive: true })
+  mkdirSync(outside, { recursive: true })
+  writeFileSync(join(outside, 'private-theme.css'), SECRET_CSS, 'utf8')
+  return { base, cwd, outside }
+}
+
+/** 断言 import 的返回值里不含外部哨兵色（即没有读到工作区外的文件）。 */
+async function assertNoLeak(cwd, args, label) {
+  const res = await importStyle(cwd, { id: 'probe', dry_run: true, ...args })
+  const leaked = String(res.content).toLowerCase().includes(SECRET.slice(1))
+  assert.equal(leaked, false, `${label}：外部文件内容进入了返回结果`)
+}
+
+await test('自动导入：components.json 指向工作区外（相对越界）时拒绝读取', async () => {
+  const { base, cwd } = leakWorkspace()
+  try {
+    write(cwd, 'package.json', JSON.stringify({ dependencies: { tailwindcss: '^3' } }))
+    write(cwd, 'components.json', JSON.stringify({ tailwind: { css: '../outside/private-theme.css' } }))
+    await assertNoLeak(cwd, { stack: 'shadcn' }, 'components.json 相对越界')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('自动导入：components.json 指向工作区外（绝对路径）时拒绝读取', async () => {
+  const { base, cwd, outside } = leakWorkspace()
+  try {
+    write(cwd, 'package.json', JSON.stringify({ dependencies: { tailwindcss: '^3' } }))
+    write(cwd, 'components.json', JSON.stringify({ tailwind: { css: join(outside, 'private-theme.css') } }))
+    await assertNoLeak(cwd, { stack: 'shadcn' }, 'components.json 绝对越界')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('自动导入：app/globals.css 为符号链接时拒绝读取', { skip: skipIfNoSymlink }, async () => {
+  const { base, cwd, outside } = leakWorkspace()
+  try {
+    mkdirSync(join(cwd, 'app'), { recursive: true })
+    symlinkSync(join(outside, 'private-theme.css'), join(cwd, 'app', 'globals.css'), 'file')
+    await assertNoLeak(cwd, { stack: 'shadcn' }, 'globals.css 为符号链接')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('自动导入：tailwind.config.js 为符号链接时拒绝读取', { skip: skipIfNoSymlink }, async () => {
+  const { base, cwd, outside } = leakWorkspace()
+  try {
+    write(cwd, 'app/globals.css', ':root{}')
+    symlinkSync(join(outside, 'private-theme.css'), join(cwd, 'tailwind.config.js'), 'file')
+    await assertNoLeak(cwd, { stack: 'shadcn' }, 'tailwind.config.js 为符号链接')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('自动导入：AntD 的 src/App.tsx 为符号链接时拒绝读取', { skip: skipIfNoSymlink }, async () => {
+  const { base, cwd, outside } = leakWorkspace()
+  try {
+    mkdirSync(join(cwd, 'src'), { recursive: true })
+    writeFileSync(join(outside, 'App.tsx'), `<ConfigProvider theme={{ token: { colorPrimary: '${SECRET}', borderRadius: 8 } }} />`, 'utf8')
+    symlinkSync(join(outside, 'App.tsx'), join(cwd, 'src', 'App.tsx'), 'file')
+    write(cwd, 'package.json', JSON.stringify({ dependencies: { antd: '^5' } }))
+    await assertNoLeak(cwd, { stack: 'antd' }, 'src/App.tsx 为符号链接')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('自动导入：候选目录为目录联接（junction）时拒绝读取', { skip: skipIfNoSymlink }, async () => {
+  const { base, cwd, outside } = leakWorkspace()
+  try {
+    mkdirSync(join(outside, 'app'), { recursive: true })
+    writeFileSync(join(outside, 'app', 'globals.css'), SECRET_CSS, 'utf8')
+    symlinkSync(join(outside, 'app'), join(cwd, 'app'), 'junction')
+    await assertNoLeak(cwd, { stack: 'shadcn' }, 'app/ 为目录联接')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('自动导入：工作区内的正常主题仍可读取（加固误伤回归）', async () => {
+  const cwd = workspace()
+  write(cwd, 'package.json', JSON.stringify({ dependencies: { tailwindcss: '^3' } }))
+  write(cwd, 'components.json', JSON.stringify({ tailwind: { css: 'app/globals.css' } }))
+  write(cwd, 'app/globals.css', SECRET_CSS)
+  const res = await importStyle(cwd, { id: 'ok-theme', stack: 'shadcn', set_current: false })
+  assert.equal(res.isError, undefined, res.content)
+  const tokens = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas/library/ok-theme/tokens.json'), 'utf8'))
+  assert.equal(tokens.color.primitives.brand['500'], SECRET, '工作区内的主色应被正常读取')
+})
+
+console.log('OK 适配器导入：shadcn/AntD 的观测、推断、确定性、反例与工作区边界全部通过')

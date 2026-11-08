@@ -51508,7 +51508,7 @@ var init_fs = __esm({
 
 // node_modules/@puppeteer/browsers/lib/fileUtil.js
 import { spawnSync, spawn, execFile } from "node:child_process";
-import { constants as constants2, createReadStream, createWriteStream as createWriteStream2 } from "node:fs";
+import { constants as constants3, createReadStream, createWriteStream as createWriteStream2 } from "node:fs";
 import { lstat as lstat2, mkdir as mkdir2, readdir as readdir2, symlink as symlink2 } from "node:fs/promises";
 import * as path9 from "node:path";
 import { Stream, Writable as Writable2 } from "node:stream";
@@ -51720,7 +51720,7 @@ function isValidSymlinkTarget(linkTarget, depth) {
   return true;
 }
 async function extractZipEntry(zipFile, entry, folderPath) {
-  const { S_IFMT, S_IFDIR, S_IFLNK } = constants2;
+  const { S_IFMT, S_IFDIR, S_IFLNK } = constants3;
   const unixMode = entry.externalFileAttributes >>> 16;
   const isDirectory = (unixMode & S_IFMT) === S_IFDIR || entry.fileName.endsWith("/") || entry.versionMadeBy >> 8 === 0 && entry.externalFileAttributes === 16;
   const isSymlink = (unixMode & S_IFMT) === S_IFLNK;
@@ -51918,7 +51918,7 @@ var init_ProgressBar = __esm({
 // node_modules/@puppeteer/browsers/lib/install.js
 import assert3 from "node:assert";
 import { spawnSync as spawnSync2 } from "node:child_process";
-import { existsSync as existsSync9, readFileSync as readFileSync9 } from "node:fs";
+import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
 import { mkdir as mkdir3, unlink } from "node:fs/promises";
 import os5 from "node:os";
 import path10 from "node:path";
@@ -51972,7 +51972,7 @@ async function installWithProviders(options) {
         continue;
       }
       logger?.(DEBUG_PREFIXES2.install)?.(`Successfully got URL from ${provider.getName()}: ${url}`);
-      if (!existsSync9(browserRoot)) {
+      if (!existsSync7(browserRoot)) {
         await mkdir3(browserRoot, { recursive: true });
       }
       return await installUrl(url, options, provider, logger);
@@ -52011,11 +52011,11 @@ async function installDeps(installedBrowser, logger) {
     return;
   }
   const depsPath = path10.join(path10.dirname(installedBrowser.executablePath), "deb.deps");
-  if (!existsSync9(depsPath)) {
+  if (!existsSync7(depsPath)) {
     logger?.(DEBUG_PREFIXES2.install)?.(`deb.deps file was not found at ${depsPath}`);
     return;
   }
-  const data = readFileSync9(depsPath, "utf-8").split("\n").join(",");
+  const data = readFileSync7(depsPath, "utf-8").split("\n").join(",");
   if (process.getuid?.() !== 0) {
     throw new Error("Installing system dependencies requires root privileges");
   }
@@ -52057,14 +52057,14 @@ async function installUrl(url, options, provider, logger) {
   if (path10.dirname(path10.resolve(archivePath)) !== path10.resolve(browserRoot) || path10.basename(path10.resolve(archivePath)) !== archiveName) {
     throw new Error(`Invalid archive path: ${archiveName}`);
   }
-  if (!existsSync9(browserRoot)) {
+  if (!existsSync7(browserRoot)) {
     await mkdir3(browserRoot, { recursive: true });
   }
   if (options.expectedHash) {
     logger?.(DEBUG_PREFIXES2.install)?.(`Using provided checksum for ${fileName}: ${options.expectedHash}`);
   }
   if (!options.unpack) {
-    if (existsSync9(archivePath)) {
+    if (existsSync7(archivePath)) {
       return archivePath;
     }
     logger?.(DEBUG_PREFIXES2.install)?.(`Downloading binary from ${url}`);
@@ -52084,8 +52084,8 @@ async function installUrl(url, options, provider, logger) {
     cache.writeExecutablePath(options.browser, options.platform, options.buildId, relativeExecutablePath6);
   }
   try {
-    if (existsSync9(outputPath)) {
-      if (!existsSync9(installedBrowser.executablePath)) {
+    if (existsSync7(outputPath)) {
+      if (!existsSync7(installedBrowser.executablePath)) {
         throw new IncompleteInstallationError(`The browser folder (${outputPath}) exists but the executable (${installedBrowser.executablePath}) is missing. An earlier install of this build probably did not finish. Delete ${outputPath} and install the browser again.`);
       }
       await runSetup(installedBrowser, logger);
@@ -52094,7 +52094,7 @@ async function installUrl(url, options, provider, logger) {
       }
       return installedBrowser;
     }
-    if (!existsSync9(archivePath)) {
+    if (!existsSync7(archivePath)) {
       logger?.(DEBUG_PREFIXES2.install)?.(`Downloading binary from ${url}`);
       try {
         debugTime("download");
@@ -52123,7 +52123,7 @@ async function installUrl(url, options, provider, logger) {
     }
     return installedBrowser;
   } finally {
-    if (existsSync9(archivePath)) {
+    if (existsSync7(archivePath)) {
       await unlink(archivePath);
     }
   }
@@ -52134,7 +52134,7 @@ async function runSetup(installedBrowser, logger) {
       debugTime("permissions");
       const browserDir = path10.dirname(installedBrowser.executablePath);
       const setupExePath = path10.join(browserDir, "setup.exe");
-      if (!existsSync9(setupExePath)) {
+      if (!existsSync7(setupExePath)) {
         return;
       }
       spawnSync2(path10.join(browserDir, "setup.exe"), [`--configure-browser-in-directory=` + browserDir], {
@@ -54085,7 +54085,7 @@ var init_yargs_parser = __esm({
 // node_modules/yargs-parser/build/lib/index.js
 import { format } from "util";
 import { normalize as normalize2, resolve as resolve5 } from "path";
-import { readFileSync as readFileSync10 } from "fs";
+import { readFileSync as readFileSync8 } from "fs";
 import { createRequire } from "node:module";
 var _a8, _b, _c, minNodeVersion, nodeVersion, env, require2, parser, yargsParser, lib_default;
 var init_lib2 = __esm({
@@ -54114,7 +54114,7 @@ var init_lib2 = __esm({
         if (typeof require2 !== "undefined") {
           return require2(path14);
         } else if (path14.match(/\.json$/)) {
-          return JSON.parse(readFileSync10(path14, "utf8"));
+          return JSON.parse(readFileSync8(path14, "utf8"));
         } else {
           throw Error("only .json config files are supported in ESM");
         }
@@ -54288,7 +54288,7 @@ var init_string_width3 = __esm({
 });
 
 // node_modules/y18n/build/lib/platform-shims/node.js
-import { readFileSync as readFileSync11, statSync as statSync3, writeFile } from "fs";
+import { readFileSync as readFileSync9, statSync as statSync3, writeFile } from "fs";
 import { format as format2 } from "util";
 import { resolve as resolve6 } from "path";
 var node_default;
@@ -54296,7 +54296,7 @@ var init_node = __esm({
   "node_modules/y18n/build/lib/platform-shims/node.js"() {
     node_default = {
       fs: {
-        readFileSync: readFileSync11,
+        readFileSync: readFileSync9,
         writeFile
       },
       format: format2,
@@ -54520,7 +54520,7 @@ import { inspect } from "util";
 import { fileURLToPath as fileURLToPath3 } from "url";
 import { basename as basename3, dirname as dirname4, extname, relative as relative3, resolve as resolve7, join as join11 } from "path";
 import { createRequire as createRequire2 } from "node:module";
-import { readFileSync as readFileSync12, readdirSync as readdirSync4 } from "node:fs";
+import { readFileSync as readFileSync10, readdirSync as readdirSync4 } from "node:fs";
 var import_get_caller_file, __dirname, mainFilename, require3, esm_default;
 var init_esm = __esm({
   "node_modules/yargs/lib/platform-shims/esm.mjs"() {
@@ -54568,7 +54568,7 @@ var init_esm = __esm({
         nextTick: process.nextTick,
         stdColumns: typeof process.stdout.columns !== "undefined" ? process.stdout.columns : null
       },
-      readFileSync: readFileSync12,
+      readFileSync: readFileSync10,
       readdirSync: readdirSync4,
       require: require3,
       getCallerFile: () => {
@@ -58855,15 +58855,15 @@ var init_PipeTransport = __esm({
 });
 
 // node_modules/puppeteer-core/lib/puppeteer/node/BrowserLauncher.js
-import { accessSync as accessSync2, constants as constants3, existsSync as existsSync10, rmSync as rmSync4 } from "node:fs";
+import { accessSync as accessSync2, constants as constants4, existsSync as existsSync8, rmSync as rmSync4 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as join12 } from "node:path";
 function isWritableDirectory(directory) {
   try {
-    accessSync2(directory, constants3.W_OK);
+    accessSync2(directory, constants4.W_OK);
     return true;
   } catch {
-    return !existsSync10(directory);
+    return !existsSync8(directory);
   }
 }
 function getBrowserTypeDisplayName(browserType) {
@@ -58966,7 +58966,7 @@ var init_BrowserLauncher = __esm({
           ...options,
           protocol
         });
-        if (!existsSync10(launchArgs.executablePath)) {
+        if (!existsSync8(launchArgs.executablePath)) {
           if (launchArgs.isTempUserDataDir) {
             await this.cleanUserDataDir(launchArgs.userDataDir, {
               isTemp: true
@@ -59073,7 +59073,7 @@ var init_BrowserLauncher = __esm({
           const logs = browserProcess.getRecentLogs().join("\n");
           if (logs.includes("Failed to create a ProcessSingleton for your profile directory") || // On Windows we will not get logs due to the singleton process handover. See
           // https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/process_singleton_win.cc;l=46;drc=fc7952f0422b5073515a205a04ec9c3a1ae81658
-          process.platform === "win32" && existsSync10(join12(launchArgs.userDataDir, "lockfile"))) {
+          process.platform === "win32" && existsSync8(join12(launchArgs.userDataDir, "lockfile"))) {
             if (!isWritableDirectory(launchArgs.userDataDir)) {
               throw new Error(`The browser cannot write to ${launchArgs.userDataDir}. Make the \`userDataDir\` writable or use a different one.`);
             }
@@ -59220,7 +59220,7 @@ var init_BrowserLauncher = __esm({
         const config2 = await this.puppeteer.configuration();
         let executablePath2 = config2.executablePath;
         if (executablePath2) {
-          if (validatePath && !existsSync10(executablePath2)) {
+          if (validatePath && !existsSync8(executablePath2)) {
             throw new Error(`Tried to find the browser at the configured path (${executablePath2}), but no executable was found.`);
           }
           return executablePath2;
@@ -59245,7 +59245,7 @@ var init_BrowserLauncher = __esm({
           browser: browserType,
           buildId: browserVersion
         });
-        if (validatePath && !existsSync10(executablePath2)) {
+        if (validatePath && !existsSync8(executablePath2)) {
           const configVersion = config2?.[this.browser]?.version;
           if (configVersion) {
             throw new Error(`Tried to find the browser at the configured path (${executablePath2}) for version ${configVersion}, but no executable was found.`);
@@ -60484,7 +60484,7 @@ function warnUser(message) {
 
 // src/tools.ts
 import { spawn as spawn5 } from "node:child_process";
-import { existsSync as existsSync16, mkdirSync as mkdirSync5 } from "node:fs";
+import { existsSync as existsSync14, mkdirSync as mkdirSync5 } from "node:fs";
 import { dirname as dirname6, isAbsolute as isAbsolute4, join as join17, resolve as resolve9 } from "node:path";
 
 // src/design.ts
@@ -60522,9 +60522,11 @@ function newCommentId() {
 }
 
 // src/paths.ts
-import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
+var O_NOFOLLOW = constants.O_NOFOLLOW;
+var O_RDONLY = constants.O_RDONLY;
 var PathBoundaryError = class extends Error {
 };
 function caseFold(p) {
@@ -60586,6 +60588,66 @@ function assertReadableFile(cwd, abs, label = "\u6587\u4EF6") {
   if (info.isSymbolicLink()) throw new PathBoundaryError(`${label}\u662F\u7B26\u53F7\u94FE\u63A5\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${abs}`);
   if (!info.isFile()) throw new Error(`${label}\u4E0D\u662F\u666E\u901A\u6587\u4EF6\uFF1A${abs}`);
   return abs;
+}
+function confineToWorkspace(cwd, abs) {
+  const target = resolve(abs);
+  if (!insideLexically(cwd, target)) return null;
+  let probe = target;
+  while (!existsSync(probe)) {
+    const parent = resolve(probe, "..");
+    if (parent === probe) break;
+    probe = parent;
+  }
+  let probeReal;
+  try {
+    probeReal = realpathSync(probe);
+  } catch {
+    return null;
+  }
+  if (!isInside(realRoot(cwd), probeReal)) return null;
+  if (existsSync(target)) {
+    if (isLink(target)) return null;
+    try {
+      if (!isInside(realRoot(cwd), realpathSync(target))) return null;
+    } catch {
+      return null;
+    }
+  }
+  return target;
+}
+function readConfined(cwd, abs) {
+  const target = confineToWorkspace(cwd, abs);
+  if (target === null) return null;
+  const noFollow = O_NOFOLLOW ?? 0;
+  let fd;
+  try {
+    fd = openSync(target, O_RDONLY | noFollow);
+  } catch {
+    return null;
+  }
+  try {
+    const info = fstatSync(fd);
+    if (!info.isFile()) return null;
+    try {
+      if (!isInside(realRoot(cwd), realpathSync(target))) return null;
+    } catch {
+      return null;
+    }
+    return readFileSync(fd, "utf8");
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+function existsConfinedPath(cwd, abs) {
+  const safe = confineToWorkspace(cwd, abs);
+  if (safe === null) return false;
+  try {
+    return lstatSync(safe).isFile();
+  } catch {
+    return false;
+  }
 }
 function readTextInWorkspace(cwd, abs, label = "\u6587\u4EF6") {
   const target = resolve(abs);
@@ -62544,7 +62606,6 @@ function textOf(node) {
 }
 
 // src/adapters/antd.ts
-import { existsSync as existsSync6, readFileSync as readFileSync6 } from "node:fs";
 import { join as join6 } from "node:path";
 
 // src/adapters/import.ts
@@ -63047,9 +63108,8 @@ var SOURCE_EXT = [".tsx", ".ts", ".jsx", ".js"];
 function findConfigProvider(cwd) {
   const candidates = ["src/App.tsx", "src/App.jsx", "src/main.tsx", "src/main.jsx", "src/index.tsx", "app/layout.tsx", "src/app/layout.tsx", "app/providers.tsx"];
   for (const rel of candidates) {
-    const abs = join6(cwd, rel);
-    if (!existsSync6(abs)) continue;
-    const text = readFileSync6(abs, "utf8");
+    const text = readConfined(cwd, join6(cwd, rel));
+    if (text === null) continue;
     if (text.includes("ConfigProvider") && text.includes("theme")) return { file: rel, text };
   }
   return null;
@@ -63068,16 +63128,17 @@ function readLiteral(text) {
   return out;
 }
 function readPackage(cwd) {
-  const file = join6(cwd, "package.json");
-  if (!existsSync6(file)) return null;
+  const text = readConfined(cwd, join6(cwd, "package.json"));
+  if (text === null) return null;
   try {
-    return JSON.parse(readFileSync6(file, "utf8"));
+    return JSON.parse(text);
   } catch {
     return null;
   }
 }
-function walkFiles(dir, depth, out) {
+function walkFiles(cwd, dir, depth, out) {
   if (depth <= 0) return;
+  if (confineToWorkspace(cwd, dir) === null) return;
   let entries;
   try {
     entries = __require("node:fs").readdirSync(dir, { withFileTypes: true });
@@ -63087,7 +63148,7 @@ function walkFiles(dir, depth, out) {
   for (const entry of entries) {
     if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
     const abs = join6(dir, entry.name);
-    if (entry.isDirectory()) walkFiles(abs, depth - 1, out);
+    if (entry.isDirectory()) walkFiles(cwd, abs, depth - 1, out);
     else if (entry.isFile() && SOURCE_EXT.some((ext) => entry.name.endsWith(ext)) && /(?:^|[\\/])(?:src|app|pages)[\\/]/.test(abs)) out.push(abs);
   }
 }
@@ -63108,7 +63169,6 @@ var antdAdapter = {
     let literal = {};
     if (sourcePath) {
       const abs = sourcePath.startsWith(cwd) ? sourcePath : join6(cwd, sourcePath);
-      if (!existsSync6(abs)) throw new Error(`\u627E\u4E0D\u5230\u4E3B\u9898\u6587\u4EF6\uFF1A${sourcePath}`);
       const text = readTextInWorkspace(cwd, abs, "\u4E3B\u9898\u6587\u4EF6");
       literal = readLiteral(text);
       source2 = sourcePath;
@@ -63120,10 +63180,10 @@ var antdAdapter = {
       }
       if (Object.keys(literal).length === 0) {
         const files = [];
-        walkFiles(cwd, 3, files);
+        walkFiles(cwd, cwd, 3, files);
         for (const file of files) {
-          const text = readFileSync6(file, "utf8");
-          if (!text.includes("ConfigProvider")) continue;
+          const text = readConfined(cwd, file);
+          if (text === null || !text.includes("ConfigProvider")) continue;
           const found = readLiteral(text);
           if (Object.keys(found).length > 0) {
             literal = found;
@@ -63410,7 +63470,6 @@ function renderReadme(ctx) {
 }
 
 // src/adapters/tailwind-shadcn.ts
-import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
 import { join as join7 } from "node:path";
 var TS_RANK = {
   "ts-btn": "button",
@@ -63451,23 +63510,20 @@ var TS_UTILITY = {
 function hasDep(pkg, name) {
   return Boolean(pkg.dependencies?.[name] ?? pkg.devDependencies?.[name]);
 }
-function readPackage2(cwd) {
-  const file = join7(cwd, "package.json");
-  if (!existsSync7(file)) return null;
+function readJsonInWorkspace(cwd, rel) {
+  const text = readConfined(cwd, join7(cwd, rel));
+  if (text === null) return null;
   try {
-    return JSON.parse(readFileSync7(file, "utf8"));
+    return JSON.parse(text);
   } catch {
     return null;
   }
 }
+function readPackage2(cwd) {
+  return readJsonInWorkspace(cwd, "package.json");
+}
 function readComponentsJson(cwd) {
-  const file = join7(cwd, "components.json");
-  if (!existsSync7(file)) return null;
-  try {
-    return JSON.parse(readFileSync7(file, "utf8"));
-  } catch {
-    return null;
-  }
+  return readJsonInWorkspace(cwd, "components.json");
 }
 function resolveCssPath(cwd, components) {
   const candidates = [];
@@ -63482,8 +63538,8 @@ function resolveCssPath(cwd, components) {
     "index.css"
   );
   for (const c of candidates) {
-    const abs = join7(cwd, c);
-    if (existsSync7(abs)) return abs;
+    const safe = confineToWorkspace(cwd, join7(cwd, c));
+    if (safe !== null) return safe;
   }
   return null;
 }
@@ -63514,8 +63570,9 @@ function collectTheme(cwd, components) {
   const colors = {};
   const radii = {};
   let source2 = "";
-  if (cssPath) {
-    const css = readFileSync7(cssPath, "utf8");
+  const cssText = cssPath ? readConfined(cwd, cssPath) : null;
+  if (cssPath && cssText !== null) {
+    const css = cssText;
     source2 = cssPath.slice(cwd.length + 1).replace(/\\/g, "/");
     for (const [name, raw] of Object.entries(readCssVars(css, "root"))) {
       if (name === "--radius") {
@@ -63533,9 +63590,8 @@ function collectTheme(cwd, components) {
     }
   }
   for (const file of ["tailwind.config.ts", "tailwind.config.js", "tailwind.config.mjs", "tailwind.config.cjs"]) {
-    const abs = join7(cwd, file);
-    if (!existsSync7(abs)) continue;
-    const text = readFileSync7(abs, "utf8");
+    const text = readConfined(cwd, join7(cwd, file));
+    if (text === null) continue;
     if (!source2) source2 = file;
     for (const m of text.matchAll(/(['"]?)([a-zA-Z][a-zA-Z0-9-]*)\1\s*:\s*(['"])(#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]*\)|hsl[a]?\([^)]*\)|oklch\([^)]*\))\3/g)) {
       const key = m[2];
@@ -63550,9 +63606,8 @@ function collectTheme(cwd, components) {
     }
     break;
   }
-  if (Object.keys(colors).length === 0 && cssPath) {
-    const css = readFileSync7(cssPath, "utf8");
-    for (const [name, raw] of Object.entries(readCssVars(css, "root"))) {
+  if (Object.keys(colors).length === 0 && cssText !== null) {
+    for (const [name, raw] of Object.entries(readCssVars(cssText, "root"))) {
       if (!name.startsWith("--ts-color-")) continue;
       colors[name.replace(/^--ts-color-/, "")] = raw;
     }
@@ -63581,8 +63636,8 @@ var shadcnAdapter = {
     const components = readComponentsJson(cwd);
     const theme = sourcePath ? (() => {
       const abs = sourcePath.startsWith(cwd) ? sourcePath : join7(cwd, sourcePath);
-      if (!existsSync7(abs)) return null;
-      const css = readTextInWorkspace(cwd, abs, "\u6837\u5F0F\u6587\u4EF6");
+      const css = existsConfinedPath(cwd, abs) ? readTextInWorkspace(cwd, abs, "\u6837\u5F0F\u6587\u4EF6") : null;
+      if (css === null) return null;
       const colors = {};
       const radii = {};
       for (const [name, raw] of Object.entries(readCssVars(css, "root"))) {
@@ -64593,7 +64648,7 @@ function formatContractReport(result, label) {
 
 // src/export.ts
 import { spawn as spawn4 } from "node:child_process";
-import { existsSync as existsSync11, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync13, readdirSync as readdirSync5, rmSync as rmSync5, statSync as statSync4 } from "node:fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync11, readdirSync as readdirSync5, rmSync as rmSync5, statSync as statSync4 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join13 } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -64601,7 +64656,7 @@ import { deflateRawSync } from "node:zlib";
 // src/server.ts
 import http from "node:http";
 import { createHash as createHash3 } from "node:crypto";
-import { existsSync as existsSync8, readFileSync as readFileSync8, statSync } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync6, statSync } from "node:fs";
 import { join as join8 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
@@ -65166,7 +65221,7 @@ function routeRequest(req, res) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
     const file = join8(exportsDir(cwd), name);
-    if (!existsSync8(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    if (!existsSync6(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     try {
       assertReadableFile(cwd, file, "\u5BFC\u51FA\u6587\u4EF6");
     } catch (err) {
@@ -65174,7 +65229,7 @@ function routeRequest(req, res) {
       return send(res, 404, "text/plain; charset=utf-8", "not found");
     }
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
-    const data = readFileSync8(file);
+    const data = readFileSync6(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
     res.end(data);
     return;
@@ -65445,13 +65500,13 @@ function isLocalHost(host) {
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
   const file = join8(WEB_DIR, name);
-  if (!existsSync8(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
+  if (!existsSync6(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
   res.writeHead(200, headers);
-  res.end(readFileSync8(file));
+  res.end(readFileSync6(file));
 }
 function sendUntrustedHtml(res, html) {
   res.writeHead(200, {
@@ -65640,7 +65695,7 @@ var BROWSER_CANDIDATES = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ].filter((p) => typeof p === "string" && p.length > 0);
 function resolveBrowser() {
-  return BROWSER_CANDIDATES.find((p) => existsSync11(p)) ?? null;
+  return BROWSER_CANDIDATES.find((p) => existsSync9(p)) ?? null;
 }
 function exportsDir(cwd) {
   return join13(projectDir(cwd), "exports");
@@ -65709,8 +65764,8 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
       }
       throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
     }
-    if (existsSync11(portFile)) {
-      const lines = readFileSync13(portFile, "utf8").split("\n");
+    if (existsSync9(portFile)) {
+      const lines = readFileSync11(portFile, "utf8").split("\n");
       const port = lines[0]?.trim();
       const wsPath = lines[1]?.trim();
       if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
@@ -65823,7 +65878,7 @@ async function exportPngOnce(cwd) {
     const path14 = join13(dir, name);
     assertWritableTarget(cwd, path14, "\u622A\u56FE\u5BFC\u51FA\u76EE\u6807");
     await page.screenshot({ path: path14, clip: clip ?? void 0 });
-    return { name, path: path14, bytes: readFileSync13(path14).length };
+    return { name, path: path14, bytes: readFileSync11(path14).length };
   } finally {
     await dispose();
   }
@@ -65980,7 +66035,7 @@ async function runExport(cwd, kind) {
 
 // src/audit/drift.ts
 import { createHash as createHash5 } from "node:crypto";
-import { existsSync as existsSync12 } from "node:fs";
+import { existsSync as existsSync10 } from "node:fs";
 import { join as join14 } from "node:path";
 function hash(text) {
   return createHash5("sha1").update(text).digest("hex").slice(0, 12);
@@ -66030,7 +66085,7 @@ function diffSnapshots(before, after) {
   };
 }
 function readSnapshot(cwd, file) {
-  if (!existsSync12(file)) return null;
+  if (!existsSync10(file)) return null;
   try {
     return JSON.parse(readTextInWorkspace(cwd, file, "\u8BBE\u8BA1\u5FEB\u7167"));
   } catch {
@@ -66054,7 +66109,7 @@ function formatDriftReport(result, before, after) {
 }
 
 // src/audit/visual.ts
-import { existsSync as existsSync13, readFileSync as readFileSync14 } from "node:fs";
+import { existsSync as existsSync11, readFileSync as readFileSync12 } from "node:fs";
 import { join as join15 } from "node:path";
 
 // src/audit/png.ts
@@ -66260,7 +66315,7 @@ function compareWithBaselines(cwd, styleId, dir, options = {}) {
       for (const node of project.nodes) {
         const file = baselineFile(dir, styleId, node.id, node.deviceType);
         const buf = await capturePage(page, url, node.id);
-        if (!existsSync13(file)) {
+        if (!existsSync11(file)) {
           missing.push(`${node.title}\uFF08${node.id}\uFF09`);
           if (options.updateMissing) {
             writeFileInWorkspace(cwd, file, buf, "\u89C6\u89C9\u57FA\u7EBF");
@@ -66271,9 +66326,9 @@ function compareWithBaselines(cwd, styleId, dir, options = {}) {
         const plainBaseline = join15(file, "..", `${node.id}@${node.deviceType}@2x.plain.png`);
         const readBaseline = (p) => {
           assertInsideWorkspace(cwd, p, "\u89C6\u89C9\u57FA\u7EBF");
-          return readFileSync14(p);
+          return readFileSync12(p);
         };
-        if (existsSync13(plainBaseline)) {
+        if (existsSync11(plainBaseline)) {
           const a2 = decodePng(readBaseline(plainBaseline));
           const b2 = decodePng(buf);
           compared.push({ pageId: node.id, title: node.title, baseline: plainBaseline, diff: diffPng(a2, b2, { threshold: options.threshold }) });
@@ -66303,7 +66358,7 @@ ${result.written.map((b2) => `  - ${b2.title} \u2192 ${b2.file}`).join("\n")}`;
 }
 
 // src/brand.ts
-import { existsSync as existsSync14, mkdirSync as mkdirSync4 } from "node:fs";
+import { existsSync as existsSync12, mkdirSync as mkdirSync4 } from "node:fs";
 import { dirname as dirname5, join as join16, resolve as resolve8 } from "node:path";
 function memoryDir(cwd) {
   return join16(projectDir(cwd), "memory");
@@ -66317,7 +66372,7 @@ function emptyStyleMemory() {
 }
 function readMemory(cwd) {
   const file = memoryFile(cwd);
-  if (!existsSync14(file)) return { ...EMPTY3, styles: {} };
+  if (!existsSync12(file)) return { ...EMPTY3, styles: {} };
   try {
     const parsed = JSON.parse(readTextInWorkspace(cwd, file, "\u54C1\u724C\u8BB0\u5FC6"));
     if (parsed.schemaVersion !== 1 || typeof parsed.styles !== "object" || parsed.styles === null) {
@@ -66392,7 +66447,7 @@ function buildBrandPack(cwd, styleId, builtinDir) {
   const dir = customStyleDir(cwd, styleId);
   const tokensFile = join16(dir, "tokens.json");
   const metaFile = join16(dir, "meta.json");
-  if (!existsSync14(tokensFile) || !existsSync14(metaFile)) {
+  if (!existsSync12(tokensFile) || !existsSync12(metaFile)) {
     throw new Error(`\u300C${styleId}\u300D\u4E0D\u662F\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u5185\u7F6E\u98CE\u683C\u4E0D\u80FD\u5BFC\u51FA\u4E3A\u54C1\u724C\u5305\uFF09\u3002`);
   }
   const tokens = JSON.parse(readTextInWorkspace(cwd, tokensFile, "\u81EA\u5B9A\u4E49\u98CE\u683C tokens"));
@@ -66478,7 +66533,7 @@ function positiveOr(value, fallback) {
 }
 
 // src/extract.ts
-import { existsSync as existsSync15, readFileSync as readFileSync15 } from "node:fs";
+import { existsSync as existsSync13, readFileSync as readFileSync13 } from "node:fs";
 
 // src/netFetch.ts
 import { lookup as dnsLookup } from "node:dns";
@@ -66885,8 +66940,8 @@ async function gather(input2, warnings) {
     if (/<[a-z!/]/i.test(input2.source)) htmlText = input2.source;
     else cssText = input2.source;
   } else if (input2.file) {
-    if (!existsSync15(input2.file)) throw new Error(`\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${input2.file}`);
-    const text = input2.cwd ? readTextInWorkspace(input2.cwd, input2.file, "\u6765\u6E90\u6587\u4EF6") : readFileSync15(input2.file, "utf8");
+    if (!existsSync13(input2.file)) throw new Error(`\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${input2.file}`);
+    const text = input2.cwd ? readTextInWorkspace(input2.cwd, input2.file, "\u6765\u6E90\u6587\u4EF6") : readFileSync13(input2.file, "utf8");
     if (/\.css$/i.test(input2.file) || !/<[a-z!/]/i.test(text)) cssText = text;
     else htmlText = text;
   } else if (input2.url) {
@@ -67660,7 +67715,7 @@ async function canvasUpsertPage(call) {
   const htmlPath = str(args.html_path);
   let html;
   if (htmlPath) {
-    if (!existsSync16(htmlPath)) {
+    if (!existsSync14(htmlPath)) {
       return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A\u6587\u4EF6\u4E0D\u5B58\u5728 ${htmlPath}`, isError: true };
     }
     try {
@@ -68558,7 +68613,7 @@ checksum\uFF1A${pack.checksum.slice(0, 16)}\u2026\uFF08\u5BFC\u5165\u65F6\u4F1A\
       const rawPath = str(call.args.pack_path);
       if (!rawPath) return { content: "import_pack \u9700\u8981 pack_path\uFF08\u54C1\u724C\u5305 JSON \u7684\u8DEF\u5F84\uFF09\u3002", isError: true };
       const file = isAbsolute4(rawPath) ? rawPath : join17(call.cwd, rawPath);
-      if (!existsSync16(file)) return { content: `\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF1A${file}`, isError: true };
+      if (!existsSync14(file)) return { content: `\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF1A${file}`, isError: true };
       let raw;
       try {
         raw = readTextInWorkspace(call.cwd, file, "\u54C1\u724C\u5305");

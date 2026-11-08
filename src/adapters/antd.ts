@@ -11,10 +11,9 @@
  * 布局用 AntD 的 Flex/Row/Col 与 style 对象，不输出 Tailwind 类。
  */
 
-import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CodeFile } from '../codegen.js'
-import { readTextInWorkspace } from '../paths.js'
+import { confineToWorkspace, readConfined, readTextInWorkspace } from '../paths.js'
 import { classesOf, textOf, type HtmlNode } from '../htmlTree.js'
 import { materializeTokens } from './import.js'
 import type { Adapter, AdapterContext, AdapterId, Detection, ImportResult } from './types.js'
@@ -34,13 +33,12 @@ const ANT_DEFAULT: Record<string, string | number> = {
 
 const SOURCE_EXT = ['.tsx', '.ts', '.jsx', '.js']
 
-/** 在工作区里找 ConfigProvider theme 字面量。 */
+/** 在工作区里找 ConfigProvider theme 字面量（自动发现的候选文件一律收敛到工作区内）。 */
 function findConfigProvider(cwd: string): { file: string; text: string } | null {
   const candidates = ['src/App.tsx', 'src/App.jsx', 'src/main.tsx', 'src/main.jsx', 'src/index.tsx', 'app/layout.tsx', 'src/app/layout.tsx', 'app/providers.tsx']
   for (const rel of candidates) {
-    const abs = join(cwd, rel)
-    if (!existsSync(abs)) continue
-    const text = readFileSync(abs, 'utf8')
+    const text = readConfined(cwd, join(cwd, rel))
+    if (text === null) continue
     if (text.includes('ConfigProvider') && text.includes('theme')) return { file: rel, text }
   }
   return null
@@ -61,17 +59,19 @@ function readLiteral(text: string): Record<string, string | number> {
 }
 
 function readPackage(cwd: string): Record<string, any> | null {
-  const file = join(cwd, 'package.json')
-  if (!existsSync(file)) return null
+  const text = readConfined(cwd, join(cwd, 'package.json'))
+  if (text === null) return null
   try {
-    return JSON.parse(readFileSync(file, 'utf8')) as Record<string, any>
+    return JSON.parse(text) as Record<string, any>
   } catch {
     return null
   }
 }
 
-function walkFiles(dir: string, depth: number, out: string[]): void {
+function walkFiles(cwd: string, dir: string, depth: number, out: string[]): void {
   if (depth <= 0) return
+  // 目录本身若被替换成指向工作区外的链接/联接，就不再往下走。
+  if (confineToWorkspace(cwd, dir) === null) return
   let entries: { name: string; isDirectory(): boolean; isFile(): boolean }[]
   try {
     entries = require('node:fs').readdirSync(dir, { withFileTypes: true })
@@ -81,7 +81,7 @@ function walkFiles(dir: string, depth: number, out: string[]): void {
   for (const entry of entries) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
     const abs = join(dir, entry.name)
-    if (entry.isDirectory()) walkFiles(abs, depth - 1, out)
+    if (entry.isDirectory()) walkFiles(cwd, abs, depth - 1, out)
     else if (entry.isFile() && SOURCE_EXT.some((ext) => entry.name.endsWith(ext)) && /(?:^|[\\/])(?:src|app|pages)[\\/]/.test(abs)) out.push(abs)
   }
 }
@@ -105,7 +105,6 @@ export const antdAdapter: Adapter = {
     let literal: Record<string, string | number> = {}
     if (sourcePath) {
       const abs = sourcePath.startsWith(cwd) ? sourcePath : join(cwd, sourcePath)
-      if (!existsSync(abs)) throw new Error(`找不到主题文件：${sourcePath}`)
       // 工作区内的来源文件按边界校验，避免经链接读到工作区外。
       const text = readTextInWorkspace(cwd, abs, '主题文件')
       literal = readLiteral(text)
@@ -118,10 +117,11 @@ export const antdAdapter: Adapter = {
       }
       if (Object.keys(literal).length === 0) {
         const files: string[] = []
-        walkFiles(cwd, 3, files)
+        walkFiles(cwd, cwd, 3, files)
         for (const file of files) {
-          const text = readFileSync(file, 'utf8')
-          if (!text.includes('ConfigProvider')) continue
+          // 扫描到的候选同样收敛：链接指向工作区外时跳过（不是读它）。
+          const text = readConfined(cwd, file)
+          if (text === null || !text.includes('ConfigProvider')) continue
           const found = readLiteral(text)
           if (Object.keys(found).length > 0) {
             literal = found

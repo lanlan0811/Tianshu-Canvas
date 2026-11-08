@@ -22,10 +22,19 @@
  * 「工作区内」的判定是**词法**的：调用方写下的路径若落在 cwd 内，就必须经得起真实路径校验；
  * 落在 cwd 外的路径视为用户显式指定（宿主 pathParams 守卫已核验），本模块不额外拒绝，
  * 但**仍然**用独占随机临时文件 + rename，避免跟随被预置的叶子链接。
+ *
+ * 另外（技术反馈 0.8.2）：**自动发现**的文件（`package.json` / `components.json` /
+ * `tailwind.config.*` / `app/globals.css` / `src/**` 等）属于**可被工作区内容改写**的输入，
+ * 不是用户显式指定，因此一律经 {@link confineToWorkspace} 收敛后再读——
+ * 配置里写成 `../outside/x.css`、或候选文件本身是指向工作区外的符号链接，都会被拒绝。
  */
-import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from 'node:fs'
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { basename, isAbsolute, join, relative, resolve } from 'node:path'
+
+/** `O_NOFOLLOW` 只在部分平台存在；缺失时按 0（退化为「打开后复检」）。 */
+const O_NOFOLLOW: number | undefined = (constants as { O_NOFOLLOW?: number }).O_NOFOLLOW
+const O_RDONLY: number = constants.O_RDONLY
 
 /** 路径越界 / 符号链接越界 / 边界被替换：属于调用方输入问题。 */
 export class PathBoundaryError extends Error {}
@@ -120,6 +129,96 @@ export function assertReadableFile(cwd: string, abs: string, label = '文件'): 
   if (info.isSymbolicLink()) throw new PathBoundaryError(`${label}是符号链接，已拒绝：${abs}`)
   if (!info.isFile()) throw new Error(`${label}不是普通文件：${abs}`)
   return abs
+}
+
+/**
+ * 把「自动发现」的候选路径收敛到工作区内；越界或不安全时返回 null（调用方跳过）。
+ *
+ * 与 {@link assertInsideWorkspace} 的区别：这是**尽力而为**的过滤——
+ * 配置里写了工作区外的路径、或候选文件是指向工作区外的链接，都不应让整个导入失败，
+ * 而是当作「该候选不存在」。因此不抛错，只返回 null。
+ *
+ * 校验三件事：
+ *   1. 词法上必须在 cwd 内（挡住 `../outside/x.css` 这类配置写法）；
+ *   2. 已存在的最深祖先的真实路径必须在 cwd 真实路径内（挡住链接父目录）；
+ *   3. 叶子若已存在，按**真实路径**必须在 cwd 内（挡住叶子是指向工作区外的链接）。
+ */
+export function confineToWorkspace(cwd: string, abs: string): string | null {
+  const target = resolve(abs)
+  if (!insideLexically(cwd, target)) return null
+  let probe = target
+  while (!existsSync(probe)) {
+    const parent = resolve(probe, '..')
+    if (parent === probe) break
+    probe = parent
+  }
+  let probeReal: string
+  try {
+    probeReal = realpathSync(probe)
+  } catch {
+    return null
+  }
+  if (!isInside(realRoot(cwd), probeReal)) return null
+  if (existsSync(target)) {
+    if (isLink(target)) return null
+    try {
+      if (!isInside(realRoot(cwd), realpathSync(target))) return null
+    } catch {
+      return null
+    }
+  }
+  return target
+}
+
+/**
+ * 「自动发现」文件的读取入口：收敛到工作区内后再读。
+ * 路径越界、叶子是链接、或文件不存在/不可读时返回 null（调用方按「未找到」处理）。
+ * 这是 package.json / components.json / tailwind.config.* / globals.css / src 扫描等
+ * 一切**由工作区内容决定**的读取的唯一入口，避免配置或链接把工作区外的文件读进来。
+ *
+ * 竞态处理（反馈点名的「检查后替换」）：先**打开**再校验——
+ *   - `O_NOFOLLOW`（支持的平台）让叶子是链接时 open 直接失败，不存在检查与打开的窗口；
+ *   - 打开后 `fstat(fd)` 必须是普通文件，且对**打开后的路径**再 realpath 一次仍在工作区内
+ *     （若在 open 之后被换成指向外部的链接，这次复检会发现）；
+ *   - 内容从 **fd** 读取，不再按路径二次解析，因此读到的一定是被校验的那个文件。
+ */
+export function readConfined(cwd: string, abs: string): string | null {
+  const target = confineToWorkspace(cwd, abs)
+  if (target === null) return null
+  // O_NOFOLLOW 在 Windows 上不存在；存在时用它把「叶子是链接」变成 open 失败（无窗口）。
+  const noFollow = O_NOFOLLOW ?? 0
+  let fd: number
+  try {
+    fd = openSync(target, O_RDONLY | noFollow)
+  } catch {
+    return null
+  }
+  try {
+    const info = fstatSync(fd)
+    if (!info.isFile()) return null
+    // open 之后路径被替换成指向工作区外的链接时，这里复检会失败。
+    try {
+      if (!isInside(realRoot(cwd), realpathSync(target))) return null
+    } catch {
+      return null
+    }
+    return readFileSync(fd, 'utf8')
+  } catch {
+    return null
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/** 路径是否在工作区内、已存在且为普通文件（不解码内容）。 */
+export function existsConfinedPath(cwd: string, abs: string): boolean {
+  const safe = confineToWorkspace(cwd, abs)
+  if (safe === null) return false
+  try {
+    return lstatSync(safe).isFile()
+  } catch {
+    return false
+  }
 }
 
 /**

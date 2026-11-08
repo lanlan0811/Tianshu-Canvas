@@ -10,10 +10,9 @@
  * `app/page.tsx` + `lib/theme.ts` + `tailwind.theme.css` + 落地说明。
  */
 
-import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CodeFile } from '../codegen.js'
-import { readTextInWorkspace } from '../paths.js'
+import { confineToWorkspace, existsConfinedPath, readConfined, readTextInWorkspace } from '../paths.js'
 import { classesOf, parseHtml, textOf, walkElements, type HtmlNode } from '../htmlTree.js'
 import { materializeTokens } from './import.js'
 import { toHex } from './color.js'
@@ -62,27 +61,30 @@ function hasDep(pkg: Record<string, any>, name: string): boolean {
   return Boolean(pkg.dependencies?.[name] ?? pkg.devDependencies?.[name])
 }
 
-function readPackage(cwd: string): Record<string, any> | null {
-  const file = join(cwd, 'package.json')
-  if (!existsSync(file)) return null
+/** 读工作区内的 JSON（`package.json` / `components.json` 等自动发现文件），越界或链接一律当不存在。 */
+function readJsonInWorkspace(cwd: string, rel: string): Record<string, any> | null {
+  const text = readConfined(cwd, join(cwd, rel))
+  if (text === null) return null
   try {
-    return JSON.parse(readFileSync(file, 'utf8')) as Record<string, any>
+    return JSON.parse(text) as Record<string, any>
   } catch {
     return null
   }
+}
+
+function readPackage(cwd: string): Record<string, any> | null {
+  return readJsonInWorkspace(cwd, 'package.json')
 }
 
 /** 读 components.json 的 aliases / tailwind css 路径。 */
 function readComponentsJson(cwd: string): Record<string, any> | null {
-  const file = join(cwd, 'components.json')
-  if (!existsSync(file)) return null
-  try {
-    return JSON.parse(readFileSync(file, 'utf8')) as Record<string, any>
-  } catch {
-    return null
-  }
+  return readJsonInWorkspace(cwd, 'components.json')
 }
 
+/**
+ * 解析样式文件路径。`components.json` 的 `tailwind.css` 是**工作区内容**，
+ * 可能写成 `../outside/x.css`；候选文件也可能是符号链接。两者都收敛到工作区内。
+ */
 function resolveCssPath(cwd: string, components: Record<string, any> | null): string | null {
   const candidates: string[] = []
   const css = components?.tailwind?.css
@@ -96,8 +98,8 @@ function resolveCssPath(cwd: string, components: Record<string, any> | null): st
     'index.css',
   )
   for (const c of candidates) {
-    const abs = join(cwd, c)
-    if (existsSync(abs)) return abs
+    const safe = confineToWorkspace(cwd, join(cwd, c))
+    if (safe !== null) return safe
   }
   return null
 }
@@ -135,8 +137,9 @@ function collectTheme(cwd: string, components: Record<string, any> | null): { co
   const colors: Record<string, string> = {}
   const radii: Record<string, number> = {}
   let source = ''
-  if (cssPath) {
-    const css = readFileSync(cssPath, 'utf8')
+  const cssText = cssPath ? readConfined(cwd, cssPath) : null
+  if (cssPath && cssText !== null) {
+    const css = cssText
     source = cssPath.slice(cwd.length + 1).replace(/\\/g, '/')
     for (const [name, raw] of Object.entries(readCssVars(css, 'root'))) {
       if (name === '--radius') {
@@ -156,9 +159,8 @@ function collectTheme(cwd: string, components: Record<string, any> | null): { co
 
   // 兜底：tailwind.config 的 theme.extend.colors（只处理字面值，不执行 JS）。
   for (const file of ['tailwind.config.ts', 'tailwind.config.js', 'tailwind.config.mjs', 'tailwind.config.cjs']) {
-    const abs = join(cwd, file)
-    if (!existsSync(abs)) continue
-    const text = readFileSync(abs, 'utf8')
+    const text = readConfined(cwd, join(cwd, file))
+    if (text === null) continue
     if (!source) source = file
     for (const m of text.matchAll(/(['"]?)([a-zA-Z][a-zA-Z0-9-]*)\1\s*:\s*(['"])(#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]*\)|hsl[a]?\([^)]*\)|oklch\([^)]*\))\3/g)) {
       const key = m[2]!
@@ -175,9 +177,8 @@ function collectTheme(cwd: string, components: Record<string, any> | null): { co
   }
 
   // 再兜底：直接是 ts-* 变量（本插件自己的项目）。
-  if (Object.keys(colors).length === 0 && cssPath) {
-    const css = readFileSync(cssPath, 'utf8')
-    for (const [name, raw] of Object.entries(readCssVars(css, 'root'))) {
+  if (Object.keys(colors).length === 0 && cssText !== null) {
+    for (const [name, raw] of Object.entries(readCssVars(cssText, 'root'))) {
       if (!name.startsWith('--ts-color-')) continue
       colors[name.replace(/^--ts-color-/, '')] = raw
     }
@@ -211,9 +212,9 @@ export const shadcnAdapter: Adapter = {
     const theme = sourcePath
       ? (() => {
           const abs = sourcePath.startsWith(cwd) ? sourcePath : join(cwd, sourcePath)
-          if (!existsSync(abs)) return null
-          // 工作区内的来源文件按边界校验，避免经链接读到工作区外。
-          const css = readTextInWorkspace(cwd, abs, '样式文件')
+          // 工作区内的来源文件按边界校验，避免经链接读到工作区外；不存在则视为无主题。
+          const css = existsConfinedPath(cwd, abs) ? readTextInWorkspace(cwd, abs, '样式文件') : null
+          if (css === null) return null
           const colors: Record<string, string> = {}
           const radii: Record<string, number> = {}
           for (const [name, raw] of Object.entries(readCssVars(css, 'root'))) {
