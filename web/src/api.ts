@@ -84,17 +84,18 @@ export interface ApiSelection {
   at: number
 }
 
+const API_ROOT = location.pathname.replace(/\/$/, '')
 const MUTATION_HEADERS = { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' }
 
 export async function fetchProject(ws: string): Promise<ApiProject> {
-  const res = await fetch(`/api/project?ws=${encodeURIComponent(ws)}`)
+  const res = await fetch(`${API_ROOT}/api/project?ws=${encodeURIComponent(ws)}`)
   if (!res.ok) throw new Error(`project ${res.status}`)
   return (await res.json()) as ApiProject
 }
 
 export async function fetchDesignSystems(ws: string): Promise<ApiDesignCatalog | null> {
   try {
-    const res = await fetch(`/api/design-systems?ws=${encodeURIComponent(ws)}`)
+    const res = await fetch(`${API_ROOT}/api/design-systems?ws=${encodeURIComponent(ws)}`)
     if (!res.ok) return null
     return (await res.json()) as ApiDesignCatalog
   } catch {
@@ -104,7 +105,7 @@ export async function fetchDesignSystems(ws: string): Promise<ApiDesignCatalog |
 
 /** 切换项目级设计风格；styleId=null 表示解除锁定。返回失败原因，成功返回 null。 */
 export async function postDesignStyle(ws: string, styleId: string | null): Promise<string | null> {
-  const res = await fetch('/api/design', {
+  const res = await fetch(`${API_ROOT}/api/design`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, styleId }),
@@ -119,7 +120,7 @@ export async function postDesignStyle(ws: string, styleId: string | null): Promi
 }
 
 export async function fetchSelection(ws: string): Promise<ApiSelection | null> {
-  const res = await fetch(`/api/selection?ws=${encodeURIComponent(ws)}`)
+  const res = await fetch(`${API_ROOT}/api/selection?ws=${encodeURIComponent(ws)}`)
   if (!res.ok) return null
   const data = (await res.json()) as { selection: ApiSelection | null }
   return data.selection
@@ -130,7 +131,7 @@ let viewportTimer: ReturnType<typeof setTimeout> | undefined
 export function postViewport(ws: string, vp: { x: number; y: number; zoom: number }): void {
   clearTimeout(viewportTimer)
   viewportTimer = setTimeout(() => {
-    void fetch('/api/viewport', {
+    void fetch(`${API_ROOT}/api/viewport`, {
       method: 'POST',
       headers: MUTATION_HEADERS,
       body: JSON.stringify({ ws, ...vp }),
@@ -146,7 +147,7 @@ export async function postSelection(
   kind: 'page' | 'element',
   payload?: Record<string, unknown>,
 ): Promise<void> {
-  await fetch('/api/selection', {
+  await fetch(`${API_ROOT}/api/selection`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, pageId, kind, payload }),
@@ -169,7 +170,7 @@ export async function postCommentOp(
   op: 'add' | 'resolve' | 'remove',
   data: CommentInput | { ids?: string[]; resolved?: boolean },
 ): Promise<boolean> {
-  const res = await fetch('/api/comments', {
+  const res = await fetch(`${API_ROOT}/api/comments`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, op, ...data }),
@@ -184,7 +185,7 @@ export async function postNodeOp(
   op: NodeOp,
   data: { id: string; title?: string; x?: number; y?: number },
 ): Promise<ApiPageNode | null> {
-  const res = await fetch('/api/nodes', {
+  const res = await fetch(`${API_ROOT}/api/nodes`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, op, ...data }),
@@ -200,7 +201,7 @@ export async function postEdge(
   source: string,
   target: string,
 ): Promise<void> {
-  await fetch('/api/edges', {
+  await fetch(`${API_ROOT}/api/edges`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, op, source, target }),
@@ -210,13 +211,13 @@ export async function postEdge(
 }
 
 export async function fetchPageSource(ws: string, id: string): Promise<string> {
-  const res = await fetch(`/api/page-html?ws=${encodeURIComponent(ws)}&id=${encodeURIComponent(id)}`)
+  const res = await fetch(`${API_ROOT}/api/page-html?ws=${encodeURIComponent(ws)}&id=${encodeURIComponent(id)}`)
   if (!res.ok) throw new Error(`读取页面失败（${res.status}）`)
   return res.text()
 }
 
 export async function postPageHtml(ws: string, id: string, html: string): Promise<boolean> {
-  const res = await fetch('/api/page-html', {
+  const res = await fetch(`${API_ROOT}/api/page-html`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, id, html }),
@@ -232,7 +233,7 @@ export interface ExportResult {
 }
 
 export async function requestExport(ws: string, kind: 'png' | 'zip' | 'both'): Promise<ExportResult> {
-  const res = await fetch('/api/export', {
+  const res = await fetch(`${API_ROOT}/api/export`, {
     method: 'POST',
     headers: MUTATION_HEADERS,
     body: JSON.stringify({ ws, kind }),
@@ -241,7 +242,7 @@ export async function requestExport(ws: string, kind: 'png' | 'zip' | 'both'): P
 }
 
 export function exportFileUrl(ws: string, name: string): string {
-  return `/api/export-file?ws=${encodeURIComponent(ws)}&name=${encodeURIComponent(name)}`
+  return `${API_ROOT}/api/export-file?ws=${encodeURIComponent(ws)}&name=${encodeURIComponent(name)}`
 }
 
 export interface EventHandlers {
@@ -251,7 +252,7 @@ export interface EventHandlers {
 
 /** 单一 EventSource，同时订阅 project / selection 两类事件。 */
 export function subscribeEvents(ws: string, handlers: EventHandlers): () => void {
-  const es = new EventSource(`/api/events?ws=${encodeURIComponent(ws)}`)
+  const es = new EventSource(`${API_ROOT}/api/events?ws=${encodeURIComponent(ws)}`)
   if (handlers.onProject) es.addEventListener('project', handlers.onProject)
   if (handlers.onSelection) es.addEventListener('selection', handlers.onSelection)
   return () => es.close()

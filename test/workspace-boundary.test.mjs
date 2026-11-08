@@ -162,7 +162,7 @@ test('url.txt 无链接时正常写入画布地址', async () => {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd: base })
     assert.ok(!open.isError, open.content)
     const written = readFileSync(join(base, '.tianshu-canvas', 'url.txt'), 'utf8')
-    assert.match(written, /^http:\/\/127\.0\.0\.1:\d+\/?\?ws=[0-9a-f]+/)
+    assert.match(written, /^http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]+/)
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
@@ -231,7 +231,7 @@ test('导出产物目录为目录联接：拒绝导出且工作区外不产生�
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd: ws })
     assert.ok(!open.isError, open.content)
-    const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]+/)
+    const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)
     assert.ok(m, open.content)
     const token = new URL(m[0]).searchParams.get('ws')
     await tools.canvas_upsert_page.execute({ input: { html: '<h1>z</h1>', title: 'z' }, cwd: ws })

@@ -424,26 +424,44 @@ await test('并发替换：读取期间候选被换成指向工作区外的链�
   writeFileSync(secretCss, SECRET_CSS, 'utf8')
   writeFileSync(join(cwd, 'package.json'), JSON.stringify({ dependencies: { tailwindcss: '^3', 'class-variance-authority': '^0.7' } }))
   writeFileSync(join(cwd, 'app', 'globals.css'), FEEDBACK_CSS, 'utf8')
+  mkdirSync(join(cwd, 'src'), { recursive: true })
+  writeFileSync(join(cwd, 'src', 'index.css'), FEEDBACK_CSS, 'utf8')
 
   const { Worker } = await import('node:worker_threads')
+  const { once } = await import('node:events')
   const worker = new Worker(
     `import { unlinkSync, symlinkSync, writeFileSync } from 'node:fs'
-     import { parentPort } from 'node:worker_threads'
-     const [, , link, safe, secret] = process.argv
+     import { parentPort, workerData } from 'node:worker_threads'
+     const { link, safe, secret } = workerData
      let stop = false
+     let linked = 0
+     let restored = 0
+     let ready = false
      parentPort.on('message', () => { stop = true })
-     while (!stop) {
+     function step() {
+       if (stop) { parentPort.postMessage({ linked, restored }); return }
        try {
          try { unlinkSync(link) } catch {}
          symlinkSync(secret, link, 'file')
+         linked++
          try { unlinkSync(link) } catch {}
          writeFileSync(link, safe)
+         restored++
+         if (!ready) { ready = true; parentPort.postMessage({ ready: true }) }
        } catch { /* Windows 上文件被占用时 unlink/建链会失败，下一轮重试 */ }
+       setImmediate(step)
      }
+     step()
     `,
-    { eval: true, argv: ['-', join(cwd, 'app', 'globals.css'), readFileSync(safeCss, 'utf8'), secretCss] },
+    { eval: true, workerData: { link: join(cwd, 'app', 'globals.css'), safe: readFileSync(safeCss, 'utf8'), secret: secretCss } },
   )
+  const nextMessage = () => Promise.race([
+    once(worker, 'message'),
+    new Promise((_, reject) => { const timer = setTimeout(() => reject(new Error('并发替换 worker 超时')), 10000); timer.unref() }),
+  ])
   try {
+    const [ready] = await nextMessage()
+    assert.equal(ready.ready, true, '必须先成功替换链接后开始导入')
     let leaks = 0
     let hits = 0
     let misses = 0
@@ -458,9 +476,12 @@ await test('并发替换：读取期间候选被换成指向工作区外的链�
     assert.equal(leaks, 0, '并发替换期间读到了工作区外的内容')
     assert.ok(hits + misses === 60)
     assert.ok(hits > 0, '并发替换不应让正常读取全部失败（加固不得误伤）')
-    console.log(`  ↳ 并发替换 60 次：命中工作区主题 ${hits}、按缺失跳过 ${misses}、泄露 0`)
-  } finally {
+    const done = nextMessage()
     worker.postMessage('stop')
+    const [stats] = await done
+    assert.ok(stats.linked > 0 && stats.restored > 0, '必须确认实际完成链接及恢复')
+    console.log(`  ↳ 并发替换 60 次：命中工作区主题 ${hits}、按缺失跳过 ${misses}、泄露 0，链接 ${stats.linked} 次、恢复 ${stats.restored} 次`)
+  } finally {
     await worker.terminate()
     rmSync(base, { recursive: true, force: true })
   }

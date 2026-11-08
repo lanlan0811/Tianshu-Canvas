@@ -127,7 +127,7 @@ test('没有 html/head 标签的页面：样式块和探针都在 doctype 之后
     assert.ok(saved.toLowerCase().indexOf('<!doctype') < saved.indexOf('<style'), '样式块不应早于 doctype')
 
     const open = await run('canvas_open', { port: 0 })
-    const url = new URL(open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)[0])
+    const url = new URL(open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0])
     const served = await (await fetch(`${url.origin}/page/${id}?ws=${url.searchParams.get('ws')}`)).text()
     assert.ok(served.toLowerCase().indexOf('<!doctype') < served.indexOf('<script'), '探针不应早于 doctype')
 

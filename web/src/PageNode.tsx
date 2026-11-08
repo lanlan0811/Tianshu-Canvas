@@ -88,7 +88,7 @@ export const PageNode = memo(function PageNode({ id, data, selected }: NodeProps
           ref={iframeRef}
           className="page-node__iframe"
           title={data.title}
-          src={`/page/${encodeURIComponent(id)}?ws=${encodeURIComponent(data.ws)}${data.rev ? `&v=${data.rev}` : ''}`}
+          src={`${location.pathname}page/${encodeURIComponent(id)}?ws=${encodeURIComponent(data.ws)}${data.rev ? `&v=${data.rev}` : ''}`}
           sandbox="allow-scripts"
           loading="lazy"
           onLoad={() => registerIframe(id, iframeRef.current?.contentWindow ?? null)}

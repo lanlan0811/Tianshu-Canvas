@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { after, before, describe, test } from 'node:test'
-import { loadPlugin } from './helpers/host.mjs'
+import { loadPlugin, testCredential } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
@@ -21,6 +21,11 @@ const MAX_VIEWPORT_BODY = 4096
 
 /** http.request 原样发送 path / Host，不会像 fetch 那样重编码百分号。 */
 function rawRequest({ port, method = 'GET', path, headers = {}, body }) {
+  let ws
+  try { ws = new URL(path, `http://127.0.0.1:${port}`).searchParams.get('ws') } catch {}
+  if (!ws && typeof body === 'string') { try { ws = JSON.parse(body)?.ws } catch {} }
+  const secret = testCredential(ws)
+  if (secret) headers = { ...headers, Authorization: `Bearer ${secret}` }
   return new Promise((resolve, reject) => {
     let done = false
     const finish = (status, text) => {
@@ -66,7 +71,7 @@ describe('回归', { concurrency: false }, () => {
   before(async () => {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
     assert.ok(!open.isError, open.content)
-    const m = open.content.match(/http:\/\/127\.0\.0\.1:(\d+)\/\?ws=([0-9a-f]{16})/)
+    const m = open.content.match(/http:\/\/127\.0\.0\.1:(\d+)\/w\/[0-9a-f]{32}\/\?ws=([0-9a-f]{32})#[0-9a-f]{64}/)
     assert.ok(m, `未返回合法 URL: ${open.content}`)
     port = Number(m[1])
     token = m[2]
@@ -377,7 +382,7 @@ describe('回归', { concurrency: false }, () => {
     const dir = mkdtempSync(join(tmpdir(), 'tsc-partial-'))
     try {
       const open = await tools.canvas_open.execute({ input: {}, cwd: dir })
-      const ws = open.content.match(/ws=([0-9a-f]{16})/)[1]
+      const ws = open.content.match(/ws=([0-9a-f]{32})/)[1]
       const projDir = join(dir, '.tianshu-canvas')
       mkdirSync(projDir, { recursive: true })
       const file = join(projDir, 'project.json')
@@ -424,7 +429,7 @@ describe('回归', { concurrency: false }, () => {
     const dir = mkdtempSync(join(tmpdir(), 'tsc-fault-'))
     try {
       const open = await tools.canvas_open.execute({ input: {}, cwd: dir })
-      const ws = open.content.match(/ws=([0-9a-f]{16})/)[1]
+      const ws = open.content.match(/ws=([0-9a-f]{32})/)[1]
       // project.json 是目录：读取抛 EISDIR，属于服务端故障。
       mkdirSync(join(dir, '.tianshu-canvas', 'project.json'), { recursive: true })
       const res = await rawRequest({

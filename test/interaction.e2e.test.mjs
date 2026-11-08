@@ -117,7 +117,7 @@ test('交互 e2e：画布侧原生默认行为 + 交互库脚本可运行', { sk
   let browser
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
-    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)[0]
+    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0]
     await tools.canvas_style.execute({ input: { action: 'set', style_id: 'apple' }, cwd })
     const add = await tools.canvas_upsert_page.execute({ input: { html: PAGE_INTERACTIVE, title: '交互页' }, cwd })
     const id = add.content.match(/id=([\w-]+)/)[1]
@@ -254,7 +254,7 @@ test('导出 e2e：多页站 file:// 可跳转、可交互', { skip: !browserPat
   let browser
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
-    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)[0]
+    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0]
     const token = new URL(url).searchParams.get('ws')
     const base = new URL(url).origin
     await tools.canvas_style.execute({ input: { action: 'set', style_id: 'apple' }, cwd })

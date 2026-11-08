@@ -5,7 +5,7 @@
  * ZIP 用 node:zlib 自写最小 zip，零依赖。
  */
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type { Browser } from 'puppeteer-core'
 import { join } from 'node:path'
@@ -175,24 +175,6 @@ function removeProfile(userDataDir: string): void {
   }
 }
 
-/** 清理陈旧的 tsc-png-* 临时目录（历史失败遗留），只动超过 2 小时的，避免误删正在使用的 profile。 */
-function cleanStaleProfiles(): void {
-  const cutoff = Date.now() - 2 * 60 * 60 * 1000
-  try {
-    for (const entry of readdirSync(tmpdir())) {
-      if (!entry.startsWith('tsc-png-')) continue
-      const dir = join(tmpdir(), entry)
-      try {
-        if (statSync(dir).mtimeMs < cutoff) rmSync(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 })
-      } catch {
-        /* 目录可能正被其它进程占用，跳过 */
-      }
-    }
-  } catch {
-    /* 读不到临时目录不影响导出 */
-  }
-}
-
 /**
  * 启动无头浏览器：**自己 spawn Chromium，读 DevToolsActivePort 拿调试端点，再用 puppeteer.connect 接入**。
  *
@@ -249,12 +231,13 @@ async function exportPngOnce(cwd: string): Promise<ExportFile> {
     )
   }
   const { url } = await ensureServer(cwd)
-  cleanStaleProfiles()
   const { browser, dispose } = await launchBrowser(exe)
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 })
-    await page.goto(`${url}&export=1`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    const exportUrl = new URL(url)
+    exportUrl.searchParams.set('export', '1')
+    await page.goto(exportUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.waitForSelector('.page-node', { timeout: 15000 })
     await new Promise((r) => setTimeout(r, 800))
 

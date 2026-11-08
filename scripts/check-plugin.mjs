@@ -35,7 +35,8 @@ const PACKAGE_INSTALL_FIELDS = new Set([
 ])
 
 // ---- 用户实际会发行进 ZIP 的内容（与 scripts/pack-plugin.mjs 的清单保持一致）----
-export const PACKAGE_ENTRIES = ['tianshu.plugin.json', 'dist', 'skills', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'docs/windows-acceptance-0.8.4.md']
+// 0.8.4 的 Windows 记录仅适用于旧原包；修复后不能把它当作新版验收材料打包。
+export const PACKAGE_ENTRIES = ['tianshu.plugin.json', 'dist', 'skills', 'LICENSE', 'THIRD-PARTY-NOTICES.md']
 
 function digest(bytes) {
   return createHash('sha256').update(bytes).digest('hex')

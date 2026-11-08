@@ -171,6 +171,7 @@ async function canvasOpen(call: ToolCall): Promise<ToolResult> {
     content:
       `画布服务已就绪。请立刻把下面这一行原样发给用户（单独一行，便于点击）：\n` +
       `${url}\n` +
+      `画布链接含访问凭证，请只提供给本机的授权使用者；不要公开分享。服务关闭后旧链接失效。\n` +
       `在用户拿到链接后，先确认设计风格（canvas_get_state 看「设计风格」段；若为「自由发挥」且用户没指定过风格，\n` +
       `用 canvas_style（action=list）把风格名作为选项问用户一次并等回答），再开始写原型。\n` +
       `工作区：${call.cwd}\n` +
@@ -185,7 +186,10 @@ function writeUrlHint(cwd: string, url: string): void {
   try {
     // url.txt 是隐式写入：必须与页面/项目文件同源走边界保护——
     // 固定临时文件 + 跟随链接的 writeFileSync 曾被用来覆盖工作区外的文件。
-    writeFileInWorkspace(cwd, join(cwd, PROJECT_DIR_NAME, 'url.txt'), url + '\n', '画布地址文件')
+    const publicUrl = new URL(url)
+    publicUrl.pathname = '/'
+    publicUrl.hash = ''
+    writeFileInWorkspace(cwd, join(cwd, PROJECT_DIR_NAME, 'url.txt'), publicUrl.toString() + '\n', '画布地址文件')
   } catch {
     /* 目录可能尚未创建，或路径越界；都不影响画布本身可用 */
   }
@@ -1367,10 +1371,17 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       if (!exe) return { content: '未找到 Chrome/Edge，无法渲染页面做可访问性审计。可用 TIANSHU_CANVAS_BROWSER 指定路径。', isError: true }
       const { browser, dispose } = await launchBrowser(exe)
       try {
+        const authPage = await browser.newPage()
+        await authPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await authPage.waitForFunction('!location.hash', { timeout: 15000 })
+        await authPage.close()
         const parts: string[] = []
         let errors = 0
         for (const page of pages) {
-          const report = await auditPage(browser, `${url.replace(/\/\?ws=/, '/page/')}${page.id}`, {
+          const pageUrl = new URL(url)
+          pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`
+          pageUrl.hash = ''
+          const report = await auditPage(browser, pageUrl.toString(), {
             minContrast: num(call.args.min_contrast),
             minTargetSize: num(call.args.min_target_size),
             ignore: Array.isArray(call.args.ignore) ? (call.args.ignore as unknown[]).map(String) : undefined,

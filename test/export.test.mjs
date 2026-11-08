@@ -83,7 +83,7 @@ try {
   // 起本地服务（画布顶栏导出走的就是这条 HTTP 路由）
   const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
   assert.ok(!open.isError, open.content)
-  const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)
+  const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)
   assert.ok(m, `未返回合法 URL: ${open.content}`)
   const token = new URL(m[0]).searchParams.get('ws')
   const base = new URL(m[0]).origin
