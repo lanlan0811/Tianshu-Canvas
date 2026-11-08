@@ -304,4 +304,166 @@ await test('自动导入：工作区内的正常主题仍可读取（加固误�
   assert.equal(tokens.color.primitives.brand['500'], SECRET, '工作区内的主色应被正常读取')
 })
 
+// ---------------------------------------------------------------------------
+// 回归（技术反馈 0.8.3）：候选样式文件必须「存在且可安全读取」才算命中
+// ---------------------------------------------------------------------------
+
+/** 反馈文档里的最小主题；主色用于断言读取到的确实是这一份。 */
+const FEEDBACK_CSS = `:root {
+  --primary: #136ace;
+  --background: #ffffff;
+  --foreground: #000000;
+  --primary-foreground: #ffffff;
+}
+`
+
+const CSS_CANDIDATES = ['app/globals.css', 'src/app/globals.css', 'styles/globals.css', 'src/styles/globals.css', 'src/index.css', 'index.css']
+
+function shadcnWorkspace() {
+  const cwd = workspace()
+  write(cwd, 'package.json', JSON.stringify({ dependencies: { tailwindcss: '^3', 'class-variance-authority': '^0.7' } }))
+  return cwd
+}
+
+function importedBrand(cwd, id) {
+  const tokens = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas/library', id, 'tokens.json'), 'utf8'))
+  return tokens.color.primitives.brand['500']
+}
+
+await test('0.8.3 缺陷回归：仅有 src/index.css 时 dry_run 导入成功且不落盘', async () => {
+  const cwd = shadcnWorkspace()
+  write(cwd, 'src/index.css', FEEDBACK_CSS)
+  const res = await importStyle(cwd, { id: 'audit', stack: 'shadcn', dry_run: true })
+  assert.equal(res.isError, undefined, res.content)
+  assert.equal(existsSync(join(cwd, '.tianshu-canvas/library')), false, 'dry_run 不得落盘')
+})
+
+for (const candidate of CSS_CANDIDATES) {
+  await test(`候选路径：仅有 ${candidate} 时，显式 stack 与自动探测都能导入`, async () => {
+    const cwd = shadcnWorkspace()
+    write(cwd, candidate, FEEDBACK_CSS)
+
+    const explicit = await importStyle(cwd, { id: 'explicit', stack: 'shadcn', set_current: false })
+    assert.equal(explicit.isError, undefined, explicit.content)
+    assert.equal(importedBrand(cwd, 'explicit'), '#136ace')
+
+    const auto = await importStyle(cwd, { id: 'auto', set_current: false })
+    assert.equal(auto.isError, undefined, auto.content)
+    assert.match(auto.content, new RegExp(`样式文件 ${candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))
+    assert.equal(importedBrand(cwd, 'auto'), '#136ace')
+  })
+}
+
+await test('候选顺序：components.json 指定的安全 CSS 优先于默认候选', async () => {
+  const cwd = shadcnWorkspace()
+  write(cwd, 'components.json', JSON.stringify({ tailwind: { css: './styles/globals.css' } }))
+  write(cwd, 'app/globals.css', ':root{--primary:#ff0000;--background:#ffffff;--foreground:#000000;--primary-foreground:#ffffff}')
+  write(cwd, 'styles/globals.css', FEEDBACK_CSS)
+  const res = await importStyle(cwd, { id: 'prefer', stack: 'shadcn', set_current: false })
+  assert.equal(res.isError, undefined, res.content)
+  assert.equal(importedBrand(cwd, 'prefer'), '#136ace', '应读取 components.json 指定的那份')
+})
+
+await test('候选跳过：前面缺失/越界/非普通文件时不阻断后面的安全候选', async () => {
+  const { base, cwd, outside } = leakWorkspace()
+  try {
+    write(cwd, 'package.json', JSON.stringify({ dependencies: { tailwindcss: '^3', 'class-variance-authority': '^0.7' } }))
+    write(cwd, 'components.json', JSON.stringify({ tailwind: { css: '../outside/private-theme.css' } }))
+    // 默认候选第一位被目录占住（非普通文件），最后一份是正常主题。
+    mkdirSync(join(cwd, 'app', 'globals.css'), { recursive: true })
+    write(cwd, 'styles/globals.css', FEEDBACK_CSS)
+    if (CAN_SYMLINK) {
+      mkdirSync(join(cwd, 'src'), { recursive: true })
+      symlinkSync(join(outside, 'private-theme.css'), join(cwd, 'src', 'index.css'), 'file')
+    }
+
+    const res = await importStyle(cwd, { id: 'fallback', stack: 'shadcn', dry_run: true })
+    assert.equal(res.isError, undefined, res.content)
+    assert.match(res.content, /#136ace/i)
+    assert.equal(String(res.content).toLowerCase().includes(SECRET.slice(1)), false, '外部主题不得进入结果')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('全部候选缺失：明确失败，不创建主题也不改动已有主题', async () => {
+  const cwd = shadcnWorkspace()
+  write(cwd, '.tianshu-canvas/library/existing/tokens.json', '{"keep":true}')
+  const res = await importStyle(cwd, { id: 'existing', stack: 'shadcn', set_current: false })
+  assert.equal(res.isError, true)
+  assert.match(res.content, /没有找到可导入的主题/)
+  assert.equal(readFileSync(join(cwd, '.tianshu-canvas/library/existing/tokens.json'), 'utf8'), '{"keep":true}')
+  assert.deepEqual(readdirSync(join(cwd, '.tianshu-canvas/library')), ['existing'])
+})
+
+await test('重复导入：同一输入产物字节一致；默认不覆盖已有用户主题', async () => {
+  const cwd = shadcnWorkspace()
+  write(cwd, 'app/globals.css', FEEDBACK_CSS)
+  const first = await importStyle(cwd, { id: 'repeat', stack: 'shadcn', set_current: false })
+  assert.equal(first.isError, undefined, first.content)
+  const bytes = readFileSync(join(cwd, '.tianshu-canvas/library/repeat/tokens.json'), 'utf8')
+
+  const noOverwrite = await importStyle(cwd, { id: 'repeat', stack: 'shadcn', set_current: false })
+  assert.equal(noOverwrite.isError, true, '未传 overwrite 时不得替换已有主题')
+  assert.equal(readFileSync(join(cwd, '.tianshu-canvas/library/repeat/tokens.json'), 'utf8'), bytes)
+
+  const again = await importStyle(cwd, { id: 'repeat', stack: 'shadcn', set_current: false, overwrite: true })
+  assert.equal(again.isError, undefined, again.content)
+  assert.equal(readFileSync(join(cwd, '.tianshu-canvas/library/repeat/tokens.json'), 'utf8'), bytes, '同一输入两次导入应一致')
+})
+
+await test('并发替换：读取期间候选被换成指向工作区外的链接，不泄露外部内容', { skip: skipIfNoSymlink }, async () => {
+  const base = mkdtempSync(join(tmpdir(), 'tsc-race-'))
+  const cwd = join(base, 'workspace')
+  const outside = join(base, 'outside')
+  mkdirSync(join(cwd, 'app'), { recursive: true })
+  mkdirSync(outside, { recursive: true })
+  const safeCss = join(base, 'safe.css')
+  const secretCss = join(outside, 'private-theme.css')
+  writeFileSync(safeCss, FEEDBACK_CSS, 'utf8')
+  writeFileSync(secretCss, SECRET_CSS, 'utf8')
+  writeFileSync(join(cwd, 'package.json'), JSON.stringify({ dependencies: { tailwindcss: '^3', 'class-variance-authority': '^0.7' } }))
+  writeFileSync(join(cwd, 'app', 'globals.css'), FEEDBACK_CSS, 'utf8')
+
+  const { Worker } = await import('node:worker_threads')
+  const worker = new Worker(
+    `import { unlinkSync, symlinkSync, writeFileSync } from 'node:fs'
+     import { parentPort } from 'node:worker_threads'
+     const [, , link, safe, secret] = process.argv
+     let stop = false
+     parentPort.on('message', () => { stop = true })
+     while (!stop) {
+       try {
+         try { unlinkSync(link) } catch {}
+         symlinkSync(secret, link, 'file')
+         try { unlinkSync(link) } catch {}
+         writeFileSync(link, safe)
+       } catch { /* Windows 上文件被占用时 unlink/建链会失败，下一轮重试 */ }
+     }
+    `,
+    { eval: true, argv: ['-', join(cwd, 'app', 'globals.css'), readFileSync(safeCss, 'utf8'), secretCss] },
+  )
+  try {
+    let leaks = 0
+    let hits = 0
+    let misses = 0
+    for (let i = 0; i < 60; i++) {
+      const res = await importStyle(cwd, { id: 'race', stack: 'shadcn', dry_run: true })
+      const text = String(res.content)
+      if (text.toLowerCase().includes(SECRET.slice(1))) leaks++
+      else if (res.isError === undefined) hits++
+      else misses++
+      await new Promise((r) => setImmediate(r))
+    }
+    assert.equal(leaks, 0, '并发替换期间读到了工作区外的内容')
+    assert.ok(hits + misses === 60)
+    assert.ok(hits > 0, '并发替换不应让正常读取全部失败（加固不得误伤）')
+    console.log(`  ↳ 并发替换 60 次：命中工作区主题 ${hits}、按缺失跳过 ${misses}、泄露 0`)
+  } finally {
+    worker.postMessage('stop')
+    await worker.terminate()
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
 console.log('OK 适配器导入：shadcn/AntD 的观测、推断、确定性、反例与工作区边界全部通过')

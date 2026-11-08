@@ -3,6 +3,29 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.8.4] - 2026-11-09
+
+修复版：0.8.3 的边界加固引入的**自动导入回归**（正常主题被误报为不存在），
+并补齐反馈点名但尚未证明的并发替换证据。详细说明见 [release-0.8.4.md](release/release-0.8.4.md)。
+
+### 修复
+
+- **自动导入误报「没有找到可导入的主题」**：`resolveCssPath` 把 `confineToWorkspace`
+  返回的**安全但不存在**的路径当作命中，提前选中缺失的 `app/globals.css`，
+  导致仅存在 `src/index.css` / `styles/globals.css` 等工作区被误判为无主题（已复现）。
+  改为 `resolveCssFile`：每个候选都经 `readConfined` 安全读取，读到内容才命中并直接返回内容；
+  缺失、不可读、越界或非普通文件一律跳过，继续下一候选。工作区边界检查未撤销。
+- **`source_path` 不再二次按裸路径读取**：导入来源文件改为单次 `readConfined`，
+  去掉「检查一次、再读一次」的窗口。
+- **并发替换绑定**：`readConfined` 增加 `fstat(fd)` 与当前路径 `statSync` 的 dev/ino 比对，
+  open 与 realpath 之间被替换成别的文件对象时按「未找到」处理。
+
+### 变更
+
+- AntD 源码扫描改用显式 `import { readdirSync }`，不再依赖 CJS `require`。
+- 测试数 161 → 176（新增 1 条缺陷回归、6 条候选路径、候选优先级/跳过/全缺失/重复导入与并发替换）。
+- 版本号 0.8.3 → 0.8.4。
+
 ## [v0.8.3] - 2026-11-08
 
 安全修复版：设计系统**自动导入**仍可读取工作区外文件（`components.json` 配置路径、

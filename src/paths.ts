@@ -28,7 +28,7 @@
  * 不是用户显式指定，因此一律经 {@link confineToWorkspace} 收敛后再读——
  * 配置里写成 `../outside/x.css`、或候选文件本身是指向工作区外的符号链接，都会被拒绝。
  */
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from 'node:fs'
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { basename, isAbsolute, join, relative, resolve } from 'node:path'
 
@@ -178,8 +178,11 @@ export function confineToWorkspace(cwd: string, abs: string): string | null {
  *
  * 竞态处理（反馈点名的「检查后替换」）：先**打开**再校验——
  *   - `O_NOFOLLOW`（支持的平台）让叶子是链接时 open 直接失败，不存在检查与打开的窗口；
- *   - 打开后 `fstat(fd)` 必须是普通文件，且对**打开后的路径**再 realpath 一次仍在工作区内
- *     （若在 open 之后被换成指向外部的链接，这次复检会发现）；
+ *   - 打开后 `fstat(fd)` 必须是普通文件，并对**打开后的路径**再 realpath 一次仍在工作区内；
+ *   - 再把 `fstat(fd)` 的 dev/ino 与「当前路径解析出的文件」比对：若 open 与 realpath
+ *     之间路径被换成另一个文件（例如先指向工作区外的链接，随后又恢复），fd 与路径不再
+ *     指向同一对象，直接判失败。可比对的平台（含 Windows）能关闭这个窗口；
+ *     两者都为 0 时保留 realpath 复检的结果；
  *   - 内容从 **fd** 读取，不再按路径二次解析，因此读到的一定是被校验的那个文件。
  */
 export function readConfined(cwd: string, abs: string): string | null {
@@ -194,11 +197,21 @@ export function readConfined(cwd: string, abs: string): string | null {
     return null
   }
   try {
-    const info = fstatSync(fd)
+    const statOpts = { bigint: true } as const
+    const info = fstatSync(fd, statOpts)
     if (!info.isFile()) return null
     // open 之后路径被替换成指向工作区外的链接时，这里复检会失败。
+    let real: string
     try {
-      if (!isInside(realRoot(cwd), realpathSync(target))) return null
+      real = realpathSync(target)
+    } catch {
+      return null
+    }
+    if (!isInside(realRoot(cwd), real)) return null
+    // fd 与当前路径必须是同一个文件对象（挡住「open 后、realpath 前」的替换）。
+    try {
+      const onDisk = statSync(real, statOpts)
+      if (info.dev !== onDisk.dev || info.ino !== onDisk.ino) return null
     } catch {
       return null
     }
@@ -207,17 +220,6 @@ export function readConfined(cwd: string, abs: string): string | null {
     return null
   } finally {
     closeSync(fd)
-  }
-}
-
-/** 路径是否在工作区内、已存在且为普通文件（不解码内容）。 */
-export function existsConfinedPath(cwd: string, abs: string): boolean {
-  const safe = confineToWorkspace(cwd, abs)
-  if (safe === null) return false
-  try {
-    return lstatSync(safe).isFile()
-  } catch {
-    return false
   }
 }
 

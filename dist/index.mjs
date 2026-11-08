@@ -53109,15 +53109,15 @@ var init_cliui = __esm({
 
 // node_modules/escalade/sync/index.mjs
 import { dirname as dirname3, resolve as resolve4 } from "path";
-import { readdirSync as readdirSync3, statSync as statSync2 } from "fs";
+import { readdirSync as readdirSync4, statSync as statSync3 } from "fs";
 function sync_default(start, callback) {
   let dir = resolve4(".", start);
-  let tmp, stats = statSync2(dir);
+  let tmp, stats = statSync3(dir);
   if (!stats.isDirectory()) {
     dir = dirname3(dir);
   }
   while (true) {
-    tmp = callback(dir, readdirSync3(dir));
+    tmp = callback(dir, readdirSync4(dir));
     if (tmp) return resolve4(dir, tmp);
     dir = dirname3(tmp = dir);
     if (tmp === dir) break;
@@ -54288,7 +54288,7 @@ var init_string_width3 = __esm({
 });
 
 // node_modules/y18n/build/lib/platform-shims/node.js
-import { readFileSync as readFileSync9, statSync as statSync3, writeFile } from "fs";
+import { readFileSync as readFileSync9, statSync as statSync4, writeFile } from "fs";
 import { format as format2 } from "util";
 import { resolve as resolve6 } from "path";
 var node_default;
@@ -54303,7 +54303,7 @@ var init_node = __esm({
       resolve: resolve6,
       exists: (file) => {
         try {
-          return statSync3(file).isFile();
+          return statSync4(file).isFile();
         } catch (err) {
           return false;
         }
@@ -54520,7 +54520,7 @@ import { inspect } from "util";
 import { fileURLToPath as fileURLToPath3 } from "url";
 import { basename as basename3, dirname as dirname4, extname, relative as relative3, resolve as resolve7, join as join11 } from "path";
 import { createRequire as createRequire2 } from "node:module";
-import { readFileSync as readFileSync10, readdirSync as readdirSync4 } from "node:fs";
+import { readFileSync as readFileSync10, readdirSync as readdirSync5 } from "node:fs";
 var import_get_caller_file, __dirname, mainFilename, require3, esm_default;
 var init_esm = __esm({
   "node_modules/yargs/lib/platform-shims/esm.mjs"() {
@@ -54569,7 +54569,7 @@ var init_esm = __esm({
         stdColumns: typeof process.stdout.columns !== "undefined" ? process.stdout.columns : null
       },
       readFileSync: readFileSync10,
-      readdirSync: readdirSync4,
+      readdirSync: readdirSync5,
       require: require3,
       getCallerFile: () => {
         const callerFile = (0, import_get_caller_file.default)(3);
@@ -60522,7 +60522,7 @@ function newCommentId() {
 }
 
 // src/paths.ts
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 var O_NOFOLLOW = constants.O_NOFOLLOW;
@@ -60626,10 +60626,19 @@ function readConfined(cwd, abs) {
     return null;
   }
   try {
-    const info = fstatSync(fd);
+    const statOpts = { bigint: true };
+    const info = fstatSync(fd, statOpts);
     if (!info.isFile()) return null;
+    let real;
     try {
-      if (!isInside(realRoot(cwd), realpathSync(target))) return null;
+      real = realpathSync(target);
+    } catch {
+      return null;
+    }
+    if (!isInside(realRoot(cwd), real)) return null;
+    try {
+      const onDisk = statSync(real, statOpts);
+      if (info.dev !== onDisk.dev || info.ino !== onDisk.ino) return null;
     } catch {
       return null;
     }
@@ -60638,15 +60647,6 @@ function readConfined(cwd, abs) {
     return null;
   } finally {
     closeSync(fd);
-  }
-}
-function existsConfinedPath(cwd, abs) {
-  const safe = confineToWorkspace(cwd, abs);
-  if (safe === null) return false;
-  try {
-    return lstatSync(safe).isFile();
-  } catch {
-    return false;
   }
 }
 function readTextInWorkspace(cwd, abs, label = "\u6587\u4EF6") {
@@ -62606,6 +62606,7 @@ function textOf(node) {
 }
 
 // src/adapters/antd.ts
+import { readdirSync as readdirSync3 } from "node:fs";
 import { join as join6 } from "node:path";
 
 // src/adapters/import.ts
@@ -63141,7 +63142,7 @@ function walkFiles(cwd, dir, depth, out) {
   if (confineToWorkspace(cwd, dir) === null) return;
   let entries;
   try {
-    entries = __require("node:fs").readdirSync(dir, { withFileTypes: true });
+    entries = readdirSync3(dir, { withFileTypes: true });
   } catch {
     return;
   }
@@ -63525,7 +63526,7 @@ function readPackage2(cwd) {
 function readComponentsJson(cwd) {
   return readJsonInWorkspace(cwd, "components.json");
 }
-function resolveCssPath(cwd, components) {
+function resolveCssFile(cwd, components) {
   const candidates = [];
   const css = components?.tailwind?.css;
   if (typeof css === "string") candidates.push(css.replace(/^~\//, ""));
@@ -63537,9 +63538,13 @@ function resolveCssPath(cwd, components) {
     "src/index.css",
     "index.css"
   );
+  const seen = /* @__PURE__ */ new Set();
   for (const c of candidates) {
-    const safe = confineToWorkspace(cwd, join7(cwd, c));
-    if (safe !== null) return safe;
+    const abs = join7(cwd, c);
+    if (seen.has(abs)) continue;
+    seen.add(abs);
+    const text = readConfined(cwd, abs);
+    if (text !== null) return { path: abs, text };
   }
   return null;
 }
@@ -63566,14 +63571,14 @@ function normalizeVarValue(name, raw, css) {
   return null;
 }
 function collectTheme(cwd, components) {
-  const cssPath = resolveCssPath(cwd, components);
+  const cssFile = resolveCssFile(cwd, components);
   const colors = {};
   const radii = {};
   let source2 = "";
-  const cssText = cssPath ? readConfined(cwd, cssPath) : null;
-  if (cssPath && cssText !== null) {
-    const css = cssText;
-    source2 = cssPath.slice(cwd.length + 1).replace(/\\/g, "/");
+  const cssText = cssFile ? cssFile.text : null;
+  if (cssFile) {
+    const css = cssFile.text;
+    source2 = cssFile.path.slice(cwd.length + 1).replace(/\\/g, "/");
     for (const [name, raw] of Object.entries(readCssVars(css, "root"))) {
       if (name === "--radius") {
         const m = /^([\d.]+)(rem|px)?$/.exec(raw.trim());
@@ -63627,8 +63632,8 @@ var shadcnAdapter = {
     }
     const components = readComponentsJson(cwd);
     if (components) evidence.push("\u5B58\u5728 components.json");
-    const cssPath = resolveCssPath(cwd, components);
-    if (cssPath) evidence.push(`\u6837\u5F0F\u6587\u4EF6 ${cssPath.slice(cwd.length + 1).replace(/\\/g, "/")}`);
+    const cssFile = resolveCssFile(cwd, components);
+    if (cssFile) evidence.push(`\u6837\u5F0F\u6587\u4EF6 ${cssFile.path.slice(cwd.length + 1).replace(/\\/g, "/")}`);
     if (evidence.length < 2) return null;
     return { id: "shadcn", evidence };
   },
@@ -63636,7 +63641,7 @@ var shadcnAdapter = {
     const components = readComponentsJson(cwd);
     const theme = sourcePath ? (() => {
       const abs = sourcePath.startsWith(cwd) ? sourcePath : join7(cwd, sourcePath);
-      const css = existsConfinedPath(cwd, abs) ? readTextInWorkspace(cwd, abs, "\u6837\u5F0F\u6587\u4EF6") : null;
+      const css = readConfined(cwd, abs);
       if (css === null) return null;
       const colors = {};
       const radii = {};
@@ -64648,7 +64653,7 @@ function formatContractReport(result, label) {
 
 // src/export.ts
 import { spawn as spawn4 } from "node:child_process";
-import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync11, readdirSync as readdirSync5, rmSync as rmSync5, statSync as statSync4 } from "node:fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync11, readdirSync as readdirSync6, rmSync as rmSync5, statSync as statSync5 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join13 } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -64656,7 +64661,7 @@ import { deflateRawSync } from "node:zlib";
 // src/server.ts
 import http from "node:http";
 import { createHash as createHash3 } from "node:crypto";
-import { existsSync as existsSync6, readFileSync as readFileSync6, statSync } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
 import { join as join8 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
@@ -65221,7 +65226,7 @@ function routeRequest(req, res) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
     const file = join8(exportsDir(cwd), name);
-    if (!existsSync6(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    if (!existsSync6(file) || !statSync2(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     try {
       assertReadableFile(cwd, file, "\u5BFC\u51FA\u6587\u4EF6");
     } catch (err) {
@@ -65796,11 +65801,11 @@ function removeProfile(userDataDir) {
 function cleanStaleProfiles() {
   const cutoff = Date.now() - 2 * 60 * 60 * 1e3;
   try {
-    for (const entry of readdirSync5(tmpdir2())) {
+    for (const entry of readdirSync6(tmpdir2())) {
       if (!entry.startsWith("tsc-png-")) continue;
       const dir = join13(tmpdir2(), entry);
       try {
-        if (statSync4(dir).mtimeMs < cutoff) rmSync5(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
+        if (statSync5(dir).mtimeMs < cutoff) rmSync5(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
       } catch {
       }
     }

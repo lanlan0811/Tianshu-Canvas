@@ -12,7 +12,7 @@
 
 import { join } from 'node:path'
 import type { CodeFile } from '../codegen.js'
-import { confineToWorkspace, existsConfinedPath, readConfined, readTextInWorkspace } from '../paths.js'
+import { readConfined } from '../paths.js'
 import { classesOf, parseHtml, textOf, walkElements, type HtmlNode } from '../htmlTree.js'
 import { materializeTokens } from './import.js'
 import { toHex } from './color.js'
@@ -81,11 +81,22 @@ function readComponentsJson(cwd: string): Record<string, any> | null {
   return readJsonInWorkspace(cwd, 'components.json')
 }
 
+/** 解析出的样式文件：路径 + 已安全读取的内容（不再按裸路径二次读取）。 */
+interface ResolvedCss {
+  path: string
+  text: string
+}
+
 /**
- * 解析样式文件路径。`components.json` 的 `tailwind.css` 是**工作区内容**，
+ * 解析样式文件。`components.json` 的 `tailwind.css` 是**工作区内容**，
  * 可能写成 `../outside/x.css`；候选文件也可能是符号链接。两者都收敛到工作区内。
+ *
+ * 只有「在工作区内、存在、是普通文件且可安全读取」的候选才算命中：
+ * `confineToWorkspace` 对**尚不存在**的路径也返回合法路径（新建文件场景），
+ * 若把它当作命中就会提前选中缺失的 `app/globals.css`，让后面的候选失去机会。
+ * 因此这里以 `readConfined` 是否读到内容作为命中判据，并直接返回内容。
  */
-function resolveCssPath(cwd: string, components: Record<string, any> | null): string | null {
+function resolveCssFile(cwd: string, components: Record<string, any> | null): ResolvedCss | null {
   const candidates: string[] = []
   const css = components?.tailwind?.css
   if (typeof css === 'string') candidates.push(css.replace(/^~\//, ''))
@@ -97,9 +108,13 @@ function resolveCssPath(cwd: string, components: Record<string, any> | null): st
     'src/index.css',
     'index.css',
   )
+  const seen = new Set<string>()
   for (const c of candidates) {
-    const safe = confineToWorkspace(cwd, join(cwd, c))
-    if (safe !== null) return safe
+    const abs = join(cwd, c)
+    if (seen.has(abs)) continue
+    seen.add(abs)
+    const text = readConfined(cwd, abs)
+    if (text !== null) return { path: abs, text }
   }
   return null
 }
@@ -133,14 +148,14 @@ function normalizeVarValue(name: string, raw: string, css: string): string | nul
 }
 
 function collectTheme(cwd: string, components: Record<string, any> | null): { colors: Record<string, string>; radii: Record<string, number>; source: string } | null {
-  const cssPath = resolveCssPath(cwd, components)
+  const cssFile = resolveCssFile(cwd, components)
   const colors: Record<string, string> = {}
   const radii: Record<string, number> = {}
   let source = ''
-  const cssText = cssPath ? readConfined(cwd, cssPath) : null
-  if (cssPath && cssText !== null) {
-    const css = cssText
-    source = cssPath.slice(cwd.length + 1).replace(/\\/g, '/')
+  const cssText = cssFile ? cssFile.text : null
+  if (cssFile) {
+    const css = cssFile.text
+    source = cssFile.path.slice(cwd.length + 1).replace(/\\/g, '/')
     for (const [name, raw] of Object.entries(readCssVars(css, 'root'))) {
       if (name === '--radius') {
         const m = /^([\d.]+)(rem|px)?$/.exec(raw.trim())
@@ -201,8 +216,8 @@ export const shadcnAdapter: Adapter = {
     }
     const components = readComponentsJson(cwd)
     if (components) evidence.push('存在 components.json')
-    const cssPath = resolveCssPath(cwd, components)
-    if (cssPath) evidence.push(`样式文件 ${cssPath.slice(cwd.length + 1).replace(/\\/g, '/')}`)
+    const cssFile = resolveCssFile(cwd, components)
+    if (cssFile) evidence.push(`样式文件 ${cssFile.path.slice(cwd.length + 1).replace(/\\/g, '/')}`)
     if (evidence.length < 2) return null
     return { id: 'shadcn', evidence }
   },
@@ -212,8 +227,8 @@ export const shadcnAdapter: Adapter = {
     const theme = sourcePath
       ? (() => {
           const abs = sourcePath.startsWith(cwd) ? sourcePath : join(cwd, sourcePath)
-          // 工作区内的来源文件按边界校验，避免经链接读到工作区外；不存在则视为无主题。
-          const css = existsConfinedPath(cwd, abs) ? readTextInWorkspace(cwd, abs, '样式文件') : null
+          // 工作区内的来源文件按边界校验，避免经链接读到工作区外；一次读取即校验，不存在则视为无主题。
+          const css = readConfined(cwd, abs)
           if (css === null) return null
           const colors: Record<string, string> = {}
           const radii: Record<string, number> = {}

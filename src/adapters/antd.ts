@@ -11,6 +11,7 @@
  * 布局用 AntD 的 Flex/Row/Col 与 style 对象，不输出 Tailwind 类。
  */
 
+import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CodeFile } from '../codegen.js'
 import { confineToWorkspace, readConfined, readTextInWorkspace } from '../paths.js'
@@ -74,7 +75,7 @@ function walkFiles(cwd: string, dir: string, depth: number, out: string[]): void
   if (confineToWorkspace(cwd, dir) === null) return
   let entries: { name: string; isDirectory(): boolean; isFile(): boolean }[]
   try {
-    entries = require('node:fs').readdirSync(dir, { withFileTypes: true })
+    entries = readdirSync(dir, { withFileTypes: true })
   } catch {
     return
   }
