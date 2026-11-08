@@ -3,6 +3,33 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.8.5] - 2026-11-09
+
+安全加固版：画布服务改为**随机路径 + 256 位凭证 + HttpOnly Cookie 授权**，
+同机其他本地进程不能再靠猜测端口与相对时长推导出的旧 token 读取工作区数据。
+详细说明见 [release-0.8.5.md](release/release-0.8.5.md)。
+
+### 安全修复
+
+- **工作区凭证不可推导**：原 `token = sha256(cwd).slice(0,16)` 可离线复算，且 token
+  本身就是读取凭证。现每个工作区随机生成 scope（路径段）与 256 位 secret，
+  服务地址形如 `/w/<scope>/?ws=<token>#<secret>`，凭证与工作区路径解耦、不可反推。
+- **读写凭证与 Cookie 授权**：浏览器打开链接时用片段里的 secret 经 `/api/auth`
+  换取 `HttpOnly; SameSite=Strict` 会话 Cookie（`Path` 限定到该工作区），并清掉地址栏片段；
+  所有数据接口（项目、事件流、页面、选中、批注、导出）都要校验凭证。
+- **跨源与缓存收紧**：浏览器发 `Origin` 时必须与监听地址完全一致；静态资源加
+  `Referrer-Policy: no-referrer`，导出文件与错误响应加 `Cache-Control: no-store`。
+- **实例生命周期**：多实例共享服务，仅最后一个实例 `dispose` 时关闭监听并撤销全部凭证；
+  浏览器临时目录只清理本实例创建的 profile，不再按 `tsc-png-*` 名称扫描删除。
+
+### 变更
+
+- `url.txt` 改写 `http://127.0.0.1:<port>/?ws=<token>`：去掉 `/w/<scope>/` 路径段与
+  `#<secret>` 片段，文件泄露不再等同于凭证泄露。
+- 既有测试改由 `test/helpers/host.mjs` 读取工具返回的凭证并附 `Authorization: Bearer`；
+  沙箱动态测试改走真实截图导出与视觉审计路径，可用 `TIANSHU_CANVAS_REQUIRE_BROWSER=1` 强制要求浏览器。
+- 版本号 0.8.4 → 0.8.5。
+
 ## [v0.8.4] - 2026-11-09
 
 修复版：0.8.3 的边界加固引入的**自动导入回归**（正常主题被误报为不存在），
