@@ -7,8 +7,8 @@
 
 本文分两部分，不要混读：
 
-- **A 自动化验收（本机实测）**：在本文列出的 Windows 环境上，对最终发行 ZIP 对应的
-  `6f59127` 构建产物执行，结果由命令输出直接得到，可复跑。
+- **A 自动化验收（本机实测）**：在本文列出的 Windows 环境上，对本 ZIP 内的
+  `dist/index.mjs` 执行，结果由命令输出直接得到，可复跑。
 - **B 宿主手工验收**：需要人工在天枢界面里操作。下文表格中的「结果」列由提交者填写，
   每行必须能指到一张截图或一段录屏；未填写的行不得算通过。
 
@@ -25,7 +25,7 @@
 | npm | 11.19.1 | `npm -v` |
 | 浏览器 | Chrome 144.0.7559.97；Edge 144.0.3719.104 | 安装目录版本号 |
 | 测试驱动 | puppeteer-core 25.16.0 | `package.json` |
-| 源码 | `6f59127ee5e46f3760b8f03879f04094819f911c`，tag `v0.8.4` | `git rev-parse HEAD` |
+| 源码 | 见包内 `xiaosi.release.json` 的 `source_commit` | 包内元数据 |
 
 **验收宿主**：天枢 4.0.4（声明兼容 `>=4.0.2 <5.0.0`，本次以 4.0.4 实机完成全流程验收）。
 
@@ -34,16 +34,18 @@
 | 项目 | 值 |
 |---|---|
 | 文件 | `.claude/upload-0.8.4/tianshu-canvas-0.8.4.zip` |
-| 大小 | 4,862,269 字节 |
-| SHA-256 | `9239f0d8b3c4fb16e694d54e028181d89c525959cb5a14a7475fa8e790a93dd8` |
+| 大小 / SHA-256 | 见随包提交的上传表单文案；包内 `xiaosi.contents.json` 给出每个文件的摘要 |
 | release-id | `rel_tianshu_canvas_084` |
 | publisher-id | `f8093327-92a4-49f1-ad7c-c1efd38f3bf3` |
 | platforms | `win32-x64` |
-| 文件数 | 110（含 `xiaosi.release.json`、`xiaosi.contents.json`） |
-| 打包命令 | `node scripts/pack-plugin.mjs … --source-commit 6f59127e…911c --platforms win32-x64` |
+| 打包命令 | `node scripts/pack-plugin.mjs … --source-commit <本包 source_commit> --platforms win32-x64` |
 | 自检 | `npm run check:plugin`：`tianshu-canvas@0.8.4 · 9 个工具`，权限摘要 `605d55d1…21d9`，兼容 `core=>=4.0.2 <5.0.0 tpi=1.0` |
 
-下文所有 A 部分结果均针对这份 ZIP 里的同一份 `dist/index.mjs`。若之后任何代码、资源、
+> 本文本身在包内，因此不写死本 ZIP 的 SHA-256、字节数与文件数——写进文档会改变摘要本身。
+> ZIP 摘要、大小与源码提交以包内 `xiaosi.release.json` / `xiaosi.contents.json`
+> 和上传表单为准。
+
+下文所有 A 部分结果均针对本 ZIP 里的同一份 `dist/index.mjs`。若之后任何代码、资源、
 许可或元数据改动，必须重新打包、换摘要、重跑，不能沿用本表。
 
 ## 3 A 自动化验收（本机实测，可直接复跑）
@@ -119,5 +121,5 @@ node .claude/review-0.8.4/repro-import.mjs dist/index.mjs   →  17/17 PASS
 ## 6 结论
 
 A 部分（自动化）与 B 部分（Windows 实机 + 天枢 4.0.4）均已完成，可作为 0.8.4
-复审材料随包提交；全部记录对应同一份 ZIP：
-SHA-256 `9239f0d8b3c4fb16e694d54e028181d89c525959cb5a14a7475fa8e790a93dd8`。
+复审材料随包提交；全部记录对应本 ZIP（摘要与源码提交见包内 `xiaosi.release.json`
+及上传表单）。
