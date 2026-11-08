@@ -55,7 +55,10 @@ export function baselineFile(dir: string, styleId: string, pageId: string, devic
  * 无该能力时退化为整画布裁剪到节点矩形。
  */
 async function capturePage(page: import('puppeteer-core').Page, canvasUrl: string, pageId: string): Promise<Buffer> {
-  await page.goto(`${canvasUrl}&page=${encodeURIComponent(pageId)}&export=1`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+  const url = new URL(canvasUrl)
+  url.searchParams.set('page', pageId)
+  url.searchParams.set('export', '1')
+  await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.waitForSelector('.page-node', { timeout: 15000 })
   // 字体与 iframe 双就绪，替代固定 sleep。
   await page.evaluate(async () => {

@@ -34,7 +34,7 @@ test('画布状态回归', { skip: !browserPath && '未找到浏览器' }, async
   let browser
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
-    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)[0]
+    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0]
     const { origin, searchParams } = new URL(url)
     const ws = searchParams.get('ws')
     const added = await tools.canvas_upsert_page.execute({

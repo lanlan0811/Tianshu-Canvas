@@ -36,7 +36,7 @@ test('跳转 e2e：点链接跳到目标页 / Ctrl 点击只选中 / 外链不�
   let browser
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
-    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)[0]
+    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0]
     const token = new URL(url).searchParams.get('ws')
     await tools.canvas_style.execute({ input: { action: 'set', style_id: 'apple' }, cwd })
 

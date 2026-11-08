@@ -31,7 +31,7 @@ const cwd = mkdtempSync(join(tmpdir(), 'tsc-web-'))
 let browser
 try {
   const open = await tools.canvas_open.execute({ args: { port: 0 }, cwd, sessionId: 's' })
-  const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)
+  const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)
   if (!m) throw new Error('未返回合法 URL: ' + open.content)
   const url = m[0]
   // 先锁定一套风格，验证顶栏切换器与注入链路

@@ -35,7 +35,7 @@ test('探针 e2e：两层选择 + 编辑回写', { skip: !browserPath && '未找
   let browser
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
-    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/\?ws=[0-9a-f]{16}/)[0]
+    const url = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0]
     const token = new URL(url).searchParams.get('ws')
 
     const pageHtml =

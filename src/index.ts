@@ -12,13 +12,15 @@
  *  - execute 收到 { args, cwd, sessionId }；返回值只取 content / isError。
  *  - host 提供 log / isWorker；日志走 host.log，worker 会话不写用户数据。
  *
- * 注意：本地画布服务是模块级单例，dispose 时**不关闭**（浏览器标签可能仍开着）。
+ * 多个激活实例共享服务；最后一个实例 dispose 时关闭服务并撤销工作区访问。
  */
 import { defineTianshuPlugin } from './tpi.js'
 import { setHostServices } from './host.js'
 import { tools as implTools } from './tools.js'
+import { shutdownForTests } from './server.js'
 
 const PLUGIN_ID = 'tianshu-canvas'
+let activeInstances = 0
 
 interface HostLike {
   log?: { debug(message: string): void; warn(message: string): void }
@@ -28,12 +30,19 @@ interface HostLike {
 export default defineTianshuPlugin({
   id: PLUGIN_ID,
   activate(host: unknown) {
+    activeInstances++
+    let disposed = false
     const h = (host ?? {}) as HostLike
     setHostServices({
       log: h.log ?? { debug() {}, warn: (message) => console.error(message) },
       isWorker: h.isWorker === true,
     })
     return {
+      async dispose() {
+        if (disposed) return
+        disposed = true
+        if (--activeInstances === 0) await shutdownForTests()
+      },
       tools: implTools.map((tool) => ({
         name: tool.definition.name,
         description: tool.definition.description,

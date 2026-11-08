@@ -9,11 +9,22 @@ import './tokens.css'
 import './styles.css'
 import App from './App'
 
-const rootEl = document.getElementById('root')
-if (rootEl) {
-  createRoot(rootEl).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
+async function start(): Promise<void> {
+  const rootEl = document.getElementById('root')
+  if (!rootEl) return
+  const ws = new URLSearchParams(location.search).get('ws')
+  const secret = location.hash.slice(1)
+  if (secret) {
+    const res = await fetch(`${location.pathname}api/auth`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
+      body: JSON.stringify({ ws, secret }),
+    })
+    if (!res.ok) throw new Error('画布授权已失效，请重新打开画布。')
+    history.replaceState(null, '', location.pathname + location.search)
+  }
+  createRoot(rootEl).render(<StrictMode><App /></StrictMode>)
 }
+void start().catch(() => {
+  const rootEl = document.getElementById('root')
+  if (rootEl) rootEl.textContent = '画布授权失败，请重新打开画布。'
+})

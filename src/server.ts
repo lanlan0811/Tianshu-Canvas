@@ -5,7 +5,7 @@
  * 「本地 HTTP 服务 + 浏览器打开」的方式呈现（方案 A）。
  *
  * 生命周期：模块级单例，跨工具调用存活；`unref()` 使其不阻塞宿主退出；
- * dispose 时**不关闭**服务（浏览器标签可能仍开着）。
+ * 最后一个插件实例 dispose 时关闭服务，旧链接及授权随之失效。
  *
  * 安全：
  *  - 只绑定 127.0.0.1；校验 Host 头。
@@ -14,7 +14,7 @@
  *  - 变更路由要求自定义头 `X-Tianshu-Canvas: 1`（跨源无法带自定义头 → 天然防 CSRF）。
  */
 import http from 'node:http'
-import { createHash } from 'node:crypto'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -60,14 +60,18 @@ const BODY_DRAIN_MS = 2000
 interface ServerState {
   server: http.Server
   port: number
-  tokens: Map<string, string>
+  tokens: Map<string, { cwd: string; secret: string; scope: string }>
   sse: Map<string, Set<http.ServerResponse>>
+  onChange: ({ cwd }: { cwd: string }) => void
+  onSelection: ({ cwd }: { cwd: string }) => void
 }
 
 let state: ServerState | null = null
+let starting: Promise<ServerState> | null = null
+let stopping: Promise<void> | null = null
 
-export function tokenFor(cwd: string): string {
-  return createHash('sha256').update(cwd).digest('hex').slice(0, 16)
+function tokenFor(cwd: string): string | undefined {
+  return [...(state?.tokens ?? [])].find(([, workspace]) => workspace.cwd === cwd)?.[0]
 }
 
 function listen(server: http.Server, port: number): Promise<number> {
@@ -106,37 +110,52 @@ export interface ServerHandle {
 }
 
 export async function ensureServer(cwd: string, preferredPort = DEFAULT_PORT): Promise<ServerHandle> {
-  if (!state) {
+  if (stopping) await stopping
+  if (!state && !starting) starting = (async () => {
     const server = http.createServer(handleRequest)
     server.on('clientError', (_err, socket) => socket.destroy())
     const port = await listenWithFallback(server, preferredPort)
     server.unref()
-    const created: ServerState = { server, port, tokens: new Map(), sse: new Map() }
+    const created: ServerState = {
+      server, port, tokens: new Map(), sse: new Map(),
+      onChange: ({ cwd }) => { const token = tokenFor(cwd); if (token) broadcast(created, token, 'project') },
+      onSelection: ({ cwd }) => { const token = tokenFor(cwd); if (token) broadcast(created, token, 'selection') },
+    }
     state = created
-    projectEvents.on('change', ({ cwd: changed }: { cwd: string }) => {
-      broadcast(created, tokenFor(changed), 'project')
-    })
-    projectEvents.on('selection', ({ cwd: changed }: { cwd: string }) => {
-      broadcast(created, tokenFor(changed), 'selection')
-    })
+    projectEvents.on('change', created.onChange)
+    projectEvents.on('selection', created.onSelection)
+    return created
+  })()
+  if (starting) {
+    try { await starting } finally { starting = null }
   }
-  const token = tokenFor(cwd)
-  state.tokens.set(token, cwd)
-  return { token, port: state.port, url: `http://127.0.0.1:${state.port}/?ws=${token}` }
+  if (!state) throw new Error('画布服务已关闭，请重试。')
+  let token = tokenFor(cwd)
+  if (!token) {
+    token = randomBytes(16).toString('hex')
+    state.tokens.set(token, { cwd, secret: randomBytes(32).toString('hex'), scope: randomBytes(16).toString('hex') })
+  }
+  const { secret, scope } = state.tokens.get(token)!
+  return { token, port: state.port, url: `http://127.0.0.1:${state.port}/w/${scope}/?ws=${token}#${secret}` }
 }
 
 export function currentUrl(cwd: string): string | null {
   if (!state) return null
   const token = tokenFor(cwd)
-  if (!state.tokens.has(token)) return null
-  return `http://127.0.0.1:${state.port}/?ws=${token}`
+  if (!token) return null
+  const { scope, secret } = state.tokens.get(token)!
+  return `http://127.0.0.1:${state.port}/w/${scope}/?ws=${token}#${secret}`
 }
 
-/** 仅供测试：关闭服务并复位单例。 */
+/** 关闭服务、断开事件流并撤销所有工作区授权。 */
 export async function shutdownForTests(): Promise<void> {
+  if (stopping) return stopping
+  if (starting) await starting
   if (!state) return
   const s = state
   state = null
+  projectEvents.off('change', s.onChange)
+  projectEvents.off('selection', s.onSelection)
   for (const set of s.sse.values()) {
     for (const res of set) {
       try {
@@ -146,7 +165,11 @@ export async function shutdownForTests(): Promise<void> {
       }
     }
   }
-  await new Promise<void>((resolve) => s.server.close(() => resolve()))
+  stopping = new Promise<void>((resolve) => {
+    s.server.close(() => resolve())
+    s.server.closeAllConnections()
+  })
+  try { await stopping } finally { stopping = null }
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +208,17 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   } catch {
     return send(res, 400, 'text/plain; charset=utf-8', 'bad request')
   }
-  const path = url.pathname
+  const scope = url.pathname.match(/^\/w\/([0-9a-f]{32})(\/.*)$/)
+  const path = scope?.[2] ?? url.pathname
+  const queryWorkspace = url.searchParams.get('ws')
+  if (scope && queryWorkspace && state?.tokens.get(queryWorkspace)?.scope !== scope[1]) {
+    return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
+  }
+
+  // 浏览器发送 Origin 时必须与监听地址完全一致。非浏览器客户端仍需凭证。
+  if (req.headers.origin && req.headers.origin !== `http://${host}`) {
+    return send(res, 403, 'text/plain; charset=utf-8', 'forbidden origin')
+  }
 
   if (req.method === 'GET' && path === '/healthz') {
     return send(res, 200, 'text/plain; charset=utf-8', 'ok')
@@ -203,7 +236,9 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
 
   if (req.method === 'GET' && path === '/api/design-systems') {
     // 带 ws 时把当前工作区的自定义设计系统一并返回；不带则只有内置（向后兼容）。
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const ws = url.searchParams.get('ws')
+    const cwd = resolveCwd(ws, req)
+    if (ws && !cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
     try {
       return sendJson(res, loadDesignCatalog(cwd ?? undefined))
     } catch (err) {
@@ -212,20 +247,20 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   }
 
   if (req.method === 'GET' && path === '/api/project') {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
     const issue = projectIssue(cwd)
     return sendJson(res, { ...readProject(cwd), ...(issue ? { issue } : {}) })
   }
 
   if (req.method === 'GET' && path === '/api/events') {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
-    return handleSse(res, tokenFor(cwd))
+    return handleSse(res, tokenFor(cwd)!)
   }
 
   if (req.method === 'GET' && path.startsWith('/page/')) {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
     let id: string
     try {
@@ -242,19 +277,19 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   }
 
   if (req.method === 'GET' && path === '/api/selection') {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
     return sendJson(res, { selection: readSelection(cwd) })
   }
 
   if (req.method === 'GET' && path === '/api/comments') {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
     return sendJson(res, { comments: readComments(cwd) })
   }
 
   if (req.method === 'GET' && path === '/api/page-html') {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
     const html = readPageHtml(cwd, url.searchParams.get('id') ?? '')
     if (html === null) return send(res, 404, 'text/plain; charset=utf-8', 'page not found')
@@ -262,7 +297,7 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   }
 
   if (req.method === 'GET' && path === '/api/export-file') {
-    const cwd = resolveCwd(url.searchParams.get('ws'))
+    const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
     const name = url.searchParams.get('name') ?? ''
     // 只允许文件名（无路径分隔符、无 ..）
@@ -281,7 +316,7 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     }
     const type = name.endsWith('.png') ? 'image/png' : 'application/zip'
     const data = readFileSync(file)
-    res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' })
+    res.writeHead(200, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' })
     res.end(data)
     return
   }
@@ -290,6 +325,7 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     if (String(req.headers[MUTATION_HEADER] ?? '') !== '1') {
       return send(res, 403, 'text/plain; charset=utf-8', 'missing header')
     }
+    if (path === '/api/auth') return readJsonBody(req, res, () => {}, 1024, true)
     if (path === '/api/viewport') return handleViewport(req, res)
     if (path === '/api/selection') return handleSelection(req, res)
     if (path === '/api/comments') return handleComments(req, res)
@@ -339,6 +375,7 @@ function readJsonBody(
   res: http.ServerResponse,
   onBody: (body: Record<string, unknown>) => void,
   maxBytes = MAX_BODY,
+  bootstrap = false,
 ): void {
   let raw = ''
   let rejected = false
@@ -375,7 +412,17 @@ function readJsonBody(
     const body = parsed as Record<string, unknown>
     // 这里运行在 end 事件回调内，handleRequest 的 try/catch 接不住，所有变更路由在此统一兜底。
     try {
-      const cwd = resolveCwd(typeof body.ws === 'string' ? body.ws : null)
+      const ws = typeof body.ws === 'string' ? body.ws : null
+      const scope = (req.url ?? '').match(/^\/w\/([0-9a-f]{32})\//)
+      if (scope && (!ws || state?.tokens.get(ws)?.scope !== scope[1])) return send(res, 404, 'application/json; charset=utf-8', '{"error":"unknown workspace"}')
+      if (bootstrap) {
+        const secret = typeof body.secret === 'string' ? body.secret : ''
+        if (!ws || !validSecret(ws, secret)) return send(res, 404, 'application/json; charset=utf-8', '{"error":"unknown workspace"}')
+        res.setHeader('Set-Cookie', `canvas_${ws}=${secret}; HttpOnly; SameSite=Strict; Path=/w/${state!.tokens.get(ws)!.scope}/`)
+        res.setHeader('Cache-Control', 'no-store')
+        return sendJson(res, { ok: true })
+      }
+      const cwd = resolveCwd(ws, req)
       if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
       onBody({ ...body, __cwd: cwd })
     } catch (err) {
@@ -585,9 +632,19 @@ function broadcast(s: ServerState, token: string, event = 'project'): void {
 // helpers
 // ---------------------------------------------------------------------------
 
-function resolveCwd(token: string | null): string | null {
+function validSecret(token: string, secret: string): boolean {
+  const expected = state?.tokens.get(token)?.secret
+  if (!expected || !/^[0-9a-f]{64}$/.test(secret)) return false
+  return timingSafeEqual(Buffer.from(secret, 'hex'), Buffer.from(expected, 'hex'))
+}
+
+function resolveCwd(token: string | null, req: http.IncomingMessage): string | null {
   if (!token || !state) return null
-  return state.tokens.get(token) ?? null
+  const cookieName = `canvas_${token}=`
+  const cookie = (req.headers.cookie ?? '').split(';').map((part) => part.trim()).find((part) => part.startsWith(cookieName))?.slice(cookieName.length) ?? ''
+  const bearer = req.headers.authorization?.match(/^Bearer ([0-9a-f]{64})$/)?.[1] ?? ''
+  if (!validSecret(token, bearer || cookie)) return null
+  return state.tokens.get(token)?.cwd ?? null
 }
 
 function isLocalHost(host: string): boolean {
@@ -598,7 +655,7 @@ function isLocalHost(host: string): boolean {
 function serveStatic(res: http.ServerResponse, name: string, type = 'text/html; charset=utf-8'): void {
   const file = join(WEB_DIR, name)
   if (!existsSync(file)) return send(res, 404, 'text/plain; charset=utf-8', 'asset not built')
-  const headers: Record<string, string> = { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' }
+  const headers: Record<string, string> = { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' }
   if (name === 'index.html') {
     headers['Content-Security-Policy'] =
       "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'"
@@ -624,6 +681,6 @@ function sendJson(res: http.ServerResponse, body: unknown): void {
 }
 
 function send(res: http.ServerResponse, status: number, type: string, body: string): void {
-  res.writeHead(status, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' })
+  res.writeHead(status, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' })
   res.end(body)
 }

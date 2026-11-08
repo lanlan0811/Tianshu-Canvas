@@ -46358,7 +46358,7 @@ var require_websocket = __commonJS({
     var http4 = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes2, createHash: createHash6 } = __require("crypto");
+    var { randomBytes: randomBytes3, createHash: createHash5 } = __require("crypto");
     var { Duplex, Readable: Readable2 } = __require("stream");
     var { URL: URL3 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -46909,7 +46909,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes2(16).toString("base64");
+      const key = randomBytes3(16).toString("base64");
       const request3 = isSecure ? https3.request : http4.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -47044,7 +47044,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash6("sha1").update(key + GUID).digest("base64");
+        const digest = createHash5("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -47413,7 +47413,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter5 = __require("events");
     var http4 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash6 } = __require("crypto");
+    var { createHash: createHash5 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -47720,7 +47720,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash6("sha1").update(key + GUID).digest("base64");
+        const digest = createHash5("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -47925,7 +47925,7 @@ var init_NodeWebSocketTransport = __esm({
 });
 
 // node_modules/@puppeteer/browsers/lib/httpUtil.js
-import { createHash as createHash4 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 import { createWriteStream, unlinkSync } from "node:fs";
 import * as http2 from "node:http";
 import * as https from "node:https";
@@ -48089,7 +48089,7 @@ var HashVerifier;
 var init_httpUtil = __esm({
   "node_modules/@puppeteer/browsers/lib/httpUtil.js"() {
     HashVerifier = class {
-      #hash = createHash4("sha256");
+      #hash = createHash3("sha256");
       update(chunk) {
         this.#hash.update(chunk);
       }
@@ -64653,14 +64653,14 @@ function formatContractReport(result, label) {
 
 // src/export.ts
 import { spawn as spawn4 } from "node:child_process";
-import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync11, readdirSync as readdirSync6, rmSync as rmSync5, statSync as statSync5 } from "node:fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync11, rmSync as rmSync5 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join13 } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
 // src/server.ts
 import http from "node:http";
-import { createHash as createHash3 } from "node:crypto";
+import { randomBytes as randomBytes2, timingSafeEqual } from "node:crypto";
 import { existsSync as existsSync6, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
 import { join as join8 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
@@ -65075,8 +65075,10 @@ var MAX_BODY = 4 * 1024 * 1024;
 var MAX_VIEWPORT_BODY = 4096;
 var BODY_DRAIN_MS = 2e3;
 var state = null;
+var starting = null;
+var stopping = null;
 function tokenFor(cwd) {
-  return createHash3("sha256").update(cwd).digest("hex").slice(0, 16);
+  return [...state?.tokens ?? []].find(([, workspace]) => workspace.cwd === cwd)?.[0];
 }
 function listen(server, port) {
   return new Promise((resolve10, reject) => {
@@ -65106,29 +65108,79 @@ async function listenWithFallback(server, preferred) {
   return listen(server, 0);
 }
 async function ensureServer(cwd, preferredPort = DEFAULT_PORT) {
-  if (!state) {
+  if (stopping) await stopping;
+  if (!state && !starting) starting = (async () => {
     const server = http.createServer(handleRequest);
     server.on("clientError", (_err, socket) => socket.destroy());
     const port = await listenWithFallback(server, preferredPort);
     server.unref();
-    const created = { server, port, tokens: /* @__PURE__ */ new Map(), sse: /* @__PURE__ */ new Map() };
+    const created = {
+      server,
+      port,
+      tokens: /* @__PURE__ */ new Map(),
+      sse: /* @__PURE__ */ new Map(),
+      onChange: ({ cwd: cwd2 }) => {
+        const token2 = tokenFor(cwd2);
+        if (token2) broadcast(created, token2, "project");
+      },
+      onSelection: ({ cwd: cwd2 }) => {
+        const token2 = tokenFor(cwd2);
+        if (token2) broadcast(created, token2, "selection");
+      }
+    };
     state = created;
-    projectEvents.on("change", ({ cwd: changed }) => {
-      broadcast(created, tokenFor(changed), "project");
-    });
-    projectEvents.on("selection", ({ cwd: changed }) => {
-      broadcast(created, tokenFor(changed), "selection");
-    });
+    projectEvents.on("change", created.onChange);
+    projectEvents.on("selection", created.onSelection);
+    return created;
+  })();
+  if (starting) {
+    try {
+      await starting;
+    } finally {
+      starting = null;
+    }
   }
-  const token = tokenFor(cwd);
-  state.tokens.set(token, cwd);
-  return { token, port: state.port, url: `http://127.0.0.1:${state.port}/?ws=${token}` };
+  if (!state) throw new Error("\u753B\u5E03\u670D\u52A1\u5DF2\u5173\u95ED\uFF0C\u8BF7\u91CD\u8BD5\u3002");
+  let token = tokenFor(cwd);
+  if (!token) {
+    token = randomBytes2(16).toString("hex");
+    state.tokens.set(token, { cwd, secret: randomBytes2(32).toString("hex"), scope: randomBytes2(16).toString("hex") });
+  }
+  const { secret, scope } = state.tokens.get(token);
+  return { token, port: state.port, url: `http://127.0.0.1:${state.port}/w/${scope}/?ws=${token}#${secret}` };
 }
 function currentUrl(cwd) {
   if (!state) return null;
   const token = tokenFor(cwd);
-  if (!state.tokens.has(token)) return null;
-  return `http://127.0.0.1:${state.port}/?ws=${token}`;
+  if (!token) return null;
+  const { scope, secret } = state.tokens.get(token);
+  return `http://127.0.0.1:${state.port}/w/${scope}/?ws=${token}#${secret}`;
+}
+async function shutdownForTests() {
+  if (stopping) return stopping;
+  if (starting) await starting;
+  if (!state) return;
+  const s = state;
+  state = null;
+  projectEvents.off("change", s.onChange);
+  projectEvents.off("selection", s.onSelection);
+  for (const set of s.sse.values()) {
+    for (const res of set) {
+      try {
+        res.end();
+      } catch {
+      }
+    }
+  }
+  stopping = new Promise((resolve10) => {
+    s.server.close(() => resolve10());
+    s.server.closeAllConnections();
+  });
+  try {
+    await stopping;
+  } finally {
+    stopping = null;
+  }
 }
 var ASSET_TYPES = {
   "canvas.js": "application/javascript; charset=utf-8",
@@ -65156,7 +65208,15 @@ function routeRequest(req, res) {
   } catch {
     return send(res, 400, "text/plain; charset=utf-8", "bad request");
   }
-  const path14 = url.pathname;
+  const scope = url.pathname.match(/^\/w\/([0-9a-f]{32})(\/.*)$/);
+  const path14 = scope?.[2] ?? url.pathname;
+  const queryWorkspace = url.searchParams.get("ws");
+  if (scope && queryWorkspace && state?.tokens.get(queryWorkspace)?.scope !== scope[1]) {
+    return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
+  }
+  if (req.headers.origin && req.headers.origin !== `http://${host}`) {
+    return send(res, 403, "text/plain; charset=utf-8", "forbidden origin");
+  }
   if (req.method === "GET" && path14 === "/healthz") {
     return send(res, 200, "text/plain; charset=utf-8", "ok");
   }
@@ -65169,7 +65229,9 @@ function routeRequest(req, res) {
     return send(res, 404, "text/plain; charset=utf-8", "not found");
   }
   if (req.method === "GET" && path14 === "/api/design-systems") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const ws = url.searchParams.get("ws");
+    const cwd = resolveCwd(ws, req);
+    if (ws && !cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
     try {
       return sendJson(res, loadDesignCatalog(cwd ?? void 0));
     } catch (err) {
@@ -65177,18 +65239,18 @@ function routeRequest(req, res) {
     }
   }
   if (req.method === "GET" && path14 === "/api/project") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
     const issue = projectIssue(cwd);
     return sendJson(res, { ...readProject(cwd), ...issue ? { issue } : {} });
   }
   if (req.method === "GET" && path14 === "/api/events") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
     return handleSse(res, tokenFor(cwd));
   }
   if (req.method === "GET" && path14.startsWith("/page/")) {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
     let id;
     try {
@@ -65202,24 +65264,24 @@ function routeRequest(req, res) {
     return sendUntrustedHtml(res, injectProbe(html));
   }
   if (req.method === "GET" && path14 === "/api/selection") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
     return sendJson(res, { selection: readSelection(cwd) });
   }
   if (req.method === "GET" && path14 === "/api/comments") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
     return sendJson(res, { comments: readComments(cwd) });
   }
   if (req.method === "GET" && path14 === "/api/page-html") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
     const html = readPageHtml(cwd, url.searchParams.get("id") ?? "");
     if (html === null) return send(res, 404, "text/plain; charset=utf-8", "page not found");
     return send(res, 200, "text/plain; charset=utf-8", html);
   }
   if (req.method === "GET" && path14 === "/api/export-file") {
-    const cwd = resolveCwd(url.searchParams.get("ws"));
+    const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
     const name = url.searchParams.get("name") ?? "";
     if (!name || /[\\/]/.test(name) || name.includes("..")) {
@@ -65235,7 +65297,7 @@ function routeRequest(req, res) {
     }
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
     const data = readFileSync6(file);
-    res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
+    res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
     res.end(data);
     return;
   }
@@ -65243,6 +65305,8 @@ function routeRequest(req, res) {
     if (String(req.headers[MUTATION_HEADER] ?? "") !== "1") {
       return send(res, 403, "text/plain; charset=utf-8", "missing header");
     }
+    if (path14 === "/api/auth") return readJsonBody(req, res, () => {
+    }, 1024, true);
     if (path14 === "/api/viewport") return handleViewport(req, res);
     if (path14 === "/api/selection") return handleSelection(req, res);
     if (path14 === "/api/comments") return handleComments(req, res);
@@ -65276,7 +65340,7 @@ function handleDesign(req, res) {
     1024
   );
 }
-function readJsonBody(req, res, onBody, maxBytes = MAX_BODY) {
+function readJsonBody(req, res, onBody, maxBytes = MAX_BODY, bootstrap = false) {
   let raw = "";
   let rejected = false;
   req.setEncoding("utf8");
@@ -65307,7 +65371,17 @@ function readJsonBody(req, res, onBody, maxBytes = MAX_BODY) {
     }
     const body = parsed;
     try {
-      const cwd = resolveCwd(typeof body.ws === "string" ? body.ws : null);
+      const ws = typeof body.ws === "string" ? body.ws : null;
+      const scope = (req.url ?? "").match(/^\/w\/([0-9a-f]{32})\//);
+      if (scope && (!ws || state?.tokens.get(ws)?.scope !== scope[1])) return send(res, 404, "application/json; charset=utf-8", '{"error":"unknown workspace"}');
+      if (bootstrap) {
+        const secret = typeof body.secret === "string" ? body.secret : "";
+        if (!ws || !validSecret(ws, secret)) return send(res, 404, "application/json; charset=utf-8", '{"error":"unknown workspace"}');
+        res.setHeader("Set-Cookie", `canvas_${ws}=${secret}; HttpOnly; SameSite=Strict; Path=/w/${state.tokens.get(ws).scope}/`);
+        res.setHeader("Cache-Control", "no-store");
+        return sendJson(res, { ok: true });
+      }
+      const cwd = resolveCwd(ws, req);
       if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
       onBody({ ...body, __cwd: cwd });
     } catch (err) {
@@ -65495,9 +65569,18 @@ data: ${JSON.stringify({ at: Date.now() })}
     }
   }
 }
-function resolveCwd(token) {
+function validSecret(token, secret) {
+  const expected = state?.tokens.get(token)?.secret;
+  if (!expected || !/^[0-9a-f]{64}$/.test(secret)) return false;
+  return timingSafeEqual(Buffer.from(secret, "hex"), Buffer.from(expected, "hex"));
+}
+function resolveCwd(token, req) {
   if (!token || !state) return null;
-  return state.tokens.get(token) ?? null;
+  const cookieName = `canvas_${token}=`;
+  const cookie = (req.headers.cookie ?? "").split(";").map((part) => part.trim()).find((part) => part.startsWith(cookieName))?.slice(cookieName.length) ?? "";
+  const bearer = req.headers.authorization?.match(/^Bearer ([0-9a-f]{64})$/)?.[1] ?? "";
+  if (!validSecret(token, bearer || cookie)) return null;
+  return state.tokens.get(token)?.cwd ?? null;
 }
 function isLocalHost(host) {
   const name = host.split(":")[0]?.toLowerCase();
@@ -65506,7 +65589,7 @@ function isLocalHost(host) {
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
   const file = join8(WEB_DIR, name);
   if (!existsSync6(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
-  const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff" };
+  const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
@@ -65526,7 +65609,7 @@ function sendJson(res, body) {
   send(res, 200, "application/json; charset=utf-8", JSON.stringify(body));
 }
 function send(res, status, type, body) {
-  res.writeHead(status, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
+  res.writeHead(status, { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
   res.end(body);
 }
 
@@ -65798,20 +65881,6 @@ function removeProfile(userDataDir) {
     warnUser(`\u4E34\u65F6 profile \u672A\u80FD\u5220\u9664\uFF1A${userDataDir}\uFF08${err.message}\uFF09`);
   }
 }
-function cleanStaleProfiles() {
-  const cutoff = Date.now() - 2 * 60 * 60 * 1e3;
-  try {
-    for (const entry of readdirSync6(tmpdir2())) {
-      if (!entry.startsWith("tsc-png-")) continue;
-      const dir = join13(tmpdir2(), entry);
-      try {
-        if (statSync5(dir).mtimeMs < cutoff) rmSync5(dir, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
-      } catch {
-      }
-    }
-  } catch {
-  }
-}
 async function launchBrowser(exe) {
   const puppeteer2 = (await Promise.resolve().then(() => (init_puppeteer_core(), puppeteer_core_exports))).default;
   let lastErr;
@@ -65856,12 +65925,13 @@ async function exportPngOnce(cwd) {
     );
   }
   const { url } = await ensureServer(cwd);
-  cleanStaleProfiles();
   const { browser, dispose } = await launchBrowser(exe);
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 });
-    await page.goto(`${url}&export=1`, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    const exportUrl = new URL(url);
+    exportUrl.searchParams.set("export", "1");
+    await page.goto(exportUrl.toString(), { waitUntil: "domcontentloaded", timeout: 3e4 });
     await page.waitForSelector(".page-node", { timeout: 15e3 });
     await new Promise((r) => setTimeout(r, 800));
     const clip = await page.evaluate(() => {
@@ -66039,11 +66109,11 @@ async function runExport(cwd, kind) {
 }
 
 // src/audit/drift.ts
-import { createHash as createHash5 } from "node:crypto";
+import { createHash as createHash4 } from "node:crypto";
 import { existsSync as existsSync10 } from "node:fs";
 import { join as join14 } from "node:path";
 function hash(text) {
-  return createHash5("sha1").update(text).digest("hex").slice(0, 12);
+  return createHash4("sha1").update(text).digest("hex").slice(0, 12);
 }
 function snapshotDir(cwd) {
   return join14(cwd, ".tianshu-canvas", "audit");
@@ -66241,7 +66311,10 @@ function baselineFile(dir, styleId, pageId, device) {
   return join15(dir, styleId || "free", `${pageId}@${device}@2x.png`);
 }
 async function capturePage(page, canvasUrl, pageId) {
-  await page.goto(`${canvasUrl}&page=${encodeURIComponent(pageId)}&export=1`, { waitUntil: "domcontentloaded", timeout: 3e4 });
+  const url = new URL(canvasUrl);
+  url.searchParams.set("page", pageId);
+  url.searchParams.set("export", "1");
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 3e4 });
   await page.waitForSelector(".page-node", { timeout: 15e3 });
   await page.evaluate(async () => {
     const doc = globalThis.document;
@@ -67689,6 +67762,7 @@ async function canvasOpen(call) {
   return {
     content: `\u753B\u5E03\u670D\u52A1\u5DF2\u5C31\u7EEA\u3002\u8BF7\u7ACB\u523B\u628A\u4E0B\u9762\u8FD9\u4E00\u884C\u539F\u6837\u53D1\u7ED9\u7528\u6237\uFF08\u5355\u72EC\u4E00\u884C\uFF0C\u4FBF\u4E8E\u70B9\u51FB\uFF09\uFF1A
 ${url}
+\u753B\u5E03\u94FE\u63A5\u542B\u8BBF\u95EE\u51ED\u8BC1\uFF0C\u8BF7\u53EA\u63D0\u4F9B\u7ED9\u672C\u673A\u7684\u6388\u6743\u4F7F\u7528\u8005\uFF1B\u4E0D\u8981\u516C\u5F00\u5206\u4EAB\u3002\u670D\u52A1\u5173\u95ED\u540E\u65E7\u94FE\u63A5\u5931\u6548\u3002
 \u5728\u7528\u6237\u62FF\u5230\u94FE\u63A5\u540E\uFF0C\u5148\u786E\u8BA4\u8BBE\u8BA1\u98CE\u683C\uFF08canvas_get_state \u770B\u300C\u8BBE\u8BA1\u98CE\u683C\u300D\u6BB5\uFF1B\u82E5\u4E3A\u300C\u81EA\u7531\u53D1\u6325\u300D\u4E14\u7528\u6237\u6CA1\u6307\u5B9A\u8FC7\u98CE\u683C\uFF0C
 \u7528 canvas_style\uFF08action=list\uFF09\u628A\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\u5E76\u7B49\u56DE\u7B54\uFF09\uFF0C\u518D\u5F00\u59CB\u5199\u539F\u578B\u3002
 \u5DE5\u4F5C\u533A\uFF1A${call.cwd}
@@ -67699,7 +67773,10 @@ ${url}
 function writeUrlHint(cwd, url) {
   if (isWorkerSession()) return;
   try {
-    writeFileInWorkspace(cwd, join17(cwd, PROJECT_DIR_NAME, "url.txt"), url + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
+    const publicUrl = new URL(url);
+    publicUrl.pathname = "/";
+    publicUrl.hash = "";
+    writeFileInWorkspace(cwd, join17(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
   } catch {
   }
 }
@@ -68765,10 +68842,17 @@ async function canvasAudit(call) {
       if (!exe) return { content: "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u6E32\u67D3\u9875\u9762\u505A\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\u3002\u53EF\u7528 TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u8DEF\u5F84\u3002", isError: true };
       const { browser, dispose } = await launchBrowser(exe);
       try {
+        const authPage = await browser.newPage();
+        await authPage.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+        await authPage.waitForFunction("!location.hash", { timeout: 15e3 });
+        await authPage.close();
         const parts = [];
         let errors = 0;
         for (const page of pages) {
-          const report = await auditPage(browser, `${url.replace(/\/\?ws=/, "/page/")}${page.id}`, {
+          const pageUrl = new URL(url);
+          pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`;
+          pageUrl.hash = "";
+          const report = await auditPage(browser, pageUrl.toString(), {
             minContrast: num(call.args.min_contrast),
             minTargetSize: num(call.args.min_target_size),
             ignore: Array.isArray(call.args.ignore) ? call.args.ignore.map(String) : void 0
@@ -69184,9 +69268,12 @@ var tools = [
 
 // src/index.ts
 var PLUGIN_ID = "tianshu-canvas";
+var activeInstances = 0;
 var index_default = defineTianshuPlugin({
   id: PLUGIN_ID,
   activate(host) {
+    activeInstances++;
+    let disposed = false;
     const h = host ?? {};
     setHostServices({
       log: h.log ?? { debug() {
@@ -69194,6 +69281,11 @@ var index_default = defineTianshuPlugin({
       isWorker: h.isWorker === true
     });
     return {
+      async dispose() {
+        if (disposed) return;
+        disposed = true;
+        if (--activeInstances === 0) await shutdownForTests();
+      },
       tools: tools.map((tool) => ({
         name: tool.definition.name,
         description: tool.definition.description,

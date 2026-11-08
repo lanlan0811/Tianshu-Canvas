@@ -7,6 +7,29 @@
 import { isAbsolute, relative, resolve } from 'node:path'
 
 export const TPI_BRAND = Symbol.for('tianshu.tpi.plugin/v1')
+// 旧接口测试用模拟客户端显式持有工具返回的凭证；安全专项可用 rawFetch 测试无凭证请求。
+const credentials = new Map()
+export const rawFetch = globalThis.fetch.bind(globalThis)
+export function testCredential(ws) { return credentials.get(ws) }
+let fetchInstalled = false
+function installTestClient() {
+  if (fetchInstalled) return
+  fetchInstalled = true
+  globalThis.fetch = (input, init = {}) => {
+    const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url)
+    let ws = url.searchParams.get('ws')
+    if (!ws && typeof init.body === 'string') {
+      try { ws = JSON.parse(init.body)?.ws } catch {}
+    }
+    const secret = credentials.get(ws)
+    if (secret && url.hostname === '127.0.0.1') {
+      const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined))
+      if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${secret}`)
+      return rawFetch(input, { ...init, headers })
+    }
+    return rawFetch(input, init)
+  }
+}
 
 export function installFakeSdk() {
   function defineTianshuPlugin(spec) {
@@ -44,7 +67,9 @@ export function wrapTool(pluginId, tool, defaultSessionId = 'sess-1') {
       }
       try {
         const result = await tool.execute({ args, cwd: call.cwd, sessionId: call.sessionId ?? defaultSessionId })
-        return { content: String(result?.content ?? ''), ...(result?.isError ? { isError: true } : {}) }
+        const content = String(result?.content ?? '')
+        for (const match of content.matchAll(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=([0-9a-f]{32})#([0-9a-f]{64})/g)) credentials.set(match[1], match[2])
+        return { content, ...(result?.isError ? { isError: true } : {}) }
       } catch (err) {
         return {
           content: '[' + pluginId + '] ' + tool.name + ' failed: ' + (err?.message ?? String(err)),
@@ -57,6 +82,7 @@ export function wrapTool(pluginId, tool, defaultSessionId = 'sess-1') {
 
 /** 用假宿主加载构建产物，返回 { def, api, tools }。 */
 export async function loadPlugin(entryUrl) {
+  installTestClient()
   const brand = installFakeSdk()
   const mod = await import(entryUrl)
   const def = mod.default
