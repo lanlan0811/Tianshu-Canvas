@@ -105,7 +105,7 @@ node --test --test-concurrency=1 test/preview.e2e.test.mjs
 npm run typecheck         → 通过（Node + Web 两套 tsconfig）
 npm run build             → 通过
 git diff --exit-code -- dist → 空（提交产物与源码一致）
-npm run check:plugin      → OK tianshu-canvas@0.9.0 · 9 个工具，打包 108 个文件，解包 4743.0 KiB
+npm run check:plugin      → OK tianshu-canvas@0.9.0 · 9 个工具，打包 109 个文件，解包 4751.6 KiB
 ```
 
 ## 4 B 宿主手工验收（Windows 10 x64 + 天枢 4.0.4 实机执行）
