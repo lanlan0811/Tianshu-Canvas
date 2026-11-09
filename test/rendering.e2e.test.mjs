@@ -1,6 +1,12 @@
 /**
- * 端到端（真实浏览器）：文案编辑不丢结构、回写源文件而非运行时 DOM、
- * 节点高度无反馈循环、AI 更新页面后 iframe 自动刷新。
+ * 端到端（真实浏览器）：画布渲染回归。
+ *
+ * 锁定：
+ *   - 选中元素后面板只提供批注入口，不提供文案/样式编辑（用户以批注表达修改）；
+ *   - 批注写入 project.json，不改写原型文件；
+ *   - 节点高度无反馈循环、项目事件后高度不丢；
+ *   - AI 更新页面后 iframe 自动刷新，只改标题不刷新；
+ *   - 页面脚本伪造写入类消息不能改写文件。
  *
  * 无可用浏览器时跳过（不阻塞 CI）。
  */
@@ -28,22 +34,9 @@ const browserPath = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const doc = (head, body) => `<!doctype html><html><head><meta charset="utf-8">${head}</head><body>${body}</body></html>`
-const LONG_TEXT = '很长的文案'.repeat(60)
 
 const PAGES = {
   structure: doc('', '<section id="s"><h2 id="title">原标题</h2><p id="para">段落一</p></section>'),
-  long: doc('', `<p id="long">${LONG_TEXT}</p>`),
-  script: doc(
-    '',
-    '<main><h1 id="t">静态标题</h1></main>' +
-      '<script>var d=document.createElement("div");d.id="gen";d.textContent="脚本生成";document.body.appendChild(d);' +
-      'document.getElementById("t").setAttribute("data-ran","1");</script>',
-  ),
-  shifted: doc(
-    '',
-    '<h1 id="orig">原始</h1>' +
-      '<script>var h=document.createElement("h1");h.id="added";h.textContent="插入";document.body.insertBefore(h,document.body.firstChild);</script>',
-  ),
   short: doc('', '<h1>短内容</h1>'),
   hero: doc('<style>*{margin:0;box-sizing:border-box}.hero{height:100vh}</style>', '<div class="hero">全屏</div>'),
   padded: doc('<style>body{margin:0;padding:40px;min-height:100vh}</style>', '<h1>撑满视口</h1>'),
@@ -52,10 +45,10 @@ const PAGES = {
   forged: doc('', '<h1 id="f">不应被改写</h1>'),
 }
 
-test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, async () => {
+test('渲染与只读编辑回归', { skip: !browserPath && '未找到浏览器' }, async () => {
   const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
   const puppeteer = (await import('puppeteer-core')).default
-  const cwd = mkdtempSync(join(tmpdir(), 'tsc-edit-'))
+  const cwd = mkdtempSync(join(tmpdir(), 'tsc-render-'))
   let browser
   try {
     const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
@@ -107,93 +100,44 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
       await sleep(400)
     }
 
-    const applyButton = '.selection-panel .btn:not(.btn--primary)'
-    const textArea = '.selection-panel__text'
-    async function replaceText(text) {
-      await page.click(textArea, { clickCount: 3 })
-      await page.keyboard.down('Control')
-      await page.keyboard.press('a')
-      await page.keyboard.up('Control')
-      await page.keyboard.type(text)
-      await page.click(applyButton)
-      await sleep(600)
-    }
-    async function setColor(value) {
-      await page.click('.selection-panel__styles input', { clickCount: 3 })
-      await page.keyboard.type(value)
-      await page.click(applyButton)
-      await sleep(600)
-    }
-    const errorText = () => page.evaluate(() => document.querySelector('.app-error')?.textContent ?? '')
-
-    // 1) 选中含子元素的区块：不提供文案输入，无法整体覆盖
-    await clickIn('structure', '#title', false)
-    await page.waitForSelector('.selection-panel', { timeout: 5000 })
-    assert.equal(await page.$(textArea), null, '区块不应提供文案输入')
-    assert.ok(await page.$('.selection-panel__note'), '应提示改用 Ctrl 点击')
-
-    // 2) 选中叶子元素改文案：只改该元素，兄弟节点保留
+    // 1) 选中元素后：面板只有批注入口，没有文案/样式编辑与「应用修改」
     await clickIn('structure', '#title')
-    await replaceText('新标题')
-    let saved = fileOf('structure')
-    assert.match(saved, /<h2 id="title">新标题<\/h2>/)
-    assert.match(saved, /<p id="para">段落一<\/p>/, '兄弟节点不应丢失')
-    assert.match(saved, /^<!doctype html>/i)
-    const liveTitle = await (await frameOf('structure')).$eval('#title', (e) => e.textContent)
-    assert.equal(liveTitle, '新标题', '画布上应立即更新')
+    await page.waitForSelector('.selection-panel', { timeout: 5000 })
+    assert.equal(await page.$('.selection-panel__styles'), null, '不应再提供样式编辑')
+    assert.equal(await page.$('.selection-panel__text'), null, '不应再提供文案编辑')
+    assert.equal(await page.$('.selection-panel input'), null, '不应再提供任何编辑输入框')
+    assert.ok(await page.$('.selection-panel__note-input'), '应提供批注输入框')
+    const applyButton = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.selection-panel .btn')).some((b) => b.textContent?.includes('应用修改')),
+    )
+    assert.equal(applyButton, false, '不应再出现「应用修改」按钮')
 
-    // 3) 同一选中项连续编辑：改完文案后再改样式不应被判定为对不上
-    await setColor('rgb(1, 2, 3)')
-    assert.equal(await errorText(), '')
-    assert.match(fileOf('structure'), /color: rgb\(1, 2, 3\)/)
+    // 2) 填批注 → 添加批注：写入 project.json，文件本身不被改动
+    const before = fileOf('structure')
+    await page.type('.selection-panel__note-input', '标题改短一点')
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('.selection-panel .btn'))
+      buttons.find((b) => b.textContent?.trim() === '添加批注')?.click()
+    })
+    await sleep(900)
+    const project = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'project.json'), 'utf8'))
+    assert.equal(project.comments?.length, 1, '应写入一条批注')
+    assert.equal(project.comments[0].note, '标题改短一点')
+    assert.equal(project.comments[0].xpath, '/html[1]/body[1]/section[1]/h2[1]')
+    assert.equal(fileOf('structure'), before, '批注不应改写原型文件')
 
-    // 4) 超过 200 字的文案：输入框是全文，追加不会截断
-    await clickIn('long', '#long')
-    const shown = await page.$eval(textArea, (e) => e.value)
-    assert.equal(shown, LONG_TEXT, '输入框应是完整文案')
-    await page.focus(textArea)
-    await page.keyboard.down('Control')
-    await page.keyboard.press('End')
-    await page.keyboard.up('Control')
-    await page.keyboard.type('X')
-    await page.click(applyButton)
-    await sleep(600)
-    assert.ok(fileOf('long').includes(`${LONG_TEXT}X</p>`), '不应截断原文')
-
-    // 5) 脚本改过 DOM：回写源文件，不固化运行时内容
-    await clickIn('script', '#t')
-    await replaceText('改后标题')
-    saved = fileOf('script')
-    assert.match(saved, /改后标题/)
-    assert.match(saved, /<h1 id="t">改后标题<\/h1>/, '脚本设置的属性不应写回')
-    assert.doesNotMatch(saved, /<div id="gen"/, '脚本生成的元素不应写回')
-    assert.equal(saved.match(/createElement/g)?.length, 1, '脚本应只有一份')
-
-    // 6) 脚本生成的元素：拒绝回写并提示，文件不变
-    const beforeGen = fileOf('script')
-    await clickIn('script', '#gen')
-    await replaceText('改脚本内容')
-    assert.match(await errorText(), /脚本生成/)
-    assert.equal(fileOf('script'), beforeGen)
-
-    // 7) 脚本在前面插入同名元素：xpath 对应到别的元素时拒绝，不能改错
-    const beforeShift = fileOf('shifted')
-    await clickIn('shifted', '#added')
-    await replaceText('改错了')
-    assert.match(await errorText(), /脚本生成/)
-    assert.equal(fileOf('shifted'), beforeShift)
-
-    // 8) 页面脚本伪造编辑消息不能改写文件
+    // 3) 页面脚本伪造写入类消息不能改写文件（现在已无任何写入类消息处理）
     const beforeForged = fileOf('forged')
     await (
       await frameOf('forged')
     ).evaluate(() => {
       parent.postMessage({ type: '__vd_edit_applied', payload: { xpath: null, ok: true, html: '<h1>被改写</h1>' } }, '*')
+      parent.postMessage({ type: '__vd_apply_edits', payload: { xpath: '/html[1]/body[1]/h1[1]', text: '被改写' } }, '*')
     })
     await sleep(400)
     assert.equal(fileOf('forged'), beforeForged)
 
-    // 9) 节点高度：只变化一次并稳定，不低于设备高度
+    // 4) 节点高度：只变化一次并稳定，不低于设备高度
     const heightOf = (name) =>
       page.$eval(`iframe[src*="${ids[name]}"]`, (e) => e.closest('.page-node').style.height)
     for (const name of ['short', 'hero', 'padded', 'tall']) await frameOf(name)
@@ -209,12 +153,12 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
     assert.equal(first.padded, '980px', '撑满视口的内容只增长一次')
     assert.equal(first.tall, '2002px', '长页面应完整显示')
 
-    // 10) 项目事件（如视口保存）后，测得的高度不丢
+    // 5) 项目事件（如视口保存）后，测得的高度不丢
     await tools.canvas_upsert_page.execute({ input: { id: ids.short, title: 'short-renamed' }, cwd })
     await sleep(600)
     assert.equal(await heightOf('tall'), '2002px')
 
-    // 11) AI 更新已有页面：iframe 自动刷新；只改标题不刷新
+    // 6) AI 更新已有页面：iframe 自动刷新；只改标题不刷新
     const frameV = await frameOf('refresh')
     await frameV.waitForSelector('#v')
     await frameV.evaluate(() => {
@@ -227,7 +171,7 @@ test('编辑与渲染回归', { skip: !browserPath && '未找到浏览器' }, as
     await sleep(1200)
     assert.equal(await (await frameOf('refresh')).$eval('#v', (e) => e.textContent), '第二版', '应显示新内容')
 
-    console.log('OK 编辑 e2e: 结构保留、回写源文件、高度稳定、自动刷新')
+    console.log('OK 渲染 e2e: 面板只留批注、批注落盘不改文件、高度稳定、自动刷新')
   } finally {
     if (browser) await browser.close().catch(() => {})
     rmSync(cwd, { recursive: true, force: true })

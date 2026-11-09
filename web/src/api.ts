@@ -78,7 +78,6 @@ export interface ApiSelection {
     xpath: string
     tagName: string
     textContent?: string
-    editableText?: string | null
     computedStyles?: Record<string, string>
   }
   at: number
@@ -208,21 +207,6 @@ export async function postEdge(
   }).catch(() => {
     /* ignore */
   })
-}
-
-export async function fetchPageSource(ws: string, id: string): Promise<string> {
-  const res = await fetch(`${API_ROOT}/api/page-html?ws=${encodeURIComponent(ws)}&id=${encodeURIComponent(id)}`)
-  if (!res.ok) throw new Error(`读取页面失败（${res.status}）`)
-  return res.text()
-}
-
-export async function postPageHtml(ws: string, id: string, html: string): Promise<boolean> {
-  const res = await fetch(`${API_ROOT}/api/page-html`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, id, html }),
-  })
-  return res.ok
 }
 
 export interface ExportResult {

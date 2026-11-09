@@ -42,7 +42,6 @@ import {
   duplicateNode,
   setCommentsResolved,
   setViewport,
-  writePageHtml,
   writeSelection,
   type Selection,
 } from './project.js'
@@ -289,14 +288,6 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     return sendJson(res, { comments: readComments(cwd) })
   }
 
-  if (req.method === 'GET' && path === '/api/page-html') {
-    const cwd = resolveCwd(url.searchParams.get('ws'), req)
-    if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
-    const html = readPageHtml(cwd, url.searchParams.get('id') ?? '')
-    if (html === null) return send(res, 404, 'text/plain; charset=utf-8', 'page not found')
-    return send(res, 200, 'text/plain; charset=utf-8', html)
-  }
-
   if (req.method === 'GET' && path === '/api/export-file') {
     const cwd = resolveCwd(url.searchParams.get('ws'), req)
     if (!cwd) return send(res, 404, 'text/plain; charset=utf-8', 'unknown workspace')
@@ -330,7 +321,6 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     if (path === '/api/viewport') return handleViewport(req, res)
     if (path === '/api/selection') return handleSelection(req, res)
     if (path === '/api/comments') return handleComments(req, res)
-    if (path === '/api/page-html') return handlePageHtml(req, res)
     if (path === '/api/nodes') return handleNodes(req, res)
     if (path === '/api/edges') return handleEdges(req, res)
     if (path === '/api/export') return handleExport(req, res)
@@ -459,7 +449,6 @@ function handleSelection(req: http.IncomingMessage, res: http.ServerResponse): v
               xpath: String(raw.xpath ?? ''),
               tagName: String(raw.tagName ?? ''),
               textContent: typeof raw.textContent === 'string' ? raw.textContent : undefined,
-              editableText: typeof raw.editableText === 'string' ? raw.editableText : null,
               computedStyles:
                 raw.computedStyles && typeof raw.computedStyles === 'object'
                   ? (raw.computedStyles as Record<string, string>)
@@ -498,19 +487,6 @@ function handleComments(req: http.IncomingMessage, res: http.ServerResponse): vo
       return sendJson(res, { ok: true, removed })
     }
     return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
-  })
-}
-
-function handlePageHtml(req: http.IncomingMessage, res: http.ServerResponse): void {
-  readJsonBody(req, res, (body) => {
-    const cwd = String(body.__cwd)
-    const id = typeof body.id === 'string' ? body.id : ''
-    const html = typeof body.html === 'string' ? body.html : ''
-    if (!id || !html) return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'missing id or html' }))
-    if (html.length > 2 * 1024 * 1024) return send(res, 413, 'application/json; charset=utf-8', JSON.stringify({ error: 'html too large' }))
-    writePageHtml(cwd, id, html)
-    projectEvents.emit('change', { cwd })
-    return sendJson(res, { ok: true })
   })
 }
 

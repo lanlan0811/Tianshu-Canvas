@@ -64758,7 +64758,7 @@ function buildProbeScript(preview) {
     "  var KNOWN = {",
     "    __vd_ping: 1, __vd_proto_state: 1, __vd_set_scope: 1,",
     "    __vd_request_add_to_chat: 1, __vd_request_select_xpath: 1,",
-    "    __vd_apply_edits: 1, __vd_set_comments: 1",
+    "    __vd_set_comments: 1",
     "  };",
     "  var STYLE_KEYS = [",
     "    'color','background-color','background-image','font-family','font-size','font-weight',",
@@ -64869,7 +64869,6 @@ function buildProbeScript(preview) {
     "      className: cls,",
     '      domId: el.getAttribute("data-dom-id") || el.id || null,',
     '      textContent: (el.textContent || "").trim().slice(0, 200),',
-    '      editableText: (el.children.length === 0 && (el.textContent || "").trim()) ? el.textContent : null,',
     '      outerHtml: (el.outerHTML || "").slice(0, 2000),',
     "      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },",
     "      computedStyles: styles,",
@@ -65045,28 +65044,6 @@ function buildProbeScript(preview) {
     "    }",
     '    if (d.type === "__vd_request_add_to_chat") {',
     '      var el2 = byXPath(p.xpath); if (el2) post("__vd_proto_element_add_to_chat", payload(el2)); return;',
-    "    }",
-    '    if (d.type === "__vd_apply_edits") { applyEdits(p); return; }',
-    "  }",
-    "",
-    "  var SAFE_PROP = /^[a-z-]+$/;",
-    "  var BAD_VALUE = /url\\(|expression|javascript:|@import/i;",
-    "",
-    "  function applyEdits(p){",
-    "    var el = byXPath(p.xpath);",
-    '    if (!el) { post("__vd_edit_applied", { xpath: p.xpath, ok: false, error: "element not found" }); return; }',
-    "    try {",
-    '      if (typeof p.text === "string" && el.children.length === 0) el.textContent = p.text;',
-    '      if (p.styles && typeof p.styles === "object") {',
-    "        for (var k in p.styles) {",
-    "          if (!Object.prototype.hasOwnProperty.call(p.styles, k)) continue;",
-    "          if (!SAFE_PROP.test(k) || BAD_VALUE.test(String(p.styles[k]))) continue;",
-    "          el.style.setProperty(k, String(p.styles[k]));",
-    "        }",
-    "      }",
-    '      post("__vd_edit_applied", { xpath: p.xpath, ok: true });',
-    "    } catch (err) {",
-    '      post("__vd_edit_applied", { xpath: p.xpath, ok: false, error: String(err && err.message || err) });',
     "    }",
     "  }",
     "",
@@ -65308,13 +65285,6 @@ function routeRequest(req, res) {
     if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
     return sendJson(res, { comments: readComments(cwd) });
   }
-  if (req.method === "GET" && path14 === "/api/page-html") {
-    const cwd = resolveCwd(url.searchParams.get("ws"), req);
-    if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
-    const html = readPageHtml(cwd, url.searchParams.get("id") ?? "");
-    if (html === null) return send(res, 404, "text/plain; charset=utf-8", "page not found");
-    return send(res, 200, "text/plain; charset=utf-8", html);
-  }
   if (req.method === "GET" && path14 === "/api/export-file") {
     const cwd = resolveCwd(url.searchParams.get("ws"), req);
     if (!cwd) return send(res, 404, "text/plain; charset=utf-8", "unknown workspace");
@@ -65345,7 +65315,6 @@ function routeRequest(req, res) {
     if (path14 === "/api/viewport") return handleViewport(req, res);
     if (path14 === "/api/selection") return handleSelection(req, res);
     if (path14 === "/api/comments") return handleComments(req, res);
-    if (path14 === "/api/page-html") return handlePageHtml(req, res);
     if (path14 === "/api/nodes") return handleNodes(req, res);
     if (path14 === "/api/edges") return handleEdges(req, res);
     if (path14 === "/api/export") return handleExport(req, res);
@@ -65449,7 +65418,6 @@ function handleSelection(req, res) {
           xpath: String(raw.xpath ?? ""),
           tagName: String(raw.tagName ?? ""),
           textContent: typeof raw.textContent === "string" ? raw.textContent : void 0,
-          editableText: typeof raw.editableText === "string" ? raw.editableText : null,
           computedStyles: raw.computedStyles && typeof raw.computedStyles === "object" ? raw.computedStyles : void 0
         }
       } : {}
@@ -65483,18 +65451,6 @@ function handleComments(req, res) {
       return sendJson(res, { ok: true, removed });
     }
     return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
-  });
-}
-function handlePageHtml(req, res) {
-  readJsonBody(req, res, (body) => {
-    const cwd = String(body.__cwd);
-    const id = typeof body.id === "string" ? body.id : "";
-    const html = typeof body.html === "string" ? body.html : "";
-    if (!id || !html) return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: "missing id or html" }));
-    if (html.length > 2 * 1024 * 1024) return send(res, 413, "application/json; charset=utf-8", JSON.stringify({ error: "html too large" }));
-    writePageHtml(cwd, id, html);
-    projectEvents.emit("change", { cwd });
-    return sendJson(res, { ok: true });
   });
 }
 function handleNodes(req, res) {

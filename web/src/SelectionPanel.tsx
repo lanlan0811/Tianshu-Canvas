@@ -1,5 +1,6 @@
 /**
- * 选中面板：展示当前选中项，提供「复制修改请求」（粘给 AI）与文案/样式编辑（M3）。
+ * 选中面板：展示当前选中项，提供「复制修改请求」（粘给 AI）与元素批注。
+ * 不做元素级可视化编辑：用户以批注表达修改意图，由 AI 统一修改。
  */
 import { useEffect, useState } from 'react'
 import type { ApiComment, ApiSelection } from './api'
@@ -9,12 +10,6 @@ export interface SelectionPanelProps {
   pageTitle: string | null
   /** 该页（selection.pageId）的批注，按创建时间升序。 */
   comments?: ApiComment[]
-  /** 应用编辑（M3 接入探针 __vd_apply_edits） */
-  onApplyEdits?: (
-    pageId: string,
-    element: NonNullable<ApiSelection['element']>,
-    edits: { text?: string; styles?: Record<string, string> },
-  ) => void
   /** 给当前选中元素添加一条批注。 */
   onAddComment?: (input: { pageId: string; xpath: string; tagName: string; textContent?: string; note: string }) => void
   /** 标记批注已解决 / 重新打开。 */
@@ -22,14 +17,6 @@ export interface SelectionPanelProps {
   /** 删除一条批注。 */
   onRemoveComment?: (id: string) => void
 }
-
-const EDITABLE_STYLES: Array<{ key: string; label: string }> = [
-  { key: 'color', label: '文字颜色' },
-  { key: 'background-color', label: '背景色' },
-  { key: 'font-size', label: '字号' },
-  { key: 'padding', label: '内边距' },
-  { key: 'border-radius', label: '圆角' },
-]
 
 function buildRequestText(selection: ApiSelection, pageTitle: string | null): string {
   const lines = [`请修改以下设计：`, `页面：${pageTitle ?? selection.pageId}（id=${selection.pageId}）`]
@@ -53,23 +40,17 @@ export function SelectionPanel({
   selection,
   pageTitle,
   comments,
-  onApplyEdits,
   onAddComment,
   onToggleResolve,
   onRemoveComment,
 }: SelectionPanelProps) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const [text, setText] = useState('')
-  const [styles, setStyles] = useState<Record<string, string>>({})
   const [note, setNote] = useState('')
 
   useEffect(() => {
     setCopied(false)
     setCollapsed(false)
-    setText(selection?.element?.editableText ?? '')
-    // 样式输入留空：仅应用用户实际填写的项，避免把当前计算样式整体写成内联样式污染原型。
-    setStyles({})
     setNote('')
   }, [selection])
 
@@ -100,17 +81,6 @@ export function SelectionPanel({
     }
   }
 
-  function apply(): void {
-    if (!selection || !el || !onApplyEdits) return
-    const stylesOut: Record<string, string> = {}
-    for (const [k, v] of Object.entries(styles)) if (v) stylesOut[k] = v
-    const edits: { text?: string; styles?: Record<string, string> } = {}
-    if (typeof el.editableText === 'string' && text !== el.editableText) edits.text = text
-    if (Object.keys(stylesOut).length) edits.styles = stylesOut
-    if (edits.text === undefined && !edits.styles) return
-    onApplyEdits(selection.pageId, el, edits)
-  }
-
   return (
     <div className="selection-panel">
       <div className="selection-panel__head">
@@ -135,34 +105,9 @@ export function SelectionPanel({
         {el ? `<${el.tagName}>` : selection.pageId}
       </div>
       {el && (
-        <>
-          <div className="selection-panel__xpath" title={el.xpath}>
-            {el.xpath}
-          </div>
-          {typeof el.editableText === 'string' ? (
-            <label className="field">
-              <span>文案</span>
-              <textarea className="selection-panel__text" value={text} rows={2} onChange={(e) => setText(e.target.value)} />
-            </label>
-          ) : (
-            <p className="selection-panel__note">这个元素包含子元素，不能整体改文案。按住 Ctrl 点击具体的文字可单独修改。</p>
-          )}
-          <div className="selection-panel__styles">
-            {EDITABLE_STYLES.map(({ key, label }) => (
-              <label className="field field--inline" key={key}>
-                <span>{label}</span>
-                <input
-                  value={styles[key] ?? ''}
-                  placeholder={el.computedStyles?.[key] ?? ''}
-                  onChange={(e) => setStyles((s) => ({ ...s, [key]: e.target.value }))}
-                />
-              </label>
-            ))}
-          </div>
-          <button type="button" className="btn" onClick={apply}>
-            应用修改
-          </button>
-        </>
+        <div className="selection-panel__xpath" title={el.xpath}>
+          {el.xpath}
+        </div>
       )}
       {selection && (!!comments?.length || !!el) ? (
         <div className="selection-panel__comments">

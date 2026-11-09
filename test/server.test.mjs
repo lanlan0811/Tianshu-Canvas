@@ -84,14 +84,6 @@ try {
   })
   assert.equal(selNoHeader.status, 403)
 
-  // page-html 越界 id → 400
-  const badHtml = await fetch(`${base}/api/page-html`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
-    body: JSON.stringify({ ws: token, id: '../evil', html: '<p>x</p>' }),
-  })
-  assert.equal(badHtml.status, 400)
-
   // 未知 token 拒绝
   assert.equal((await fetch(`${base}/api/project?ws=deadbeefdeadbeef`)).status, 404)
 

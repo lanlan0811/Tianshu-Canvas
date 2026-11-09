@@ -165,7 +165,7 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
   用户说「我圈了几处」「画布上有几处要改」时，调用 `canvas_comments`（action=list）**一次读回全部待处理批注**，
   按 xpath 逐条修改（通常用 `canvas_upsert_page` 重写该页），改完再用 `action=resolve` 传 ids 标记已解决。
   也支持 `reopen`（重新打开）与 `remove`（删除，或 `all=true` 清空）。
-- 用户也可在画布面板点「复制修改请求」把选中项文本粘给你；或直接在画布上改文案/样式（会回写原型）。
+- 用户也可在画布面板点「复制修改请求」把选中项文本粘给你。画布面板不提供元素级编辑，修改一律由你按批注或请求文本回写原型。
 
 ## 资源内联（`canvas_upsert_page` 的 `inline_assets`）
 

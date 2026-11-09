@@ -708,13 +708,6 @@ body {
   font-size: var(--fs-sm);
 }
 
-.selection-panel__note {
-  margin: 8px 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-soft);
-}
-
 .selection-panel__xpath {
   margin-top: 6px;
   padding: 4px 6px;
@@ -726,12 +719,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.selection-panel__styles {
-  display: grid;
-  gap: 6px;
-  margin: 8px 0;
 }
 
 .field {
@@ -746,8 +733,7 @@ body {
   color: var(--ink-soft);
 }
 
-.field textarea,
-.field input {
+.field textarea {
   width: 100%;
   padding: 5px 7px;
   font: inherit;
@@ -759,21 +745,8 @@ body {
   outline: none;
 }
 
-.field textarea:focus,
-.field input:focus {
+.field textarea:focus {
   border-color: var(--accent);
-}
-
-.field--inline {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-}
-
-.field--inline > span {
-  margin: 0;
 }
 
 .btn {

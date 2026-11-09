@@ -31,14 +31,12 @@ import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
   exportFileUrl,
   fetchDesignSystems,
-  fetchPageSource,
   fetchProject,
   fetchSelection,
   postCommentOp,
   postDesignStyle,
   postEdge,
   postNodeOp,
-  postPageHtml,
   postSelection,
   postViewport,
   requestExport,
@@ -49,7 +47,6 @@ import {
   type ApiSelection,
 } from './api'
 import { EmptyState } from './EmptyState'
-import { applyEditToSource, textFingerprint, type SourceEdits } from './sourceEdit'
 import { PreviewOverlay } from './PreviewOverlay'
 import { resolveNavTarget } from './navTarget'
 import type { PreviewDevice } from './previewDevices'
@@ -231,16 +228,12 @@ function Canvas() {
           xpath: payload.xpath,
           tagName: payload.tagName,
           textContent: payload.textContent,
-          editableText: payload.editableText,
           computedStyles: payload.computedStyles,
         },
       }
       setSelection(sel)
       markElementSelected(sel)
       void postSelection(ws, pageId, 'element', { ...payload } as Record<string, unknown>)
-    },
-    onEditApplied: (_pageId, ok, err) => {
-      if (!ok) setError(`修改已保存，但画布预览未更新，刷新页面可查看：${err ?? '未知错误'}`)
     },
     onHeight: (pageId, height) => {
       if (height <= 0) return
@@ -315,34 +308,6 @@ function Canvas() {
     (c: Connection) => {
       if (!c.source || !c.target) return
       void postEdge(ws, 'add', c.source, c.target)
-    },
-    [],
-  )
-
-  // 先改源文件并确认保存成功，再更新画布预览，保证两边一致。
-  const applyEdits = useCallback(
-    async (pageId: string, element: NonNullable<ApiSelection['element']>, edits: SourceEdits) => {
-      try {
-        const source = await fetchPageSource(ws, pageId)
-        const result = applyEditToSource(source, element.xpath, element.textContent ?? '', edits)
-        if (!result.ok) {
-          setError(result.error)
-          return
-        }
-        if (!(await postPageHtml(ws, pageId, result.html))) {
-          setError('保存失败，修改没有写入文件。')
-          return
-        }
-        setError(null)
-        postToPage(pageId, '__vd_apply_edits', { xpath: element.xpath, ...edits })
-        if (edits.text !== undefined) {
-          const next = { ...element, textContent: textFingerprint(edits.text), editableText: edits.text }
-          setSelection({ pageId, kind: 'element', at: Date.now(), element: next })
-          void postSelection(ws, pageId, 'element', next)
-        }
-      } catch (err) {
-        setError(`保存失败：${(err as Error).message}`)
-      }
     },
     [],
   )
@@ -533,7 +498,6 @@ function Canvas() {
             selection={selection}
             pageTitle={pageTitle}
             comments={pageComments}
-            onApplyEdits={applyEdits}
             onAddComment={addComment}
             onToggleResolve={toggleResolve}
             onRemoveComment={removeComment}

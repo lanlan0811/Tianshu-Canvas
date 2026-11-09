@@ -57,8 +57,6 @@ export interface Selection {
     xpath: string
     tagName: string
     textContent?: string
-    /** 可编辑的完整文案；元素含子元素或没有文本时为 null。 */
-    editableText?: string | null
     computedStyles?: Record<string, string>
   }
   at: number

@@ -3,7 +3,7 @@
  *
  * 为什么用注入：iframe 是 `sandbox="allow-scripts"`（opaque origin），父页面无法读取其
  * contentDocument，只能 postMessage 通信。探针在 iframe 内做元素命中、两层选择、
- * 悬停/滚轮转发、编辑的即时预览。回写文件由画布前端基于源 HTML 完成（见 web/src/sourceEdit.ts）。
+ * 悬停/滚轮转发、选中反馈。原型只读：写入由 AI 通过工具完成；用户意图用元素批注表达。
  *
  * 注入方式：在 `/page/:id` 响应的 `</head>` 前插入内联 `<script>`。
  * 该响应 CSP 已含 `script-src 'unsafe-inline'`（见 server.ts），无需改动。
@@ -33,7 +33,7 @@ export function buildProbeScript(preview: boolean): string {
   '  var KNOWN = {',
   '    __vd_ping: 1, __vd_proto_state: 1, __vd_set_scope: 1,',
   '    __vd_request_add_to_chat: 1, __vd_request_select_xpath: 1,',
-  '    __vd_apply_edits: 1, __vd_set_comments: 1',
+  '    __vd_set_comments: 1',
   '  };',
   '  var STYLE_KEYS = [',
   "    'color','background-color','background-image','font-family','font-size','font-weight',",
@@ -144,7 +144,6 @@ export function buildProbeScript(preview: boolean): string {
   '      className: cls,',
   '      domId: el.getAttribute("data-dom-id") || el.id || null,',
   '      textContent: (el.textContent || "").trim().slice(0, 200),',
-  '      editableText: (el.children.length === 0 && (el.textContent || "").trim()) ? el.textContent : null,',
   '      outerHtml: (el.outerHTML || "").slice(0, 2000),',
   '      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },',
   '      computedStyles: styles,',
@@ -320,28 +319,6 @@ export function buildProbeScript(preview: boolean): string {
   '    }',
   '    if (d.type === "__vd_request_add_to_chat") {',
   '      var el2 = byXPath(p.xpath); if (el2) post("__vd_proto_element_add_to_chat", payload(el2)); return;',
-  '    }',
-  '    if (d.type === "__vd_apply_edits") { applyEdits(p); return; }',
-  '  }',
-  '',
-  '  var SAFE_PROP = /^[a-z-]+$/;',
-  '  var BAD_VALUE = /url\\(|expression|javascript:|@import/i;',
-  '',
-  '  function applyEdits(p){',
-  '    var el = byXPath(p.xpath);',
-  '    if (!el) { post("__vd_edit_applied", { xpath: p.xpath, ok: false, error: "element not found" }); return; }',
-  '    try {',
-  '      if (typeof p.text === "string" && el.children.length === 0) el.textContent = p.text;',
-  '      if (p.styles && typeof p.styles === "object") {',
-  '        for (var k in p.styles) {',
-  '          if (!Object.prototype.hasOwnProperty.call(p.styles, k)) continue;',
-  '          if (!SAFE_PROP.test(k) || BAD_VALUE.test(String(p.styles[k]))) continue;',
-  '          el.style.setProperty(k, String(p.styles[k]));',
-  '        }',
-  '      }',
-  '      post("__vd_edit_applied", { xpath: p.xpath, ok: true });',
-  '    } catch (err) {',
-  '      post("__vd_edit_applied", { xpath: p.xpath, ok: false, error: String(err && err.message || err) });',
   '    }',
   '  }',
   '',
