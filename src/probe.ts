@@ -16,11 +16,19 @@ import { afterDoctype } from './html.js'
 /** 探针运行时标记，防止重复注入。 */
 export const PROBE_MARKER = 'data-tianshu-probe'
 
-/** 探针源码（IIFE）。不含 `</script`，可安全内联。 */
-export const PROBE_SCRIPT = [
+/**
+ * 生成探针源码（IIFE）。不含 `</script`，可安全内联。
+ *
+ * preview=true 是为「画布内预览」准备的只读交互模式：不选中元素、不高亮 hover、
+ * 不转发滚轮、不渲染批注图钉、不上报内容高度；站内链接导航与外链拦截照常。
+ * 行为在首屏由 URL 参数决定，避免事后 postMessage 开关的时序窗口。
+ */
+export function buildProbeScript(preview: boolean): string {
+  return [
   '(function(){',
   "  if (window.__tianshu_probe__) return;",
   '  window.__tianshu_probe__ = true;',
+  `  var PREVIEW = ${preview ? 'true' : 'false'};`,
   '  var PARENT = null;',
   '  var KNOWN = {',
   '    __vd_ping: 1, __vd_proto_state: 1, __vd_set_scope: 1,',
@@ -213,6 +221,7 @@ export const PROBE_SCRIPT = [
   '  window.addEventListener("load", renderPins);',
   '',
   '  document.addEventListener("click", function(e){',
+  '    if (PREVIEW) { previewClick(e); return; }',
   '    if (isEditable(e.target)) return;',
   '    ensureStyle();',
   '    var multi = e.metaKey || e.ctrlKey;',
@@ -251,8 +260,26 @@ export const PROBE_SCRIPT = [
   '    return href.indexOf("//") === 0;',
   '  }',
   '',
+  '  // 预览态：不做元素选中，只拦「会离开当前预览页」的导航。',
+  '  function previewClick(e){',
+  '    if (isEditable(e.target)) return;',
+  '    var anchor = nearestAnchor(e.target);',
+  '    if (!anchor) return;',
+  '    var rawHref = anchor.getAttribute("href") || "";',
+  '    var dataNav = anchor.getAttribute("data-nav");',
+  '    if (!dataNav && !rawHref) return;',
+  '    if (rawHref.charAt(0) === "#" && !dataNav) return;',
+  '    if (e.preventDefault) e.preventDefault();',
+  '    if (dataNav || !isExternal(rawHref)) {',
+  '      post("__vd_request_navigate", { href: rawHref || null, nav: dataNav, xpath: getXPath(anchor) });',
+  '    } else {',
+  '      post("__vd_preview_blocked", { href: rawHref });',
+  '    }',
+  '  }',
+  '',
   '  var hoverRaf = 0;',
   '  document.addEventListener("mousemove", function(e){',
+  '    if (PREVIEW) return;',
   '    if (hoverRaf) return;',
   '    hoverRaf = requestAnimationFrame(function(){',
   '      hoverRaf = 0;',
@@ -263,9 +290,10 @@ export const PROBE_SCRIPT = [
   '    });',
   '  }, true);',
   '',
-  '  document.addEventListener("mouseleave", function(){ setHover(null); post("__vd_proto_hover_changed", null); }, true);',
+  '  document.addEventListener("mouseleave", function(){ if (PREVIEW) return; setHover(null); post("__vd_proto_hover_changed", null); }, true);',
   '',
   '  window.addEventListener("wheel", function(e){',
+  '    if (PREVIEW) return;',
   '    if (e.preventDefault) e.preventDefault();',
   '    post("__vd_wheel_forward", {',
   '      deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode,',
@@ -283,7 +311,10 @@ export const PROBE_SCRIPT = [
   '    if (d.type === "__vd_ping") { post("__vd_iframe_ready", null); return; }',
   '    if (d.type === "__vd_proto_state") { scopeXpath = p.scopeXpath || null; return; }',
   '    if (d.type === "__vd_set_scope") { scopeXpath = p.xpath || null; return; }',
-  '    if (d.type === "__vd_set_comments") { pinComments = Array.isArray(p.comments) ? p.comments : []; renderPins(); return; }',
+  '    if (d.type === "__vd_set_comments") {',
+  '      if (PREVIEW) return;',
+  '      pinComments = Array.isArray(p.comments) ? p.comments : []; renderPins(); return;',
+  '    }',
   '    if (d.type === "__vd_request_select_xpath") {',
   '      var el = byXPath(p.xpath); if (el) post("__vd_proto_element_selected", payload(el)); return;',
   '    }',
@@ -317,21 +348,33 @@ export const PROBE_SCRIPT = [
   '  if (document.readyState === "loading") {',
   '    document.addEventListener("DOMContentLoaded", function(){ post("__vd_iframe_ready", null); });',
   '  } else { post("__vd_iframe_ready", null); }',
+  '  // 预览态：焦点在 iframe 内时按 Esc 也能退出画布预览层。',
+  '  if (PREVIEW) {',
+  '    window.addEventListener("keydown", function(e){',
+  '      if (e.key === "Escape") post("__vd_request_escape", null);',
+  '    }, true);',
+  '    return;',
+  '  }',
   '  // 只在加载完成时上报一次。不能监听 resize：节点按上报值调整 iframe 高度，',
   '  // 内容依赖视口（如 100vh）时会形成反馈循环，高度持续增长或收缩。',
   '  if (document.readyState === "complete") reportHeight();',
   '  else window.addEventListener("load", reportHeight);',
   '})();',
 ].join('\n')
+}
+
+/** 编辑态探针源码（向后兼容的旧导出）。 */
+export const PROBE_SCRIPT = buildProbeScript(false)
 
 /**
  * 把探针注入到原型 HTML：在 `</head>` 前插入内联脚本（无 `</head>` 则紧跟 doctype）。
- * 已注入过则原样返回。
+ * 已注入过则原样返回。`opts.preview` 为 true 时注入只读交互模式的探针。
  */
-export function injectProbe(html: string): string {
+export function injectProbe(html: string, opts?: { preview?: boolean }): string {
   if (html.includes(PROBE_MARKER)) return html
+  const script = buildProbeScript(opts?.preview === true)
   // 防 HTML 解析提前终止：源码中若出现 </script（大小写不敏感）需转义。
-  const safe = PROBE_SCRIPT.replace(/<\/script/gi, '<\\/script')
+  const safe = script.replace(/<\/script/gi, '<\\/script')
   const tag = `<script ${PROBE_MARKER}="1">\n${safe}\n</script>\n`
   const idx = html.search(/<\/head\s*>/i)
   if (idx >= 0) return html.slice(0, idx) + tag + html.slice(idx)

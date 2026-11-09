@@ -272,8 +272,9 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     }
     const html = readPageHtml(cwd, id)
     if (html === null) return send(res, 404, 'text/plain; charset=utf-8', 'page not found')
-    // 注入探针：iframe 内做元素命中/选择/编辑（CSP 已允许内联脚本）
-    return sendUntrustedHtml(res, injectProbe(html))
+    // 注入探针：iframe 内做元素命中/选择/编辑（CSP 已允许内联脚本）。
+    // preview=1 只切换探针行为（不选中/不转发滚轮），不新增任何数据入口。
+    return sendUntrustedHtml(res, injectProbe(html, { preview: url.searchParams.get('preview') === '1' }))
   }
 
   if (req.method === 'GET' && path === '/api/selection') {

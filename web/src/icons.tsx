@@ -225,3 +225,28 @@ export function SparkIcon(p: IconProps) {
     </Svg>
   )
 }
+
+export function PlayIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M8 5.5v13l11-6.5z" />
+    </Svg>
+  )
+}
+
+export function ExitIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+      <path d="M10 8l-4 4 4 4M6 12h9" />
+    </Svg>
+  )
+}
+
+export function ChevronRightIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="m9 6 6 6-6 6" />
+    </Svg>
+  )
+}

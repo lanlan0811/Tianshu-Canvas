@@ -50,6 +50,9 @@ import {
 } from './api'
 import { EmptyState } from './EmptyState'
 import { applyEditToSource, textFingerprint, type SourceEdits } from './sourceEdit'
+import { PreviewOverlay } from './PreviewOverlay'
+import { resolveNavTarget } from './navTarget'
+import type { PreviewDevice } from './previewDevices'
 
 const params = new URLSearchParams(location.search)
 const ws = params.get('ws') ?? ''
@@ -65,24 +68,6 @@ const defaultEdgeOptions = {
 
 /** .page-node 上下边框之和：节点高度要多出这一点，iframe 视口才等于内容高度。 */
 const NODE_BORDER = 2
-
-/**
- * 页面内链接 → 目标页面 id（导入时链接已被工具规范化为 `<id>.html`）。
- * data-nav 优先；否则取 href 的 basename 去 .html 后精确匹配页面 id。
- */
-function resolveNavTarget(nav: { href: string | null; nav: string | null }, ids: Set<string>): string | null {
-  if (nav.nav && ids.has(nav.nav)) return nav.nav
-  const href = nav.href ?? ''
-  if (!href || /^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|\/\/|#)/.test(href)) return null
-  let base = (href.split(/[?#]/)[0] ?? '').split('/').pop() ?? ''
-  base = base.replace(/\.html?$/i, '')
-  try {
-    base = decodeURIComponent(base)
-  } catch {
-    /* 非法百分号编码保持原样 */
-  }
-  return ids.has(base) ? base : null
-}
 
 function toFlowNodes(
   project: ApiProject,
@@ -143,6 +128,9 @@ function Canvas() {
   const [comments, setComments] = useState<ApiComment[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [preview, setPreview] = useState<{ pageId: string } | null>(null)
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop')
+  const [previewFreeSize, setPreviewFreeSize] = useState({ width: 800, height: 600 })
   const [catalog, setCatalog] = useState<ApiDesignCatalog | null>(null)
   const [design, setDesign] = useState<{ styleId: string; updatedAt: number } | null>(null)
   const [styleBusy, setStyleBusy] = useState(false)
@@ -310,6 +298,18 @@ function Canvas() {
     },
     [setNodes],
   )
+
+  // 右键「预览」/「预览设备」：设备只影响预览视口，不改节点、不写盘。
+  const openPreview = useCallback((id: string) => {
+    setPreview({ pageId: id })
+  }, [])
+
+  const openPreviewDevice = useCallback((id: string, device: PreviewDevice) => {
+    setPreviewDevice(device)
+    setPreview({ pageId: id })
+  }, [])
+
+  const closePreview = useCallback(() => setPreview(null), [])
 
   const onConnect = useCallback(
     (c: Connection) => {
@@ -542,12 +542,27 @@ function Canvas() {
         {!exporting && menu && (
           <ContextMenu
             state={menu}
+            previewDevice={previewDevice}
             onClose={() => setMenu(null)}
+            onPreview={openPreview}
+            onPreviewDevice={openPreviewDevice}
             onRename={actions.rename}
             onDuplicate={actions.duplicate}
             onRemove={actions.remove}
             onBringToFront={bringToFront}
             onFitView={() => void fitView({ padding: 0.3, maxZoom: 1, duration: 400 })}
+          />
+        )}
+        {!exporting && preview && (
+          <PreviewOverlay
+            pages={nodes}
+            initialPageId={preview.pageId}
+            ws={ws}
+            device={previewDevice}
+            freeSize={previewFreeSize}
+            onDeviceChange={setPreviewDevice}
+            onFreeSizeChange={setPreviewFreeSize}
+            onClose={closePreview}
           />
         )}
       </div>
