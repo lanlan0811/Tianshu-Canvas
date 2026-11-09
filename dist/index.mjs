@@ -64665,87 +64665,6 @@ import { existsSync as existsSync6, readFileSync as readFileSync6, statSync as s
 import { join as join8 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
-// src/designOps.ts
-function currentStyleId(cwd) {
-  return readProject(cwd).design?.styleId ?? null;
-}
-function applyProjectStyle(cwd, styleId) {
-  if (styleId !== null && !designStyleExists(cwd, styleId)) {
-    throw new InvalidInputError(`\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`);
-  }
-  if (projectIssue(cwd)) {
-    throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u5207\u6362\u8BBE\u8BA1\u98CE\u683C\u3002");
-  }
-  const project = readProject(cwd);
-  if (styleId === null) {
-    delete project.design;
-  } else {
-    const design = { styleId, updatedAt: Date.now() };
-    project.design = design;
-  }
-  const missing = /* @__PURE__ */ new Set();
-  const scriptIcons = /* @__PURE__ */ new Set();
-  let pagesUpdated = 0;
-  const now2 = Date.now();
-  if (styleId !== null) {
-    for (const node of project.nodes) {
-      const html = readPageHtml(cwd, node.id);
-      if (html === null || html.trim() === "") continue;
-      const injected = injectDesign(html, styleId, cwd);
-      for (const name of injected.missingIcons) missing.add(name);
-      for (const name of injected.scriptIcons) scriptIcons.add(name);
-      if (injected.html === html) continue;
-      writePageHtml(cwd, node.id, injected.html);
-      node.htmlRev = now2;
-      pagesUpdated++;
-    }
-  }
-  writeProject(cwd, project);
-  return {
-    styleId,
-    name: styleId === null ? null : designStyleSummary(cwd, styleId)?.name ?? styleId,
-    pagesUpdated,
-    missingIcons: [...missing],
-    scriptIcons: [...scriptIcons]
-  };
-}
-function templateDocument(cwd, styleId, templateId) {
-  const style = resolveDesignStyle(cwd, styleId);
-  if (!style) return null;
-  const template = style.templates[templateId];
-  if (!template) return null;
-  const html = `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${template.name}</title>
-</head>
-<body>
-${template.html.trim()}
-</body>
-</html>
-`;
-  return { html, device: template.device, name: template.name };
-}
-function interactionDocument(cwd, styleId, interactionId) {
-  const style = resolveDesignStyle(cwd, styleId);
-  if (!style) return null;
-  const entry = style.interactions.catalog[interactionId];
-  if (!entry) return null;
-  return {
-    name: entry.name,
-    category: entry.category,
-    requiresScript: entry.requiresScript,
-    rootAttr: entry.rootAttr,
-    requiredStructure: entry.requiredStructure ?? [],
-    requiredAttrs: entry.requiredAttrs ?? [],
-    api: entry.api ?? "",
-    classes: entry.classes ?? [],
-    skeletonHtml: entry.skeletonHtml ?? ""
-  };
-}
-
 // src/probe.ts
 var PROBE_MARKER = "data-tianshu-probe";
 function buildProbeScript(preview) {
@@ -65318,7 +65237,6 @@ function routeRequest(req, res) {
     if (path14 === "/api/nodes") return handleNodes(req, res);
     if (path14 === "/api/edges") return handleEdges(req, res);
     if (path14 === "/api/export") return handleExport(req, res);
-    if (path14 === "/api/design") return handleDesign(req, res);
   }
   return send(res, 404, "text/plain; charset=utf-8", "not found");
 }
@@ -65329,20 +65247,6 @@ function handleExport(req, res) {
     const kind = kindRaw === "png" || kindRaw === "zip" ? kindRaw : "both";
     void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result })).catch((err) => send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message })));
   });
-}
-function handleDesign(req, res) {
-  readJsonBody(
-    req,
-    res,
-    (body) => {
-      const cwd = String(body.__cwd);
-      const raw = body.styleId;
-      const styleId = raw === null || raw === void 0 ? null : String(raw);
-      const result = applyProjectStyle(cwd, styleId === "free" ? null : styleId);
-      sendJson(res, { ok: true, ...result });
-    },
-    1024
-  );
 }
 function readJsonBody(req, res, onBody, maxBytes = MAX_BODY, bootstrap = false) {
   let raw = "";
@@ -65602,6 +65506,87 @@ function sendJson(res, body) {
 function send(res, status, type, body) {
   res.writeHead(status, { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
   res.end(body);
+}
+
+// src/designOps.ts
+function currentStyleId(cwd) {
+  return readProject(cwd).design?.styleId ?? null;
+}
+function applyProjectStyle(cwd, styleId) {
+  if (styleId !== null && !designStyleExists(cwd, styleId)) {
+    throw new InvalidInputError(`\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`);
+  }
+  if (projectIssue(cwd)) {
+    throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u5207\u6362\u8BBE\u8BA1\u98CE\u683C\u3002");
+  }
+  const project = readProject(cwd);
+  if (styleId === null) {
+    delete project.design;
+  } else {
+    const design = { styleId, updatedAt: Date.now() };
+    project.design = design;
+  }
+  const missing = /* @__PURE__ */ new Set();
+  const scriptIcons = /* @__PURE__ */ new Set();
+  let pagesUpdated = 0;
+  const now2 = Date.now();
+  if (styleId !== null) {
+    for (const node of project.nodes) {
+      const html = readPageHtml(cwd, node.id);
+      if (html === null || html.trim() === "") continue;
+      const injected = injectDesign(html, styleId, cwd);
+      for (const name of injected.missingIcons) missing.add(name);
+      for (const name of injected.scriptIcons) scriptIcons.add(name);
+      if (injected.html === html) continue;
+      writePageHtml(cwd, node.id, injected.html);
+      node.htmlRev = now2;
+      pagesUpdated++;
+    }
+  }
+  writeProject(cwd, project);
+  return {
+    styleId,
+    name: styleId === null ? null : designStyleSummary(cwd, styleId)?.name ?? styleId,
+    pagesUpdated,
+    missingIcons: [...missing],
+    scriptIcons: [...scriptIcons]
+  };
+}
+function templateDocument(cwd, styleId, templateId) {
+  const style = resolveDesignStyle(cwd, styleId);
+  if (!style) return null;
+  const template = style.templates[templateId];
+  if (!template) return null;
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${template.name}</title>
+</head>
+<body>
+${template.html.trim()}
+</body>
+</html>
+`;
+  return { html, device: template.device, name: template.name };
+}
+function interactionDocument(cwd, styleId, interactionId) {
+  const style = resolveDesignStyle(cwd, styleId);
+  if (!style) return null;
+  const entry = style.interactions.catalog[interactionId];
+  if (!entry) return null;
+  return {
+    name: entry.name,
+    category: entry.category,
+    requiresScript: entry.requiresScript,
+    rootAttr: entry.rootAttr,
+    requiredStructure: entry.requiredStructure ?? [],
+    requiredAttrs: entry.requiredAttrs ?? [],
+    api: entry.api ?? "",
+    classes: entry.classes ?? [],
+    skeletonHtml: entry.skeletonHtml ?? ""
+  };
 }
 
 // src/nav.ts

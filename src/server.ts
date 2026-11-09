@@ -21,7 +21,6 @@ import { fileURLToPath } from 'node:url'
 import { assertSafeId, InvalidInputError } from './ids.js'
 import { assertReadableFile, PathBoundaryError } from './paths.js'
 import { loadDesignCatalog } from './design.js'
-import { applyProjectStyle } from './designOps.js'
 import { injectProbe } from './probe.js'
 import { warnUser } from './host.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
@@ -324,7 +323,6 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     if (path === '/api/nodes') return handleNodes(req, res)
     if (path === '/api/edges') return handleEdges(req, res)
     if (path === '/api/export') return handleExport(req, res)
-    if (path === '/api/design') return handleDesign(req, res)
   }
 
   return send(res, 404, 'text/plain; charset=utf-8', 'not found')
@@ -339,22 +337,6 @@ function handleExport(req: http.IncomingMessage, res: http.ServerResponse): void
       .then((result) => sendJson(res, { ok: true, ...result }))
       .catch((err) => send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message })))
   })
-}
-
-/** 切换项目级设计风格。styleId=null 表示解除锁定（回到自由发挥）。 */
-function handleDesign(req: http.IncomingMessage, res: http.ServerResponse): void {
-  readJsonBody(
-    req,
-    res,
-    (body) => {
-      const cwd = String(body.__cwd)
-      const raw = body.styleId
-      const styleId = raw === null || raw === undefined ? null : String(raw)
-      const result = applyProjectStyle(cwd, styleId === 'free' ? null : styleId)
-      sendJson(res, { ok: true, ...result })
-    },
-    1024,
-  )
 }
 
 // ---------------------------------------------------------------------------

@@ -16,8 +16,6 @@ export interface TopBarProps {
   busy?: boolean
   catalog: ApiDesignCatalog | null
   design: { styleId: string; updatedAt: number } | null
-  onPickStyle: (styleId: string | null) => void
-  styleBusy?: boolean
 }
 
 export function TopBar({
@@ -27,8 +25,6 @@ export function TopBar({
   busy,
   catalog,
   design,
-  onPickStyle,
-  styleBusy,
 }: TopBarProps) {
   const { fitView } = useReactFlow()
   const { zoom } = useViewport()
@@ -76,7 +72,7 @@ export function TopBar({
         </button>
       </div>
       <div className="topbar__spacer" />
-      <StyleSwitcher catalog={catalog} current={design} onPick={onPickStyle} busy={styleBusy} />
+      <StyleSwitcher catalog={catalog} current={design} />
       <span className="topbar__zoom">{Math.round(zoom * 100)}%</span>
       <div className="export-menu" ref={ref}>
         <button

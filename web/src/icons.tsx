@@ -165,22 +165,6 @@ export function SidebarIcon(p: IconProps) {
   )
 }
 
-export function RenameIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <path d="M4 7V5h16v2M12 5v14M9 19h6" />
-    </Svg>
-  )
-}
-
-export function BringToFrontIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <rect x="3" y="3" width="12" height="12" rx="1.5" />
-      <path d="M9 21h12V9" />
-    </Svg>
-  )
-}
 
 export function ChevronIcon(p: IconProps) {
   return (
@@ -222,6 +206,15 @@ export function SparkIcon(p: IconProps) {
     <Svg {...p}>
       <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
       <path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9z" />
+    </Svg>
+  )
+}
+
+export function LockIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="4" y="10" width="16" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
     </Svg>
   )
 }

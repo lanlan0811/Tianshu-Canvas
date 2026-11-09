@@ -102,22 +102,6 @@ export async function fetchDesignSystems(ws: string): Promise<ApiDesignCatalog |
   }
 }
 
-/** 切换项目级设计风格；styleId=null 表示解除锁定。返回失败原因，成功返回 null。 */
-export async function postDesignStyle(ws: string, styleId: string | null): Promise<string | null> {
-  const res = await fetch(`${API_ROOT}/api/design`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, styleId }),
-  })
-  if (res.ok) return null
-  try {
-    const body = (await res.json()) as { error?: string }
-    return body.error ?? `切换失败（${res.status}）`
-  } catch {
-    return `切换失败（${res.status}）`
-  }
-}
-
 export async function fetchSelection(ws: string): Promise<ApiSelection | null> {
   const res = await fetch(`${API_ROOT}/api/selection?ws=${encodeURIComponent(ws)}`)
   if (!res.ok) return null

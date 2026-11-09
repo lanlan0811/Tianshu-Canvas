@@ -102,13 +102,12 @@ test('预览 e2e：右键菜单 / 设备切换 / 交互 / 跳转 / 关闭', { sk
       await page.waitForSelector('.context-menu', { timeout: 5000 })
     }
 
-    // ---------- 1) 右键菜单：预览 / 预览设备 二级菜单 ----------
+    // ---------- 1) 右键菜单：只有预览 / 预览设备 ----------
     await openNodeMenu('首页')
     const menuItems = await page.$$eval('.context-menu > .context-menu__item, .context-menu .context-menu__subwrap > .context-menu__item', (els) =>
       els.map((e) => e.textContent?.trim()),
     )
-    assert.ok(menuItems.some((t) => t === '预览'), `应有「预览」，实际 ${JSON.stringify(menuItems)}`)
-    assert.ok(menuItems.some((t) => t?.includes('预览设备')), `应有「预览设备」，实际 ${JSON.stringify(menuItems)}`)
+    assert.deepEqual(menuItems, ['预览', '预览设备'], `右键菜单只应保留预览两项，实际 ${JSON.stringify(menuItems)}`)
 
     // 悬停「预览设备」展开二级菜单 → 默认「网页」打勾
     await page.hover('.context-menu__subwrap > .context-menu__item')

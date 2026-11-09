@@ -34,7 +34,6 @@ import {
   fetchProject,
   fetchSelection,
   postCommentOp,
-  postDesignStyle,
   postEdge,
   postNodeOp,
   postSelection,
@@ -130,7 +129,6 @@ function Canvas() {
   const [previewFreeSize, setPreviewFreeSize] = useState({ width: 800, height: 600 })
   const [catalog, setCatalog] = useState<ApiDesignCatalog | null>(null)
   const [design, setDesign] = useState<{ styleId: string; updatedAt: number } | null>(null)
-  const [styleBusy, setStyleBusy] = useState(false)
   const nodesRef = useRef<PageFlowNode[]>([])
   nodesRef.current = nodes
   const commentsRef = useRef<ApiComment[]>([])
@@ -273,24 +271,13 @@ function Canvas() {
   // 右键菜单：节点 / 空白
   const onNodeContextMenu = useCallback((e: ReactMouseEvent, node: PageFlowNode) => {
     e.preventDefault()
-    setMenu({ kind: 'node', x: e.clientX, y: e.clientY, nodeId: node.id, title: node.data.title })
+    setMenu({ kind: 'node', x: e.clientX, y: e.clientY, nodeId: node.id })
   }, [])
 
   const onPaneContextMenu = useCallback((e: ReactMouseEvent | MouseEvent) => {
     e.preventDefault()
     setMenu({ kind: 'pane', x: e.clientX, y: e.clientY })
   }, [])
-
-  // 置顶：客户端 zIndex，不持久化（刷新页面后复位）
-  const bringToFront = useCallback(
-    (id: string) => {
-      setNodes((nds) => {
-        const max = Math.max(0, ...nds.map((n) => n.zIndex ?? 0))
-        return nds.map((n) => (n.id === id ? { ...n, zIndex: max + 1 } : n))
-      })
-    },
-    [setNodes],
-  )
 
   // 右键「预览」/「预览设备」：设备只影响预览视口，不改节点、不写盘。
   const openPreview = useCallback((id: string) => {
@@ -330,18 +317,6 @@ function Canvas() {
   const removeComment = useCallback(
     async (id: string) => {
       if (await postCommentOp(ws, 'remove', { ids: [id] })) await loadProject()
-    },
-    [loadProject],
-  )
-
-  const pickStyle = useCallback(
-    async (styleId: string | null) => {
-      setStyleBusy(true)
-      setError(null)
-      const failure = await postDesignStyle(ws, styleId)
-      if (failure) setError(failure)
-      else await loadProject()
-      setStyleBusy(false)
     },
     [loadProject],
   )
@@ -478,8 +453,6 @@ function Canvas() {
             busy={exportingNow}
             catalog={catalog}
             design={design}
-            onPickStyle={(id) => void pickStyle(id)}
-            styleBusy={styleBusy}
           />
         )}
         {!exporting && sidebarOpen && (
@@ -510,10 +483,6 @@ function Canvas() {
             onClose={() => setMenu(null)}
             onPreview={openPreview}
             onPreviewDevice={openPreviewDevice}
-            onRename={actions.rename}
-            onDuplicate={actions.duplicate}
-            onRemove={actions.remove}
-            onBringToFront={bringToFront}
             onFitView={() => void fitView({ padding: 0.3, maxZoom: 1, duration: 400 })}
           />
         )}

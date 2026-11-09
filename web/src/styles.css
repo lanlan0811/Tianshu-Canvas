@@ -628,24 +628,6 @@ body {
   background: var(--accent-soft);
 }
 
-.context-menu__item--danger {
-  color: var(--danger);
-}
-
-.context-menu__item--danger:hover {
-  background: var(--danger-soft);
-}
-
-.context-menu__input {
-  width: 100%;
-  padding: 6px 8px;
-  font-family: var(--font-ui);
-  font-size: var(--fs-sm);
-  border: 1.5px solid var(--accent);
-  border-radius: var(--r-sketch-sm);
-  outline: none;
-}
-
 /* ---------- 选中面板 ---------- */
 .selection-panel {
   position: absolute;
@@ -1061,9 +1043,8 @@ body {
   display: none !important;
 }
 
-/* ---------- 设计风格切换器 ---------- */
+/* ---------- 设计风格展示（只读，已锁定） ---------- */
 .style-switcher {
-  position: relative;
   margin-right: 8px;
 }
 
@@ -1078,17 +1059,14 @@ body {
   background: var(--card);
   border: 1.5px solid var(--ink);
   border-radius: var(--r-sketch-sm);
-  cursor: pointer;
   box-shadow: var(--shadow-note);
+  cursor: default;
 }
 
-.style-switcher__chip:hover {
-  background: var(--paper-2);
-}
-
-.style-switcher__chip:disabled {
-  opacity: 0.6;
-  cursor: wait;
+.style-switcher__lock {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-faint);
 }
 
 .style-switcher__name {
@@ -1112,93 +1090,6 @@ body {
   border: 1px solid rgba(43, 43, 43, 0.25);
 }
 
-.style-switcher__menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: var(--z-menu);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 312px;
-  padding: 6px;
-  background: var(--card);
-  border: 1.5px solid var(--ink);
-  border-radius: 14px 6px 13px 7px / 7px 13px 6px 14px;
-  box-shadow: var(--shadow-pop);
-}
-
-.style-switcher__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 8px;
-  background: transparent;
-  border: 0;
-  border-radius: var(--r-sketch-sm);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-}
-
-.style-switcher__item:hover {
-  background: var(--accent-soft);
-}
-
-.style-switcher__item.is-active {
-  background: var(--accent-soft);
-}
-
-.style-switcher__item-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.style-switcher__item-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.style-switcher__item-text strong {
-  font-family: var(--font-hand);
-  font-size: var(--fs-md);
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.style-switcher__item-text small,
-.style-switcher__item-side small {
-  font-family: var(--font-ui);
-  font-size: var(--fs-xs);
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.style-switcher__item-side {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  color: var(--accent-ink);
-}
-
-.style-switcher__notice {
-  margin: 4px 2px 0;
-  padding-top: 6px;
-  border-top: 1.5px dashed var(--line);
-  font-family: var(--font-ui);
-  font-size: var(--fs-xs);
-  line-height: 1.45;
-  color: var(--ink-faint);
-}
-
 /* ---------- 右键二级菜单（预览设备） ---------- */
 .context-menu__subwrap {
   position: relative;
@@ -1213,12 +1104,6 @@ body {
   margin-left: auto;
   display: inline-flex;
   color: var(--ink-faint);
-}
-
-.context-menu__sep {
-  height: 0;
-  margin: 4px 6px;
-  border-top: 1.5px dashed var(--line);
 }
 
 .context-menu__sub {
