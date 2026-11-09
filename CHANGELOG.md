@@ -26,6 +26,7 @@
 
 - `url.txt` 改写 `http://127.0.0.1:<port>/?ws=<token>`：去掉 `/w/<scope>/` 路径段与
   `#<secret>` 片段，文件泄露不再等同于凭证泄露。
+- 随包附 Windows 实机验收记录 `docs/windows-acceptance-0.8.5.md`，并加入打包清单。
 - 既有测试改由 `test/helpers/host.mjs` 读取工具返回的凭证并附 `Authorization: Bearer`；
   沙箱动态测试改走真实截图导出与视觉审计路径，可用 `TIANSHU_CANVAS_REQUIRE_BROWSER=1` 强制要求浏览器。
 - 版本号 0.8.4 → 0.8.5。

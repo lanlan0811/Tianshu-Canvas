@@ -121,12 +121,15 @@ Set-Cookie: canvas_<token>=<secret>; HttpOnly; SameSite=Strict; Path=/w/<scope>/
 | 静态资源 | 首页 200、`Referrer-Policy: no-referrer`、HTML 正文不含 secret |
 | `url.txt` | 只含 `http://127.0.0.1:<port>/?ws=<token>`——无 secret、无 `/w/` 路径段 |
 
-### 3.3 未覆盖 / 已知残留
+### 3.3 宿主实机验收
 
-- **本机未做宿主实机验收**：本轮只跑了自动化与本地服务层测试，
-  未在 Windows 天枢宿主里重跑「安装 → 画布编辑 → 导出 → 重启 → 卸载」全流程。
-  上传材料中不含 Windows 实机验收记录（0.8.4 的 `docs/windows-acceptance-0.8.4.md`
-  仅对应旧原包，且已从打包清单排除）。
+Windows 10 x64 + 天枢 4.0.4 上完成全流程验收（安装与加载、打开与复用、画布访问凭证、
+页面与画布、风格与设计系统、导出与代码生成、Chromium 沙箱、重启与多工作区、升级与回退、
+卸载与清理），全部通过。记录随包：`docs/windows-acceptance-0.8.5.md`。
+
+### 3.4 已知残留
+
+- macOS / Linux 未声明、未测试；声明范围仍为 `win32-x64` + 天枢 `>=4.0.2 <5.0.0`。
 - 旧版本 `dist` 与本版不兼容：本版改了 URL 形状，**必须重装插件 + 新建会话**；
   升级前打开的画布页会收到 404，刷新页面重新从 `canvas_open` 取链接即可。
 
