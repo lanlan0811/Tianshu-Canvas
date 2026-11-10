@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>预览清晰度基线</title>
+  <style>
+    * { box-sizing: border-box; }
+    html { background: #fff; color: #111; font: 16px Arial, sans-serif; }
+    body { margin: 0; min-height: 1800px; }
+    main { padding: 24px; }
+    h1 { margin: 0 0 16px; font-size: 24px; }
+    p { margin: 12px 0; line-height: 1.5; }
+    button, input, a { font: inherit; }
+    button { padding: 8px 12px; }
+    input { display: block; width: 180px; margin: 12px 0; }
+    .lines { height: 33px; margin: 20px 0; background: repeating-linear-gradient(to bottom, #111 0, #111 1px, #fff 1px, #fff 4px); }
+    .corner { position: fixed; width: 8px; height: 8px; background: #111; pointer-events: none; }
+    #corner-tl { top: 0; left: 0; } #corner-tr { top: 0; right: 0; }
+    #corner-bl { bottom: 0; left: 0; } #corner-br { bottom: 0; right: 0; }
+    #narrow { display: none; }
+    @media (max-width: 374px) { #narrow { display: block; } }
+  </style>
+</head>
+<body>
+  <span class="corner" id="corner-tl"></span><span class="corner" id="corner-tr"></span>
+  <span class="corner" id="corner-bl"></span><span class="corner" id="corner-br"></span>
+  <main>
+    <h1 id="fixture-title">原尺寸清晰度 Aa 0123456789</h1>
+    <p>16px 正文 / Text / 汉字 / SVG / 1px 细线</p>
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="40" viewBox="0 0 160 40" aria-label="矢量清晰度基线"><path d="M1 1H159V39H1Z M1 1L159 39 M159 1L1 39" stroke="#111" fill="none"/><circle cx="80" cy="20" r="15" stroke="#111" fill="none"/></svg>
+    <div class="lines"></div>
+    <button id="click-target" type="button">点击计数 <span id="click-count">0</span></button>
+    <input id="text-input" aria-label="输入测试" autocomplete="off">
+    <a id="internal-link" href="__TARGET_PAGE__.html">站内下一页</a>
+    <p id="narrow">小于375px时才显示</p>
+  </main>
+  <script>
+    document.getElementById('click-target').addEventListener('click', () => {
+      const count = document.getElementById('click-count');
+      count.textContent = String(Number(count.textContent) + 1);
+    });
+  </script>
+</body>
+</html>

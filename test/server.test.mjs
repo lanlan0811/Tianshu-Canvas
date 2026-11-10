@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { loadPlugin } from './helpers/host.mjs'
+import { loadPlugin, rawFetch, testCredential } from './helpers/host.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
@@ -58,6 +58,26 @@ try {
   const pageHtml = await pageRes.text()
   assert.match(pageHtml, /<h1>P<\/h1>/)
   assert.match(pageHtml, /data-tianshu-probe/, '原型页应注入探针')
+
+  // Issue #7 修的是链接拦截，不能用放宽 workspace 鉴权掩盖 iframe 导航错误。
+  // rawFetch 绕过测试宿主自动注入的 Bearer，覆盖编辑态和预览态的真实拒绝路径。
+  const scopeRoot = parsed.pathname.replace(/\/$/, '')
+  const wrongScope = parsed.pathname.split('/')[2] === '0'.repeat(32) ? '1'.repeat(32) : '0'.repeat(32)
+  for (const mode of ['', '&preview=1']) {
+    const scopedPage = `${base}${scopeRoot}/page/${id}?ws=${ws}${mode}`
+    assert.equal((await rawFetch(scopedPage)).status, 404, '无凭证不得读取原型')
+    assert.equal((await rawFetch(scopedPage, {
+      headers: { Authorization: `Bearer ${'0'.repeat(64)}` },
+    })).status, 404, '错误凭证不得读取原型')
+    assert.equal((await rawFetch(`${base}/w/${wrongScope}/page/${id}?ws=${ws}${mode}`, {
+      headers: { Authorization: `Bearer ${testCredential(token)}` },
+    })).status, 404, '有效凭证也不得跨 scope 访问')
+    const authorized = await rawFetch(scopedPage, {
+      headers: { Authorization: `Bearer ${testCredential(token)}` },
+    })
+    assert.equal(authorized.status, 200, '正确 scope 与凭证应可读取原型')
+    assert.match(authorized.headers.get('content-security-policy') ?? '', /form-action 'none'/)
+  }
 
   // 选中：写 → 读
   const selRes = await fetch(`${base}/api/selection`, {

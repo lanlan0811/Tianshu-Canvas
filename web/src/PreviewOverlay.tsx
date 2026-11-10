@@ -72,7 +72,7 @@ export function PreviewOverlay({
   const [pageId, setPageId] = useState(initialPageId)
   const [pagesOpen, setPagesOpen] = useState(false)
   const [zoomOpen, setZoomOpen] = useState(false)
-  const [zoomMode, setZoomMode] = useState<'fit' | number>('fit')
+  const [zoomMode, setZoomMode] = useState<'fit' | number>(1)
   const [toast, setToast] = useState<string | null>(null)
   const [draft, setDraft] = useState({
     width: String(freeSize.width),
@@ -189,7 +189,7 @@ export function PreviewOverlay({
   }, [pages, onClose, showToast])
 
   function pickDevice(next: PreviewDevice): void {
-    if (next !== device) setZoomMode('fit')
+    if (next !== device) setZoomMode(1)
     onDeviceChange(next)
   }
 
@@ -209,7 +209,7 @@ export function PreviewOverlay({
   const fitScale =
     device === 'desktop'
       ? 1
-      : Math.max(0.05, Math.min(stage.width / logicalWidth, stage.height / logicalHeight, 1))
+      : Math.min(stage.width / logicalWidth, stage.height / logicalHeight, 1)
   const scale = zoomMode === 'fit' ? fitScale : zoomMode
   const displayWidth = Math.max(1, Math.round(logicalWidth * scale))
   const displayHeight = Math.max(1, Math.round(logicalHeight * scale))
@@ -381,7 +381,7 @@ export function PreviewOverlay({
               style={{
                 width: logicalWidth,
                 height: logicalHeight,
-                transform: `scale(${scale})`,
+                transform: scale === 1 ? 'none' : `scale(${scale})`,
               }}
             >
               <iframe

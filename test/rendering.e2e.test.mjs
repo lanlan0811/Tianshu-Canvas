@@ -8,29 +8,19 @@
  *   - AI 更新页面后 iframe 自动刷新，只改标题不刷新；
  *   - 页面脚本伪造写入类消息不能改写文件。
  *
- * 无可用浏览器时跳过（不阻塞 CI）。
+ * 普通本机无浏览器可跳过；CI / 正式验收缺少浏览器必须失败。
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
+import { resolveTestBrowser } from './helpers/browser.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const browserPath = [
-  process.env.TIANSHU_CANVAS_BROWSER,
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-]
-  .filter(Boolean)
-  .find((p) => existsSync(p))
+const browserPath = resolveTestBrowser()
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const doc = (head, body) => `<!doctype html><html><head><meta charset="utf-8">${head}</head><body>${body}</body></html>`

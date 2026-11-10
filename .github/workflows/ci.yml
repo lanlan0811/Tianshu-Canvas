@@ -43,6 +43,23 @@ jobs:
             exit 1
           fi
 
+      - name: Require a browser for E2E
+        shell: bash
+        run: |
+          browser_path=""
+          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+            if browser_path="$(command -v "$candidate")" && [ -x "$browser_path" ]; then
+              break
+            fi
+          done
+          if [ -z "$browser_path" ] || [ ! -x "$browser_path" ]; then
+            echo "::error::CI 必须提供可用 Chrome/Chromium，浏览器 E2E 不允许跳过。"
+            exit 1
+          fi
+          "$browser_path" --version
+          echo "TIANSHU_CANVAS_BROWSER=$browser_path" >> "$GITHUB_ENV"
+          echo "TIANSHU_CANVAS_REQUIRE_BROWSER=1" >> "$GITHUB_ENV"
+
       - name: Test
         run: npm test
 

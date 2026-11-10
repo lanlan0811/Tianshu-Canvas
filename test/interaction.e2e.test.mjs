@@ -4,29 +4,20 @@
  * A) 画布侧：新点击语义不打断原生默认行为（<details>/<label>）与交互库脚本（tabs/modal）。
  * B) 导出侧：解压多页站到临时目录，用 file:// 打开，真点导航跳页、真点按钮开 modal/切 tab。
  *
- * 无可用浏览器时跳过（不阻塞 CI）。
+ * 普通本机无浏览器可跳过；CI / 正式验收缺少浏览器必须失败。
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { inflateRawSync } from 'node:zlib'
 import { loadPlugin } from './helpers/host.mjs'
+import { resolveTestBrowser } from './helpers/browser.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const BROWSERS = [
-  process.env.TIANSHU_CANVAS_BROWSER,
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-].filter(Boolean)
-const browserPath = BROWSERS.find((p) => existsSync(p))
+const browserPath = resolveTestBrowser()
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** 解压本项目自写 zip 到目录。 */

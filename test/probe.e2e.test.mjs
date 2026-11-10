@@ -4,29 +4,19 @@
  * 链路：iframe 内点击 → 探针 → postMessage → 画布前端 ProbeBridge → POST /api/selection
  *      → selection.json。
  *
- * 无可用浏览器时跳过（不阻塞 CI）。
+ * 普通本机无浏览器可跳过；CI / 正式验收缺少浏览器必须失败。
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { loadPlugin } from './helpers/host.mjs'
+import { resolveTestBrowser } from './helpers/browser.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const BROWSERS = [
-  process.env.TIANSHU_CANVAS_BROWSER,
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-].filter(Boolean)
-
-const browserPath = BROWSERS.find((p) => existsSync(p))
+const browserPath = resolveTestBrowser()
 
 test('探针 e2e：两层选择', { skip: !browserPath && '未找到浏览器' }, async () => {
   const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)

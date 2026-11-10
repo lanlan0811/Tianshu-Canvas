@@ -5,28 +5,19 @@
  * → 自定义 W/H + 边缘拖拽 → 缩放 → 预览内原生交互（不写 selection.json）
  * → 预览内站内跳转 / 外链拦截 → 页面切换 / Esc / 退出 → 编辑态回归。
  *
- * 无可用浏览器时跳过（不阻塞 CI）。
+ * 正式验收缺少浏览器必须失败，不能以跳过产生假绿。
  */
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { loadPlugin, rawFetch } from './helpers/host.mjs'
+import { resolveTestBrowser } from './helpers/browser.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const BROWSERS = [
-  process.env.TIANSHU_CANVAS_BROWSER,
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-].filter(Boolean)
-const browserPath = BROWSERS.find((p) => existsSync(p))
+const browserPath = resolveTestBrowser()
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -156,19 +147,8 @@ test('预览 e2e：右键菜单 / 设备切换 / 交互 / 跳转 / 关闭', { sk
     await frame.waitForSelector('#sum', { timeout: 10000 })
 
     async function clickInFrame(selector) {
-      await frame.evaluate((sel) => {
-        const el = document.querySelector(sel)
-        const r = el.getBoundingClientRect()
-        el.dispatchEvent(
-          new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            clientX: r.left + r.width / 2,
-            clientY: r.top + r.height / 2,
-          }),
-        )
-      }, selector)
-      await sleep(300)
+      await frame.click(selector)
+      await page.evaluate(() => new Promise(requestAnimationFrame))
     }
 
     await clickInFrame('#sum')
@@ -193,11 +173,13 @@ test('预览 e2e：右键菜单 / 设备切换 / 交互 / 跳转 / 关闭', { sk
     let size = await page.$eval('.preview-device__scaler', (el) => ({ w: el.clientWidth, h: el.clientHeight }))
     assert.deepEqual(size, { w: 768, h: 1024 }, `平板逻辑尺寸应为 768×1024：${JSON.stringify(size)}`)
     assert.equal(await activeDevice(), 'tablet')
+    assert.equal(await page.$eval('.preview-zoom__btn', (el) => el.textContent.trim()), '100%')
 
     await pickDevice('mobile')
     size = await page.$eval('.preview-device__scaler', (el) => ({ w: el.clientWidth, h: el.clientHeight }))
     assert.deepEqual(size, { w: 375, h: 812 }, `手机逻辑尺寸应为 375×812：${JSON.stringify(size)}`)
     assert.equal(await activeDevice(), 'mobile')
+    assert.equal(await page.$eval('.preview-device__scaler', (el) => getComputedStyle(el).transform), 'none')
 
     // ---------- 5) 自定义：W/H 输入 ----------
     await pickDevice('free')
@@ -317,6 +299,7 @@ test('预览 e2e：右键菜单 / 设备切换 / 交互 / 跳转 / 关闭', { sk
     assert.equal(await activeDevice(), 'mobile')
 
     // 退出按钮关闭
+    assert.equal(await page.$eval('.preview-zoom__btn', (el) => el.textContent.trim()), '100%', '右键直达预览也应默认100%')
     await page.click('.preview-exit')
     await sleep(300)
     assert.equal(await page.$('.preview-overlay'), null, '退出按钮应关闭预览层')
