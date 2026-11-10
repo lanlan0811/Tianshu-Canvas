@@ -45,6 +45,7 @@ Thumbs.db
 # AI tool session logs
 .claude/
 .rivet/
+.codex/
 AGENTS.md
 CLAUDE.md
 .rivet.md
