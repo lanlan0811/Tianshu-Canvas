@@ -134,7 +134,17 @@ async function mutate(path: string, data: Record<string, unknown>): Promise<Resp
   } catch {
     throw new ApiRequestError(0, '无法连接画布服务，请检查服务是否仍在运行后重试。')
   }
-  return checkResponse(res)
+  await checkResponse(res)
+  // Successful mutations may deliberately preserve a legacy page and warn about
+  // deferred navigation. Surface this without turning a committed write into failure.
+  try {
+    const body: unknown = await res.clone().json()
+    if (body && typeof body === 'object' && 'warnings' in body && Array.isArray(body.warnings)) {
+      const warnings = body.warnings.filter((value): value is string => typeof value === 'string').map(safeErrorText)
+      if (warnings.length) window.dispatchEvent(new CustomEvent('tianshu-canvas-warning', { detail: warnings.join('；') }))
+    }
+  } catch { /* A successful non-JSON response remains successful. */ }
+  return res
 }
 
 export async function fetchProject(ws: string): Promise<ApiProject> {

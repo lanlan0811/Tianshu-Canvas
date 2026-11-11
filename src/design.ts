@@ -422,7 +422,7 @@ export function hasRegisteredPrototypeRoot(html: string): boolean {
  * 注入（或移除）设计系统样式块。
  * styleId 为 null 表示自由发挥：只剥离旧块，不注入。
  */
-export function injectDesign(html: string, styleId: string | null, cwd?: string): InjectResult {
+export function injectDesign(html: string, styleId: string | null, cwd?: string, preparedStyle?: ResolvedStyle): InjectResult {
   // Complete original compositions keep their declared theme without a project lock.
   if (styleId === null && hasRegisteredPrototypeRoot(html)) {
     const marker = readDesignMarker(html)
@@ -432,7 +432,7 @@ export function injectDesign(html: string, styleId: string | null, cwd?: string)
   if (styleId === null) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] }
   }
-  const style = resolveDesignStyle(cwd, styleId)
+  const style = preparedStyle ?? resolveDesignStyle(cwd, styleId)
   if (!style) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] }
   }

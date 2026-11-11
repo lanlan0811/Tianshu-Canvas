@@ -55,7 +55,7 @@ import {
 import { applyProjectStyle, currentStyleId, interactionDocument, templateDocument } from './designOps.js'
 import { extractTokens } from './extract.js'
 import { inlineAssets } from './inlineAssets.js'
-import { isSafeId, newPageId } from './ids.js'
+import { InvalidInputError, isSafeId, newPageId } from './ids.js'
 import { readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
@@ -65,7 +65,6 @@ import {
   addEdge,
   autoLayoutPosition,
   duplicateNode,
-  nextLayoutIndex,
   PROJECT_DIR_NAME,
   projectFile,
   projectIssue,
@@ -81,12 +80,15 @@ import {
   upsertNode,
   writePageHtml,
   writeProject,
+  withProjectTransaction,
   type Comment,
   type PageNode,
   type Project,
   type Selection,
 } from './project.js'
-import { mayHaveNavLinks, rewriteNavLinks, type PageRef } from './nav.js'
+import { rewriteNavLinks, type PageRef } from './nav.js'
+import { backfillNavigation } from './navigation.js'
+import { assertHtmlSize } from './limits.js'
 import { currentUrl, ensureServer } from './server.js'
 import { redactErrorPaths, reportError } from './errors.js'
 
@@ -154,6 +156,10 @@ function withBackupNotice(run: (call: ToolCall) => Promise<ToolResult>): (call: 
 function scriptIconNote(names: string[]): string {
   if (names.length === 0) return ''
   return `\n注意：脚本里的图标不会展开：${names.slice(0, 8).join('、')}。请把图标写在静态 HTML 的 <template> 里，由脚本克隆使用。`
+}
+
+function navigationNotice(warnings: string[]): string {
+  return warnings.length ? '\n导航提示：' + warnings.join('；') : ''
 }
 
 function projectHint(cwd: string): string {
@@ -239,41 +245,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     return { content: `非法 id：${requestedId}（仅允许字母数字、下划线、连字符，1–64 位）`, isError: true }
   }
 
-  const project = readProject(call.cwd)
-  const existing = requestedId ? project.nodes.find((n) => n.id === requestedId) : undefined
-  if (!html && !existing) {
-    return {
-      content:
-        '缺少内容：请提供 html_path（工作区内的 HTML 文件）或 html（内联 HTML）。' +
-        '仅更新已有页面的标题/位置/尺寸时，需传已存在的 id。',
-      isError: true,
-    }
-  }
   const id = requestedId ?? newPageId()
-
-  // 已存在的节点：未显式指定设备/尺寸时沿用原值，避免只改标题就把尺寸重置。
-  const deviceProvided = isDeviceType(args.device_type)
-  const deviceType: DeviceType = isDeviceType(args.device_type)
-    ? args.device_type
-    : (existing?.deviceType ?? DEFAULT_DEVICE)
-  const base = existing && !deviceProvided ? { width: existing.width, height: existing.height } : resolveSize(deviceType)
-  const size = {
-    width: positive(num(args.width)) ?? base.width,
-    height: positive(num(args.height)) ?? base.height,
-  }
-
-  let x = num(args.x)
-  let y = num(args.y)
-  if (x === undefined || y === undefined) {
-    if (existing) {
-      x = x ?? existing.x
-      y = y ?? existing.y
-    } else {
-      const pos = autoLayoutPosition(call.cwd, nextLayoutIndex(call.cwd), size)
-      x = x ?? pos.x
-      y = y ?? pos.y
-    }
-  }
 
   // 资源内联（可选）：把会被 CSP 拦截的外链/相对路径抓取成 data: URI。
   // 必须在 injectDesign 之前：注入块本身无外链，先内联可让后续 blocked 提示基于最终 HTML。
@@ -293,52 +265,48 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
         : '')
   }
 
-  // 页面间跳转：把手写链接规范化成 <id>.html（歧义报错，未命中放行）。
-  const pageTitle = str(args.title) ?? existing?.title ?? id
-  let navNote = ''
-  if (workHtml !== undefined) {
-    const pages = pageRefsWith(project, { id, title: pageTitle })
-    const nav = rewriteNavLinks(workHtml, pages, '')
-    if (nav.ambiguous.length) {
-      const detail = nav.ambiguous
-        .map((a) => `  - 「${a.ref}」命中多个页面：${a.ids.join('、')}；请改用真实页面 id 或 data-nav`)
-        .join('\n')
-      return {
-        content: `页面跳转链接存在歧义，未写入：\n${detail}\n\n（同名标题会产生相同 slug，改用 <a href="<id>.html"> 或 <a data-nav="<id>">）`,
-        isError: true,
+  // 网络准备完成后才取锁，并始终使用锁内最新模型计算布局、标题、风格和导航。
+  const { existing, node, rel, pageHtml, injection, navNote, backfilled, navWarnings, deviceType } = withProjectTransaction(call.cwd, (tx) => {
+    const project = tx.project
+    const existing = requestedId ? project.nodes.find((n) => n.id === requestedId) : undefined
+    if (workHtml === undefined && !existing) {
+      throw new InvalidInputError('缺少内容：请提供 html_path 或 html；仅更新标题、位置或尺寸时需传已存在的 id。')
+    }
+    const deviceProvided = isDeviceType(args.device_type)
+    const deviceType: DeviceType = isDeviceType(args.device_type) ? args.device_type : (existing?.deviceType ?? DEFAULT_DEVICE)
+    const base = existing && !deviceProvided ? { width: existing.width, height: existing.height } : resolveSize(deviceType)
+    const size = { width: positive(num(args.width)) ?? base.width, height: positive(num(args.height)) ?? base.height }
+    const pos = existing ?? autoLayoutPosition(call.cwd, project.nodes.length, size)
+    const pageTitle = str(args.title) ?? existing?.title ?? id
+    let preparedHtml = workHtml
+    let navNote = ''
+    if (preparedHtml !== undefined) {
+      const nav = rewriteNavLinks(preparedHtml, pageRefsWith(project, { id, title: pageTitle }), '')
+      if (nav.ambiguous.length) {
+        const detail = nav.ambiguous.map((a) => `「${a.ref}」命中多个页面：${a.ids.join('、')}`).join('；')
+        throw new InvalidInputError(`页面跳转链接存在歧义，未写入：${detail}；请改用真实页面 id 或 data-nav。`)
       }
+      preparedHtml = nav.html
+      if (nav.unresolved.length) navNote = `\n注意：这些链接未匹配到页面，已原样保留（若目标页稍后创建会自动补齐）：${nav.unresolved.slice(0, 8).join('、')}。`
     }
-    workHtml = nav.html
-    if (nav.unresolved.length) {
-      navNote = `\n注意：这些链接未匹配到页面，已原样保留（若目标页稍后创建会自动补齐）：${nav.unresolved.slice(0, 8).join('、')}。`
+    const injection = preparedHtml !== undefined ? injectDesign(preparedHtml, project.design?.styleId ?? null, call.cwd) : null
+    const pageHtml = injection ? injection.html : preparedHtml
+    if (pageHtml !== undefined) assertHtmlSize(pageHtml)
+    const previousHtml = existing && pageHtml !== undefined ? readPageHtml(call.cwd, id, tx) : null
+    const htmlChanged = pageHtml !== undefined && pageHtml !== previousHtml
+    const rel = htmlChanged ? writePageHtml(call.cwd, id, pageHtml!, tx) : (existing?.htmlPath ?? '')
+    const now = Date.now()
+    const node: PageNode = {
+      id, type: 'page', title: pageTitle, x: num(args.x) ?? pos.x, y: num(args.y) ?? pos.y,
+      width: size.width, height: size.height, deviceType, htmlPath: rel,
+      htmlRev: htmlChanged ? Math.max(now, (existing?.htmlRev ?? 0) + 1) : existing?.htmlRev, createdAt: existing?.createdAt ?? now, updatedAt: now,
     }
-  }
-
-  // 设计系统是项目级锁定：写入时自动内联 token/组件样式并展开图标。
-  const styleId = currentStyleId(call.cwd)
-  const injection = workHtml !== undefined ? injectDesign(workHtml, styleId, call.cwd) : null
-  const pageHtml = injection ? injection.html : workHtml
-
-  const rel = pageHtml !== undefined ? writePageHtml(call.cwd, id, pageHtml) : (existing?.htmlPath ?? '')
-  const now = Date.now()
-  const node: PageNode = {
-    id,
-    type: 'page',
-    title: pageTitle,
-    x,
-    y,
-    width: size.width,
-    height: size.height,
-    deviceType,
-    htmlPath: rel,
-    htmlRev: pageHtml !== undefined ? now : existing?.htmlRev,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  }
-  upsertNode(call.cwd, node)
-
-  // 前向引用补齐：本次写入若引入/改名了页面，其它页里此前无法解析的链接现在可能可解析。
-  const backfilled = backfillNavLinks(call.cwd)
+    upsertNode(call.cwd, node, tx)
+    const navigation = htmlChanged || !existing || existing.title !== pageTitle
+      ? backfillNavigation(call.cwd, tx)
+      : { changed: [], warnings: [] }
+    return { existing, node, rel, pageHtml, injection, navNote, backfilled: navigation.changed, navWarnings: navigation.warnings, deviceType }
+  })
 
   // 确保画布服务在跑，这样返回里一定带可点击的画布 URL（用户能看到）。
   const { url } = await ensureServer(call.cwd)
@@ -362,6 +330,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       missingLine +
       assetNote +
       navNote +
+      (navWarnings.length ? `\n导航提示：${navWarnings.join('；')}` : '') +
       (backfilled.length ? `\n页面跳转：已补齐 ${backfilled.length} 个页面的前向链接（${backfilled.join('、')}）。` : '') +
       scriptIconNote(injection?.scriptIcons ?? []) +
       (blocked.length
@@ -377,43 +346,6 @@ function pageRefsWith(project: Project, self: PageRef): PageRef[] {
   if (idx >= 0) refs[idx] = { id: self.id, title: self.title }
   else refs.push({ id: self.id, title: self.title })
   return refs
-}
-
-/**
- * 前向引用补齐：对每个页面重跑链接规范化，仅当确实改写了才写盘并 bump htmlRev。
- * 变更检测 + 只写变化页，避免无谓的整画布重载。
- */
-function backfillNavLinks(cwd: string): string[] {
-  const project = readProject(cwd)
-  const pages = project.nodes.map((n) => ({ id: n.id, title: n.title }))
-  if (pages.length === 0) return []
-  const changed: string[] = []
-  for (const node of project.nodes) {
-    try {
-      const html = readPageHtml(cwd, node.id)
-      if (html === null || !mayHaveNavLinks(html)) continue
-      // 注入块内含链接的可能性极低；先剥离再判断，避免把注入块也当作链接源。
-      const stripped = stripDesign(html)
-      if (!mayHaveNavLinks(stripped)) continue
-      const nav = rewriteNavLinks(stripped, pages, '')
-      if (nav.rewritten === 0 || nav.ambiguous.length) continue
-      const reinjected = injectDesign(nav.html, currentStyleId(cwd), cwd)
-      const next = reinjected.html
-      if (next === html) continue
-      writePageHtml(cwd, node.id, next)
-      const stamped = readProject(cwd)
-      const target = stamped.nodes.find((n) => n.id === node.id)
-      if (target) {
-        target.htmlRev = Date.now()
-        target.updatedAt = Date.now()
-        writeProject(cwd, stamped)
-      }
-      changed.push(node.title)
-    } catch {
-      // 单个页面的文件损坏/越界不该拖垮本次写入；跳过即可（它本来就无法被补齐）。
-    }
-  }
-  return changed
 }
 
 // ---------------------------------------------------------------------------
@@ -526,21 +458,26 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
     case 'remove': {
       const id = str(call.args.id)
       if (!id) return { content: 'remove 需要 id。', isError: true }
-      const project = readProject(call.cwd)
-      if (!project.nodes.some((n) => n.id === id)) return { content: `节点不存在：${id}`, isError: true }
-      const next = removeNode(call.cwd, id)
-      return { content: `已删除页面节点 ${id}（连带其连线与原型文件）。剩余 ${next.nodes.length} 个节点。` }
+      const { next, warnings } = withProjectTransaction(call.cwd, (tx) => {
+        if (!tx.project.nodes.some((n) => n.id === id)) throw new InvalidInputError(`节点不存在：${id}`)
+        const next = removeNode(call.cwd, id, tx)
+        return { next, warnings: backfillNavigation(call.cwd, tx).warnings }
+      })
+      return { content: `已删除页面节点 ${id}（连带其连线与原型文件）。剩余 ${next.nodes.length} 个节点。` + (warnings.length ? `\n导航提示：${warnings.join('；')}` : '') }
     }
     case 'duplicate': {
       const id = str(call.args.id)
       if (!id) return { content: 'duplicate 需要 id。', isError: true }
       try {
-        const node = duplicateNode(call.cwd, id, str(call.args.title))
+        const { node, warnings } = withProjectTransaction(call.cwd, (tx) => {
+          const node = duplicateNode(call.cwd, id, str(call.args.title), tx)
+          return { node, warnings: backfillNavigation(call.cwd, tx).warnings }
+        })
         const { url } = await ensureServer(call.cwd)
         return {
           content:
             `已复制页面节点，新 id=${node.id}，标题「${node.title}」。\n` +
-            `位置：x=${node.x}, y=${node.y}\n画布 URL：${url}`,
+            `位置：x=${node.x}, y=${node.y}\n画布 URL：${url}` + (warnings.length ? `\n导航提示：${warnings.join("；")}` : ""),
         }
       } catch (err) {
         return { content: reportError(err), isError: true }
@@ -561,8 +498,10 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
       const source = str(call.args.source)
       const target = str(call.args.target)
       if (!source || !target) return { content: 'unlink 需要 source 和 target。', isError: true }
-      const before = readProject(call.cwd).edges.length
-      const next = removeEdge(call.cwd, source, target)
+      const { before, next } = withProjectTransaction(call.cwd, (tx) => {
+        const before = tx.project.edges.length
+        return { before, next: removeEdge(call.cwd, source, target, tx) }
+      })
       if (next.edges.length === before) return { content: `没有匹配的连线 ${source} → ${target}，未作改动。` }
       return { content: `已取消连线 ${source} → ${target}。` }
     }
@@ -899,7 +838,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       return {
         content: styleId === null
           ? `已解除风格锁定：回到自由发挥；已有页面保留当前注入的样式块，新页面不再注入。\n画布 URL：${url}`
-          : `已锁定设计风格「${result.name}」（${styleId}）：重写 ${result.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}${missing}${scriptIconNote(result.scriptIcons)}`,
+          : `已锁定设计风格「${result.name}」（${styleId}）：重写 ${result.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}${missing}${scriptIconNote(result.scriptIcons)}${navigationNotice(result.warnings)}`,
       }
     }
 
@@ -1078,29 +1017,34 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
         }
       }
 
-      const result = createCustomStyle(call.cwd, id, extracted.tokens, {
-        name: call.args.name ?? `${id}（反抽取）`,
-        tagline: call.args.tagline ?? '从现有页面反抽取',
-        description: call.args.description ?? '由 canvas_design_system extract 从现有 HTML/CSS 反抽取生成。',
-        tags: call.args.tags,
-        swatches: call.args.swatches ?? Object.values((extracted.tokens.color as { primitives: { neutral: Record<string, string> } }).primitives.neutral).slice(0, 4),
-        iconStyle: call.args.iconStyle ?? extracted.iconStyle,
-        overwrite: call.args.overwrite,
-      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() })
-      invalidateDesignCache(call.cwd)
-      recordUsage(call.cwd, {
-        styleId: id,
-        htmls: source ? [source] : [],
-        source: { kind: 'extract', ref: filePath ?? (url ? new URL(url).host : 'inline') },
+      const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        const result = createCustomStyle(call.cwd, id, extracted.tokens, {
+          name: call.args.name ?? `${id}（反抽取）`,
+          tagline: call.args.tagline ?? '从现有页面反抽取',
+          description: call.args.description ?? '由 canvas_design_system extract 从现有 HTML/CSS 反抽取生成。',
+          tags: call.args.tags,
+          swatches: call.args.swatches ?? Object.values((extracted.tokens.color as { primitives: { neutral: Record<string, string> } }).primitives.neutral).slice(0, 4),
+          iconStyle: call.args.iconStyle ?? extracted.iconStyle,
+          overwrite: call.args.overwrite,
+        }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx)
+        recordUsage(call.cwd, {
+          styleId: id,
+          htmls: source ? [source] : [],
+          source: { kind: 'extract', ref: filePath ?? (url ? new URL(url).host : 'inline') },
+        }, tx)
+
+        const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx)
+        const applied = call.args.set_current !== false ? applyProjectStyle(call.cwd, id, tx, preparedStyle) : null
+        tx.afterCommit(() => invalidateDesignCache(call.cwd))
+        return { result, applied }
       })
 
-      const setCurrent = call.args.set_current !== false
       let lockLine = '未锁定（如需使用：canvas_style action=set）。'
-      if (setCurrent) {
-        const applied = applyProjectStyle(call.cwd, id)
+      if (applied) {
         const { url: canvasUrl } = await ensureServer(call.cwd)
         lockLine = `已锁定为当前项目风格：重写 ${applied.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${canvasUrl}`
       }
+      lockLine += navigationNotice(applied?.warnings ?? [])
       return {
         content:
           `${summary}\n\n已创建自定义设计系统「${result.summary.name}」（${id}）并完成校验。\n` +
@@ -1154,32 +1098,38 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
         tokens.color?.primitives?.danger?.['500'],
       ].filter(Boolean) as string[]
 
-      const result = createCustomStyle(
-        call.cwd,
-        id,
-        tokens,
-        {
-          name: call.args.name ?? imported.name,
-          tagline: call.args.tagline ?? imported.tagline,
-          description: call.args.description ?? `由 canvas_design_system import 从现有 ${adapterId} 主题导入（观测 ${imported.observed.length} 项 / 推断 ${imported.inferred.length} 项）。`,
-          tags: call.args.tags ?? [adapterId, 'imported'],
-          swatches: call.args.swatches ?? swatches,
-          iconStyle: call.args.iconStyle ?? imported.iconStyle,
-          adapter: { id: adapterId, version: 1, source: sourcePath ?? detection?.evidence.join('; ') ?? 'auto' },
-        },
-        designDir(),
-        { overwrite: call.args.overwrite === true, builtinIds: builtinIds() },
-      )
-      invalidateDesignCache(call.cwd)
-      recordUsage(call.cwd, { styleId: id, source: { kind: 'import', ref: adapterId ?? 'auto' } })
+      const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        const result = createCustomStyle(
+          call.cwd,
+          id,
+          tokens,
+          {
+            name: call.args.name ?? imported.name,
+            tagline: call.args.tagline ?? imported.tagline,
+            description: call.args.description ?? `由 canvas_design_system import 从现有 ${adapterId} 主题导入（观测 ${imported.observed.length} 项 / 推断 ${imported.inferred.length} 项）。`,
+            tags: call.args.tags ?? [adapterId, 'imported'],
+            swatches: call.args.swatches ?? swatches,
+            iconStyle: call.args.iconStyle ?? imported.iconStyle,
+            adapter: { id: adapterId, version: 1, source: sourcePath ?? detection?.evidence.join('; ') ?? 'auto' },
+          },
+          designDir(),
+          { overwrite: call.args.overwrite === true, builtinIds: builtinIds() },
+          tx,
+        )
+        recordUsage(call.cwd, { styleId: id, source: { kind: 'import', ref: adapterId ?? 'auto' } }, tx)
 
-      const setCurrent = call.args.set_current !== false
+        const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx)
+        const applied = call.args.set_current !== false ? applyProjectStyle(call.cwd, id, tx, preparedStyle) : null
+        tx.afterCommit(() => invalidateDesignCache(call.cwd))
+        return { result, applied }
+      })
+
       let lockLine = '未锁定（如需使用：canvas_style action=set）。'
-      if (setCurrent) {
-        const applied = applyProjectStyle(call.cwd, id)
+      if (applied) {
         const { url } = await ensureServer(call.cwd)
         lockLine = `已锁定为当前项目风格：重写 ${applied.pagesUpdated} 个页面（画布会自动刷新）。\n画布 URL：${url}`
       }
+      lockLine += navigationNotice(applied?.warnings ?? [])
       return {
         content:
           `${summary}\n已创建自定义设计系统「${result.summary.name}」（${id}）并完成校验。\n` +
@@ -1191,22 +1141,26 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
     if (action === 'create') {
       const id = str(call.args.id)
       if (!id) return { content: 'create 需要 id（风格 id：字母数字/_/-，1–64 位）。', isError: true }
-      const result = createCustomStyle(call.cwd, id, call.args.tokens, {
-        name: call.args.name,
-        tagline: call.args.tagline,
-        description: call.args.description,
-        tags: call.args.tags,
-        swatches: call.args.swatches,
-        iconStyle: call.args.iconStyle,
-        license: call.args.license,
-        notice: call.args.notice,
-      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() })
-      invalidateDesignCache(call.cwd)
+      const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        const result = createCustomStyle(call.cwd, id, call.args.tokens, {
+          name: call.args.name,
+          tagline: call.args.tagline,
+          description: call.args.description,
+          tags: call.args.tags,
+          swatches: call.args.swatches,
+          iconStyle: call.args.iconStyle,
+          license: call.args.license,
+          notice: call.args.notice,
+        }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx)
 
-      const setCurrent = call.args.set_current !== false
+        const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx)
+        const applied = call.args.set_current !== false ? applyProjectStyle(call.cwd, id, tx, preparedStyle) : null
+        tx.afterCommit(() => invalidateDesignCache(call.cwd))
+        return { result, applied }
+      })
+
       let lockLine = '未锁定（如需使用：canvas_style action=set）。'
-      if (setCurrent) {
-        const applied = applyProjectStyle(call.cwd, id)
+      if (applied) {
         const { url } = await ensureServer(call.cwd)
         lockLine =
           `已锁定为当前项目风格：重写 ${applied.pagesUpdated} 个页面（画布会自动刷新）。\n` +
@@ -1214,6 +1168,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
           (applied.missingIcons.length ? `\n注意：这些图标名不在目录中：${applied.missingIcons.slice(0, 8).join('、')}。` : '') +
           scriptIconNote(applied.scriptIcons)
       }
+      lockLine += navigationNotice(applied?.warnings ?? [])
       const warnLine = result.warnings.length ? `\n提示：${result.warnings.join('；')}` : ''
       return {
         content:
@@ -1277,20 +1232,17 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       if (customStyleExists(call.cwd, typed.id) && call.args.overwrite !== true) {
         return { content: `自定义设计系统「${typed.id}」已存在。若要覆盖，请传 overwrite=true。`, isError: true }
       }
-      importBrandPack(call.cwd, typed)
-      invalidateDesignCache(call.cwd)
-      try {
-        compileCustomStyle(call.cwd, typed.id, designDir())
-      } catch (err) {
-        return { content: `品牌包已解包，但 token 校验失败：${reportError(err)}`, isError: true }
-      }
-      const set = await canvasStyle({ ...call, args: { action: 'set', style_id: typed.id } })
+      const applied = withProjectTransaction(call.cwd, (tx) => {
+        createCustomStyle(call.cwd, typed.id, typed.tokens, typed.meta, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx)
+        importBrandPack(call.cwd, typed, tx)
+        const preparedStyle = compileCustomStyle(call.cwd, typed.id, designDir(), tx)
+        const applied = applyProjectStyle(call.cwd, typed.id, tx, preparedStyle)
+        tx.afterCommit(() => invalidateDesignCache(call.cwd))
+        return applied
+      })
+      const { url } = await ensureServer(call.cwd)
       return {
-        content:
-          `已导入品牌包「${typed.name}」（${typed.id}）：${file}\n` +
-          `恢复使用记忆：组件 ${Object.keys(typed.usage?.components ?? {}).length} 个、图标 ${Object.keys(typed.usage?.icons ?? {}).length} 个。\n` +
-          set.content,
-        isError: set.isError,
+        content: `已导入品牌包「${typed.name}」（${typed.id}）：${file}\n已锁定风格，重写 ${applied.pagesUpdated} 个页面。\n画布 URL：${url}${navigationNotice(applied.warnings)}`,
       }
     }
 
@@ -1298,15 +1250,15 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       const id = str(call.args.id)
       if (!id) return { content: 'remove 需要 id。', isError: true }
       if (isBuiltinStyle(id)) return { content: `「${id}」是内置风格，不能删除。`, isError: true }
-      const wasCurrent = currentStyleId(call.cwd) === id
-      removeCustomStyle(call.cwd, id)
-      forgetStyle(call.cwd, id)
-      invalidateDesignCache(call.cwd)
-      let unlinkLine = ''
-      if (wasCurrent) {
-        applyProjectStyle(call.cwd, null)
-        unlinkLine = '\n它原本是当前锁定的风格，已解除锁定（已有页面保留注入的样式块）。'
-      }
+      const wasCurrent = withProjectTransaction(call.cwd, (tx) => {
+        const wasCurrent = currentStyleId(call.cwd, tx) === id
+        removeCustomStyle(call.cwd, id, tx)
+        forgetStyle(call.cwd, id, tx)
+        if (wasCurrent) applyProjectStyle(call.cwd, null, tx)
+        tx.afterCommit(() => invalidateDesignCache(call.cwd))
+        return wasCurrent
+      })
+      const unlinkLine = wasCurrent ? '\n它原本是当前锁定的风格，已解除锁定（已有页面保留注入的样式块）。' : ''
       return { content: `已删除自定义设计系统「${id}」。${unlinkLine}` }
     }
 
@@ -1505,10 +1457,10 @@ async function canvasComments(call: ToolCall): Promise<ToolResult> {
     if (action === 'resolve' || action === 'reopen') {
       const ids = Array.isArray(call.args.ids) ? call.args.ids.filter((v): v is string => typeof v === 'string') : []
       if (ids.length === 0) return { content: `${action} 需要 ids（批注 id 数组）。`, isError: true }
-      const project = readProject(call.cwd)
-      const known = new Set((project.comments ?? []).map((c) => c.id))
-      const missing = ids.filter((id) => !known.has(id))
-      const changed = setCommentsResolved(call.cwd, ids, action === 'resolve')
+      const { missing, changed } = withProjectTransaction(call.cwd, (tx) => {
+        const known = new Set((tx.project.comments ?? []).map((c) => c.id))
+        return { missing: ids.filter((id) => !known.has(id)), changed: setCommentsResolved(call.cwd, ids, action === 'resolve', tx) }
+      })
       const { url } = await ensureServer(call.cwd)
       const missLine = missing.length ? `\n未找到：${missing.join('、')}` : ''
       return {

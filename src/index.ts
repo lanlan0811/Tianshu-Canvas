@@ -65,3 +65,6 @@ export { resolveBrowser } from './export.js'
 export { assertUrlAllowed, isBlockedIp, fetchUrl } from './netFetch.js'
 export { inlineAssets, toDataUri } from './inlineAssets.js'
 export { extractTokens } from './extract.js'
+
+export { createNavIndex, parseNavDocument, rewriteParsedNavLinks } from './nav.js'
+export { backfillNavigation, clearNavigationCache } from './navigation.js'

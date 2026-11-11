@@ -182,6 +182,15 @@ function Canvas() {
   }, [])
 
   /** 变更失败后重新读取服务端；错误独立保存，避免 SSE 刷新把拒绝提示清掉。 */
+  useEffect(() => {
+    const onWarning = (event: Event): void => {
+      const detail: unknown = (event as CustomEvent<unknown>).detail
+      if (typeof detail === 'string') setMutationError('导航提示：' + detail)
+    }
+    window.addEventListener('tianshu-canvas-warning', onWarning)
+    return () => window.removeEventListener('tianshu-canvas-warning', onWarning)
+  }, [])
+
   const runMutation = useCallback(async (operation: () => Promise<unknown>, restoreViewport = false): Promise<void> => {
     try {
       await operation()

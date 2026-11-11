@@ -13,7 +13,7 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { customStyleDir, libraryDir } from './designCustom.js'
-import { projectDir } from './project.js'
+import { projectDir, withProjectTransaction, type ProjectTransaction } from './project.js'
 import { readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { stableHash } from './adapters/color.js'
 
@@ -54,11 +54,11 @@ function emptyStyleMemory(): StyleMemory {
 }
 
 /** 读记忆；文件不存在或损坏都返回空记忆（记忆不是权威数据）。 */
-export function readMemory(cwd: string): BrandMemory {
+export function readMemory(cwd: string, tx?: ProjectTransaction): BrandMemory {
   const file = memoryFile(cwd)
-  if (!existsSync(file)) return { ...EMPTY, styles: {} }
+  if (!tx && !existsSync(file)) return { ...EMPTY, styles: {} }
   try {
-    const parsed = JSON.parse(readTextInWorkspace(cwd, file, '品牌记忆')) as BrandMemory
+    const parsed = JSON.parse(tx ? tx.readFile(file) ?? '{}' : readTextInWorkspace(cwd, file, '品牌记忆')) as BrandMemory
     if (parsed.schemaVersion !== 1 || typeof parsed.styles !== 'object' || parsed.styles === null) {
       return { ...EMPTY, styles: {} }
     }
@@ -68,7 +68,11 @@ export function readMemory(cwd: string): BrandMemory {
   }
 }
 
-function writeMemory(cwd: string, memory: BrandMemory): void {
+function writeMemory(cwd: string, memory: BrandMemory, tx?: ProjectTransaction): void {
+  if (tx) {
+    tx.stageFile(memoryFile(cwd), JSON.stringify(memory, null, 2) + '\n')
+    return
+  }
   // 品牌记忆是隐式写入：走统一边界 + 独占随机临时文件，不跟随被预置的叶子链接。
   writeFileInWorkspace(cwd, memoryFile(cwd), JSON.stringify(memory, null, 2).replace(/\r\n/g, '\n') + '\n', '品牌记忆')
 }
@@ -104,8 +108,9 @@ export interface RecordInput {
 }
 
 /** 累加一次使用记录（幂等合并计数，不覆盖既有数据）。 */
-export function recordUsage(cwd: string, input: RecordInput): BrandMemory {
-  const memory = readMemory(cwd)
+export function recordUsage(cwd: string, input: RecordInput, tx?: ProjectTransaction): BrandMemory {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => recordUsage(cwd, input, transaction))
+  const memory = readMemory(cwd, tx)
   const style = memory.styles[input.styleId] ?? emptyStyleMemory()
   for (const html of input.htmls ?? []) {
     const usage = usageFromHtml(html)
@@ -122,17 +127,18 @@ export function recordUsage(cwd: string, input: RecordInput): BrandMemory {
   if (!style.sources.some((s) => `${s.kind}:${s.ref}` === key)) style.sources.push(input.source)
   memory.styles[input.styleId] = style
   memory.updatedAt = stamp
-  writeMemory(cwd, memory)
+  writeMemory(cwd, memory, tx)
   return memory
 }
 
 /** 删除某风格的记忆（风格被删除时调用，避免悬空引用）。 */
-export function forgetStyle(cwd: string, styleId: string): void {
-  const memory = readMemory(cwd)
+export function forgetStyle(cwd: string, styleId: string, tx?: ProjectTransaction): void {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => forgetStyle(cwd, styleId, transaction))
+  const memory = readMemory(cwd, tx)
   if (!(styleId in memory.styles)) return
   delete memory.styles[styleId]
   memory.updatedAt = now()
-  writeMemory(cwd, memory)
+  writeMemory(cwd, memory, tx)
 }
 
 /** 一行摘要（给 canvas_get_state / design_system get 用）。 */
@@ -227,19 +233,20 @@ export function exportBrandPack(cwd: string, pack: BrandPack, file: string): voi
 }
 
 /** 导入：写回 library/<id>，并恢复用量记忆。调用方负责过 validateTokens 与重名检查。 */
-export function importBrandPack(cwd: string, pack: BrandPack): void {
+export function importBrandPack(cwd: string, pack: BrandPack, tx?: ProjectTransaction): void {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => importBrandPack(cwd, pack, transaction))
   const dir = join(libraryDir(cwd), pack.id)
   const write = (name: string, value: unknown): void => {
-    writeFileInWorkspace(cwd, join(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n')
+    tx.stageFile(join(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n')
   }
   write('tokens.json', pack.tokens)
   write('meta.json', pack.meta)
-  const memory = readMemory(cwd)
+  const memory = readMemory(cwd, tx)
   memory.styles[pack.id] = {
     usage: pack.usage,
     checks: pack.checks,
     sources: [{ kind: 'import', ref: pack.name }],
   }
   memory.updatedAt = now()
-  writeMemory(cwd, memory)
+  writeMemory(cwd, memory, tx)
 }

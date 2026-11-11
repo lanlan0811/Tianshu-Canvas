@@ -6,6 +6,8 @@
  * 解绑（free）不剥离旧样式块，避免页面突然失去样式；新页面不再注入。
  */
 import { InvalidInputError } from './ids.js'
+import { backfillNavigation } from './navigation.js'
+import type { ResolvedStyle } from './design.js'
 import { injectDesign, resolveDesignStyle, designStyleExists, designStyleSummary } from './design.js'
 import {
   projectIssue,
@@ -14,6 +16,8 @@ import {
   writePageHtml,
   writeProject,
   type ProjectDesign,
+  withProjectTransaction,
+  type ProjectTransaction,
 } from './project.js'
 
 export interface StyleChangeResult {
@@ -22,22 +26,24 @@ export interface StyleChangeResult {
   pagesUpdated: number
   missingIcons: string[]
   scriptIcons: string[]
+  warnings: string[]
 }
 
-export function currentStyleId(cwd: string): string | null {
-  return readProject(cwd).design?.styleId ?? null
+export function currentStyleId(cwd: string, tx?: ProjectTransaction): string | null {
+  return readProject(cwd, tx).design?.styleId ?? null
 }
 
-export function applyProjectStyle(cwd: string, styleId: string | null): StyleChangeResult {
-  if (styleId !== null && !designStyleExists(cwd, styleId)) {
+export function applyProjectStyle(cwd: string, styleId: string | null, tx?: ProjectTransaction, preparedStyle?: ResolvedStyle): StyleChangeResult {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => applyProjectStyle(cwd, styleId, transaction, preparedStyle))
+  if (styleId !== null && !preparedStyle && !designStyleExists(cwd, styleId)) {
     throw new InvalidInputError(`未知的设计风格：${styleId}。可用 canvas_style（action=list）查看可选风格。`)
   }
   // 与 setViewport 同策略：项目文件损坏时不做破坏性写入。
-  if (projectIssue(cwd)) {
+  if (projectIssue(cwd, tx)) {
     throw new InvalidInputError('project.json 已损坏或含无效条目，请先修复后再切换设计风格。')
   }
 
-  const project = readProject(cwd)
+  const project = readProject(cwd, tx)
   if (styleId === null) {
     delete project.design
   } else {
@@ -52,25 +58,27 @@ export function applyProjectStyle(cwd: string, styleId: string | null): StyleCha
   // 解绑（styleId=null）不重写页面：已有样式块保留，避免页面突然失去样式。
   if (styleId !== null) {
     for (const node of project.nodes) {
-      const html = readPageHtml(cwd, node.id)
+      const html = readPageHtml(cwd, node.id, tx)
       if (html === null || html.trim() === '') continue
-      const injected = injectDesign(html, styleId, cwd)
+      const injected = injectDesign(html, styleId, cwd, preparedStyle)
       for (const name of injected.missingIcons) missing.add(name)
       for (const name of injected.scriptIcons) scriptIcons.add(name)
       if (injected.html === html) continue
-      writePageHtml(cwd, node.id, injected.html)
-      node.htmlRev = now
+      writePageHtml(cwd, node.id, injected.html, tx)
+      node.htmlRev = Math.max(now, (node.htmlRev ?? 0) + 1)
       pagesUpdated++
     }
   }
 
-  writeProject(cwd, project)
+  writeProject(cwd, project, tx)
+  const navigation = backfillNavigation(cwd, tx)
   return {
     styleId,
-    name: styleId === null ? null : (designStyleSummary(cwd, styleId)?.name ?? styleId),
+    name: styleId === null ? null : (preparedStyle?.summary.name ?? designStyleSummary(cwd, styleId)?.name ?? styleId),
     pagesUpdated,
     missingIcons: [...missing],
     scriptIcons: [...scriptIcons],
+    warnings: navigation.warnings,
   }
 }
 

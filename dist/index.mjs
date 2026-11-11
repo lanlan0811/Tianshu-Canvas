@@ -155,11 +155,11 @@ function __extends(d, b2) {
 }
 function __awaiter(thisArg, _arguments, P2, generator) {
   function adopt(value) {
-    return value instanceof P2 ? value : new P2(function(resolve11) {
-      resolve11(value);
+    return value instanceof P2 ? value : new P2(function(resolve13) {
+      resolve13(value);
     });
   }
-  return new (P2 || (P2 = Promise))(function(resolve11, reject) {
+  return new (P2 || (P2 = Promise))(function(resolve13, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -175,7 +175,7 @@ function __awaiter(thisArg, _arguments, P2, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve11(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve13(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -338,14 +338,14 @@ function __asyncValues(o) {
   }, i);
   function verb(n) {
     i[n] = o[n] && function(v2) {
-      return new Promise(function(resolve11, reject) {
-        v2 = o[n](v2), settle(resolve11, reject, v2.done, v2.value);
+      return new Promise(function(resolve13, reject) {
+        v2 = o[n](v2), settle(resolve13, reject, v2.done, v2.value);
       });
     };
   }
-  function settle(resolve11, reject, d, v2) {
+  function settle(resolve13, reject, d, v2) {
     Promise.resolve(v2).then(function(v22) {
-      resolve11({ value: v22, done: d });
+      resolve13({ value: v22, done: d });
     }, reject);
   }
 }
@@ -870,7 +870,7 @@ function of() {
 }
 function lastValueFrom(source2, config2) {
   var hasConfig = typeof config2 === "object";
-  return new Promise(function(resolve11, reject) {
+  return new Promise(function(resolve13, reject) {
     var _hasValue = false;
     var _value;
     source2.subscribe({
@@ -881,9 +881,9 @@ function lastValueFrom(source2, config2) {
       error: reject,
       complete: function() {
         if (_hasValue) {
-          resolve11(_value);
+          resolve13(_value);
         } else if (hasConfig) {
-          resolve11(config2.defaultValue);
+          resolve13(config2.defaultValue);
         } else {
           reject(new EmptyError());
         }
@@ -893,16 +893,16 @@ function lastValueFrom(source2, config2) {
 }
 function firstValueFrom(source2, config2) {
   var hasConfig = typeof config2 === "object";
-  return new Promise(function(resolve11, reject) {
+  return new Promise(function(resolve13, reject) {
     var subscriber = new SafeSubscriber({
       next: function(value) {
-        resolve11(value);
+        resolve13(value);
         subscriber.unsubscribe();
       },
       error: reject,
       complete: function() {
         if (hasConfig) {
-          resolve11(config2.defaultValue);
+          resolve13(config2.defaultValue);
         } else {
           reject(new EmptyError());
         }
@@ -1941,7 +1941,7 @@ var init_rxjs = __esm({
       Observable2.prototype.forEach = function(next, promiseCtor) {
         var _this = this;
         promiseCtor = getPromiseCtor(promiseCtor);
-        return new promiseCtor(function(resolve11, reject) {
+        return new promiseCtor(function(resolve13, reject) {
           var subscriber = new SafeSubscriber({
             next: function(value) {
               try {
@@ -1952,7 +1952,7 @@ var init_rxjs = __esm({
               }
             },
             error: reject,
-            complete: resolve11
+            complete: resolve13
           });
           _this.subscribe(subscriber);
         });
@@ -1974,14 +1974,14 @@ var init_rxjs = __esm({
       Observable2.prototype.toPromise = function(promiseCtor) {
         var _this = this;
         promiseCtor = getPromiseCtor(promiseCtor);
-        return new promiseCtor(function(resolve11, reject) {
+        return new promiseCtor(function(resolve13, reject) {
           var value;
           _this.subscribe(function(x2) {
             return value = x2;
           }, function(err) {
             return reject(err);
           }, function() {
-            return resolve11(value);
+            return resolve13(value);
           });
         });
       };
@@ -4443,8 +4443,8 @@ var init_Deferred = __esm({
       // SAFETY: This is ensured by #taskPromise.
       #resolve;
       // TODO: Switch to Promise.withResolvers with Node 22
-      #taskPromise = new Promise((resolve11) => {
-        this.#resolve = resolve11;
+      #taskPromise = new Promise((resolve13) => {
+        this.#resolve = resolve13;
       });
       #timeoutId;
       #timeoutError;
@@ -4535,12 +4535,12 @@ var init_Mutex = __esm({
         return new _Mutex.Guard(this, onRelease);
       }
       release() {
-        const resolve11 = this.#acquirers.shift();
-        if (!resolve11) {
+        const resolve13 = this.#acquirers.shift();
+        if (!resolve13) {
           this.#locked = false;
           return;
         }
-        resolve11();
+        resolve13();
       }
     };
   }
@@ -6588,12 +6588,12 @@ var init_locators = __esm({
         }
         return defer(() => {
           return from(handle.evaluate((element) => {
-            return new Promise((resolve11) => {
+            return new Promise((resolve13) => {
               window.requestAnimationFrame(() => {
                 const rect1 = element.getBoundingClientRect();
                 window.requestAnimationFrame(() => {
                   const rect2 = element.getBoundingClientRect();
-                  resolve11([
+                  resolve13([
                     {
                       x: rect1.x,
                       y: rect1.y,
@@ -8413,9 +8413,9 @@ var init_ElementHandle = __esm({
             const handle = await this.#asSVGElementHandle();
             const target = __addDisposableResource6(env_5, handle && await handle.#getOwnerSVGElement(), false);
             return await (target ?? this).evaluate(async (element, threshold) => {
-              const visibleRatio = await new Promise((resolve11) => {
+              const visibleRatio = await new Promise((resolve13) => {
                 const observer = new IntersectionObserver((entries) => {
-                  resolve11(entries[0].intersectionRatio);
+                  resolve13(entries[0].intersectionRatio);
                   observer.disconnect();
                 });
                 observer.observe(element);
@@ -9133,7 +9133,7 @@ var init_Frame = __esm({
           }
           type = type ?? "text/javascript";
           return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, id, type: type2, content: content3 }) => {
-            return await new Promise((resolve11, reject) => {
+            return await new Promise((resolve13, reject) => {
               const script = document.createElement("script");
               script.type = type2;
               script.text = content3;
@@ -9146,12 +9146,12 @@ var init_Frame = __esm({
               if (url) {
                 script.src = url;
                 script.addEventListener("load", () => {
-                  resolve11(script);
+                  resolve13(script);
                 }, { once: true });
                 document.head.appendChild(script);
               } else {
                 document.head.appendChild(script);
-                resolve11(script);
+                resolve13(script);
               }
             });
           }, { ...options, type, content: content2 }));
@@ -9171,7 +9171,7 @@ var init_Frame = __esm({
             options.content = content2;
           }
           return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, content: content3 }) => {
-            return await new Promise((resolve11, reject) => {
+            return await new Promise((resolve13, reject) => {
               let element;
               if (!url) {
                 element = document.createElement("style");
@@ -9183,7 +9183,7 @@ var init_Frame = __esm({
                 element = link2;
               }
               element.addEventListener("load", () => {
-                resolve11(element);
+                resolve13(element);
               }, { once: true });
               element.addEventListener("error", (event) => {
                 reject(new Error(event.message ?? "Could not load style"));
@@ -11102,9 +11102,9 @@ var init_Page = __esm({
           ++this.#screencastSessionCount;
           if (!this.#startScreencastPromise) {
             const client = this.mainFrame().client;
-            const firstFrame = new Promise((resolve11) => {
+            const firstFrame = new Promise((resolve13) => {
               return client.once("Page.screencastFrame", () => {
-                return resolve11();
+                return resolve13();
               });
             });
             this.#startScreencastPromise = client.send("Page.startScreencast", { format: "png" }).then(() => {
@@ -11963,13 +11963,13 @@ var init_ScreenRecording = __esm({
           dest.end();
         }
         const destinationPromises = Array.from(this.destinations).map((dest) => {
-          return new Promise((resolve11) => {
+          return new Promise((resolve13) => {
             if (dest.writableFinished || dest.closed || dest.destroyed) {
-              resolve11(void 0);
+              resolve13(void 0);
             } else {
-              dest.once?.("finish", resolve11);
-              dest.once?.("close", resolve11);
-              dest.once?.("error", resolve11);
+              dest.once?.("finish", resolve13);
+              dest.once?.("close", resolve13);
+              dest.once?.("error", resolve13);
             }
           });
         });
@@ -14583,11 +14583,11 @@ function addPageBinding(type, name, prefix) {
           return value instanceof Node;
         })
       }));
-      return new Promise((resolve11, reject) => {
+      return new Promise((resolve13, reject) => {
         callPuppeteer.callbacks.set(seq, {
           resolve(value) {
             callPuppeteer.args.delete(seq);
-            resolve11(value);
+            resolve13(value);
           },
           reject(value) {
             callPuppeteer.args.delete(seq);
@@ -18923,8 +18923,8 @@ var init_Input2 = __esm({
         if (typeof delay === "number") {
           await Promise.all(actions);
           actions.length = 0;
-          await new Promise((resolve11) => {
-            setTimeout(resolve11, delay);
+          await new Promise((resolve13) => {
+            setTimeout(resolve13, delay);
           });
         }
         actions.push(this.up({ ...options, clickCount: count }));
@@ -18944,9 +18944,9 @@ var init_Input2 = __esm({
         });
       }
       async drag(start, target) {
-        const promise = new Promise((resolve11) => {
+        const promise = new Promise((resolve13) => {
           this.#client.once("Input.dragIntercepted", (event) => {
-            return resolve11(event.data);
+            return resolve13(event.data);
           });
         });
         await this.move(start.x, start.y);
@@ -18987,8 +18987,8 @@ var init_Input2 = __esm({
         await this.dragEnter(target, data);
         await this.dragOver(target, data);
         if (delay) {
-          await new Promise((resolve11) => {
-            return setTimeout(resolve11, delay);
+          await new Promise((resolve13) => {
+            return setTimeout(resolve13, delay);
           });
         }
         await this.drop(target, data);
@@ -19380,7 +19380,7 @@ var init_WebMCP = __esm({
        */
       async execute(input2 = {}, options = {}) {
         const { invocationId } = await this.#webmcp.invokeTool(this, input2);
-        return await new Promise((resolve11) => {
+        return await new Promise((resolve13) => {
           const onAbort = () => {
             void this.#webmcp.cancelInvocation(invocationId);
           };
@@ -19388,7 +19388,7 @@ var init_WebMCP = __esm({
             if (event.id === invocationId) {
               options.signal?.removeEventListener("abort", onAbort);
               this.#webmcp.off("toolresponded", handler);
-              resolve11(event);
+              resolve13(event);
             }
           };
           this.#webmcp.on("toolresponded", handler);
@@ -20258,9 +20258,9 @@ var init_Page2 = __esm({
         const env_2 = { stack: [], error: void 0, hasError: false };
         try {
           const stream = environment.value.createWriteStream(options.path);
-          const streamPromise = new Promise((resolve11, reject) => {
+          const streamPromise = new Promise((resolve13, reject) => {
             stream.on("error", reject);
-            stream.on("finish", resolve11);
+            stream.on("finish", resolve13);
           });
           const client = this.#primaryTargetClient;
           await client.send("HeapProfiler.enable");
@@ -21879,12 +21879,12 @@ var init_Browser2 = __esm({
         for (const [targetId, targetInfo] of this._targetManager().getDiscoveredTargetInfos().entries()) {
           if ((!existingTargetIds || existingTargetIds.has(targetId)) && targetInfo.url.includes(id) && targetInfo.type === "service_worker") {
             this._targetManager().addToIgnoreTarget(targetId);
-            targetDestroyedPromises.push(new Promise((resolve11) => {
+            targetDestroyedPromises.push(new Promise((resolve13) => {
               return setTimeout(() => {
                 this.#connection.emit("Target.targetDestroyed", {
                   targetId
                 });
-                resolve11(null);
+                resolve13(null);
               }, 0);
             }));
           }
@@ -22363,10 +22363,10 @@ var init_BrowserWebSocketTransport = __esm({
     init_Debug();
     BrowserWebSocketTransport = class _BrowserWebSocketTransport {
       static create(url, _headers, logger, _options) {
-        return new Promise((resolve11, reject) => {
+        return new Promise((resolve13, reject) => {
           const ws = new WebSocket(url);
           ws.addEventListener("open", () => {
-            return resolve11(new _BrowserWebSocketTransport(ws, logger));
+            return resolve13(new _BrowserWebSocketTransport(ws, logger));
           });
           ws.addEventListener("error", reject);
         });
@@ -25610,11 +25610,11 @@ var init_BrowsingContextProcessor = __esm({
         }
         const parentCdpClient = context2.cdpTarget.parentCdpClient;
         try {
-          const detachedFromTargetPromise = new Promise((resolve11) => {
+          const detachedFromTargetPromise = new Promise((resolve13) => {
             const onContextDestroyed = (event) => {
               if (event.targetId === params.context) {
                 parentCdpClient.off("Target.detachedFromTarget", onContextDestroyed);
-                resolve11();
+                resolve13();
               }
             };
             parentCdpClient.on("Target.detachedFromTarget", onContextDestroyed);
@@ -27102,7 +27102,7 @@ var init_ActionDispatcher = __esm({
           }
         }
         const promises = [
-          new Promise((resolve11) => setTimeout(resolve11, this.#tickDuration))
+          new Promise((resolve13) => setTimeout(resolve13, this.#tickDuration))
         ];
         for (const option of options) {
           promises.push(this.#dispatchAction(option));
@@ -27632,8 +27632,8 @@ var init_Mutex2 = __esm({
       acquire() {
         const state2 = { resolved: false };
         if (this.#locked) {
-          return new Promise((resolve11) => {
-            this.#acquirers.push(() => resolve11(this.#release.bind(this, state2)));
+          return new Promise((resolve13) => {
+            this.#acquirers.push(() => resolve13(this.#release.bind(this, state2)));
           });
         }
         this.#locked = true;
@@ -27644,12 +27644,12 @@ var init_Mutex2 = __esm({
           throw new Error("Cannot release more than once.");
         }
         state2.resolved = true;
-        const resolve11 = this.#acquirers.shift();
-        if (!resolve11) {
+        const resolve13 = this.#acquirers.shift();
+        if (!resolve13) {
           this.#locked = false;
           return;
         }
-        resolve11();
+        resolve13();
       }
       async run(action) {
         const release = await this.acquire();
@@ -28755,8 +28755,8 @@ var init_ChannelProxy = __esm({
              * in the queue.
              */
             async getMessage() {
-              const onMessage = queue2.length > 0 ? Promise.resolve() : new Promise((resolve11) => {
-                queueNonEmptyResolver = resolve11;
+              const onMessage = queue2.length > 0 ? Promise.resolve() : new Promise((resolve13) => {
+                queueNonEmptyResolver = resolve13;
               });
               await onMessage;
               return queue2.shift();
@@ -28857,7 +28857,7 @@ var init_ChannelProxy = __esm({
           functionDeclaration: String((id) => {
             const w2 = window;
             if (w2[id] === void 0) {
-              return new Promise((resolve11) => w2[id] = resolve11);
+              return new Promise((resolve13) => w2[id] = resolve13);
             }
             const channelProxy = w2[id];
             delete w2[id];
@@ -30361,8 +30361,8 @@ var init_Deferred2 = __esm({
         return this.#result;
       }
       constructor() {
-        this.#promise = new Promise((resolve11, reject) => {
-          this.#resolve = resolve11;
+        this.#promise = new Promise((resolve13, reject) => {
+          this.#resolve = resolve13;
           this.#reject = reject;
         });
         this.#promise.catch((_error) => {
@@ -35372,11 +35372,11 @@ var init_BrowsingContextStorage = __esm({
         if (this.#contexts.has(browsingContextId)) {
           return Promise.resolve(this.getContext(browsingContextId));
         }
-        return new Promise((resolve11) => {
+        return new Promise((resolve13) => {
           const listener = (event) => {
             if (event.browsingContext.id === browsingContextId) {
               this.#eventEmitter.off("added", listener);
-              resolve11(event.browsingContext);
+              resolve13(event.browsingContext);
             }
           };
           this.#eventEmitter.on("added", listener);
@@ -39310,8 +39310,8 @@ var init_ExposedFunction = __esm({
         const functionDeclaration = stringifyFunction(interpolateFunction((callback) => {
           Object.assign(globalThis, {
             [PLACEHOLDER("name")]: function(...args) {
-              return new Promise((resolve11, reject) => {
-                callback([resolve11, reject, args]);
+              return new Promise((resolve13, reject) => {
+                callback([resolve13, reject, args]);
               });
             }
           });
@@ -39399,8 +39399,8 @@ var init_ExposedFunction = __esm({
             return;
           }
           try {
-            await dataHandle.evaluate(([resolve11], result2) => {
-              resolve11(result2);
+            await dataHandle.evaluate(([resolve13], result2) => {
+              resolve13(result2);
             }, result);
           } catch (error) {
             this.#logger?.(DEBUG_PREFIXES.error)?.(error);
@@ -46359,7 +46359,7 @@ var require_websocket = __commonJS({
     var http4 = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes4, createHash: createHash6 } = __require("crypto");
+    var { randomBytes: randomBytes5, createHash: createHash6 } = __require("crypto");
     var { Duplex, Readable: Readable2 } = __require("stream");
     var { URL: URL3 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -46910,7 +46910,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes4(16).toString("base64");
+      const key = randomBytes5(16).toString("base64");
       const request3 = isSecure ? https3.request : http4.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -47841,7 +47841,7 @@ var init_NodeWebSocketTransport = __esm({
     DEFAULT_MAX_PAYLOAD_BYTES = 256 * 1024 * 1024;
     NodeWebSocketTransport = class _NodeWebSocketTransport {
       static create(url, headers, logger, options = {}) {
-        return new Promise((resolve11, reject) => {
+        return new Promise((resolve13, reject) => {
           const ws = new wrapper_default(url, [], {
             followRedirects: true,
             perMessageDeflate: false,
@@ -47854,7 +47854,7 @@ var init_NodeWebSocketTransport = __esm({
             }
           });
           ws.addEventListener("open", () => {
-            return resolve11(new _NodeWebSocketTransport(ws, logger, options));
+            return resolve13(new _NodeWebSocketTransport(ws, logger, options));
           });
           ws.addEventListener("error", reject);
         });
@@ -47927,21 +47927,21 @@ var init_NodeWebSocketTransport = __esm({
 
 // node_modules/@puppeteer/browsers/lib/httpUtil.js
 import { createHash as createHash3 } from "node:crypto";
-import { createWriteStream, unlinkSync } from "node:fs";
+import { createWriteStream, unlinkSync as unlinkSync2 } from "node:fs";
 import * as http3 from "node:http";
 import * as https2 from "node:https";
 import { URL as URL2, urlToHttpOptions } from "node:url";
 async function headHttpRequest(url) {
-  return await new Promise((resolve11) => {
+  return await new Promise((resolve13) => {
     httpRequest(url, "HEAD", (response) => {
       response.resume();
-      resolve11(response.statusCode === 200);
+      resolve13(response.statusCode === 200);
     }, false).then((request3) => {
       request3.on("error", () => {
-        resolve11(false);
+        resolve13(false);
       });
     }).catch(() => {
-      resolve11(false);
+      resolve13(false);
     });
   });
 }
@@ -47975,13 +47975,13 @@ async function httpRequest(url, method, response, keepAlive = true) {
   return request3;
 }
 function downloadFile(url, destinationPath, progressCallback, expectedHash) {
-  return new Promise(async (resolve11, reject) => {
+  return new Promise(async (resolve13, reject) => {
     let downloadedBytes = 0;
     let totalBytes;
     const verifier = expectedHash ? new HashVerifier() : null;
     const cleanup = () => {
       try {
-        unlinkSync(destinationPath);
+        unlinkSync2(destinationPath);
       } catch {
       }
     };
@@ -48021,7 +48021,7 @@ function downloadFile(url, destinationPath, progressCallback, expectedHash) {
               return;
             }
           }
-          return resolve11();
+          return resolve13();
         });
         file.on("error", failDownload);
         const contentLength = Number.parseInt(response.headers["content-length"] ?? "", 10);
@@ -48060,7 +48060,7 @@ async function getJSON(url) {
   }
 }
 function getText(url) {
-  return new Promise(async (resolve11, reject) => {
+  return new Promise(async (resolve13, reject) => {
     try {
       const request3 = await httpRequest(url, "GET", (response) => {
         let data = "";
@@ -48072,7 +48072,7 @@ function getText(url) {
         });
         response.on("end", () => {
           try {
-            return resolve11(String(data));
+            return resolve13(String(data));
           } catch {
             return reject(new Error(`Failed to read text response from ${url}`));
           }
@@ -48098,7 +48098,7 @@ var init_httpUtil = __esm({
         const actualHash = this.#hash.digest("hex");
         if (actualHash !== expectedHash.toLowerCase()) {
           try {
-            unlinkSync(destinationPath);
+            unlinkSync2(destinationPath);
           } catch {
           }
           throw new Error(`Integrity check failed for downloaded browser archive.
@@ -49591,7 +49591,7 @@ var init_launch = __esm({
         if (opts.onExit) {
           this.#onExitHook = opts.onExit;
         }
-        this.#browserProcessExiting = new Promise((resolve11, reject) => {
+        this.#browserProcessExiting = new Promise((resolve13, reject) => {
           this.#browserProcess.once("exit", async () => {
             this.#logger?.(`Browser process ${this.#browserProcess.pid} onExit`);
             this.#clearListeners();
@@ -49602,7 +49602,7 @@ var init_launch = __esm({
               reject(err);
               return;
             }
-            resolve11();
+            resolve13();
           });
         });
       }
@@ -49717,7 +49717,7 @@ Error cause: ${isErrorLike2(error) ? error.stack : error}`);
         return [...this.#logs];
       }
       waitForLineOutput(regex2, timeout2 = 0) {
-        return new Promise((resolve11, reject) => {
+        return new Promise((resolve13, reject) => {
           const onClose = (errorOrCode) => {
             cleanup();
             reject(new Error([
@@ -49753,7 +49753,7 @@ Error cause: ${isErrorLike2(error) ? error.stack : error}`);
               return;
             }
             cleanup();
-            resolve11(match[1]);
+            resolve13(match[1]);
           }
         });
       }
@@ -50491,10 +50491,10 @@ function packTar(sources, options = {}) {
   let resumeWriter = null;
   let cancelError;
   const unblock = () => {
-    const resolve11 = resume;
+    const resolve13 = resume;
     resume = null;
     drain = null;
-    resolve11?.();
+    resolve13?.();
   };
   const wakeWriter = () => {
     resumeWriter?.();
@@ -50530,8 +50530,8 @@ function packTar(sources, options = {}) {
   const onError = (error) => stream.destroy(error);
   const packer = createTarPacker((chunk) => {
     if (stream.destroyed) throw cancelError;
-    if (!stream.push(Buffer.from(chunk)) && !drain) drain = new Promise((resolve11) => {
-      resume = resolve11;
+    if (!stream.push(Buffer.from(chunk)) && !drain) drain = new Promise((resolve13) => {
+      resume = resolve13;
     });
   });
   (async () => {
@@ -50578,8 +50578,8 @@ function packTar(sources, options = {}) {
         if (stream.destroyed) return;
         if (allJobsQueued && writeIndex >= jobs.length) break;
         if (!results.has(writeIndex)) {
-          await new Promise((resolve11) => {
-            resumeWriter = resolve11;
+          await new Promise((resolve13) => {
+            resumeWriter = resolve13;
           });
           continue;
         }
@@ -50863,13 +50863,13 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
   let drainReject = null;
   const settleDrain = (error) => {
     if (!drainPromise) return;
-    const resolve11 = drainResolve;
+    const resolve13 = drainResolve;
     const reject = drainReject;
     drainPromise = null;
     drainResolve = null;
     drainReject = null;
     if (error) reject?.(error);
-    else resolve11?.();
+    else resolve13?.();
   };
   const resetBuffers = () => {
     bytes = 0;
@@ -50999,8 +50999,8 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
   };
   const waitDrain = () => {
     if (storedError) return Promise.reject(storedError);
-    if (state2 === STATE_OPENING || state2 === STATE_OPEN && (bytes >= BUFFER_LIMIT || queue2.length >= MAX_WRITE_VECTORS)) return drainPromise ??= new Promise((resolve11, reject) => {
-      drainResolve = resolve11;
+    if (state2 === STATE_OPENING || state2 === STATE_OPEN && (bytes >= BUFFER_LIMIT || queue2.length >= MAX_WRITE_VECTORS)) return drainPromise ??= new Promise((resolve13, reject) => {
+      drainResolve = resolve13;
       drainReject = reject;
     });
     return DRAINED_PROMISE;
@@ -51009,8 +51009,8 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
     if (storedError) return Promise.reject(storedError);
     if (state2 >= STATE_CLOSED) return DRAINED_PROMISE;
     if (endPromise) return endPromise;
-    endPromise = new Promise((resolve11, reject) => {
-      endResolve = resolve11;
+    endPromise = new Promise((resolve13, reject) => {
+      endResolve = resolve13;
       endReject = reject;
       if (state2 === STATE_OPEN && !flushing) if (queue2.length > 0) flush();
       else close2();
@@ -51183,7 +51183,7 @@ var init_fs = __esm({
       let head = 0;
       let idle = null;
       let resolveIdle = null;
-      const ensureIdle = () => idle ??= new Promise((resolve11) => resolveIdle = resolve11);
+      const ensureIdle = () => idle ??= new Promise((resolve13) => resolveIdle = resolve13);
       const flush = () => {
         while (active < concurrency && head < tasks.length) {
           const task = tasks[head++];
@@ -51206,8 +51206,8 @@ var init_fs = __esm({
       return {
         add(op) {
           const wasIdle = active === 0 && head === tasks.length;
-          return new Promise((resolve11, reject) => {
-            tasks.push(() => Promise.resolve().then(op).then(resolve11, reject));
+          return new Promise((resolve13, reject) => {
+            tasks.push(() => Promise.resolve().then(op).then(resolve13, reject));
             if (wasIdle) ensureIdle();
             flush();
           });
@@ -51650,8 +51650,8 @@ async function extractZipWithYauzl(archivePath, folderPath, _logger) {
   const open3 = promisify(yauzl.open);
   try {
     const zipFile = await open3(archivePath, { lazyEntries: true });
-    await new Promise((resolve11, reject) => {
-      zipFile.on("error", reject).on("end", resolve11).on("entry", (entry) => {
+    await new Promise((resolve13, reject) => {
+      zipFile.on("error", reject).on("end", resolve13).on("entry", (entry) => {
         extractZipEntry(zipFile, entry, folderPath).then(() => {
           zipFile.readEntry();
         }, reject);
@@ -53109,18 +53109,18 @@ var init_cliui = __esm({
 });
 
 // node_modules/escalade/sync/index.mjs
-import { dirname as dirname3, resolve as resolve4 } from "path";
+import { dirname as dirname4, resolve as resolve6 } from "path";
 import { readdirSync as readdirSync4, statSync as statSync2 } from "fs";
 function sync_default(start, callback) {
-  let dir = resolve4(".", start);
+  let dir = resolve6(".", start);
   let tmp, stats = statSync2(dir);
   if (!stats.isDirectory()) {
-    dir = dirname3(dir);
+    dir = dirname4(dir);
   }
   while (true) {
     tmp = callback(dir, readdirSync4(dir));
-    if (tmp) return resolve4(dir, tmp);
-    dir = dirname3(tmp = dir);
+    if (tmp) return resolve6(dir, tmp);
+    dir = dirname4(tmp = dir);
     if (tmp === dir) break;
   }
 }
@@ -54085,7 +54085,7 @@ var init_yargs_parser = __esm({
 
 // node_modules/yargs-parser/build/lib/index.js
 import { format } from "util";
-import { normalize as normalize2, resolve as resolve5 } from "path";
+import { normalize as normalize2, resolve as resolve7 } from "path";
 import { readFileSync as readFileSync9 } from "fs";
 import { createRequire } from "node:module";
 var _a8, _b, _c, minNodeVersion, nodeVersion, env, require2, parser, yargsParser, lib_default;
@@ -54110,7 +54110,7 @@ var init_lib2 = __esm({
       },
       format,
       normalize: normalize2,
-      resolve: resolve5,
+      resolve: resolve7,
       require: (path14) => {
         if (typeof require2 !== "undefined") {
           return require2(path14);
@@ -54291,7 +54291,7 @@ var init_string_width3 = __esm({
 // node_modules/y18n/build/lib/platform-shims/node.js
 import { readFileSync as readFileSync10, statSync as statSync3, writeFile } from "fs";
 import { format as format2 } from "util";
-import { resolve as resolve6 } from "path";
+import { resolve as resolve8 } from "path";
 var node_default;
 var init_node = __esm({
   "node_modules/y18n/build/lib/platform-shims/node.js"() {
@@ -54301,7 +54301,7 @@ var init_node = __esm({
         writeFile
       },
       format: format2,
-      resolve: resolve6,
+      resolve: resolve8,
       exists: (file) => {
         try {
           return statSync3(file).isFile();
@@ -54519,7 +54519,7 @@ var require_get_caller_file = __commonJS({
 import { notStrictEqual, strictEqual } from "assert";
 import { inspect } from "util";
 import { fileURLToPath as fileURLToPath3 } from "url";
-import { basename as basename3, dirname as dirname4, extname, relative as relative3, resolve as resolve7, join as join12 } from "path";
+import { basename as basename4, dirname as dirname5, extname, relative as relative3, resolve as resolve9, join as join14 } from "path";
 import { createRequire as createRequire2 } from "node:module";
 import { readFileSync as readFileSync11, readdirSync as readdirSync5 } from "node:fs";
 var import_get_caller_file, __dirname, mainFilename, require3, esm_default;
@@ -54551,12 +54551,12 @@ var init_esm = __esm({
       mainFilename: mainFilename || process.cwd(),
       Parser: lib_default,
       path: {
-        basename: basename3,
-        dirname: dirname4,
+        basename: basename4,
+        dirname: dirname5,
         extname,
         relative: relative3,
-        resolve: resolve7,
-        join: join12
+        resolve: resolve9,
+        join: join14
       },
       process: {
         argv: () => process.argv,
@@ -54578,7 +54578,7 @@ var init_esm = __esm({
       },
       stringWidth: stringWidth3,
       y18n: y18n_default({
-        directory: resolve7(__dirname, "../../../locales"),
+        directory: resolve9(__dirname, "../../../locales"),
         updateFiles: false
       })
     };
@@ -56963,12 +56963,12 @@ var init_yargs_factory = __esm({
       async getCompletion(args, done) {
         argsert("<array> [function]", [args, done], arguments.length);
         if (!done) {
-          return new Promise((resolve11, reject) => {
+          return new Promise((resolve13, reject) => {
             __classPrivateFieldGet(this, _YargsInstance_completion, "f").getCompletion(args, (err, completions) => {
               if (err)
                 reject(err);
               else
-                resolve11(completions);
+                resolve13(completions);
             });
           });
         } else {
@@ -58316,7 +58316,7 @@ var init_CLI = __esm({
             "-c",
             testCommand
           ];
-          await new Promise((resolve11, reject) => {
+          await new Promise((resolve13, reject) => {
             const createProcess = spawn2(pythonExecutable, bisectArgs, {
               stdio: "inherit"
             });
@@ -58327,7 +58327,7 @@ var init_CLI = __esm({
               if (code !== 0) {
                 reject(new Error(`Process exited with code ${code}`));
               } else {
-                resolve11();
+                resolve13();
               }
             });
           });
@@ -58508,9 +58508,9 @@ async function getConnectionTransport(options) {
       throw new Error("Could not detect required browser platform");
     }
     const { convertPuppeteerChannelToBrowsersChannel: convertPuppeteerChannelToBrowsersChannel2 } = await Promise.resolve().then(() => (init_LaunchOptions(), LaunchOptions_exports));
-    const { join: join20 } = await import("node:path");
+    const { join: join22 } = await import("node:path");
     const userDataDir = resolveDefaultUserDataDir3(Browser4.CHROME, platform, convertPuppeteerChannelToBrowsersChannel2(options.channel));
-    const portPath = join20(userDataDir, "DevToolsActivePort");
+    const portPath = join22(userDataDir, "DevToolsActivePort");
     try {
       const fileContent = await environment.value.readFile(portPath, "ascii");
       const [rawPort, rawPath] = fileContent.split("\n").map((line) => {
@@ -58856,9 +58856,9 @@ var init_PipeTransport = __esm({
 });
 
 // node_modules/puppeteer-core/lib/puppeteer/node/BrowserLauncher.js
-import { accessSync as accessSync2, constants as constants4, existsSync as existsSync8, rmSync as rmSync4 } from "node:fs";
+import { accessSync as accessSync2, constants as constants4, existsSync as existsSync8, rmSync as rmSync3 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join13 } from "node:path";
+import { join as join15 } from "node:path";
 function isWritableDirectory(directory) {
   try {
     accessSync2(directory, constants4.W_OK);
@@ -58883,7 +58883,7 @@ function registerProcessExitCleanup(userDataDir, logger, processEmitter = proces
     const onExit = () => {
       for (const entry2 of entries) {
         try {
-          rmSync4(entry2.userDataDir, {
+          rmSync3(entry2.userDataDir, {
             recursive: true,
             force: true,
             maxRetries: 3,
@@ -59074,7 +59074,7 @@ var init_BrowserLauncher = __esm({
           const logs = browserProcess.getRecentLogs().join("\n");
           if (logs.includes("Failed to create a ProcessSingleton for your profile directory") || // On Windows we will not get logs due to the singleton process handover. See
           // https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/process_singleton_win.cc;l=46;drc=fc7952f0422b5073515a205a04ec9c3a1ae81658
-          process.platform === "win32" && existsSync8(join13(launchArgs.userDataDir, "lockfile"))) {
+          process.platform === "win32" && existsSync8(join15(launchArgs.userDataDir, "lockfile"))) {
             if (!isWritableDirectory(launchArgs.userDataDir)) {
               throw new Error(`The browser cannot write to ${launchArgs.userDataDir}. Make the \`userDataDir\` writable or use a different one.`);
             }
@@ -59212,7 +59212,7 @@ var init_BrowserLauncher = __esm({
        */
       async getProfilePath() {
         const config2 = await this.puppeteer.configuration();
-        return join13(config2.temporaryDirectory ?? tmpdir(), `puppeteer_dev_${this.browser}_profile-`);
+        return join15(config2.temporaryDirectory ?? tmpdir(), `puppeteer_dev_${this.browser}_profile-`);
       }
       /**
        * @internal
@@ -59980,8 +59980,8 @@ var init_ScreenRecorder = __esm({
         static {
           const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
           __esDecorate24(this, _private_writeFrame_descriptor = { value: __setFunctionName5(async function(buffer) {
-            const error = await new Promise((resolve11) => {
-              this.#process.stdin.write(buffer, resolve11);
+            const error = await new Promise((resolve13) => {
+              this.#process.stdin.write(buffer, resolve13);
             });
             if (error) {
               console.log(`ffmpeg failed to write: ${error.message}.`);
@@ -60175,8 +60175,8 @@ var init_ScreenRecorder = __esm({
           const [buffer, timestamp] = await this.#lastFrame;
           await Promise.all(Array(Math.max(1, Math.round(this.#fps * (performance.now() - timestamp) / 1e3))).fill(buffer).map(this.#writeFrame.bind(this)));
           this.#process.stdin.end();
-          await new Promise((resolve11) => {
-            this.#process.once("close", resolve11);
+          await new Promise((resolve13) => {
+            this.#process.once("close", resolve13);
           });
         }
         async [(_private_writeFrame_decorators = [guarded()], _stop_decorators = [guarded()], asyncDisposeSymbol)]() {
@@ -60485,12 +60485,12 @@ function warnUser(message) {
 
 // src/tools.ts
 import { spawn as spawn5 } from "node:child_process";
-import { existsSync as existsSync14, mkdirSync as mkdirSync5 } from "node:fs";
-import { dirname as dirname6, isAbsolute as isAbsolute4, join as join19, resolve as resolve10 } from "node:path";
+import { existsSync as existsSync14, mkdirSync as mkdirSync6 } from "node:fs";
+import { dirname as dirname7, isAbsolute as isAbsolute4, join as join21, resolve as resolve12 } from "node:path";
 
 // src/design.ts
 import { readFileSync as readFileSync4, existsSync as existsSync4 } from "node:fs";
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/html.ts
@@ -60733,8 +60733,8 @@ function findElement(nodes, predicate) {
 
 // src/designCustom.ts
 import { createHash } from "node:crypto";
-import { existsSync as existsSync3, readFileSync as readFileSync3, readdirSync, rmSync as rmSync3 } from "node:fs";
-import { join as join3 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync3, readdirSync } from "node:fs";
+import { join as join4 } from "node:path";
 
 // src/ids.ts
 import { randomUUID } from "node:crypto";
@@ -60848,7 +60848,7 @@ function confineToWorkspace(cwd, abs) {
   }
   return target;
 }
-function readCheckedText(cwd, target, confined, label) {
+function readCheckedBytes(cwd, target, confined, label) {
   if (confined) assertInsideWorkspace(cwd, target, label);
   const statOpts = { bigint: true };
   const before = lstatSync(target, statOpts);
@@ -60865,7 +60865,7 @@ function readCheckedText(cwd, target, confined, label) {
     if (!after.isFile() || after.isSymbolicLink() || opened.dev !== after.dev || opened.ino !== after.ino) {
       throw new PathBoundaryError(`${label}\u5728\u8BFB\u53D6\u65F6\u88AB\u66FF\u6362\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
     }
-    return readFileSync(fd, "utf8");
+    return readFileSync(fd);
   } finally {
     closeSync(fd);
   }
@@ -60874,14 +60874,18 @@ function readConfined(cwd, abs) {
   const target = confineToWorkspace(cwd, abs);
   if (target === null) return null;
   try {
-    return readCheckedText(cwd, target, true, "\u5019\u9009\u6587\u4EF6");
+    return readCheckedBytes(cwd, target, true, "\u5019\u9009\u6587\u4EF6").toString("utf8");
   } catch {
     return null;
   }
 }
 function readTextInWorkspace(cwd, abs, label = "\u6587\u4EF6") {
   const target = resolve(abs);
-  return readCheckedText(cwd, target, insideLexically(cwd, target), label);
+  return readCheckedBytes(cwd, target, insideLexically(cwd, target), label).toString("utf8");
+}
+function readBytesInWorkspace(cwd, abs, label = "\u6587\u4EF6") {
+  const target = resolve(abs);
+  return readCheckedBytes(cwd, target, insideLexically(cwd, target), label);
 }
 function tempSibling(dir, base) {
   for (let attempt = 0; attempt < 64; attempt++) {
@@ -60901,6 +60905,15 @@ function assertWritableTarget(cwd, abs, label = "\u5199\u5165\u76EE\u6807") {
   return target;
 }
 function writeFileAtomic(cwd, dest, data) {
+  const prepared = prepareFileAtomic(cwd, dest, data);
+  try {
+    prepared.commit();
+  } finally {
+    prepared.discard();
+  }
+  return prepared.path;
+}
+function prepareFileAtomic(cwd, dest, data) {
   const target = assertWritableTarget(cwd, dest, "\u5199\u5165\u76EE\u6807");
   const dir = resolve(target, "..");
   if (insideLexically(cwd, target)) {
@@ -60908,19 +60921,31 @@ function writeFileAtomic(cwd, dest, data) {
   }
   const { path: tmp, fd } = tempSibling(dir, basename(target));
   try {
-    writeSync(fd, typeof data === "string" ? Buffer.from(data, "utf8") : data);
-  } finally {
-    closeSync(fd);
-  }
-  try {
-    if (isLink(target)) throw new PathBoundaryError(`\u5199\u5165\u76EE\u6807\u5DF2\u88AB\u66FF\u6362\u4E3A\u7B26\u53F7\u94FE\u63A5\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
-    assertWritableTarget(cwd, target, "\u5199\u5165\u76EE\u6807");
-    renameSync(tmp, target);
-  } catch (err) {
+    try {
+      const bytes = typeof data === "string" ? Buffer.from(data, "utf8") : data;
+      let offset = 0;
+      while (offset < bytes.length) offset += writeSync(fd, bytes, offset);
+    } finally {
+      closeSync(fd);
+    }
+  } catch (error) {
     rmSync(tmp, { force: true });
-    throw err;
+    throw error;
   }
-  return target;
+  let published = false;
+  return {
+    path: target,
+    commit() {
+      if (published) return;
+      if (isLink(target)) throw new PathBoundaryError(`\u5199\u5165\u76EE\u6807\u5DF2\u88AB\u66FF\u6362\u4E3A\u7B26\u53F7\u94FE\u63A5\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
+      assertWritableTarget(cwd, target, "\u5199\u5165\u76EE\u6807");
+      renameSync(tmp, target);
+      published = true;
+    },
+    discard() {
+      if (!published) rmSync(tmp, { force: true });
+    }
+  };
 }
 function writeFileInWorkspace(cwd, dest, data, label = "\u5199\u5165\u76EE\u6807") {
   const target = resolve(dest);
@@ -60934,8 +60959,97 @@ function insideLexically(cwd, targetAbs) {
 
 // src/project.ts
 import { EventEmitter } from "node:events";
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, rmSync as rmSync2 } from "node:fs";
+import { closeSync as closeSync3, existsSync as existsSync2, lstatSync as lstatSync3, mkdirSync as mkdirSync3, openSync as openSync3, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { basename as basename2, dirname, join as join3, resolve as resolve2 } from "node:path";
+
+// src/limits.ts
+var MAX_HTML_BYTES = 8 * 1024 * 1024;
+var MAX_PAGE_COUNT = 1e3;
+var HtmlSizeLimitError = class extends InvalidInputError {
+  constructor(bytes) {
+    super(`\u9875\u9762\u6700\u7EC8 HTML \u4E3A ${bytes} \u5B57\u8282\uFF0C\u8D85\u8FC7 8 MiB\uFF08${MAX_HTML_BYTES} \u5B57\u8282\uFF09\u9650\u5236\uFF1B\u8BF7\u51CF\u5C11\u5185\u8054\u8D44\u6E90\u6216\u9875\u9762\u5185\u5BB9\u540E\u91CD\u8BD5\u3002`);
+    this.bytes = bytes;
+    this.name = "HtmlSizeLimitError";
+  }
+  code = "HTML_SIZE_LIMIT";
+};
+var PageCountLimitError = class extends InvalidInputError {
+  code = "PAGE_COUNT_LIMIT";
+  constructor() {
+    super(`\u9879\u76EE\u6700\u591A\u5141\u8BB8 ${MAX_PAGE_COUNT} \u9875\uFF1B\u8BF7\u5148\u5220\u9664\u4E0D\u518D\u9700\u8981\u7684\u9875\u9762\u540E\u91CD\u8BD5\u3002`);
+    this.name = "PageCountLimitError";
+  }
+};
+function assertHtmlSize(html) {
+  const bytes = typeof html === "string" ? Buffer.byteLength(html, "utf8") : html.byteLength;
+  if (bytes > MAX_HTML_BYTES) throw new HtmlSizeLimitError(bytes);
+}
+function assertPageCount(count, previousCount = 0) {
+  if (count > MAX_PAGE_COUNT && count > previousCount) throw new PageCountLimitError();
+}
+
+// src/transaction.ts
+import { randomBytes as randomBytes2 } from "node:crypto";
+import { closeSync as closeSync2, fstatSync as fstatSync2, lstatSync as lstatSync2, mkdirSync as mkdirSync2, openSync as openSync2, readSync, unlinkSync, writeFileSync } from "node:fs";
 import { join as join2 } from "node:path";
+var WorkspaceBusyError = class extends Error {
+  code = "WORKSPACE_BUSY";
+  constructor() {
+    super("\u5DE5\u4F5C\u533A\u6B63\u5728\u6267\u884C\u5176\u5B83\u5199\u5165\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\uFF1B\u82E5\u5BBF\u4E3B\u5F02\u5E38\u9000\u51FA\uFF0C\u8BF7\u5173\u95ED\u76F8\u5173\u5BBF\u4E3B\u540E\u4EBA\u5DE5\u6E05\u7406 .tianshu-canvas \u4E2D\u7684 project.lock\u3002");
+    this.name = "WorkspaceBusyError";
+  }
+};
+function withWorkspaceLock(cwd, action) {
+  const dir = join2(cwd, ".tianshu-canvas");
+  assertInsideWorkspace(cwd, dir, "\u9879\u76EE\u76EE\u5F55");
+  mkdirSync2(dir, { recursive: true });
+  assertInsideWorkspace(cwd, dir, "\u9879\u76EE\u76EE\u5F55");
+  const lock = join2(dir, "project.lock");
+  const record2 = Buffer.from(JSON.stringify({ version: 1, pid: process.pid, startedAt: Date.now(), token: randomBytes2(24).toString("hex") }) + "\n");
+  let fd;
+  try {
+    fd = openSync2(lock, "wx+", 384);
+  } catch (error) {
+    if (error.code === "EEXIST") throw new WorkspaceBusyError();
+    throw error;
+  }
+  let identity2;
+  let recordWritten = false;
+  const ownsLock = () => {
+    if (!identity2 || !recordWritten) return false;
+    try {
+      assertInsideWorkspace(cwd, lock, "\u5DE5\u4F5C\u533A\u9501");
+      const current = lstatSync2(lock, { bigint: true });
+      if (!current.isFile() || current.isSymbolicLink() || current.dev !== identity2.dev || current.ino !== identity2.ino || current.size !== BigInt(record2.length)) return false;
+      const bytes = Buffer.alloc(record2.length);
+      const read2 = readSync(fd, bytes, 0, bytes.length, 0);
+      const after = lstatSync2(lock, { bigint: true });
+      return read2 === record2.length && bytes.equals(record2) && after.isFile() && !after.isSymbolicLink() && after.dev === identity2.dev && after.ino === identity2.ino && after.size === BigInt(record2.length);
+    } catch {
+      return false;
+    }
+  };
+  try {
+    identity2 = fstatSync2(fd, { bigint: true });
+    writeFileSync(fd, record2);
+    recordWritten = true;
+    return action(() => {
+      if (!ownsLock()) throw new WorkspaceBusyError();
+    });
+  } finally {
+    try {
+      if (ownsLock()) unlinkSync(lock);
+      else if (!recordWritten) {
+        const opened = identity2 ?? fstatSync2(fd, { bigint: true });
+        assertInsideWorkspace(cwd, lock, "\u5DE5\u4F5C\u533A\u9501");
+        const current = lstatSync2(lock, { bigint: true });
+        if (opened.isFile() && current.isFile() && !current.isSymbolicLink() && current.dev === opened.dev && current.ino === opened.ino && current.size === 0n && opened.size === 0n) unlinkSync(lock);
+      }
+    } catch {
+    }
+    closeSync2(fd);
+  }
+}
 
 // src/brief.ts
 var DIRECTION_IDS = ["editorial-narrative", "product-evidence", "brand-poster"];
@@ -61045,18 +61159,19 @@ function normalizeStoredPageBrief(value) {
     return null;
   }
 }
-function existingProject(cwd, pageId) {
+function existingProject(cwd, pageId, tx) {
   assertSafeId(pageId);
-  if (projectIssue(cwd)) throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u8BFB\u5199\u9875\u9762\u7B80\u62A5\u3002");
-  const project = readProject(cwd);
+  if (projectIssue(cwd, tx)) throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u8BFB\u5199\u9875\u9762\u7B80\u62A5\u3002");
+  const project = readProject(cwd, tx);
   if (!project.nodes.some((node) => node.id === pageId)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${pageId}`);
   return project;
 }
 function readPageBrief(cwd, pageId) {
   return existingProject(cwd, pageId).pageBriefs?.[pageId] ?? null;
 }
-function savePageBrief(cwd, pageId, value) {
-  const project = existingProject(cwd, pageId);
+function savePageBrief(cwd, pageId, value, tx) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => savePageBrief(cwd, pageId, value, transaction));
+  const project = existingProject(cwd, pageId, tx);
   const input2 = record(value, "\u9875\u9762\u7B80\u62A5\u66F4\u65B0");
   keys(input2, [...CONTENT_KEYS, "confirmation"], "\u9875\u9762\u7B80\u62A5\u66F4\u65B0");
   if (Object.keys(input2).length === 0) throw new InvalidInputError("\u9875\u9762\u7B80\u62A5\u66F4\u65B0\u4E0D\u80FD\u4E3A\u7A7A\u3002");
@@ -61076,7 +61191,7 @@ function savePageBrief(cwd, pageId, value) {
   }
   bounded(next);
   project.pageBriefs = { ...project.pageBriefs, [pageId]: next };
-  writeProject(cwd, project);
+  writeProject(cwd, project, tx);
   return next;
 }
 
@@ -61085,13 +61200,13 @@ var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
 projectEvents.setMaxListeners(0);
 function projectDir(cwd) {
-  return join2(cwd, PROJECT_DIR_NAME);
+  return join3(cwd, PROJECT_DIR_NAME);
 }
 function projectFile(cwd) {
-  return join2(projectDir(cwd), "project.json");
+  return join3(projectDir(cwd), "project.json");
 }
 function pagesDir(cwd) {
-  return join2(projectDir(cwd), "pages");
+  return join3(projectDir(cwd), "pages");
 }
 function emptyProject() {
   return { version: 1, viewport: { x: 0, y: 0, zoom: 1 }, nodes: [], edges: [] };
@@ -61099,17 +61214,16 @@ function emptyProject() {
 function inspectProject(cwd) {
   const file = projectFile(cwd);
   if (!existsSync2(file)) return { project: emptyProject(), dropped: 0 };
-  assertReadableFile(cwd, file, "\u9879\u76EE\u6587\u4EF6");
-  const raw = readFileSync2(file, "utf8");
+  const raw = readBytesInWorkspace(cwd, file, "\u9879\u76EE\u6587\u4EF6");
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(raw.toString("utf8"));
   } catch (err) {
-    return { project: emptyProject(), problem: err.message, dropped: 0 };
+    return { project: emptyProject(), raw, problem: err.message, dropped: 0 };
   }
   const obj = parsed;
   if (!obj || !Array.isArray(obj.nodes)) {
-    return { project: emptyProject(), problem: "\u7F3A\u5C11 nodes \u6570\u7EC4", dropped: 0 };
+    return { project: emptyProject(), raw, problem: "\u7F3A\u5C11 nodes \u6570\u7EC4", dropped: 0 };
   }
   const rawEdges = Array.isArray(obj.edges) ? obj.edges : [];
   const nodes = obj.nodes.filter(isPageNode);
@@ -61140,16 +61254,21 @@ function inspectProject(cwd) {
   }
   return {
     project,
+    raw,
     ...briefProblem ? { briefProblem } : {},
     // 无效批注静默过滤（与 design 一致），不计入 dropped。
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length
   };
 }
-function readProject(cwd) {
+function readProject(cwd, tx) {
+  if (tx) return checkedTransaction(cwd, tx).project;
   return inspectProject(cwd).project;
 }
-function projectIssue(cwd) {
-  const { problem, dropped, briefProblem } = inspectProject(cwd);
+function projectIssue(cwd, tx) {
+  if (tx) return checkedTransaction(cwd, tx).issue;
+  return inspectionIssue(inspectProject(cwd));
+}
+function inspectionIssue({ problem, dropped, briefProblem }) {
   if (problem) {
     return `project.json \u5DF2\u635F\u574F\uFF08${problem}\uFF09\u3002\u753B\u5E03\u6682\u6309\u7A7A\u9879\u76EE\u663E\u793A\uFF0C\u539F\u6587\u4EF6\u672A\u6539\u52A8\uFF0C\u4FEE\u590D\u540E\u4F1A\u81EA\u52A8\u6062\u590D\uFF1B\u7EE7\u7EED\u5199\u5165\u524D\u4F1A\u5148\u5907\u4EFD\u4E3A project.json.corrupt-*\u3002`;
   }
@@ -61165,18 +61284,24 @@ function takeProjectBackup(cwd) {
   pendingBackups.delete(cwd);
   return path14;
 }
-function backupDamagedProject(cwd) {
-  const { problem, dropped, briefProblem } = inspectProject(cwd);
+function backupDamagedProject(cwd, inspection) {
+  const { problem, dropped, briefProblem } = inspection;
   if (!problem && dropped === 0 && !briefProblem) return;
   const file = projectFile(cwd);
-  assertReadableFile(cwd, file, "\u9879\u76EE\u6587\u4EF6");
-  const data = readFileSync2(file, "utf8");
+  const data = inspection.raw;
+  if (!data) return;
   const stamp2 = Date.now();
   for (let n = 0; n < 1e3; n++) {
     const dest = n === 0 ? `${file}.corrupt-${stamp2}` : `${file}.corrupt-${stamp2}-${n}`;
     if (existsSync2(dest)) continue;
     try {
-      writeFileAtomic(cwd, dest, data);
+      assertInsideWorkspace(cwd, dest, "\u9879\u76EE\u5907\u4EFD");
+      const fd = openSync3(dest, "wx", 384);
+      try {
+        writeFileSync2(fd, data);
+      } finally {
+        closeSync3(fd);
+      }
     } catch (err) {
       if (err.code === "EEXIST") continue;
       throw err;
@@ -61186,6 +61311,207 @@ function backupDamagedProject(cwd) {
     return;
   }
   throw new Error(`\u65E0\u6CD5\u5907\u4EFD\u635F\u574F\u7684\u9879\u76EE\u6587\u4EF6\uFF1A${file}`);
+}
+var ProjectTransaction = class {
+  constructor(cwd, inspection, assertOwnership) {
+    this.cwd = cwd;
+    this.inspection = inspection;
+    this.assertOwnership = assertOwnership;
+    this.project = inspection.project;
+    this.originalProject = structuredClone(inspection.project);
+    this.issue = inspectionIssue(inspection);
+  }
+  project;
+  originalProject;
+  issue;
+  staged = /* @__PURE__ */ new Map();
+  deleted = /* @__PURE__ */ new Map();
+  pageIds = /* @__PURE__ */ new Set();
+  callbacks = [];
+  dirty = false;
+  notify = false;
+  active = true;
+  key(path14) {
+    const absolute = resolve2(path14);
+    return process.platform === "win32" ? absolute.toLowerCase() : absolute;
+  }
+  assertActive() {
+    if (!this.active) throw new Error("\u9879\u76EE\u4E8B\u52A1\u5DF2\u7ED3\u675F");
+  }
+  htmlPageId(path14) {
+    if (this.key(dirname(path14)) !== this.key(pagesDir(this.cwd)) || !/\.html$/i.test(path14)) return null;
+    return basename2(path14).slice(0, -5);
+  }
+  get stagedPageIds() {
+    return this.pageIds;
+  }
+  assertHealthy() {
+    this.assertActive();
+    if (this.issue) throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u91CD\u8BD5\u3002");
+  }
+  markProjectChanged(notify = true) {
+    this.assertActive();
+    this.dirty = true;
+    this.notify ||= notify;
+  }
+  stageFile(abs, data) {
+    this.assertActive();
+    const path14 = assertInsideWorkspace(this.cwd, resolve2(abs), "\u4E8B\u52A1\u5199\u5165\u76EE\u6807");
+    if (this.key(path14) === this.key(projectFile(this.cwd))) throw new InvalidInputError("\u9879\u76EE\u6587\u4EF6\u5FC5\u987B\u901A\u8FC7 writeProject \u66F4\u65B0");
+    if (this.key(path14) === this.key(join3(projectDir(this.cwd), "project.lock"))) throw new InvalidInputError("\u4E8B\u52A1\u4E0D\u80FD\u4FEE\u6539\u5DE5\u4F5C\u533A\u9501");
+    const pageId = this.htmlPageId(path14);
+    if (pageId !== null) {
+      assertSafeId(pageId);
+      assertHtmlSize(data);
+      this.pageIds.add(pageId);
+    }
+    this.deleted.delete(this.key(path14));
+    this.staged.set(this.key(path14), { path: path14, data: typeof data === "string" ? data : Buffer.from(data) });
+  }
+  stagePageHtml(id, html) {
+    assertSafeId(id);
+    assertHtmlSize(html);
+    const rel = join3(PROJECT_DIR_NAME, "pages", `${id}.html`);
+    this.stageFile(join3(this.cwd, rel), html);
+    this.pageIds.add(id);
+    return rel;
+  }
+  stageDelete(abs, recursive = false) {
+    this.assertActive();
+    const path14 = assertInsideWorkspace(this.cwd, resolve2(abs), "\u4E8B\u52A1\u5220\u9664\u76EE\u6807");
+    const key = this.key(path14);
+    const root = this.key(projectDir(this.cwd));
+    if (key === this.key(this.cwd) || key === root || key === this.key(projectFile(this.cwd)) || key === this.key(join3(projectDir(this.cwd), "project.lock"))) {
+      throw new InvalidInputError("\u4E8B\u52A1\u4E0D\u80FD\u5220\u9664\u5DE5\u4F5C\u533A\u6839\u76EE\u5F55\u3001\u9879\u76EE\u6587\u4EF6\u6216\u5DE5\u4F5C\u533A\u9501");
+    }
+    this.staged.delete(key);
+    this.deleted.set(key, { path: path14, recursive });
+  }
+  readFile(abs) {
+    this.assertActive();
+    const path14 = assertInsideWorkspace(this.cwd, resolve2(abs), "\u4E8B\u52A1\u8BFB\u53D6\u76EE\u6807");
+    const key = this.key(path14);
+    const staged = this.staged.get(key);
+    if (staged) return typeof staged.data === "string" ? staged.data : staged.data.toString("utf8");
+    for (const removed of this.deleted.values()) {
+      const removedKey = this.key(removed.path);
+      if (key === removedKey || removed.recursive && key.startsWith(removedKey + (process.platform === "win32" ? "\\" : "/"))) return null;
+    }
+    if (!existsSync2(path14)) return null;
+    return readTextInWorkspace(this.cwd, path14, "\u4E8B\u52A1\u6587\u4EF6");
+  }
+  readPageHtml(id) {
+    if (!isSafeId(id)) return null;
+    return this.readFile(join3(pagesDir(this.cwd), `${id}.html`));
+  }
+  afterCommit(callback) {
+    this.assertActive();
+    this.callbacks.push(callback);
+  }
+  /** Called only by withProjectTransaction, while its exclusive lock is held. */
+  commit() {
+    this.assertActive();
+    this.assertOwnership();
+    if (this.dirty) {
+      if (!this.project || !Array.isArray(this.project.nodes) || !Array.isArray(this.project.edges) || !this.project.nodes.every(isPageNode) || !this.project.edges.every(isEdge)) {
+        throw new InvalidInputError("\u9879\u76EE\u5305\u542B\u65E0\u6548\u7684\u8282\u70B9\u6216\u8FDE\u7EBF");
+      }
+      assertPageCount(this.project.nodes.length, this.originalProject.nodes.length);
+      if (this.project.nodes.length > 1e3) {
+        const previousIds = new Set(this.originalProject.nodes.map((node) => node.id));
+        if (this.project.nodes.some((node) => !previousIds.has(node.id))) assertPageCount(this.project.nodes.length);
+      }
+    }
+    const projectData = this.dirty ? JSON.stringify(this.project, null, 2) + "\n" : void 0;
+    for (const id of this.pageIds) {
+      const item = this.staged.get(this.key(join3(pagesDir(this.cwd), `${id}.html`)));
+      if (item) assertHtmlSize(item.data);
+    }
+    const targets = [...this.staged.values(), ...projectData === void 0 ? [] : [{ path: projectFile(this.cwd), data: projectData }]];
+    if (this.dirty) assertInsideWorkspace(this.cwd, pagesDir(this.cwd), "\u9875\u9762\u76EE\u5F55");
+    for (const item of targets) {
+      assertInsideWorkspace(this.cwd, item.path, "\u4E8B\u52A1\u5199\u5165\u76EE\u6807");
+      assertInsideWorkspace(this.cwd, resolve2(item.path, ".."), "\u4E8B\u52A1\u5199\u5165\u76EE\u5F55");
+      if (existsSync2(item.path) && !lstatSync3(item.path).isFile()) throw new Error("\u4E8B\u52A1\u5199\u5165\u76EE\u6807\u4E0D\u662F\u666E\u901A\u6587\u4EF6");
+    }
+    for (const item of this.deleted.values()) {
+      assertInsideWorkspace(this.cwd, item.path, "\u4E8B\u52A1\u5220\u9664\u76EE\u6807");
+      if (existsSync2(item.path) && lstatSync3(item.path).isDirectory() && !item.recursive) throw new InvalidInputError("\u5220\u9664\u76EE\u5F55\u9700\u8981\u663E\u5F0F recursive");
+    }
+    const operations = [
+      ...targets.map((item) => ({ key: this.key(item.path), write: true })),
+      ...[...this.deleted.values()].map((item) => ({ key: this.key(item.path), write: false }))
+    ];
+    const writePaths = new Set(operations.filter((item) => item.write).map((item) => item.key));
+    const deletePaths = new Set(operations.filter((item) => !item.write).map((item) => item.key));
+    for (const operation of operations) {
+      if (writePaths.has(operation.key) && deletePaths.has(operation.key)) throw new InvalidInputError("\u4E8B\u52A1\u4E0D\u80FD\u5199\u5165\u6216\u5220\u9664\u91CD\u53E0\u8DEF\u5F84");
+      let ancestor = dirname(operation.key);
+      while (ancestor !== operation.key) {
+        if (writePaths.has(ancestor) || operation.write && deletePaths.has(ancestor)) throw new InvalidInputError("\u4E8B\u52A1\u4E0D\u80FD\u5199\u5165\u6216\u5220\u9664\u91CD\u53E0\u8DEF\u5F84");
+        const parent = dirname(ancestor);
+        if (parent === ancestor) break;
+        ancestor = parent;
+      }
+    }
+    const prepared = [];
+    try {
+      if (this.dirty) mkdirSync3(pagesDir(this.cwd), { recursive: true });
+      for (const item of targets) {
+        mkdirSync3(resolve2(item.path, ".."), { recursive: true });
+        prepared.push(prepareFileAtomic(this.cwd, item.path, item.data));
+      }
+      this.assertOwnership();
+      if (this.dirty) backupDamagedProject(this.cwd, this.inspection);
+      for (const item of prepared) item.commit();
+      for (const item of this.deleted.values()) {
+        assertInsideWorkspace(this.cwd, item.path, "\u4E8B\u52A1\u5220\u9664\u76EE\u6807");
+        rmSync2(item.path, { force: true, recursive: item.recursive });
+      }
+      this.active = false;
+      const observe = (callback) => {
+        try {
+          callback();
+        } catch (error) {
+          try {
+            warnUser(`\u9879\u76EE\u5DF2\u63D0\u4EA4\uFF0C\u4F46\u53D8\u66F4\u76D1\u542C\u5668\u6267\u884C\u5931\u8D25\uFF1A${error instanceof Error ? error.message : String(error)}`);
+          } catch {
+          }
+        }
+      };
+      for (const callback of this.callbacks) observe(callback);
+      if (this.notify) observe(() => {
+        projectEvents.emit("change", { cwd: this.cwd });
+      });
+    } finally {
+      for (const item of prepared) item.discard();
+    }
+  }
+  close() {
+    this.active = false;
+  }
+};
+function checkedTransaction(cwd, tx) {
+  const normalize3 = (path14) => process.platform === "win32" ? resolve2(path14).toLowerCase() : resolve2(path14);
+  if (normalize3(cwd) !== normalize3(tx.cwd)) throw new InvalidInputError("\u9879\u76EE\u4E8B\u52A1\u4E0D\u5C5E\u4E8E\u5F53\u524D\u5DE5\u4F5C\u533A");
+  return tx;
+}
+function withProjectTransaction(cwd, action) {
+  return withWorkspaceLock(cwd, (assertOwnership) => {
+    const tx = new ProjectTransaction(cwd, inspectProject(cwd), assertOwnership);
+    try {
+      const result = action(tx);
+      if (result && (typeof result === "object" || typeof result === "function") && typeof result.then === "function") {
+        void Promise.resolve(result).catch(() => {
+        });
+        throw new InvalidInputError("\u9879\u76EE\u4E8B\u52A1\u56DE\u8C03\u5FC5\u987B\u540C\u6B65\u6267\u884C\uFF0C\u7F51\u7EDC\u8BF7\u6C42\u548C\u8D44\u6E90\u5185\u8054\u8BF7\u5728\u4E8B\u52A1\u5916\u5B8C\u6210");
+      }
+      tx.commit();
+      return result;
+    } finally {
+      tx.close();
+    }
+  });
 }
 function normalizeViewport(v2) {
   if (v2 && typeof v2 === "object") {
@@ -61236,53 +61562,50 @@ function isEdge(e) {
   const o = e;
   return typeof o.id === "string" && typeof o.source === "string" && typeof o.target === "string";
 }
-function writeProjectAtomic(cwd, project, notify = true) {
-  assertInsideWorkspace(cwd, projectDir(cwd), "\u9879\u76EE\u76EE\u5F55");
-  assertInsideWorkspace(cwd, pagesDir(cwd), "\u9875\u9762\u76EE\u5F55");
-  mkdirSync2(pagesDir(cwd), { recursive: true });
-  backupDamagedProject(cwd);
-  writeFileAtomic(cwd, projectFile(cwd), JSON.stringify(project, null, 2) + "\n");
-  if (notify) projectEvents.emit("change", { cwd });
+function writeProjectAtomic(cwd, project, notify = true, tx) {
+  if (!tx) return withProjectTransaction(cwd, (current) => writeProjectAtomic(cwd, project, notify, current));
+  checkedTransaction(cwd, tx).project = project;
+  tx.markProjectChanged(notify);
 }
-function writeProject(cwd, project) {
-  writeProjectAtomic(cwd, project);
+function writeProject(cwd, project, tx) {
+  writeProjectAtomic(cwd, project, true, tx);
 }
-function writePageHtml(cwd, id, html) {
+function writePageHtml(cwd, id, html, tx) {
   assertSafeId(id);
-  assertInsideWorkspace(cwd, pagesDir(cwd), "\u9875\u9762\u76EE\u5F55");
-  mkdirSync2(pagesDir(cwd), { recursive: true });
-  const rel = join2(PROJECT_DIR_NAME, "pages", `${id}.html`);
-  const abs = join2(cwd, rel);
-  writeFileAtomic(cwd, abs, html);
-  return rel;
+  assertHtmlSize(html);
+  if (!tx) return withProjectTransaction(cwd, (current) => writePageHtml(cwd, id, html, current));
+  return checkedTransaction(cwd, tx).stagePageHtml(id, html);
 }
-function readPageHtml(cwd, id) {
+function readPageHtml(cwd, id, tx) {
   if (!isSafeId(id)) return null;
-  const abs = join2(pagesDir(cwd), `${id}.html`);
+  if (tx) return checkedTransaction(cwd, tx).readPageHtml(id);
+  const abs = join3(pagesDir(cwd), `${id}.html`);
   if (!existsSync2(abs)) return null;
-  assertReadableFile(cwd, abs, "\u9875\u9762\u6587\u4EF6");
-  return readFileSync2(abs, "utf8");
+  return readTextInWorkspace(cwd, abs, "\u9875\u9762\u6587\u4EF6");
 }
-function removePageHtml(cwd, id) {
-  const abs = join2(pagesDir(cwd), `${id}.html`);
+function removePageHtml(cwd, id, tx) {
+  const abs = join3(pagesDir(cwd), `${id}.html`);
   if (!existsSync2(abs)) return;
   try {
     assertInsideWorkspace(cwd, abs, "\u9875\u9762\u6587\u4EF6");
   } catch {
     return;
   }
-  rmSync2(abs, { force: true });
+  tx.stageDelete(abs);
 }
-function upsertNode(cwd, node) {
-  const project = readProject(cwd);
+function upsertNode(cwd, node, tx) {
+  if (!tx) return withProjectTransaction(cwd, (current) => upsertNode(cwd, node, current));
+  if (!isPageNode(node)) throw new InvalidInputError("\u9875\u9762\u8282\u70B9\u65E0\u6548");
+  const project = readProject(cwd, tx);
   const idx = project.nodes.findIndex((n) => n.id === node.id);
   if (idx >= 0) {
     const prev = project.nodes[idx];
     project.nodes[idx] = { ...prev, ...node, createdAt: prev.createdAt, updatedAt: Date.now() };
   } else {
+    assertPageCount(project.nodes.length + 1);
     project.nodes.push(node);
   }
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return project;
 }
 function autoLayoutPosition(cwd, index, size) {
@@ -61296,19 +61619,18 @@ function autoLayoutPosition(cwd, index, size) {
     y: row * (size.height + gapY)
   };
 }
-function setViewport(cwd, viewport) {
-  const { project, problem, dropped, briefProblem } = inspectProject(cwd);
-  if (problem || dropped > 0 || briefProblem) return project;
+function setViewport(cwd, viewport, tx) {
+  if (!tx) return withProjectTransaction(cwd, (current) => setViewport(cwd, viewport, current));
+  const project = readProject(cwd, tx);
+  if (tx.issue) return project;
   project.viewport = normalizeViewport(viewport);
-  writeProjectAtomic(cwd, project, false);
+  writeProjectAtomic(cwd, project, false, tx);
   return project;
 }
-function nextLayoutIndex(cwd) {
-  return readProject(cwd).nodes.length;
-}
-function removeNode(cwd, id) {
+function removeNode(cwd, id, tx) {
   assertSafeId(id);
-  const project = readProject(cwd);
+  if (!tx) return withProjectTransaction(cwd, (current) => removeNode(cwd, id, current));
+  const project = readProject(cwd, tx);
   project.nodes = project.nodes.filter((n) => n.id !== id);
   project.edges = project.edges.filter((e) => e.source !== id && e.target !== id);
   if (project.comments) {
@@ -61320,42 +61642,49 @@ function removeNode(cwd, id) {
     delete project.pageBriefs[id];
     if (Object.keys(project.pageBriefs).length === 0) delete project.pageBriefs;
   }
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   try {
-    removePageHtml(cwd, id);
+    removePageHtml(cwd, id, tx);
   } catch {
   }
   return project;
 }
-function renameNode(cwd, id, title) {
+function renameNode(cwd, id, title, tx) {
   assertSafeId(id);
-  const project = readProject(cwd);
+  if (!tx) return withProjectTransaction(cwd, (current) => renameNode(cwd, id, title, current));
+  if (typeof title !== "string" || !title.trim()) throw new InvalidInputError("\u9875\u9762\u6807\u9898\u4E0D\u80FD\u4E3A\u7A7A");
+  const project = readProject(cwd, tx);
   const node = project.nodes.find((n) => n.id === id);
   if (!node) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
   node.title = title;
   node.updatedAt = Date.now();
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return project;
 }
-function moveNode(cwd, id, x2, y) {
+function moveNode(cwd, id, x2, y, tx) {
   assertSafeId(id);
-  const project = readProject(cwd);
+  if (!tx) return withProjectTransaction(cwd, (current) => moveNode(cwd, id, x2, y, current));
+  if (!Number.isFinite(x2) || !Number.isFinite(y)) throw new InvalidInputError("\u9875\u9762\u5750\u6807\u5FC5\u987B\u662F\u6709\u9650\u6570\u503C");
+  const project = readProject(cwd, tx);
   const node = project.nodes.find((n) => n.id === id);
   if (!node) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
   node.x = x2;
   node.y = y;
   node.updatedAt = Date.now();
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return project;
 }
-function duplicateNode(cwd, id, title) {
+function duplicateNode(cwd, id, title, tx) {
   assertSafeId(id);
-  const project = readProject(cwd);
+  if (!tx) return withProjectTransaction(cwd, (current) => duplicateNode(cwd, id, title, current));
+  const project = readProject(cwd, tx);
   const src = project.nodes.find((n) => n.id === id);
   if (!src) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+  assertPageCount(project.nodes.length + 1);
+  if (title !== void 0 && (typeof title !== "string" || !title.trim())) throw new InvalidInputError("\u9875\u9762\u6807\u9898\u4E0D\u80FD\u4E3A\u7A7A");
   const newId = newPageId();
-  const html = readPageHtml(cwd, id) ?? "";
-  const rel = writePageHtml(cwd, newId, html);
+  const html = readPageHtml(cwd, id, tx) ?? "";
+  const rel = writePageHtml(cwd, newId, html, tx);
   const now2 = Date.now();
   const node = {
     ...src,
@@ -61371,7 +61700,7 @@ function duplicateNode(cwd, id, title) {
   if (project.pageBriefs && Object.hasOwn(project.pageBriefs, id)) {
     project.pageBriefs[newId] = structuredClone(project.pageBriefs[id]);
   }
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return node;
 }
 function assertEdgeEnds(source2, target) {
@@ -61383,33 +61712,35 @@ function assertEdgeNodes(project, source2, target) {
   if (!project.nodes.some((n) => n.id === source2)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${source2}`);
   if (!project.nodes.some((n) => n.id === target)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${target}`);
 }
-function addEdge(cwd, source2, target, label) {
+function addEdge(cwd, source2, target, label, tx) {
   assertEdgeEnds(source2, target);
-  const project = readProject(cwd);
+  if (!tx) return withProjectTransaction(cwd, (current) => addEdge(cwd, source2, target, label, current));
+  const project = readProject(cwd, tx);
   assertEdgeNodes(project, source2, target);
   const exists = project.edges.find((e) => e.source === source2 && e.target === target);
   if (exists) {
     if (label !== void 0 && exists.label !== label) {
       exists.label = label;
-      writeProjectAtomic(cwd, project);
+      writeProjectAtomic(cwd, project, true, tx);
     }
     return exists;
   }
   const edge = { id: `edge-${source2}-${target}`, source: source2, target, ...label ? { label } : {} };
   project.edges.push(edge);
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return edge;
 }
-function removeEdge(cwd, source2, target) {
-  const project = readProject(cwd);
+function removeEdge(cwd, source2, target, tx) {
+  if (!tx) return withProjectTransaction(cwd, (current) => removeEdge(cwd, source2, target, current));
+  const project = readProject(cwd, tx);
   const edges = project.edges.filter((e) => !(e.source === source2 && e.target === target));
   if (edges.length === project.edges.length) return project;
   project.edges = edges;
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return project;
 }
 function selectionFile(cwd) {
-  return join2(projectDir(cwd), "selection.json");
+  return join3(projectDir(cwd), "selection.json");
 }
 function readSelection(cwd) {
   const file = selectionFile(cwd);
@@ -61425,18 +61756,19 @@ function readSelection(cwd) {
 }
 function writeSelection(cwd, selection) {
   assertInsideWorkspace(cwd, projectDir(cwd), "\u9879\u76EE\u76EE\u5F55");
-  mkdirSync2(projectDir(cwd), { recursive: true });
+  mkdirSync3(projectDir(cwd), { recursive: true });
   writeFileAtomic(cwd, selectionFile(cwd), JSON.stringify(selection, null, 2) + "\n");
   projectEvents.emit("selection", { cwd });
 }
-function readComments(cwd) {
-  return readProject(cwd).comments ?? [];
+function readComments(cwd, tx) {
+  return readProject(cwd, tx).comments ?? [];
 }
-function addComment(cwd, input2) {
+function addComment(cwd, input2, tx) {
   assertSafeId(input2.pageId);
   if (!input2.xpath || input2.xpath.trim() === "") throw new InvalidInputError("\u6279\u6CE8\u7F3A\u5C11 xpath");
   if (!input2.note || input2.note.trim() === "") throw new InvalidInputError("\u6279\u6CE8\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A");
-  const project = readProject(cwd);
+  if (!tx) return withProjectTransaction(cwd, (current) => addComment(cwd, input2, current));
+  const project = readProject(cwd, tx);
   if (!project.nodes.some((n) => n.id === input2.pageId)) {
     throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${input2.pageId}`);
   }
@@ -61451,11 +61783,12 @@ function addComment(cwd, input2) {
   };
   if (input2.textContent !== void 0) comment.textContent = input2.textContent;
   project.comments = [...project.comments ?? [], comment];
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return comment;
 }
-function setCommentsResolved(cwd, ids, resolved) {
-  const project = readProject(cwd);
+function setCommentsResolved(cwd, ids, resolved, tx) {
+  if (!tx) return withProjectTransaction(cwd, (current) => setCommentsResolved(cwd, ids, resolved, current));
+  const project = readProject(cwd, tx);
   const comments = project.comments ?? [];
   if (comments.length === 0) return 0;
   const wanted = new Set(ids);
@@ -61467,11 +61800,12 @@ function setCommentsResolved(cwd, ids, resolved) {
     else delete c.resolvedAt;
     changed++;
   }
-  if (changed > 0) writeProjectAtomic(cwd, project);
+  if (changed > 0) writeProjectAtomic(cwd, project, true, tx);
   return changed;
 }
-function removeComments(cwd, ids) {
-  const project = readProject(cwd);
+function removeComments(cwd, ids, tx) {
+  if (!tx) return withProjectTransaction(cwd, (current) => removeComments(cwd, ids, current));
+  const project = readProject(cwd, tx);
   const comments = project.comments ?? [];
   if (comments.length === 0) return 0;
   const keep = ids ? comments.filter((c) => !ids.includes(c.id)) : [];
@@ -61479,7 +61813,7 @@ function removeComments(cwd, ids) {
   if (removed === 0) return 0;
   if (keep.length > 0) project.comments = keep;
   else delete project.comments;
-  writeProjectAtomic(cwd, project);
+  writeProjectAtomic(cwd, project, true, tx);
   return removed;
 }
 
@@ -61849,11 +62183,11 @@ function validateColorSemantics(tokens, semantic, prefix, errors, warnings) {
 // src/designCustom.ts
 var LIBRARY_DIR_NAME = "library";
 function libraryDir(cwd) {
-  return join3(projectDir(cwd), LIBRARY_DIR_NAME);
+  return join4(projectDir(cwd), LIBRARY_DIR_NAME);
 }
 function customStyleDir(cwd, id) {
   assertSafeId(id);
-  return join3(libraryDir(cwd), id);
+  return join4(libraryDir(cwd), id);
 }
 function collectVars(text3) {
   const out = /* @__PURE__ */ new Set();
@@ -61869,7 +62203,7 @@ function stampLibrary(cwd) {
     if (!isSafeId(id)) continue;
     hash2.update(id);
     for (const file of ["tokens.json", "meta.json"]) {
-      const abs = join3(dir, id, file);
+      const abs = join4(dir, id, file);
       try {
         hash2.update(existsSync3(abs) ? readTextInWorkspace(cwd, abs, `${id}/${file}`) : "\0");
       } catch {
@@ -61887,17 +62221,17 @@ function readJson(file, label, cwd) {
   }
 }
 function sharedAssets(builtinDir, builtinId, iconStyle) {
-  const dir = join3(builtinDir, "styles", builtinId);
-  const componentsCss = readFileSync3(join3(dir, "components.css"), "utf8");
-  const templates = readJson(join3(dir, "templates.json"), "templates.json");
-  const raw = readJson(join3(dir, "icons.json"), "icons.json");
+  const dir = join4(builtinDir, "styles", builtinId);
+  const componentsCss = readFileSync3(join4(dir, "components.css"), "utf8");
+  const templates = readJson(join4(dir, "templates.json"), "templates.json");
+  const raw = readJson(join4(dir, "icons.json"), "icons.json");
   const interactions = readInteractionLibrary(dir);
   return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons }, interactions };
 }
 function readInteractionLibrary(dir) {
   const empty = { css: "", js: "", catalog: {}, rootAttrs: [] };
   try {
-    const doc = readJson(join3(dir, "interactions.json"), "interactions.json");
+    const doc = readJson(join4(dir, "interactions.json"), "interactions.json");
     const catalog = {};
     const rootAttrs = [];
     for (const entry of doc.interactions ?? []) {
@@ -61905,8 +62239,8 @@ function readInteractionLibrary(dir) {
       if (entry.rootAttr) rootAttrs.push(entry.rootAttr);
     }
     return {
-      css: readFileSync3(join3(dir, "interactions.css"), "utf8"),
-      js: readFileSync3(join3(dir, "interactions.js"), "utf8"),
+      css: readFileSync3(join4(dir, "interactions.css"), "utf8"),
+      js: readFileSync3(join4(dir, "interactions.js"), "utf8"),
       catalog,
       rootAttrs,
       bindings: doc.bindings ?? []
@@ -61939,17 +62273,18 @@ function loadCustomSummaries(cwd, builtinDir) {
   return out;
 }
 function customStyleExists(cwd, id) {
-  return isSafeId(id) && existsSync3(join3(libraryDir(cwd), id, "tokens.json"));
+  return isSafeId(id) && existsSync3(join4(libraryDir(cwd), id, "tokens.json"));
 }
-function compileCustomStyle(cwd, id, builtinDir) {
+function compileCustomStyle(cwd, id, builtinDir, tx) {
   const dir = customStyleDir(cwd, id);
-  const tokensFile = join3(dir, "tokens.json");
-  const metaFile = join3(dir, "meta.json");
-  if (!existsSync3(tokensFile) || !existsSync3(metaFile)) {
+  const tokensFile = join4(dir, "tokens.json");
+  const metaFile = join4(dir, "meta.json");
+  if (!tx && (!existsSync3(tokensFile) || !existsSync3(metaFile))) {
     throw new InvalidInputError(`\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u4E0D\u5B58\u5728\uFF1A${id}`);
   }
-  const tokens = readJson(tokensFile, `${id}/tokens.json`, cwd);
-  const meta = readJson(metaFile, `${id}/meta.json`, cwd);
+  const tokens = tx ? JSON.parse(tx.readFile(tokensFile) ?? "null") : readJson(tokensFile, `${id}/tokens.json`, cwd);
+  const meta = tx ? JSON.parse(tx.readFile(metaFile) ?? "null") : readJson(metaFile, `${id}/meta.json`, cwd);
+  if (!tokens || !meta) throw new InvalidInputError("\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u4E0D\u5B58\u5728");
   const iconStyle = meta.iconStyle;
   const contract = sharedContract(builtinDir);
   const shared = sharedAssets(builtinDir, contract.builtinId, iconStyle);
@@ -61997,12 +62332,12 @@ var sharedContractCache = /* @__PURE__ */ new Map();
 function sharedContract(builtinDir) {
   const cached = sharedContractCache.get(builtinDir);
   if (cached) return cached;
-  const index = readJson(join3(builtinDir, "index.json"), "design/index.json");
+  const index = readJson(join4(builtinDir, "index.json"), "design/index.json");
   const builtinId = index.styles[0]?.id;
   if (!builtinId) throw new Error("\u8BBE\u8BA1\u7CFB\u7EDF\u6784\u5EFA\u4EA7\u7269\u7F3A\u5931\uFF1Adist/design/index.json \u6CA1\u6709\u98CE\u683C");
-  const dir = join3(builtinDir, "styles", builtinId);
-  const manifest = readJson(join3(dir, "tokens.manifest.json"), "tokens.manifest.json");
-  const icons = readJson(join3(dir, "icons.json"), "icons.json");
+  const dir = join4(builtinDir, "styles", builtinId);
+  const manifest = readJson(join4(dir, "tokens.manifest.json"), "tokens.manifest.json");
+  const icons = readJson(join4(dir, "icons.json"), "icons.json");
   const value = {
     builtinId,
     componentClasses: manifest.componentClasses,
@@ -62014,10 +62349,8 @@ function sharedContract(builtinDir) {
   sharedContractCache.set(builtinDir, value);
   return value;
 }
-function writeJsonAtomic(cwd, file, value) {
-  writeFileInWorkspace(cwd, file, JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
-}
-function createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options) {
+function createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options, tx) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options, transaction));
   if (!isSafeId(id)) {
     throw new InvalidInputError(`\u975E\u6CD5 id\uFF1A${String(id)}\uFF08\u4EC5\u5141\u8BB8\u5B57\u6BCD\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u3001\u8FDE\u5B57\u7B26\uFF0C1\u201364 \u4F4D\uFF09`);
   }
@@ -62070,7 +62403,7 @@ function createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options) {
     const { componentsCss, templates, interactions } = sharedAssets(builtinDir, contract.builtinId, iconStyle);
     assertCoversSharedVars(manifest, componentsCss, templates, interactions.css, errors);
     const builtinManifest = readJson(
-      join3(builtinDir, "styles", contract.builtinId, "tokens.manifest.json"),
+      join4(builtinDir, "styles", contract.builtinId, "tokens.manifest.json"),
       "tokens.manifest.json"
     );
     const known = new Set(manifest.vars);
@@ -62084,17 +62417,18 @@ function createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options) {
 ${errors.map((e) => `  - ${e}`).join("\n")}`);
   }
   const dir = customStyleDir(cwd, id);
-  writeJsonAtomic(cwd, join3(dir, "tokens.json"), tokens);
-  writeJsonAtomic(cwd, join3(dir, "meta.json"), meta);
-  const summary = compileCustomStyle(cwd, id, builtinDir).summary;
+  tx.stageFile(join4(dir, "tokens.json"), JSON.stringify(tokens, null, 2) + "\n");
+  tx.stageFile(join4(dir, "meta.json"), JSON.stringify(meta, null, 2) + "\n");
+  const summary = compileCustomStyle(cwd, id, builtinDir, tx).summary;
   return { id, summary, warnings };
 }
-function removeCustomStyle(cwd, id) {
+function removeCustomStyle(cwd, id, tx) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => removeCustomStyle(cwd, id, transaction));
   if (!isSafeId(id)) throw new InvalidInputError(`\u975E\u6CD5 id\uFF1A${String(id)}`);
-  const dir = join3(libraryDir(cwd), id);
+  const dir = join4(libraryDir(cwd), id);
   if (!existsSync3(dir)) throw new InvalidInputError(`\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u4E0D\u5B58\u5728\uFF1A${id}`);
   assertInsideWorkspace(cwd, dir, "\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u76EE\u5F55");
-  rmSync3(dir, { recursive: true, force: true });
+  tx.stageDelete(dir, true);
 }
 
 // src/design.ts
@@ -62113,7 +62447,7 @@ function designDir() {
 }
 function loadBuiltinCatalog() {
   if (builtinCatalogCache) return builtinCatalogCache;
-  const file = join4(DESIGN_DIR, "index.json");
+  const file = join5(DESIGN_DIR, "index.json");
   if (!existsSync4(file)) {
     throw new Error("\u8BBE\u8BA1\u7CFB\u7EDF\u6784\u5EFA\u4EA7\u7269\u7F3A\u5931\uFF08dist/design/index.json\uFF09\uFF0C\u8BF7\u5148\u8FD0\u884C npm run build\u3002");
   }
@@ -62176,15 +62510,15 @@ function resolveDesignStyle(cwd, id) {
   if (cwd && customStyleExists(cwd, id)) {
     resolved = compileCustomStyle(cwd, id, DESIGN_DIR);
   } else {
-    const dir = join4(DESIGN_DIR, "styles", id);
+    const dir = join5(DESIGN_DIR, "styles", id);
     try {
       resolved = {
         summary,
-        tokensCss: readFileSync4(join4(dir, "tokens.css"), "utf8"),
-        componentsCss: readFileSync4(join4(dir, "components.css"), "utf8"),
-        manifest: readJson2(join4(dir, "tokens.manifest.json")),
-        icons: readJson2(join4(dir, "icons.json")),
-        templates: readJson2(join4(dir, "templates.json")),
+        tokensCss: readFileSync4(join5(dir, "tokens.css"), "utf8"),
+        componentsCss: readFileSync4(join5(dir, "components.css"), "utf8"),
+        manifest: readJson2(join5(dir, "tokens.manifest.json")),
+        icons: readJson2(join5(dir, "icons.json")),
+        templates: readJson2(join5(dir, "templates.json")),
         interactions: readInteractionLibrary2(dir)
       };
     } catch (err) {
@@ -62197,7 +62531,7 @@ function resolveDesignStyle(cwd, id) {
 function readInteractionLibrary2(dir) {
   const empty = { css: "", js: "", catalog: {}, rootAttrs: [] };
   try {
-    const doc = readJson2(join4(dir, "interactions.json"));
+    const doc = readJson2(join5(dir, "interactions.json"));
     const catalog = {};
     const rootAttrs = [];
     for (const entry of doc.interactions ?? []) {
@@ -62205,8 +62539,8 @@ function readInteractionLibrary2(dir) {
       if (entry.rootAttr) rootAttrs.push(entry.rootAttr);
     }
     return {
-      css: readFileSync4(join4(dir, "interactions.css"), "utf8"),
-      js: readFileSync4(join4(dir, "interactions.js"), "utf8"),
+      css: readFileSync4(join5(dir, "interactions.css"), "utf8"),
+      js: readFileSync4(join5(dir, "interactions.js"), "utf8"),
       catalog,
       rootAttrs,
       bindings: doc.bindings ?? []
@@ -62281,12 +62615,12 @@ function hasRegisteredPrototypeRoot(html) {
   const candidates = (body?.children ?? roots).filter((n) => n.type === "element" && !["head", "script", "style"].includes(n.tag));
   const id = candidates.find((n) => n.attrs.some((a2) => a2.name === "data-ts-prototype"))?.attrs.find((a2) => a2.name === "data-ts-prototype")?.value;
   if (!id) return false;
-  const prototypes = readJson2(join4(DESIGN_DIR, "prototypes", "index.json")).prototypes;
+  const prototypes = readJson2(join5(DESIGN_DIR, "prototypes", "index.json")).prototypes;
   if (prototypes.some((p) => p.id === id)) return true;
-  const directions = readJson2(join4(DESIGN_DIR, "directions", "index.json")).directions;
-  return directions.some((d) => readJson2(join4(DESIGN_DIR, "directions", d.id + ".json")).examples.some((e) => e.resourceId === id));
+  const directions = readJson2(join5(DESIGN_DIR, "directions", "index.json")).directions;
+  return directions.some((d) => readJson2(join5(DESIGN_DIR, "directions", d.id + ".json")).examples.some((e) => e.resourceId === id));
 }
-function injectDesign(html, styleId, cwd) {
+function injectDesign(html, styleId, cwd, preparedStyle) {
   if (styleId === null && hasRegisteredPrototypeRoot(html)) {
     const marker = readDesignMarker(html);
     if (marker && designStyleExists(cwd, marker.styleId)) styleId = marker.styleId;
@@ -62295,7 +62629,7 @@ function injectDesign(html, styleId, cwd) {
   if (styleId === null) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] };
   }
-  const style = resolveDesignStyle(cwd, styleId);
+  const style = preparedStyle ?? resolveDesignStyle(cwd, styleId);
   if (!style) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] };
   }
@@ -62810,11 +63144,11 @@ function generatePlatformFiles(target, stack, input2) {
 
 // src/adapters/antd.ts
 import { readdirSync as readdirSync3 } from "node:fs";
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 
 // src/adapters/import.ts
 import { existsSync as existsSync5, readFileSync as readFileSync5, readdirSync as readdirSync2 } from "node:fs";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 
 // src/adapters/color.ts
 import { createHash as createHash2 } from "node:crypto";
@@ -62963,9 +63297,9 @@ function stableHash(value) {
 // src/adapters/import.ts
 var HEX_LIKE = /^(?:#|rgb|hsl|oklch|oklab)/i;
 function readBuiltinTemplate(builtinDir, templateId) {
-  const styleDir = join5(builtinDir, "styles", templateId);
-  const cssFile = join5(styleDir, "tokens.css");
-  const manifestFile = join5(styleDir, "tokens.manifest.json");
+  const styleDir = join6(builtinDir, "styles", templateId);
+  const cssFile = join6(styleDir, "tokens.css");
+  const manifestFile = join6(styleDir, "tokens.manifest.json");
   if (!existsSync5(cssFile) || !existsSync5(manifestFile)) {
     throw new Error(`\u5185\u7F6E\u98CE\u683C\u6A21\u677F\u7F3A\u5931\uFF1A${styleDir}`);
   }
@@ -63269,7 +63603,7 @@ function materializeTokens(theme, ctx) {
   tokens.modes = { light: true, dark: template.modes?.dark === true };
   const fixContrast = (fgPath, bgPath) => {
     const semantic = tokens.color.semantic;
-    const resolve11 = (path14) => {
+    const resolve13 = (path14) => {
       const [g2, n2] = path14.split(".");
       const raw = semantic[g2]?.[n2];
       if (typeof raw !== "string") return null;
@@ -63279,8 +63613,8 @@ function materializeTokens(theme, ctx) {
       }
       return raw;
     };
-    const fg = resolve11(fgPath);
-    const bg = resolve11(bgPath);
+    const fg = resolve13(fgPath);
+    const bg = resolve13(bgPath);
     if (!fg || !bg) return;
     if (contrastOf(fg, bg) >= 4.5) return;
     const replacement = bestForeground(bg, ["#ffffff", "#000000"]);
@@ -63312,7 +63646,7 @@ var SOURCE_EXT = [".tsx", ".ts", ".jsx", ".js"];
 function findConfigProvider(cwd) {
   const candidates = ["src/App.tsx", "src/App.jsx", "src/main.tsx", "src/main.jsx", "src/index.tsx", "app/layout.tsx", "src/app/layout.tsx", "app/providers.tsx"];
   for (const rel of candidates) {
-    const text3 = readConfined(cwd, join6(cwd, rel));
+    const text3 = readConfined(cwd, join7(cwd, rel));
     if (text3 === null) continue;
     if (text3.includes("ConfigProvider") && text3.includes("theme")) return { file: rel, text: text3 };
   }
@@ -63332,7 +63666,7 @@ function readLiteral(text3) {
   return out;
 }
 function readPackage(cwd) {
-  const text3 = readConfined(cwd, join6(cwd, "package.json"));
+  const text3 = readConfined(cwd, join7(cwd, "package.json"));
   if (text3 === null) return null;
   try {
     return JSON.parse(text3);
@@ -63351,7 +63685,7 @@ function walkFiles(cwd, dir, depth, out) {
   }
   for (const entry of entries) {
     if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-    const abs = join6(dir, entry.name);
+    const abs = join7(dir, entry.name);
     if (entry.isDirectory()) walkFiles(cwd, abs, depth - 1, out);
     else if (entry.isFile() && SOURCE_EXT.some((ext) => entry.name.endsWith(ext)) && /(?:^|[\\/])(?:src|app|pages)[\\/]/.test(abs)) out.push(abs);
   }
@@ -63372,7 +63706,7 @@ var antdAdapter = {
     let source2 = null;
     let literal2 = {};
     if (sourcePath) {
-      const abs = sourcePath.startsWith(cwd) ? sourcePath : join6(cwd, sourcePath);
+      const abs = sourcePath.startsWith(cwd) ? sourcePath : join7(cwd, sourcePath);
       const text3 = readTextInWorkspace(cwd, abs, "\u4E3B\u9898\u6587\u4EF6");
       literal2 = readLiteral(text3);
       source2 = sourcePath;
@@ -63675,7 +64009,7 @@ function renderReadme(ctx) {
 }
 
 // src/adapters/tailwind-shadcn.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 var TS_RANK = {
   "ts-btn": "button",
   "ts-btn--primary": "button-primary",
@@ -63716,7 +64050,7 @@ function hasDep(pkg, name) {
   return Boolean(pkg.dependencies?.[name] ?? pkg.devDependencies?.[name]);
 }
 function readJsonInWorkspace(cwd, rel) {
-  const text3 = readConfined(cwd, join7(cwd, rel));
+  const text3 = readConfined(cwd, join8(cwd, rel));
   if (text3 === null) return null;
   try {
     return JSON.parse(text3);
@@ -63744,7 +64078,7 @@ function resolveCssFile(cwd, components) {
   );
   const seen = /* @__PURE__ */ new Set();
   for (const c of candidates) {
-    const abs = join7(cwd, c);
+    const abs = join8(cwd, c);
     if (seen.has(abs)) continue;
     seen.add(abs);
     const text3 = readConfined(cwd, abs);
@@ -63799,7 +64133,7 @@ function collectTheme(cwd, components) {
     }
   }
   for (const file of ["tailwind.config.ts", "tailwind.config.js", "tailwind.config.mjs", "tailwind.config.cjs"]) {
-    const text3 = readConfined(cwd, join7(cwd, file));
+    const text3 = readConfined(cwd, join8(cwd, file));
     if (text3 === null) continue;
     if (!source2) source2 = file;
     for (const m of text3.matchAll(/(['"]?)([a-zA-Z][a-zA-Z0-9-]*)\1\s*:\s*(['"])(#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]*\)|hsl[a]?\([^)]*\)|oklch\([^)]*\))\3/g)) {
@@ -63844,7 +64178,7 @@ var shadcnAdapter = {
   importTokens(cwd, sourcePath) {
     const components = readComponentsJson(cwd);
     const theme = sourcePath ? (() => {
-      const abs = sourcePath.startsWith(cwd) ? sourcePath : join7(cwd, sourcePath);
+      const abs = sourcePath.startsWith(cwd) ? sourcePath : join8(cwd, sourcePath);
       const css = readConfined(cwd, abs);
       if (css === null) return null;
       const colors = {};
@@ -64495,10 +64829,10 @@ function findBlockedResources(html) {
 
 // src/prototypes.ts
 import { readFileSync as readFileSync6 } from "node:fs";
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 var read = (category, id) => {
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) throw new InvalidInputError("\u65E0\u6548\u7684\u8BBE\u8BA1\u8D44\u6E90 ID");
-  return JSON.parse(readFileSync6(join8(designDir(), category, `${id}.json`), "utf8"));
+  return JSON.parse(readFileSync6(join9(designDir(), category, `${id}.json`), "utf8"));
 };
 function listPrototypes() {
   return read("prototypes", "index").prototypes;
@@ -64898,16 +65232,333 @@ function formatContractReport(result, label) {
 
 // src/export.ts
 import { spawn as spawn4 } from "node:child_process";
-import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync12, rmSync as rmSync5 } from "node:fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync4, mkdtempSync, readFileSync as readFileSync12, rmSync as rmSync4 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join14 } from "node:path";
+import { join as join16 } from "node:path";
 import { deflateRawSync } from "node:zlib";
+
+// src/navigation.ts
+import { lstatSync as lstatSync4 } from "node:fs";
+import { join as join10, resolve as resolve3 } from "node:path";
+
+// src/nav.ts
+function createNavIndex(pages) {
+  const ids = /* @__PURE__ */ new Set();
+  const slugs = /* @__PURE__ */ new Map();
+  for (const page of pages) {
+    ids.add(page.id);
+    const slug = titleSlug(page.title);
+    if (!slug) continue;
+    const matches = slugs.get(slug) ?? [];
+    matches.push(page.id);
+    slugs.set(slug, matches);
+  }
+  return { ids, slugs };
+}
+var SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+function titleSlug(title) {
+  return String(title ?? "").normalize("NFC").trim().toLowerCase().replace(/\s+/g, "-").replace(/[\\/:*?"<>|#?&=%+]+/g, "-").replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+}
+function parseNavRef(href, dataNav) {
+  const nav = (dataNav ?? "").trim();
+  const raw = (href ?? "").trim();
+  if (!nav && !raw) return null;
+  if (nav) return { dataNav: nav, href: raw || null };
+  if (raw.startsWith("#")) return null;
+  if (raw.startsWith("//")) return null;
+  if (SCHEME_RE.test(raw)) return null;
+  return { dataNav: null, href: raw };
+}
+function hrefKey(href) {
+  let s = href.split(/[?#]/)[0] ?? "";
+  s = s.split("/").pop() ?? s;
+  s = s.replace(/\.html?$/i, "");
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+  }
+  return s.normalize("NFC").toLowerCase();
+}
+function resolveNavRef(ref, pages) {
+  const index = Array.isArray(pages) ? createNavIndex(pages) : pages;
+  if (ref.dataNav) {
+    return { target: index.ids.has(ref.dataNav) ? ref.dataNav : null, ambiguous: [] };
+  }
+  if (!ref.href) return { target: null, ambiguous: [] };
+  const key = hrefKey(ref.href);
+  if (!key) return { target: null, ambiguous: [] };
+  if (index.ids.has(key)) return { target: key, ambiguous: [] };
+  const slugMatches = index.slugs.get(key) ?? [];
+  if (slugMatches.length === 1) return { target: slugMatches[0], ambiguous: [] };
+  if (slugMatches.length > 1) return { target: null, ambiguous: [...slugMatches] };
+  return { target: null, ambiguous: [] };
+}
+var ANCHOR_RE = /<a\b([^>]*)>/gi;
+var ATTR_RE = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+function navReferenceKeys(ref) {
+  if (ref.dataNav) return [`id:${ref.dataNav}`];
+  const key = ref.href ? hrefKey(ref.href) : "";
+  return key ? [`id:${key}`, `slug:${key}`] : [];
+}
+function maskSegments2(html) {
+  const mask2 = (text3) => text3.replace(/[^\n]/g, " ");
+  return html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, mask2).replace(/<style\b[\s\S]*?<\/style\s*>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
+}
+function readAttr2(attrs, name) {
+  for (const m of attrs.matchAll(ATTR_RE)) {
+    if (m[1].toLowerCase() === name) return (m[2] ?? m[3] ?? "").trim();
+  }
+  return null;
+}
+function parseNavDocument(html) {
+  const anchors = [];
+  for (const m of maskSegments2(html).matchAll(ANCHOR_RE)) {
+    const attrs = m[1] ?? "";
+    const href = readAttr2(attrs, "href");
+    const ref = parseNavRef(href, readAttr2(attrs, "data-nav"));
+    if (!ref) continue;
+    const start = m.index ?? 0;
+    anchors.push({ start, end: start + m[0].length, text: m[0], href, ref });
+  }
+  return { html, anchors };
+}
+function rewriteParsedNavLinks(document2, index, hrefPrefix) {
+  const { html } = document2;
+  const unresolved = [];
+  const ambiguous = [];
+  let rewritten = 0;
+  const edits = [];
+  for (const anchor of document2.anchors) {
+    const { start, end, href, ref } = anchor;
+    const res = resolveNavRef(ref, index);
+    if (res.ambiguous.length) {
+      ambiguous.push({ ref: ref.dataNav ?? ref.href ?? "", ids: res.ambiguous });
+      continue;
+    }
+    if (!res.target) {
+      unresolved.push(ref.dataNav ?? ref.href ?? "");
+      continue;
+    }
+    const wanted = `${hrefPrefix}${res.target}.html`;
+    let next;
+    if (href !== null) {
+      if (href === wanted) continue;
+      next = anchor.text.replace(/(\bhref\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s>]+)/i, `$1"${wanted}"`);
+    } else {
+      next = anchor.text.replace(/\s*(\/?>)$/, ` href="${wanted}"$1`);
+    }
+    edits.push({ start, end, text: next });
+    rewritten++;
+  }
+  if (!edits.length) return { html, rewritten: 0, unresolved, ambiguous };
+  let out = "";
+  let cursor = 0;
+  for (const edit of edits) {
+    out += html.slice(cursor, edit.start) + edit.text;
+    cursor = edit.end;
+  }
+  out += html.slice(cursor);
+  return { html: out, rewritten, unresolved, ambiguous };
+}
+function rewriteNavLinks(html, pages, hrefPrefix) {
+  const index = Array.isArray(pages) ? createNavIndex(pages) : pages;
+  return rewriteParsedNavLinks(parseNavDocument(html), index, hrefPrefix);
+}
+function mayHaveNavLinks(html) {
+  return /<a\b[^>]*(?:href|data-nav)\s*=/i.test(html);
+}
+
+// src/navigation.ts
+var workspaces = /* @__PURE__ */ new Map();
+function workspaceKey(cwd) {
+  const path14 = resolve3(cwd);
+  return process.platform === "win32" ? path14.toLowerCase() : path14;
+}
+function clearNavigationCache(cwd) {
+  if (cwd === void 0) workspaces.clear();
+  else workspaces.delete(workspaceKey(cwd));
+}
+function pageFingerprint(cwd, id) {
+  const path14 = join10(pagesDir(cwd), `${id}.html`);
+  assertInsideWorkspace(cwd, path14, "\u9875\u9762\u6587\u4EF6");
+  try {
+    const stat2 = lstatSync4(path14, { bigint: true });
+    if (!stat2.isFile() || stat2.isSymbolicLink()) throw new Error("\u9875\u9762\u6587\u4EF6\u4E0D\u662F\u666E\u901A\u6587\u4EF6");
+    return `${stat2.dev}:${stat2.ino}:${stat2.size}:${stat2.mtimeNs}:${stat2.ctimeNs}`;
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+function pendingKeys(document2, index, deferred = false) {
+  const keys2 = /* @__PURE__ */ new Set();
+  for (const anchor of document2.anchors) {
+    const resolution = resolveNavRef(anchor.ref, index);
+    if (!deferred && resolution.target) continue;
+    for (const key of navReferenceKeys(anchor.ref)) keys2.add(key);
+  }
+  return keys2;
+}
+function resolvedTargets(document2, index) {
+  const targets = /* @__PURE__ */ new Set();
+  for (const anchor of document2.anchors) {
+    const target = resolveNavRef(anchor.ref, index).target;
+    if (target) targets.add(target);
+  }
+  return targets;
+}
+function backfillNavigation(cwd, tx) {
+  const key = workspaceKey(cwd);
+  const previous = workspaces.get(key);
+  const next = {
+    titles: new Map(tx.project.nodes.map((node) => [node.id, node.title])),
+    pages: new Map(previous?.pages),
+    reverse: new Map(previous?.reverse),
+    targets: new Map(previous?.targets)
+  };
+  const result = { changed: [], warnings: [], stats: { bodyReads: 0, parsed: 0, rewritten: 0 } };
+  const index = createNavIndex(tx.project.nodes);
+  const candidates = /* @__PURE__ */ new Set();
+  const changedKeys = /* @__PURE__ */ new Set();
+  const documents = /* @__PURE__ */ new Map();
+  const staged = new Set(tx.stagedPageIds);
+  const nodes = new Map(tx.project.nodes.map((node) => [node.id, node]));
+  const setEntry = (id, entry) => {
+    const old = next.pages.get(id);
+    for (const reference of old?.pending ?? []) {
+      const sources = new Set(next.reverse.get(reference));
+      sources.delete(id);
+      if (sources.size) next.reverse.set(reference, sources);
+      else next.reverse.delete(reference);
+    }
+    for (const target of old?.targets ?? []) {
+      const sources = new Set(next.targets.get(target));
+      sources.delete(id);
+      if (sources.size) next.targets.set(target, sources);
+      else next.targets.delete(target);
+    }
+    if (!entry) {
+      next.pages.delete(id);
+      return;
+    }
+    next.pages.set(id, entry);
+    for (const reference of entry.pending) {
+      const sources = new Set(next.reverse.get(reference));
+      sources.add(id);
+      next.reverse.set(reference, sources);
+    }
+    for (const target of entry.targets) {
+      const sources = new Set(next.targets.get(target));
+      sources.add(id);
+      next.targets.set(target, sources);
+    }
+  };
+  const titleKeys = (id, title) => {
+    changedKeys.add(`id:${id}`);
+    if (title !== void 0) {
+      const slug = titleSlug(title);
+      if (slug) changedKeys.add(`slug:${slug}`);
+    }
+  };
+  const load = (id, known) => {
+    if (documents.has(id)) return documents.get(id);
+    const before = known && !staged.has(id) ? pageFingerprint(cwd, id) : null;
+    if (!staged.has(id)) result.stats.bodyReads++;
+    const html = readPageHtml(cwd, id, tx);
+    if (html === null) return null;
+    const reuse = known && before === known.fingerprint && pageFingerprint(cwd, id) === before;
+    const document2 = reuse ? { html, anchors: known.anchors } : parseNavDocument(html);
+    if (!reuse) result.stats.parsed++;
+    documents.set(id, document2);
+    return document2;
+  };
+  for (const [id, title] of previous?.titles ?? []) {
+    if (!next.titles.has(id) || next.titles.get(id) !== title) titleKeys(id, title);
+    if (!next.titles.has(id)) {
+      for (const source2 of previous?.targets.get(id) ?? []) if (nodes.has(source2)) candidates.add(source2);
+      setEntry(id);
+    }
+  }
+  for (const node of tx.project.nodes) {
+    if (!previous?.titles.has(node.id) || previous.titles.get(node.id) !== node.title) titleKeys(node.id, node.title);
+    try {
+      const fingerprint = pageFingerprint(cwd, node.id);
+      const cached = next.pages.get(node.id);
+      if (!staged.has(node.id) && cached && cached.fingerprint === fingerprint) continue;
+      const document2 = load(node.id);
+      if (document2 === null) {
+        setEntry(node.id, { fingerprint, anchors: [], pending: /* @__PURE__ */ new Set(), targets: /* @__PURE__ */ new Set() });
+        continue;
+      }
+      setEntry(node.id, { fingerprint, anchors: document2.anchors, pending: pendingKeys(document2, index), targets: resolvedTargets(document2, index) });
+      candidates.add(node.id);
+    } catch {
+      setEntry(node.id);
+      result.warnings.push(`\u9875\u9762\u300C${node.title}\u300D\u65E0\u6CD5\u5B89\u5168\u8BFB\u53D6\uFF0C\u5BFC\u822A\u81EA\u52A8\u8865\u9F50\u5DF2\u8DF3\u8FC7\uFF1B\u8BF7\u68C0\u67E5\u9875\u9762\u6587\u4EF6\u540E\u91CD\u8BD5\u3002`);
+    }
+  }
+  for (const reference of changedKeys) {
+    for (const id of previous?.reverse.get(reference) ?? []) if (nodes.has(id)) candidates.add(id);
+    for (const id of next.reverse.get(reference) ?? []) if (nodes.has(id)) candidates.add(id);
+  }
+  for (const id of candidates) {
+    const node = nodes.get(id);
+    const cached = next.pages.get(id);
+    if (!node || !cached) continue;
+    try {
+      const document2 = load(id, cached);
+      if (!document2) continue;
+      const rewrite = rewriteParsedNavLinks(document2, index, "");
+      const deferred = rewrite.ambiguous.length > 0 || rewrite.html !== document2.html && Buffer.byteLength(rewrite.html, "utf8") > MAX_HTML_BYTES;
+      if (deferred) {
+        setEntry(id, { ...cached, pending: pendingKeys(document2, index, true), targets: resolvedTargets(document2, index) });
+        if (rewrite.ambiguous.length) {
+          result.warnings.push(`\u9875\u9762\u300C${node.title}\u300D\u5B58\u5728\u6B67\u4E49\u8DF3\u8F6C\uFF0C\u5DF2\u4FDD\u7559\u6574\u9875\u539F\u6587\uFF1B\u8BF7\u4F7F\u7528\u9875\u9762 id \u6216 data-nav\u3002`);
+        } else {
+          result.warnings.push(`\u9875\u9762\u300C${node.title}\u300D\u81EA\u52A8\u8865\u9F50\u540E\u5C06\u8D85\u8FC7 8 MiB\uFF0C\u5DF2\u4FDD\u7559\u539F\u6587\uFF1B\u8BF7\u7F29\u51CF\u9875\u9762\u5185\u5BB9\u540E\u91CD\u8BD5\u3002`);
+        }
+        continue;
+      }
+      if (rewrite.html === document2.html) {
+        setEntry(id, { ...cached, pending: pendingKeys(document2, index), targets: resolvedTargets(document2, index) });
+        continue;
+      }
+      const normalized = parseNavDocument(rewrite.html);
+      tx.stagePageHtml(id, rewrite.html);
+      staged.add(id);
+      const now2 = Date.now();
+      node.htmlRev = Math.max(now2, (node.htmlRev ?? 0) + 1);
+      node.updatedAt = Math.max(now2, node.updatedAt);
+      tx.markProjectChanged();
+      result.stats.parsed++;
+      setEntry(id, { ...cached, anchors: normalized.anchors, pending: pendingKeys(normalized, index), targets: resolvedTargets(normalized, index) });
+      result.changed.push(node.title);
+      result.stats.rewritten++;
+    } catch {
+      setEntry(id);
+      result.warnings.push(`\u9875\u9762\u300C${node.title}\u300D\u5BFC\u822A\u81EA\u52A8\u8865\u9F50\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u539F\u6587\uFF1B\u8BF7\u68C0\u67E5\u9875\u9762\u6587\u4EF6\u540E\u91CD\u8BD5\u3002`);
+    }
+  }
+  tx.afterCommit(() => {
+    for (const id of staged) {
+      const entry = next.pages.get(id);
+      if (!entry) continue;
+      try {
+        next.pages.set(id, { ...entry, fingerprint: pageFingerprint(cwd, id) });
+      } catch {
+        setEntry(id);
+      }
+    }
+    workspaces.set(key, next);
+  });
+  return result;
+}
 
 // src/server.ts
 import http2 from "node:http";
-import { randomBytes as randomBytes2, timingSafeEqual } from "node:crypto";
+import { randomBytes as randomBytes3, timingSafeEqual } from "node:crypto";
 import { existsSync as existsSync6, readFileSync as readFileSync7, statSync } from "node:fs";
-import { join as join9 } from "node:path";
+import { join as join11 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/probe.ts
@@ -65385,15 +66036,15 @@ async function assertUrlAllowed(rawUrl) {
   return { url, address: addresses[0].address, family: addresses[0].family };
 }
 function resolveAll(host) {
-  return new Promise((resolve11, reject) => {
+  return new Promise((resolve13, reject) => {
     dnsLookup(host, { all: true }, (err, addresses) => {
       if (err) reject(new FetchError(`DNS \u89E3\u6790\u5931\u8D25\uFF1A${host}\uFF08${err.message}\uFF09`));
-      else resolve11(addresses);
+      else resolve13(addresses);
     });
   });
 }
 function requestOnce(target, options, maxBytes, signal) {
-  return new Promise((resolve11, reject) => {
+  return new Promise((resolve13, reject) => {
     const isHttps = target.url.protocol === "https:";
     const mod = isHttps ? https : http;
     const pinnedLookup = (_hostname, opts, callback) => {
@@ -65429,7 +66080,7 @@ function requestOnce(target, options, maxBytes, signal) {
         });
         res.on(
           "end",
-          () => resolve11({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
+          () => resolve13({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
         );
         res.on("error", reject);
       }
@@ -65546,7 +66197,7 @@ function tokenFor(cwd) {
   return [...state?.tokens ?? []].find(([, workspace]) => workspace.cwd === cwd)?.[0];
 }
 function listen(server, port) {
-  return new Promise((resolve11, reject) => {
+  return new Promise((resolve13, reject) => {
     const onError = (err) => {
       server.off("listening", onListening);
       reject(err);
@@ -65554,7 +66205,7 @@ function listen(server, port) {
     const onListening = () => {
       server.off("error", onError);
       const addr = server.address();
-      resolve11(typeof addr === "object" && addr ? addr.port : port);
+      resolve13(typeof addr === "object" && addr ? addr.port : port);
     };
     server.once("error", onError);
     server.once("listening", onListening);
@@ -65608,8 +66259,8 @@ async function ensureServer(cwd, preferredPort = DEFAULT_PORT) {
   if (!state) throw new Error("\u753B\u5E03\u670D\u52A1\u5DF2\u5173\u95ED\uFF0C\u8BF7\u91CD\u8BD5\u3002");
   let token = tokenFor(cwd);
   if (!token) {
-    token = randomBytes2(16).toString("hex");
-    state.tokens.set(token, { cwd, secret: randomBytes2(32).toString("hex"), scope: randomBytes2(16).toString("hex") });
+    token = randomBytes3(16).toString("hex");
+    state.tokens.set(token, { cwd, secret: randomBytes3(32).toString("hex"), scope: randomBytes3(16).toString("hex") });
   }
   const { secret, scope } = state.tokens.get(token);
   return { token, port: state.port, url: `http://127.0.0.1:${state.port}/w/${scope}/?ws=${token}#${secret}` };
@@ -65622,6 +66273,7 @@ function currentUrl(cwd) {
   return `http://127.0.0.1:${state.port}/w/${scope}/?ws=${token}#${secret}`;
 }
 async function shutdownForTests() {
+  clearNavigationCache();
   if (stopping) return stopping;
   if (starting) await starting;
   if (!state) return;
@@ -65637,8 +66289,8 @@ async function shutdownForTests() {
       }
     }
   }
-  stopping = new Promise((resolve11) => {
-    s.server.close(() => resolve11());
+  stopping = new Promise((resolve13) => {
+    s.server.close(() => resolve13());
     s.server.closeAllConnections();
   });
   try {
@@ -65747,7 +66399,7 @@ function routeRequest(req, res) {
     if (!name || /[\\/]/.test(name) || name.includes("..")) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
-    const file = join9(exportsDir(cwd), name);
+    const file = join11(exportsDir(cwd), name);
     if (!existsSync6(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     try {
       assertReadableFile(cwd, file, "\u5BFC\u51FA\u6587\u4EF6");
@@ -65903,13 +66555,20 @@ function handleNodes(req, res) {
     const id = typeof body.id === "string" ? body.id : "";
     if (op === "remove") {
       if (!id) throw new InvalidInputError("missing id");
-      removeNode(cwd, id);
-      return sendJson(res, { ok: true, id });
+      const navigation = withProjectTransaction(cwd, (tx) => {
+        removeNode(cwd, id, tx);
+        return backfillNavigation(cwd, tx);
+      });
+      return sendJson(res, { ok: true, id, warnings: navigation.warnings });
     }
     if (op === "rename") {
       if (!id || typeof body.title !== "string") throw new InvalidInputError("missing id or title");
-      renameNode(cwd, id, body.title);
-      return sendJson(res, { ok: true, id, title: body.title });
+      const title = body.title;
+      const navigation = withProjectTransaction(cwd, (tx) => {
+        renameNode(cwd, id, title, tx);
+        return backfillNavigation(cwd, tx);
+      });
+      return sendJson(res, { ok: true, id, title, warnings: navigation.warnings });
     }
     if (op === "move") {
       if (!id) throw new InvalidInputError("missing id");
@@ -65918,8 +66577,11 @@ function handleNodes(req, res) {
     }
     if (op === "duplicate") {
       if (!id) throw new InvalidInputError("missing id");
-      const node = duplicateNode(cwd, id, typeof body.title === "string" ? body.title : void 0);
-      return sendJson(res, { ok: true, node });
+      const { node, warnings } = withProjectTransaction(cwd, (tx) => {
+        const node2 = duplicateNode(cwd, id, typeof body.title === "string" ? body.title : void 0, tx);
+        return { node: node2, warnings: backfillNavigation(cwd, tx).warnings };
+      });
+      return sendJson(res, { ok: true, node, warnings });
     }
     return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: `unknown op: ${op}` }));
   });
@@ -66021,7 +66683,7 @@ function isLocalHost(host) {
   return name === "127.0.0.1" || name === "localhost";
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
-  const file = join9(WEB_DIR, name);
+  const file = join11(WEB_DIR, name);
   if (!existsSync6(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
   if (name === "index.html") {
@@ -66048,17 +66710,18 @@ function send(res, status, type, body) {
 }
 
 // src/designOps.ts
-function currentStyleId(cwd) {
-  return readProject(cwd).design?.styleId ?? null;
+function currentStyleId(cwd, tx) {
+  return readProject(cwd, tx).design?.styleId ?? null;
 }
-function applyProjectStyle(cwd, styleId) {
-  if (styleId !== null && !designStyleExists(cwd, styleId)) {
+function applyProjectStyle(cwd, styleId, tx, preparedStyle) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => applyProjectStyle(cwd, styleId, transaction, preparedStyle));
+  if (styleId !== null && !preparedStyle && !designStyleExists(cwd, styleId)) {
     throw new InvalidInputError(`\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`);
   }
-  if (projectIssue(cwd)) {
+  if (projectIssue(cwd, tx)) {
     throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u5207\u6362\u8BBE\u8BA1\u98CE\u683C\u3002");
   }
-  const project = readProject(cwd);
+  const project = readProject(cwd, tx);
   if (styleId === null) {
     delete project.design;
   } else {
@@ -66071,24 +66734,26 @@ function applyProjectStyle(cwd, styleId) {
   const now2 = Date.now();
   if (styleId !== null) {
     for (const node of project.nodes) {
-      const html = readPageHtml(cwd, node.id);
+      const html = readPageHtml(cwd, node.id, tx);
       if (html === null || html.trim() === "") continue;
-      const injected = injectDesign(html, styleId, cwd);
+      const injected = injectDesign(html, styleId, cwd, preparedStyle);
       for (const name of injected.missingIcons) missing.add(name);
       for (const name of injected.scriptIcons) scriptIcons.add(name);
       if (injected.html === html) continue;
-      writePageHtml(cwd, node.id, injected.html);
-      node.htmlRev = now2;
+      writePageHtml(cwd, node.id, injected.html, tx);
+      node.htmlRev = Math.max(now2, (node.htmlRev ?? 0) + 1);
       pagesUpdated++;
     }
   }
-  writeProject(cwd, project);
+  writeProject(cwd, project, tx);
+  const navigation = backfillNavigation(cwd, tx);
   return {
     styleId,
-    name: styleId === null ? null : designStyleSummary(cwd, styleId)?.name ?? styleId,
+    name: styleId === null ? null : preparedStyle?.summary.name ?? designStyleSummary(cwd, styleId)?.name ?? styleId,
     pagesUpdated,
     missingIcons: [...missing],
-    scriptIcons: [...scriptIcons]
+    scriptIcons: [...scriptIcons],
+    warnings: navigation.warnings
   };
 }
 function templateDocument(cwd, styleId, templateId) {
@@ -66126,105 +66791,6 @@ function interactionDocument(cwd, styleId, interactionId) {
     classes: entry.classes ?? [],
     skeletonHtml: entry.skeletonHtml ?? ""
   };
-}
-
-// src/nav.ts
-var SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
-function titleSlug(title) {
-  return String(title ?? "").normalize("NFC").trim().toLowerCase().replace(/\s+/g, "-").replace(/[\\/:*?"<>|#?&=%+]+/g, "-").replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "");
-}
-function parseNavRef(href, dataNav) {
-  const nav = (dataNav ?? "").trim();
-  const raw = (href ?? "").trim();
-  if (!nav && !raw) return null;
-  if (nav) return { dataNav: nav, href: raw || null };
-  if (raw.startsWith("#")) return null;
-  if (raw.startsWith("//")) return null;
-  if (SCHEME_RE.test(raw)) return null;
-  return { dataNav: null, href: raw };
-}
-function hrefKey(href) {
-  let s = href.split(/[?#]/)[0] ?? "";
-  s = s.split("/").pop() ?? s;
-  s = s.replace(/\.html?$/i, "");
-  try {
-    s = decodeURIComponent(s);
-  } catch {
-  }
-  return s.normalize("NFC").toLowerCase();
-}
-function resolveNavRef(ref, pages) {
-  const idSet = new Set(pages.map((p) => p.id));
-  if (ref.dataNav) {
-    return { target: idSet.has(ref.dataNav) ? ref.dataNav : null, ambiguous: [] };
-  }
-  if (!ref.href) return { target: null, ambiguous: [] };
-  const key = hrefKey(ref.href);
-  if (!key) return { target: null, ambiguous: [] };
-  if (idSet.has(key)) return { target: key, ambiguous: [] };
-  const slugMatches = pages.filter((p) => titleSlug(p.title) === key).map((p) => p.id);
-  if (slugMatches.length === 1) return { target: slugMatches[0], ambiguous: [] };
-  if (slugMatches.length > 1) return { target: null, ambiguous: slugMatches };
-  return { target: null, ambiguous: [] };
-}
-var ANCHOR_RE = /<a\b([^>]*)>/gi;
-var ATTR_RE = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-function maskSegments2(html) {
-  const mask2 = (text3) => text3.replace(/[^\n]/g, " ");
-  return html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, mask2).replace(/<style\b[\s\S]*?<\/style\s*>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
-}
-function readAttr2(attrs, name) {
-  for (const m of attrs.matchAll(ATTR_RE)) {
-    if (m[1].toLowerCase() === name) return (m[2] ?? m[3] ?? "").trim();
-  }
-  return null;
-}
-function rewriteNavLinks(html, pages, hrefPrefix) {
-  const unresolved = [];
-  const ambiguous = [];
-  let rewritten = 0;
-  const masked = maskSegments2(html);
-  const edits = [];
-  for (const m of masked.matchAll(ANCHOR_RE)) {
-    const start = m.index ?? 0;
-    const end = start + m[0].length;
-    const attrs = m[1] ?? "";
-    const href = readAttr2(attrs, "href");
-    const dataNav = readAttr2(attrs, "data-nav");
-    const ref = parseNavRef(href, dataNav);
-    if (!ref) continue;
-    const res = resolveNavRef(ref, pages);
-    if (res.ambiguous.length) {
-      ambiguous.push({ ref: ref.dataNav ?? ref.href ?? "", ids: res.ambiguous });
-      continue;
-    }
-    if (!res.target) {
-      unresolved.push(ref.dataNav ?? ref.href ?? "");
-      continue;
-    }
-    const wanted = `${hrefPrefix}${res.target}.html`;
-    let next;
-    if (href !== null) {
-      if (href === wanted) continue;
-      next = m[0].replace(/(\bhref\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s>]+)/i, `$1"${wanted}"`);
-    } else {
-      next = m[0].replace(/\s*(\/?>)$/, ` href="${wanted}"$1`);
-    }
-    edits.push({ start, end, text: next });
-    rewritten++;
-  }
-  if (!edits.length) return { html, rewritten: 0, unresolved, ambiguous };
-  let out = "";
-  let cursor = 0;
-  for (const edit of edits) {
-    out += html.slice(cursor, edit.start) + edit.text;
-    cursor = edit.end;
-  }
-  out += html.slice(cursor);
-  return { html: out, rewritten, unresolved, ambiguous };
-}
-function mayHaveNavLinks(html) {
-  return /<a\b[^>]*(?:href|data-nav)\s*=/i.test(html);
 }
 
 // src/site.ts
@@ -66301,7 +66867,7 @@ function resolveBrowser() {
   return BROWSER_CANDIDATES.find((p) => existsSync9(p)) ?? null;
 }
 function exportsDir(cwd) {
-  return join14(projectDir(cwd), "exports");
+  return join16(projectDir(cwd), "exports");
 }
 function stamp() {
   const d = /* @__PURE__ */ new Date();
@@ -66343,7 +66909,7 @@ var BrowserSpawnError = class extends Error {
 var SandboxUnavailableError = class extends Error {
 };
 async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
-  const portFile = join14(userDataDir, "DevToolsActivePort");
+  const portFile = join16(userDataDir, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
   let stderr = "";
   proc.stderr?.on("data", (chunk) => {
@@ -66391,7 +66957,7 @@ function killTree(proc) {
 }
 function removeProfile(userDataDir) {
   try {
-    rmSync5(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    rmSync4(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   } catch (err) {
     warnUser(`\u4E34\u65F6 profile \u672A\u80FD\u5220\u9664\uFF1A${userDataDir}\uFF08${err.message}\uFF09`);
   }
@@ -66400,7 +66966,7 @@ async function launchBrowser(exe) {
   const puppeteer2 = (await Promise.resolve().then(() => (init_puppeteer_core(), puppeteer_core_exports))).default;
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const userDataDir = mkdtempSync(join14(tmpdir2(), "tsc-png-"));
+    const userDataDir = mkdtempSync(join16(tmpdir2(), "tsc-png-"));
     const proc = spawn4(exe, [...launchArgsFor(), `--user-data-dir=${userDataDir}`, "about:blank"], {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -66463,9 +67029,9 @@ async function exportPngOnce(cwd) {
     });
     const dir = exportsDir(cwd);
     assertInsideWorkspace(cwd, dir, "\u5BFC\u51FA\u76EE\u5F55");
-    mkdirSync3(dir, { recursive: true });
+    mkdirSync4(dir, { recursive: true });
     const name = `canvas-${stamp()}.png`;
-    const path14 = join14(dir, name);
+    const path14 = join16(dir, name);
     assertWritableTarget(cwd, path14, "\u622A\u56FE\u5BFC\u51FA\u76EE\u6807");
     await page.screenshot({ path: path14, clip: clip ?? void 0 });
     return { name, path: path14, bytes: readFileSync12(path14).length };
@@ -66601,9 +67167,9 @@ async function exportZip(cwd) {
   const zip2 = buildZip(entries);
   const dir = exportsDir(cwd);
   assertInsideWorkspace(cwd, dir, "\u5BFC\u51FA\u76EE\u5F55");
-  mkdirSync3(dir, { recursive: true });
+  mkdirSync4(dir, { recursive: true });
   const name = `canvas-${stamp()}.zip`;
-  const path14 = join14(dir, name);
+  const path14 = join16(dir, name);
   writeFileAtomic(cwd, path14, zip2);
   return { name, path: path14, bytes: zip2.length };
 }
@@ -66626,12 +67192,12 @@ async function runExport(cwd, kind) {
 // src/audit/drift.ts
 import { createHash as createHash4 } from "node:crypto";
 import { existsSync as existsSync10 } from "node:fs";
-import { join as join15 } from "node:path";
+import { join as join17 } from "node:path";
 function hash(text3) {
   return createHash4("sha1").update(text3).digest("hex").slice(0, 12);
 }
 function snapshotDir(cwd) {
-  return join15(cwd, ".tianshu-canvas", "audit");
+  return join17(cwd, ".tianshu-canvas", "audit");
 }
 function buildSnapshot(input2) {
   const vars = /* @__PURE__ */ new Set();
@@ -66700,7 +67266,7 @@ function formatDriftReport(result, before, after) {
 
 // src/audit/visual.ts
 import { existsSync as existsSync11, readFileSync as readFileSync13 } from "node:fs";
-import { join as join16 } from "node:path";
+import { join as join18 } from "node:path";
 
 // src/audit/png.ts
 import { deflateSync, inflateSync } from "node:zlib";
@@ -66820,10 +67386,10 @@ function diffPng(a2, b2, options = {}) {
 
 // src/audit/visual.ts
 function defaultBaselineDir(cwd) {
-  return join16(projectDir(cwd), "audit", "baseline");
+  return join18(projectDir(cwd), "audit", "baseline");
 }
 function baselineFile(dir, styleId, pageId, device) {
-  return join16(dir, styleId || "free", `${pageId}@${device}@2x.png`);
+  return join18(dir, styleId || "free", `${pageId}@${device}@2x.png`);
 }
 async function capturePage(page, canvasUrl, pageId) {
   const url = new URL(canvasUrl);
@@ -66837,10 +67403,10 @@ async function capturePage(page, canvasUrl, pageId) {
     const frames = Array.from(doc.querySelectorAll("iframe"));
     await Promise.all(
       frames.map(
-        (f) => new Promise((resolve11) => {
-          if (f.contentDocument?.readyState === "complete") return resolve11();
-          f.addEventListener("load", () => resolve11(), { once: true });
-          setTimeout(resolve11, 5e3);
+        (f) => new Promise((resolve13) => {
+          if (f.contentDocument?.readyState === "complete") return resolve13();
+          f.addEventListener("load", () => resolve13(), { once: true });
+          setTimeout(resolve13, 5e3);
         })
       )
     );
@@ -66916,7 +67482,7 @@ function compareWithBaselines(cwd, styleId, dir, options = {}) {
           }
           continue;
         }
-        const plainBaseline = join16(file, "..", `${node.id}@${node.deviceType}@2x.plain.png`);
+        const plainBaseline = join18(file, "..", `${node.id}@${node.deviceType}@2x.plain.png`);
         const readBaseline = (p) => {
           assertInsideWorkspace(cwd, p, "\u89C6\u89C9\u57FA\u7EBF");
           return readFileSync13(p);
@@ -66951,8 +67517,8 @@ ${result.written.map((b2) => `  - ${b2.title} \u2192 ${b2.file}`).join("\n")}`;
 }
 
 // src/audit/review.ts
-import { createHash as createHash5, randomBytes as randomBytes3 } from "node:crypto";
-import { join as join17, resolve as resolve8 } from "node:path";
+import { createHash as createHash5, randomBytes as randomBytes4 } from "node:crypto";
+import { join as join19, resolve as resolve10 } from "node:path";
 import { deflateSync as deflateSync2 } from "node:zlib";
 var VIEWPORTS = [{ width: 1440, height: 1e3 }, { width: 768, height: 1024 }, { width: 390, height: 844 }];
 var MAX_HEIGHT = 16e3;
@@ -66973,9 +67539,9 @@ async function reviewOnce(cwd, pageId, options) {
   if (options.outputDir !== void 0 && (typeof options.outputDir !== "string" || !options.outputDir.trim())) {
     throw new InvalidInputError("outputDir \u5FC5\u987B\u662F\u975E\u7A7A\u8DEF\u5F84\u3002");
   }
-  const base = resolve8(cwd, options.outputDir ?? join17(projectDir(cwd), "audit", "review"));
+  const base = resolve10(cwd, options.outputDir ?? join19(projectDir(cwd), "audit", "review"));
   assertInsideWorkspace(cwd, base, "\u5BA1\u9605\u8F93\u51FA\u76EE\u5F55");
-  const outputDir = join17(base, pageId + "-" + Date.now() + "-" + randomBytes3(6).toString("hex"));
+  const outputDir = join19(base, pageId + "-" + Date.now() + "-" + randomBytes4(6).toString("hex"));
   assertInsideWorkspace(cwd, outputDir, "\u5BA1\u9605\u8F93\u51FA\u76EE\u5F55");
   const exe = resolveBrowser();
   if (!exe) throw new Error("\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u751F\u6210\u5BA1\u9605\u622A\u56FE\uFF1B\u6B63\u5F0F\u9A8C\u6536\u4E0D\u80FD\u8DF3\u8FC7\u6D4F\u89C8\u5668\u3002");
@@ -67053,7 +67619,7 @@ async function reviewOnce(cwd, pageId, options) {
         if (errors.length) issues.push({ rule: "script-error", severity: "error", message: errors.join("\n") });
         if (network.size) issues.push({ rule: "external-resource", severity: "error", message: "\u9875\u9762\u5C1D\u8BD5\u8BBF\u95EE\u5916\u90E8\u8D44\u6E90\uFF0C\u5DF2\u963B\u6B62\uFF1A" + [...network].join("\u3001") });
         if (violations.size) issues.push({ rule: "csp-blocked-resource", severity: "warning", message: [...violations].join("\n") });
-        const file = join17(outputDir, pageId + "-" + viewport.width + ".png");
+        const file = join19(outputDir, pageId + "-" + viewport.width + ".png");
         assertInsideWorkspace(cwd, file, "\u5BA1\u9605\u622A\u56FE");
         writeFileInWorkspace(cwd, file, shot.buffer, "\u5BA1\u9605\u622A\u56FE");
         captures.push({ ...viewport, path: file, bytes: shot.buffer.length, captureMode: shot.height > viewport.height ? "stitched-scroll" : "viewport", capturedHeight: shot.height, metrics: evidence.metrics, issues });
@@ -67067,7 +67633,7 @@ async function reviewOnce(cwd, pageId, options) {
   } finally {
     await dispose();
   }
-  const reportFile = join17(outputDir, "review.json");
+  const reportFile = join19(outputDir, "review.json");
   const result = {
     pageId,
     title: node.title,
@@ -67276,23 +67842,23 @@ function formatReviewReport(result) {
 }
 
 // src/brand.ts
-import { existsSync as existsSync12, mkdirSync as mkdirSync4 } from "node:fs";
-import { dirname as dirname5, join as join18, resolve as resolve9 } from "node:path";
+import { existsSync as existsSync12, mkdirSync as mkdirSync5 } from "node:fs";
+import { dirname as dirname6, join as join20, resolve as resolve11 } from "node:path";
 function memoryDir(cwd) {
-  return join18(projectDir(cwd), "memory");
+  return join20(projectDir(cwd), "memory");
 }
 function memoryFile(cwd) {
-  return join18(memoryDir(cwd), "brand.json");
+  return join20(memoryDir(cwd), "brand.json");
 }
 var EMPTY3 = { schemaVersion: 1, updatedAt: null, styles: {} };
 function emptyStyleMemory() {
   return { usage: { components: {}, icons: {}, tokens: {} }, checks: {}, sources: [] };
 }
-function readMemory(cwd) {
+function readMemory(cwd, tx) {
   const file = memoryFile(cwd);
-  if (!existsSync12(file)) return { ...EMPTY3, styles: {} };
+  if (!tx && !existsSync12(file)) return { ...EMPTY3, styles: {} };
   try {
-    const parsed = JSON.parse(readTextInWorkspace(cwd, file, "\u54C1\u724C\u8BB0\u5FC6"));
+    const parsed = JSON.parse(tx ? tx.readFile(file) ?? "{}" : readTextInWorkspace(cwd, file, "\u54C1\u724C\u8BB0\u5FC6"));
     if (parsed.schemaVersion !== 1 || typeof parsed.styles !== "object" || parsed.styles === null) {
       return { ...EMPTY3, styles: {} };
     }
@@ -67301,7 +67867,11 @@ function readMemory(cwd) {
     return { ...EMPTY3, styles: {} };
   }
 }
-function writeMemory(cwd, memory) {
+function writeMemory(cwd, memory, tx) {
+  if (tx) {
+    tx.stageFile(memoryFile(cwd), JSON.stringify(memory, null, 2) + "\n");
+    return;
+  }
   writeFileInWorkspace(cwd, memoryFile(cwd), JSON.stringify(memory, null, 2).replace(/\r\n/g, "\n") + "\n", "\u54C1\u724C\u8BB0\u5FC6");
 }
 function usageFromHtml(html) {
@@ -67321,8 +67891,9 @@ var now = () => (/* @__PURE__ */ new Date()).toISOString();
 function mergeCounts(target, add) {
   for (const [key, value] of Object.entries(add)) target[key] = (target[key] ?? 0) + value;
 }
-function recordUsage(cwd, input2) {
-  const memory = readMemory(cwd);
+function recordUsage(cwd, input2, tx) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => recordUsage(cwd, input2, transaction));
+  const memory = readMemory(cwd, tx);
   const style = memory.styles[input2.styleId] ?? emptyStyleMemory();
   for (const html of input2.htmls ?? []) {
     const usage2 = usageFromHtml(html);
@@ -67339,15 +67910,16 @@ function recordUsage(cwd, input2) {
   if (!style.sources.some((s) => `${s.kind}:${s.ref}` === key)) style.sources.push(input2.source);
   memory.styles[input2.styleId] = style;
   memory.updatedAt = stamp2;
-  writeMemory(cwd, memory);
+  writeMemory(cwd, memory, tx);
   return memory;
 }
-function forgetStyle(cwd, styleId) {
-  const memory = readMemory(cwd);
+function forgetStyle(cwd, styleId, tx) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => forgetStyle(cwd, styleId, transaction));
+  const memory = readMemory(cwd, tx);
   if (!(styleId in memory.styles)) return;
   delete memory.styles[styleId];
   memory.updatedAt = now();
-  writeMemory(cwd, memory);
+  writeMemory(cwd, memory, tx);
 }
 function memorySummary(cwd, styleId) {
   const style = readMemory(cwd).styles[styleId];
@@ -67364,8 +67936,8 @@ function memorySummary(cwd, styleId) {
 function buildBrandPack(cwd, styleId, builtinDir) {
   void builtinDir;
   const dir = customStyleDir(cwd, styleId);
-  const tokensFile = join18(dir, "tokens.json");
-  const metaFile = join18(dir, "meta.json");
+  const tokensFile = join20(dir, "tokens.json");
+  const metaFile = join20(dir, "meta.json");
   if (!existsSync12(tokensFile) || !existsSync12(metaFile)) {
     throw new Error(`\u300C${styleId}\u300D\u4E0D\u662F\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u5185\u7F6E\u98CE\u683C\u4E0D\u80FD\u5BFC\u51FA\u4E3A\u54C1\u724C\u5305\uFF09\u3002`);
   }
@@ -67410,25 +67982,26 @@ function exportBrandPack(cwd, pack, file) {
     checksum: pack.checksum
   };
   const data = JSON.stringify(ordered, null, 2).replace(/\r\n/g, "\n") + "\n";
-  mkdirSync4(dirname5(resolve9(file)), { recursive: true });
+  mkdirSync5(dirname6(resolve11(file)), { recursive: true });
   if (file.startsWith(projectDir(cwd))) writeFileInWorkspace(cwd, file, data, "\u54C1\u724C\u5305");
   else writeFileAtomic(cwd, file, data);
 }
-function importBrandPack(cwd, pack) {
-  const dir = join18(libraryDir(cwd), pack.id);
+function importBrandPack(cwd, pack, tx) {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => importBrandPack(cwd, pack, transaction));
+  const dir = join20(libraryDir(cwd), pack.id);
   const write2 = (name, value) => {
-    writeFileInWorkspace(cwd, join18(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
+    tx.stageFile(join20(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
   };
   write2("tokens.json", pack.tokens);
   write2("meta.json", pack.meta);
-  const memory = readMemory(cwd);
+  const memory = readMemory(cwd, tx);
   memory.styles[pack.id] = {
     usage: pack.usage,
     checks: pack.checks,
     sources: [{ kind: "import", ref: pack.name }]
   };
   memory.updatedAt = now();
-  writeMemory(cwd, memory);
+  writeMemory(cwd, memory, tx);
 }
 
 // src/device.ts
@@ -68354,6 +68927,9 @@ function scriptIconNote(names) {
   return `
 \u6CE8\u610F\uFF1A\u811A\u672C\u91CC\u7684\u56FE\u6807\u4E0D\u4F1A\u5C55\u5F00\uFF1A${names.slice(0, 8).join("\u3001")}\u3002\u8BF7\u628A\u56FE\u6807\u5199\u5728\u9759\u6001 HTML \u7684 <template> \u91CC\uFF0C\u7531\u811A\u672C\u514B\u9686\u4F7F\u7528\u3002`;
 }
+function navigationNotice(warnings) {
+  return warnings.length ? "\n\u5BFC\u822A\u63D0\u793A\uFF1A" + warnings.join("\uFF1B") : "";
+}
 function projectHint(cwd) {
   return `${PROJECT_DIR_NAME}/\uFF08\u9879\u76EE\u6587\u4EF6\uFF1A${projectFile(cwd)}\uFF09`;
 }
@@ -68379,7 +68955,7 @@ function writeUrlHint(cwd, url) {
     const publicUrl = new URL(url);
     publicUrl.pathname = "/";
     publicUrl.hash = "";
-    writeFileInWorkspace(cwd, join19(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
+    writeFileInWorkspace(cwd, join21(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
   } catch {
   }
 }
@@ -68415,34 +68991,7 @@ async function canvasUpsertPage(call) {
   if (requestedId && !isSafeId(requestedId)) {
     return { content: `\u975E\u6CD5 id\uFF1A${requestedId}\uFF08\u4EC5\u5141\u8BB8\u5B57\u6BCD\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u3001\u8FDE\u5B57\u7B26\uFF0C1\u201364 \u4F4D\uFF09`, isError: true };
   }
-  const project = readProject(call.cwd);
-  const existing = requestedId ? project.nodes.find((n) => n.id === requestedId) : void 0;
-  if (!html && !existing) {
-    return {
-      content: "\u7F3A\u5C11\u5185\u5BB9\uFF1A\u8BF7\u63D0\u4F9B html_path\uFF08\u5DE5\u4F5C\u533A\u5185\u7684 HTML \u6587\u4EF6\uFF09\u6216 html\uFF08\u5185\u8054 HTML\uFF09\u3002\u4EC5\u66F4\u65B0\u5DF2\u6709\u9875\u9762\u7684\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8\u65F6\uFF0C\u9700\u4F20\u5DF2\u5B58\u5728\u7684 id\u3002",
-      isError: true
-    };
-  }
   const id = requestedId ?? newPageId();
-  const deviceProvided = isDeviceType(args.device_type);
-  const deviceType = isDeviceType(args.device_type) ? args.device_type : existing?.deviceType ?? DEFAULT_DEVICE;
-  const base = existing && !deviceProvided ? { width: existing.width, height: existing.height } : resolveSize(deviceType);
-  const size = {
-    width: positive(num(args.width)) ?? base.width,
-    height: positive(num(args.height)) ?? base.height
-  };
-  let x2 = num(args.x);
-  let y = num(args.y);
-  if (x2 === void 0 || y === void 0) {
-    if (existing) {
-      x2 = x2 ?? existing.x;
-      y = y ?? existing.y;
-    } else {
-      const pos = autoLayoutPosition(call.cwd, nextLayoutIndex(call.cwd), size);
-      x2 = x2 ?? pos.x;
-      y = y ?? pos.y;
-    }
-  }
   let assetNote = "";
   let workHtml = html;
   if (workHtml !== void 0 && args.inline_assets === true) {
@@ -68457,48 +69006,55 @@ async function canvasUpsertPage(call) {
 ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactErrorPaths(s.reason)}\uFF09`).join("\n")}${skipped.length > 8 ? `
   \u2026\u7B49 ${skipped.length} \u9879` : ""}` : "");
   }
-  const pageTitle = str(args.title) ?? existing?.title ?? id;
-  let navNote = "";
-  if (workHtml !== void 0) {
-    const pages = pageRefsWith(project, { id, title: pageTitle });
-    const nav = rewriteNavLinks(workHtml, pages, "");
-    if (nav.ambiguous.length) {
-      const detail = nav.ambiguous.map((a2) => `  - \u300C${a2.ref}\u300D\u547D\u4E2D\u591A\u4E2A\u9875\u9762\uFF1A${a2.ids.join("\u3001")}\uFF1B\u8BF7\u6539\u7528\u771F\u5B9E\u9875\u9762 id \u6216 data-nav`).join("\n");
-      return {
-        content: `\u9875\u9762\u8DF3\u8F6C\u94FE\u63A5\u5B58\u5728\u6B67\u4E49\uFF0C\u672A\u5199\u5165\uFF1A
-${detail}
-
-\uFF08\u540C\u540D\u6807\u9898\u4F1A\u4EA7\u751F\u76F8\u540C slug\uFF0C\u6539\u7528 <a href="<id>.html"> \u6216 <a data-nav="<id>">\uFF09`,
-        isError: true
-      };
+  const { existing, node, rel, pageHtml, injection, navNote, backfilled, navWarnings, deviceType } = withProjectTransaction(call.cwd, (tx) => {
+    const project = tx.project;
+    const existing2 = requestedId ? project.nodes.find((n) => n.id === requestedId) : void 0;
+    if (workHtml === void 0 && !existing2) {
+      throw new InvalidInputError("\u7F3A\u5C11\u5185\u5BB9\uFF1A\u8BF7\u63D0\u4F9B html_path \u6216 html\uFF1B\u4EC5\u66F4\u65B0\u6807\u9898\u3001\u4F4D\u7F6E\u6216\u5C3A\u5BF8\u65F6\u9700\u4F20\u5DF2\u5B58\u5728\u7684 id\u3002");
     }
-    workHtml = nav.html;
-    if (nav.unresolved.length) {
-      navNote = `
+    const deviceProvided = isDeviceType(args.device_type);
+    const deviceType2 = isDeviceType(args.device_type) ? args.device_type : existing2?.deviceType ?? DEFAULT_DEVICE;
+    const base = existing2 && !deviceProvided ? { width: existing2.width, height: existing2.height } : resolveSize(deviceType2);
+    const size = { width: positive(num(args.width)) ?? base.width, height: positive(num(args.height)) ?? base.height };
+    const pos = existing2 ?? autoLayoutPosition(call.cwd, project.nodes.length, size);
+    const pageTitle = str(args.title) ?? existing2?.title ?? id;
+    let preparedHtml = workHtml;
+    let navNote2 = "";
+    if (preparedHtml !== void 0) {
+      const nav = rewriteNavLinks(preparedHtml, pageRefsWith(project, { id, title: pageTitle }), "");
+      if (nav.ambiguous.length) {
+        const detail = nav.ambiguous.map((a2) => `\u300C${a2.ref}\u300D\u547D\u4E2D\u591A\u4E2A\u9875\u9762\uFF1A${a2.ids.join("\u3001")}`).join("\uFF1B");
+        throw new InvalidInputError(`\u9875\u9762\u8DF3\u8F6C\u94FE\u63A5\u5B58\u5728\u6B67\u4E49\uFF0C\u672A\u5199\u5165\uFF1A${detail}\uFF1B\u8BF7\u6539\u7528\u771F\u5B9E\u9875\u9762 id \u6216 data-nav\u3002`);
+      }
+      preparedHtml = nav.html;
+      if (nav.unresolved.length) navNote2 = `
 \u6CE8\u610F\uFF1A\u8FD9\u4E9B\u94FE\u63A5\u672A\u5339\u914D\u5230\u9875\u9762\uFF0C\u5DF2\u539F\u6837\u4FDD\u7559\uFF08\u82E5\u76EE\u6807\u9875\u7A0D\u540E\u521B\u5EFA\u4F1A\u81EA\u52A8\u8865\u9F50\uFF09\uFF1A${nav.unresolved.slice(0, 8).join("\u3001")}\u3002`;
     }
-  }
-  const styleId = currentStyleId(call.cwd);
-  const injection = workHtml !== void 0 ? injectDesign(workHtml, styleId, call.cwd) : null;
-  const pageHtml = injection ? injection.html : workHtml;
-  const rel = pageHtml !== void 0 ? writePageHtml(call.cwd, id, pageHtml) : existing?.htmlPath ?? "";
-  const now2 = Date.now();
-  const node = {
-    id,
-    type: "page",
-    title: pageTitle,
-    x: x2,
-    y,
-    width: size.width,
-    height: size.height,
-    deviceType,
-    htmlPath: rel,
-    htmlRev: pageHtml !== void 0 ? now2 : existing?.htmlRev,
-    createdAt: existing?.createdAt ?? now2,
-    updatedAt: now2
-  };
-  upsertNode(call.cwd, node);
-  const backfilled = backfillNavLinks(call.cwd);
+    const injection2 = preparedHtml !== void 0 ? injectDesign(preparedHtml, project.design?.styleId ?? null, call.cwd) : null;
+    const pageHtml2 = injection2 ? injection2.html : preparedHtml;
+    if (pageHtml2 !== void 0) assertHtmlSize(pageHtml2);
+    const previousHtml = existing2 && pageHtml2 !== void 0 ? readPageHtml(call.cwd, id, tx) : null;
+    const htmlChanged = pageHtml2 !== void 0 && pageHtml2 !== previousHtml;
+    const rel2 = htmlChanged ? writePageHtml(call.cwd, id, pageHtml2, tx) : existing2?.htmlPath ?? "";
+    const now2 = Date.now();
+    const node2 = {
+      id,
+      type: "page",
+      title: pageTitle,
+      x: num(args.x) ?? pos.x,
+      y: num(args.y) ?? pos.y,
+      width: size.width,
+      height: size.height,
+      deviceType: deviceType2,
+      htmlPath: rel2,
+      htmlRev: htmlChanged ? Math.max(now2, (existing2?.htmlRev ?? 0) + 1) : existing2?.htmlRev,
+      createdAt: existing2?.createdAt ?? now2,
+      updatedAt: now2
+    };
+    upsertNode(call.cwd, node2, tx);
+    const navigation = htmlChanged || !existing2 || existing2.title !== pageTitle ? backfillNavigation(call.cwd, tx) : { changed: [], warnings: [] };
+    return { existing: existing2, node: node2, rel: rel2, pageHtml: pageHtml2, injection: injection2, navNote: navNote2, backfilled: navigation.changed, navWarnings: navigation.warnings, deviceType: deviceType2 };
+  });
   const { url } = await ensureServer(call.cwd);
   const blocked = pageHtml !== void 0 ? findBlockedResources(pageHtml) : [];
   const styleLine = injection ? injection.injected ? `
@@ -68508,10 +69064,11 @@ ${detail}
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join19(call.cwd, rel)}
+` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join21(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
-\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + navNote + (backfilled.length ? `
+\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + navNote + (navWarnings.length ? `
+\u5BFC\u822A\u63D0\u793A\uFF1A${navWarnings.join("\uFF1B")}` : "") + (backfilled.length ? `
 \u9875\u9762\u8DF3\u8F6C\uFF1A\u5DF2\u8865\u9F50 ${backfilled.length} \u4E2A\u9875\u9762\u7684\u524D\u5411\u94FE\u63A5\uFF08${backfilled.join("\u3001")}\uFF09\u3002` : "") + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).map(redactErrorPaths).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
@@ -68522,36 +69079,6 @@ function pageRefsWith(project, self2) {
   if (idx >= 0) refs[idx] = { id: self2.id, title: self2.title };
   else refs.push({ id: self2.id, title: self2.title });
   return refs;
-}
-function backfillNavLinks(cwd) {
-  const project = readProject(cwd);
-  const pages = project.nodes.map((n) => ({ id: n.id, title: n.title }));
-  if (pages.length === 0) return [];
-  const changed = [];
-  for (const node of project.nodes) {
-    try {
-      const html = readPageHtml(cwd, node.id);
-      if (html === null || !mayHaveNavLinks(html)) continue;
-      const stripped = stripDesign(html);
-      if (!mayHaveNavLinks(stripped)) continue;
-      const nav = rewriteNavLinks(stripped, pages, "");
-      if (nav.rewritten === 0 || nav.ambiguous.length) continue;
-      const reinjected = injectDesign(nav.html, currentStyleId(cwd), cwd);
-      const next = reinjected.html;
-      if (next === html) continue;
-      writePageHtml(cwd, node.id, next);
-      const stamped = readProject(cwd);
-      const target = stamped.nodes.find((n) => n.id === node.id);
-      if (target) {
-        target.htmlRev = Date.now();
-        target.updatedAt = Date.now();
-        writeProject(cwd, stamped);
-      }
-      changed.push(node.title);
-    } catch {
-    }
-  }
-  return changed;
 }
 function formatSelection(selection, project) {
   const node = project.nodes.find((n) => n.id === selection.pageId);
@@ -68640,21 +69167,28 @@ async function canvasArrange(call) {
     case "remove": {
       const id = str(call.args.id);
       if (!id) return { content: "remove \u9700\u8981 id\u3002", isError: true };
-      const project = readProject(call.cwd);
-      if (!project.nodes.some((n) => n.id === id)) return { content: `\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`, isError: true };
-      const next = removeNode(call.cwd, id);
-      return { content: `\u5DF2\u5220\u9664\u9875\u9762\u8282\u70B9 ${id}\uFF08\u8FDE\u5E26\u5176\u8FDE\u7EBF\u4E0E\u539F\u578B\u6587\u4EF6\uFF09\u3002\u5269\u4F59 ${next.nodes.length} \u4E2A\u8282\u70B9\u3002` };
+      const { next, warnings } = withProjectTransaction(call.cwd, (tx) => {
+        if (!tx.project.nodes.some((n) => n.id === id)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${id}`);
+        const next2 = removeNode(call.cwd, id, tx);
+        return { next: next2, warnings: backfillNavigation(call.cwd, tx).warnings };
+      });
+      return { content: `\u5DF2\u5220\u9664\u9875\u9762\u8282\u70B9 ${id}\uFF08\u8FDE\u5E26\u5176\u8FDE\u7EBF\u4E0E\u539F\u578B\u6587\u4EF6\uFF09\u3002\u5269\u4F59 ${next.nodes.length} \u4E2A\u8282\u70B9\u3002` + (warnings.length ? `
+\u5BFC\u822A\u63D0\u793A\uFF1A${warnings.join("\uFF1B")}` : "") };
     }
     case "duplicate": {
       const id = str(call.args.id);
       if (!id) return { content: "duplicate \u9700\u8981 id\u3002", isError: true };
       try {
-        const node = duplicateNode(call.cwd, id, str(call.args.title));
+        const { node, warnings } = withProjectTransaction(call.cwd, (tx) => {
+          const node2 = duplicateNode(call.cwd, id, str(call.args.title), tx);
+          return { node: node2, warnings: backfillNavigation(call.cwd, tx).warnings };
+        });
         const { url } = await ensureServer(call.cwd);
         return {
           content: `\u5DF2\u590D\u5236\u9875\u9762\u8282\u70B9\uFF0C\u65B0 id=${node.id}\uFF0C\u6807\u9898\u300C${node.title}\u300D\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}
-\u753B\u5E03 URL\uFF1A${url}`
+\u753B\u5E03 URL\uFF1A${url}` + (warnings.length ? `
+\u5BFC\u822A\u63D0\u793A\uFF1A${warnings.join("\uFF1B")}` : "")
         };
       } catch (err) {
         return { content: reportError(err), isError: true };
@@ -68675,8 +69209,10 @@ async function canvasArrange(call) {
       const source2 = str(call.args.source);
       const target = str(call.args.target);
       if (!source2 || !target) return { content: "unlink \u9700\u8981 source \u548C target\u3002", isError: true };
-      const before = readProject(call.cwd).edges.length;
-      const next = removeEdge(call.cwd, source2, target);
+      const { before, next } = withProjectTransaction(call.cwd, (tx) => {
+        const before2 = tx.project.edges.length;
+        return { before: before2, next: removeEdge(call.cwd, source2, target, tx) };
+      });
       if (next.edges.length === before) return { content: `\u6CA1\u6709\u5339\u914D\u7684\u8FDE\u7EBF ${source2} \u2192 ${target}\uFF0C\u672A\u4F5C\u6539\u52A8\u3002` };
       return { content: `\u5DF2\u53D6\u6D88\u8FDE\u7EBF ${source2} \u2192 ${target}\u3002` };
     }
@@ -68899,16 +69435,16 @@ async function canvasCodegen(call) {
   }
   const writeFiles = call.args.write_files === true || typeof call.args.out_dir === "string";
   if (writeFiles) {
-    const raw = str(call.args.out_dir) ?? join19(PROJECT_DIR_NAME, "exports", `${target}`);
-    const base = isAbsolute4(raw) ? raw : join19(call.cwd, raw);
+    const raw = str(call.args.out_dir) ?? join21(PROJECT_DIR_NAME, "exports", `${target}`);
+    const base = isAbsolute4(raw) ? raw : join21(call.cwd, raw);
     for (const file of files) {
-      const abs = join19(base, file.name);
-      mkdirSync5(dirname6(abs), { recursive: true });
+      const abs = join21(base, file.name);
+      mkdirSync6(dirname7(abs), { recursive: true });
       writeFileAtomic(call.cwd, abs, file.content);
     }
     return {
       content: `\u5DF2\u751F\u6210 ${files.length} \u4E2A\u6587\u4EF6\uFF08${label}\uFF0Ctarget=${target}${call.args.stack ? `\uFF0Cstack=${call.args.stack}` : ""}\uFF09\uFF1A
-` + files.map((f) => `  - ${join19(base, f.name)}`).join("\n") + `
+` + files.map((f) => `  - ${join21(base, f.name)}`).join("\n") + `
 
 ${codegenCaveat(target)}`
     };
@@ -68984,7 +69520,7 @@ async function canvasStyle(call) {
       return {
         content: styleId === null ? `\u5DF2\u89E3\u9664\u98CE\u683C\u9501\u5B9A\uFF1A\u56DE\u5230\u81EA\u7531\u53D1\u6325\uFF1B\u5DF2\u6709\u9875\u9762\u4FDD\u7559\u5F53\u524D\u6CE8\u5165\u7684\u6837\u5F0F\u5757\uFF0C\u65B0\u9875\u9762\u4E0D\u518D\u6CE8\u5165\u3002
 \u753B\u5E03 URL\uFF1A${url}` : `\u5DF2\u9501\u5B9A\u8BBE\u8BA1\u98CE\u683C\u300C${result.name}\u300D\uFF08${styleId}\uFF09\uFF1A\u91CD\u5199 ${result.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
-\u753B\u5E03 URL\uFF1A${url}${missing}${scriptIconNote(result.scriptIcons)}`
+\u753B\u5E03 URL\uFF1A${url}${missing}${scriptIconNote(result.scriptIcons)}${navigationNotice(result.warnings)}`
       };
     }
     if (action === "codegen") return await canvasCodegen(call);
@@ -69132,7 +69668,7 @@ ${memory}` : ""}
       const id = str(call.args.id);
       if (!id) return { content: "extract \u9700\u8981 id\uFF08\u65B0\u5EFA\u7684\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
       const rawPath = str(call.args.path);
-      const filePath = rawPath === void 0 ? void 0 : isAbsolute4(rawPath) ? rawPath : resolve10(call.cwd, rawPath);
+      const filePath = rawPath === void 0 ? void 0 : isAbsolute4(rawPath) ? rawPath : resolve12(call.cwd, rawPath);
       const url = str(call.args.url);
       const source2 = str(call.args.source);
       if (!source2 && !filePath && !url) {
@@ -69158,29 +69694,33 @@ ${JSON.stringify(extracted.tokens, null, 2)}
 \`\`\``
         };
       }
-      const result = createCustomStyle(call.cwd, id, extracted.tokens, {
-        name: call.args.name ?? `${id}\uFF08\u53CD\u62BD\u53D6\uFF09`,
-        tagline: call.args.tagline ?? "\u4ECE\u73B0\u6709\u9875\u9762\u53CD\u62BD\u53D6",
-        description: call.args.description ?? "\u7531 canvas_design_system extract \u4ECE\u73B0\u6709 HTML/CSS \u53CD\u62BD\u53D6\u751F\u6210\u3002",
-        tags: call.args.tags,
-        swatches: call.args.swatches ?? Object.values(extracted.tokens.color.primitives.neutral).slice(0, 4),
-        iconStyle: call.args.iconStyle ?? extracted.iconStyle,
-        overwrite: call.args.overwrite
-      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() });
-      invalidateDesignCache(call.cwd);
-      recordUsage(call.cwd, {
-        styleId: id,
-        htmls: source2 ? [source2] : [],
-        source: { kind: "extract", ref: filePath ?? (url ? new URL(url).host : "inline") }
+      const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        const result2 = createCustomStyle(call.cwd, id, extracted.tokens, {
+          name: call.args.name ?? `${id}\uFF08\u53CD\u62BD\u53D6\uFF09`,
+          tagline: call.args.tagline ?? "\u4ECE\u73B0\u6709\u9875\u9762\u53CD\u62BD\u53D6",
+          description: call.args.description ?? "\u7531 canvas_design_system extract \u4ECE\u73B0\u6709 HTML/CSS \u53CD\u62BD\u53D6\u751F\u6210\u3002",
+          tags: call.args.tags,
+          swatches: call.args.swatches ?? Object.values(extracted.tokens.color.primitives.neutral).slice(0, 4),
+          iconStyle: call.args.iconStyle ?? extracted.iconStyle,
+          overwrite: call.args.overwrite
+        }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx);
+        recordUsage(call.cwd, {
+          styleId: id,
+          htmls: source2 ? [source2] : [],
+          source: { kind: "extract", ref: filePath ?? (url ? new URL(url).host : "inline") }
+        }, tx);
+        const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx);
+        const applied2 = call.args.set_current !== false ? applyProjectStyle(call.cwd, id, tx, preparedStyle) : null;
+        tx.afterCommit(() => invalidateDesignCache(call.cwd));
+        return { result: result2, applied: applied2 };
       });
-      const setCurrent = call.args.set_current !== false;
       let lockLine = "\u672A\u9501\u5B9A\uFF08\u5982\u9700\u4F7F\u7528\uFF1Acanvas_style action=set\uFF09\u3002";
-      if (setCurrent) {
-        const applied = applyProjectStyle(call.cwd, id);
+      if (applied) {
         const { url: canvasUrl } = await ensureServer(call.cwd);
         lockLine = `\u5DF2\u9501\u5B9A\u4E3A\u5F53\u524D\u9879\u76EE\u98CE\u683C\uFF1A\u91CD\u5199 ${applied.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
 \u753B\u5E03 URL\uFF1A${canvasUrl}`;
       }
+      lockLine += navigationNotice(applied?.warnings ?? []);
       return {
         content: `${summary}
 
@@ -69234,32 +69774,37 @@ ${JSON.stringify(imported.tokens, null, 2)}
         tokens.color?.primitives?.neutral?.["50"],
         tokens.color?.primitives?.danger?.["500"]
       ].filter(Boolean);
-      const result = createCustomStyle(
-        call.cwd,
-        id,
-        tokens,
-        {
-          name: call.args.name ?? imported.name,
-          tagline: call.args.tagline ?? imported.tagline,
-          description: call.args.description ?? `\u7531 canvas_design_system import \u4ECE\u73B0\u6709 ${adapterId} \u4E3B\u9898\u5BFC\u5165\uFF08\u89C2\u6D4B ${imported.observed.length} \u9879 / \u63A8\u65AD ${imported.inferred.length} \u9879\uFF09\u3002`,
-          tags: call.args.tags ?? [adapterId, "imported"],
-          swatches: call.args.swatches ?? swatches,
-          iconStyle: call.args.iconStyle ?? imported.iconStyle,
-          adapter: { id: adapterId, version: 1, source: sourcePath ?? detection?.evidence.join("; ") ?? "auto" }
-        },
-        designDir(),
-        { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }
-      );
-      invalidateDesignCache(call.cwd);
-      recordUsage(call.cwd, { styleId: id, source: { kind: "import", ref: adapterId ?? "auto" } });
-      const setCurrent = call.args.set_current !== false;
+      const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        const result2 = createCustomStyle(
+          call.cwd,
+          id,
+          tokens,
+          {
+            name: call.args.name ?? imported.name,
+            tagline: call.args.tagline ?? imported.tagline,
+            description: call.args.description ?? `\u7531 canvas_design_system import \u4ECE\u73B0\u6709 ${adapterId} \u4E3B\u9898\u5BFC\u5165\uFF08\u89C2\u6D4B ${imported.observed.length} \u9879 / \u63A8\u65AD ${imported.inferred.length} \u9879\uFF09\u3002`,
+            tags: call.args.tags ?? [adapterId, "imported"],
+            swatches: call.args.swatches ?? swatches,
+            iconStyle: call.args.iconStyle ?? imported.iconStyle,
+            adapter: { id: adapterId, version: 1, source: sourcePath ?? detection?.evidence.join("; ") ?? "auto" }
+          },
+          designDir(),
+          { overwrite: call.args.overwrite === true, builtinIds: builtinIds() },
+          tx
+        );
+        recordUsage(call.cwd, { styleId: id, source: { kind: "import", ref: adapterId ?? "auto" } }, tx);
+        const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx);
+        const applied2 = call.args.set_current !== false ? applyProjectStyle(call.cwd, id, tx, preparedStyle) : null;
+        tx.afterCommit(() => invalidateDesignCache(call.cwd));
+        return { result: result2, applied: applied2 };
+      });
       let lockLine = "\u672A\u9501\u5B9A\uFF08\u5982\u9700\u4F7F\u7528\uFF1Acanvas_style action=set\uFF09\u3002";
-      if (setCurrent) {
-        const applied = applyProjectStyle(call.cwd, id);
+      if (applied) {
         const { url } = await ensureServer(call.cwd);
         lockLine = `\u5DF2\u9501\u5B9A\u4E3A\u5F53\u524D\u9879\u76EE\u98CE\u683C\uFF1A\u91CD\u5199 ${applied.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
 \u753B\u5E03 URL\uFF1A${url}`;
       }
+      lockLine += navigationNotice(applied?.warnings ?? []);
       return {
         content: `${summary}
 \u5DF2\u521B\u5EFA\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${result.summary.name}\u300D\uFF08${id}\uFF09\u5E76\u5B8C\u6210\u6821\u9A8C\u3002
@@ -69271,26 +69816,30 @@ ${lockLine}
     if (action === "create") {
       const id = str(call.args.id);
       if (!id) return { content: "create \u9700\u8981 id\uFF08\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
-      const result = createCustomStyle(call.cwd, id, call.args.tokens, {
-        name: call.args.name,
-        tagline: call.args.tagline,
-        description: call.args.description,
-        tags: call.args.tags,
-        swatches: call.args.swatches,
-        iconStyle: call.args.iconStyle,
-        license: call.args.license,
-        notice: call.args.notice
-      }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() });
-      invalidateDesignCache(call.cwd);
-      const setCurrent = call.args.set_current !== false;
+      const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        const result2 = createCustomStyle(call.cwd, id, call.args.tokens, {
+          name: call.args.name,
+          tagline: call.args.tagline,
+          description: call.args.description,
+          tags: call.args.tags,
+          swatches: call.args.swatches,
+          iconStyle: call.args.iconStyle,
+          license: call.args.license,
+          notice: call.args.notice
+        }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx);
+        const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx);
+        const applied2 = call.args.set_current !== false ? applyProjectStyle(call.cwd, id, tx, preparedStyle) : null;
+        tx.afterCommit(() => invalidateDesignCache(call.cwd));
+        return { result: result2, applied: applied2 };
+      });
       let lockLine = "\u672A\u9501\u5B9A\uFF08\u5982\u9700\u4F7F\u7528\uFF1Acanvas_style action=set\uFF09\u3002";
-      if (setCurrent) {
-        const applied = applyProjectStyle(call.cwd, id);
+      if (applied) {
         const { url } = await ensureServer(call.cwd);
         lockLine = `\u5DF2\u9501\u5B9A\u4E3A\u5F53\u524D\u9879\u76EE\u98CE\u683C\uFF1A\u91CD\u5199 ${applied.pagesUpdated} \u4E2A\u9875\u9762\uFF08\u753B\u5E03\u4F1A\u81EA\u52A8\u5237\u65B0\uFF09\u3002
 \u753B\u5E03 URL\uFF1A${url}` + (applied.missingIcons.length ? `
 \u6CE8\u610F\uFF1A\u8FD9\u4E9B\u56FE\u6807\u540D\u4E0D\u5728\u76EE\u5F55\u4E2D\uFF1A${applied.missingIcons.slice(0, 8).join("\u3001")}\u3002` : "") + scriptIconNote(applied.scriptIcons);
       }
+      lockLine += navigationNotice(applied?.warnings ?? []);
       const warnLine = result.warnings.length ? `
 \u63D0\u793A\uFF1A${result.warnings.join("\uFF1B")}` : "";
       return {
@@ -69311,8 +69860,8 @@ ${lockLine}${warnLine}
         return { content: reportError(err), isError: true };
       }
       const rawOut = str(call.args.out_dir);
-      const dir = rawOut ? isAbsolute4(rawOut) ? rawOut : join19(call.cwd, rawOut) : join19(call.cwd, PROJECT_DIR_NAME, "exports");
-      const file = join19(dir, `${id}.json`);
+      const dir = rawOut ? isAbsolute4(rawOut) ? rawOut : join21(call.cwd, rawOut) : join21(call.cwd, PROJECT_DIR_NAME, "exports");
+      const file = join21(dir, `${id}.json`);
       try {
         exportBrandPack(call.cwd, pack, file);
       } catch (err) {
@@ -69328,7 +69877,7 @@ checksum\uFF1A${pack.checksum.slice(0, 16)}\u2026\uFF08\u5BFC\u5165\u65F6\u4F1A\
     if (action === "import_pack") {
       const rawPath = str(call.args.pack_path);
       if (!rawPath) return { content: "import_pack \u9700\u8981 pack_path\uFF08\u54C1\u724C\u5305 JSON \u7684\u8DEF\u5F84\uFF09\u3002", isError: true };
-      const file = isAbsolute4(rawPath) ? rawPath : join19(call.cwd, rawPath);
+      const file = isAbsolute4(rawPath) ? rawPath : join21(call.cwd, rawPath);
       if (!existsSync14(file)) return { content: "\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF0C\u8BF7\u6838\u5BF9 pack_path \u540E\u91CD\u8BD5\u3002", isError: true };
       let raw;
       try {
@@ -69350,34 +69899,34 @@ ${errors.map((e) => `  - ${e}`).join("\n")}`, isError: true };
       if (customStyleExists(call.cwd, typed.id) && call.args.overwrite !== true) {
         return { content: `\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${typed.id}\u300D\u5DF2\u5B58\u5728\u3002\u82E5\u8981\u8986\u76D6\uFF0C\u8BF7\u4F20 overwrite=true\u3002`, isError: true };
       }
-      importBrandPack(call.cwd, typed);
-      invalidateDesignCache(call.cwd);
-      try {
-        compileCustomStyle(call.cwd, typed.id, designDir());
-      } catch (err) {
-        return { content: `\u54C1\u724C\u5305\u5DF2\u89E3\u5305\uFF0C\u4F46 token \u6821\u9A8C\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
-      }
-      const set = await canvasStyle({ ...call, args: { action: "set", style_id: typed.id } });
+      const applied = withProjectTransaction(call.cwd, (tx) => {
+        createCustomStyle(call.cwd, typed.id, typed.tokens, typed.meta, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx);
+        importBrandPack(call.cwd, typed, tx);
+        const preparedStyle = compileCustomStyle(call.cwd, typed.id, designDir(), tx);
+        const applied2 = applyProjectStyle(call.cwd, typed.id, tx, preparedStyle);
+        tx.afterCommit(() => invalidateDesignCache(call.cwd));
+        return applied2;
+      });
+      const { url } = await ensureServer(call.cwd);
       return {
         content: `\u5DF2\u5BFC\u5165\u54C1\u724C\u5305\u300C${typed.name}\u300D\uFF08${typed.id}\uFF09\uFF1A${file}
-\u6062\u590D\u4F7F\u7528\u8BB0\u5FC6\uFF1A\u7EC4\u4EF6 ${Object.keys(typed.usage?.components ?? {}).length} \u4E2A\u3001\u56FE\u6807 ${Object.keys(typed.usage?.icons ?? {}).length} \u4E2A\u3002
-` + set.content,
-        isError: set.isError
+\u5DF2\u9501\u5B9A\u98CE\u683C\uFF0C\u91CD\u5199 ${applied.pagesUpdated} \u4E2A\u9875\u9762\u3002
+\u753B\u5E03 URL\uFF1A${url}${navigationNotice(applied.warnings)}`
       };
     }
     if (action === "remove") {
       const id = str(call.args.id);
       if (!id) return { content: "remove \u9700\u8981 id\u3002", isError: true };
       if (isBuiltinStyle(id)) return { content: `\u300C${id}\u300D\u662F\u5185\u7F6E\u98CE\u683C\uFF0C\u4E0D\u80FD\u5220\u9664\u3002`, isError: true };
-      const wasCurrent = currentStyleId(call.cwd) === id;
-      removeCustomStyle(call.cwd, id);
-      forgetStyle(call.cwd, id);
-      invalidateDesignCache(call.cwd);
-      let unlinkLine = "";
-      if (wasCurrent) {
-        applyProjectStyle(call.cwd, null);
-        unlinkLine = "\n\u5B83\u539F\u672C\u662F\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF0C\u5DF2\u89E3\u9664\u9501\u5B9A\uFF08\u5DF2\u6709\u9875\u9762\u4FDD\u7559\u6CE8\u5165\u7684\u6837\u5F0F\u5757\uFF09\u3002";
-      }
+      const wasCurrent = withProjectTransaction(call.cwd, (tx) => {
+        const wasCurrent2 = currentStyleId(call.cwd, tx) === id;
+        removeCustomStyle(call.cwd, id, tx);
+        forgetStyle(call.cwd, id, tx);
+        if (wasCurrent2) applyProjectStyle(call.cwd, null, tx);
+        tx.afterCommit(() => invalidateDesignCache(call.cwd));
+        return wasCurrent2;
+      });
+      const unlinkLine = wasCurrent ? "\n\u5B83\u539F\u672C\u662F\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF0C\u5DF2\u89E3\u9664\u9501\u5B9A\uFF08\u5DF2\u6709\u9875\u9762\u4FDD\u7559\u6CE8\u5165\u7684\u6837\u5F0F\u5757\uFF09\u3002" : "";
       return { content: `\u5DF2\u5220\u9664\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\u300C${id}\u300D\u3002${unlinkLine}` };
     }
     return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acreate / extract / list / get / remove\u3002`, isError: true };
@@ -69429,13 +69978,13 @@ async function canvasAudit(call) {
       const outDir = str(call.args.out_dir);
       let writeLine = "";
       if (call.args.write_files === true || outDir) {
-        const base = outDir ? isAbsolute4(outDir) ? outDir : join19(call.cwd, outDir) : join19(call.cwd, PROJECT_DIR_NAME, "exports", "audit");
-        mkdirSync5(base, { recursive: true });
+        const base = outDir ? isAbsolute4(outDir) ? outDir : join21(call.cwd, outDir) : join21(call.cwd, PROJECT_DIR_NAME, "exports", "audit");
+        mkdirSync6(base, { recursive: true });
         const written = [];
         for (const { page, result } of results) {
-          const htmlPath = join19(base, `${page.id}.html`);
+          const htmlPath = join21(base, `${page.id}.html`);
           writeFileAtomic(call.cwd, htmlPath, page.html);
-          const testPath = join19(base, `${page.id}.audit.test.mjs`);
+          const testPath = join21(base, `${page.id}.audit.test.mjs`);
           writeFileAtomic(call.cwd, testPath, result.testFile);
           written.push(testPath);
         }
@@ -69461,8 +70010,8 @@ async function canvasAudit(call) {
         componentsCss: style.componentsCss,
         icons: style.manifest.iconNames
       });
-      const dir = str(call.args.out_dir) ? isAbsolute4(str(call.args.out_dir)) ? str(call.args.out_dir) : join19(call.cwd, str(call.args.out_dir)) : snapshotDir(call.cwd);
-      const file = join19(dir, "snapshot.json");
+      const dir = str(call.args.out_dir) ? isAbsolute4(str(call.args.out_dir)) ? str(call.args.out_dir) : join21(call.cwd, str(call.args.out_dir)) : snapshotDir(call.cwd);
+      const file = join21(dir, "snapshot.json");
       const before = readSnapshot(call.cwd, file);
       writeSnapshot(call.cwd, file, snapshot);
       if (!before) {
@@ -69510,7 +70059,7 @@ async function canvasAudit(call) {
     if (action === "baseline" || action === "visual") {
       const { styleId } = resolveAuditStyle(call);
       const rawDir = str(call.args.baseline_dir);
-      const dir = rawDir ? isAbsolute4(rawDir) ? rawDir : join19(call.cwd, rawDir) : defaultBaselineDir(call.cwd);
+      const dir = rawDir ? isAbsolute4(rawDir) ? rawDir : join21(call.cwd, rawDir) : defaultBaselineDir(call.cwd);
       const threshold = num(call.args.threshold);
       if (action === "baseline") {
         const result2 = await writeBaselines(call.cwd, styleId ?? "free", dir);
@@ -69563,10 +70112,10 @@ ${body}
     if (action === "resolve" || action === "reopen") {
       const ids = Array.isArray(call.args.ids) ? call.args.ids.filter((v2) => typeof v2 === "string") : [];
       if (ids.length === 0) return { content: `${action} \u9700\u8981 ids\uFF08\u6279\u6CE8 id \u6570\u7EC4\uFF09\u3002`, isError: true };
-      const project = readProject(call.cwd);
-      const known = new Set((project.comments ?? []).map((c) => c.id));
-      const missing = ids.filter((id) => !known.has(id));
-      const changed = setCommentsResolved(call.cwd, ids, action === "resolve");
+      const { missing, changed } = withProjectTransaction(call.cwd, (tx) => {
+        const known = new Set((tx.project.comments ?? []).map((c) => c.id));
+        return { missing: ids.filter((id) => !known.has(id)), changed: setCommentsResolved(call.cwd, ids, action === "resolve", tx) };
+      });
       const { url } = await ensureServer(call.cwd);
       const missLine = missing.length ? `
 \u672A\u627E\u5230\uFF1A${missing.join("\u3001")}` : "";
@@ -69966,16 +70515,21 @@ var index_default = defineTianshuPlugin({
 });
 export {
   assertUrlAllowed,
+  backfillNavigation,
+  clearNavigationCache,
+  createNavIndex,
   index_default as default,
   extractTokens,
   fetchUrl,
   inlineAssets,
   isBlockedIp,
   mayHaveNavLinks,
+  parseNavDocument,
   parseNavRef,
   resolveBrowser,
   resolveNavRef,
   rewriteNavLinks,
+  rewriteParsedNavLinks,
   titleSlug,
   toDataUri,
   tools

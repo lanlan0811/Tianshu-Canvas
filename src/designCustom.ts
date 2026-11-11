@@ -12,11 +12,11 @@
  * 经 esbuild 打进 dist/index.js；类型由同名 .d.mts 提供。
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertSafeId, InvalidInputError, isSafeId } from './ids.js'
-import { assertInsideWorkspace, readTextInWorkspace, writeFileInWorkspace } from './paths.js'
-import { projectDir } from './project.js'
+import { assertInsideWorkspace, readTextInWorkspace } from './paths.js'
+import { projectDir, withProjectTransaction, type ProjectTransaction } from './project.js'
 import { buildManifest, tokensToCss, type DesignManifest } from '../scripts/design/design-tokens.mjs'
 import { auditForbidden, validateTokens } from '../scripts/design/design-validate.mjs'
 import type { DesignIconSet, DesignInteraction, DesignInteractionLibrary, DesignStyleSummary, DesignTemplate, ResolvedStyle } from './design.js'
@@ -161,17 +161,18 @@ export function customStyleExists(cwd: string, id: string): boolean {
 }
 
 /** 把 library/<id> 的 tokens.json + meta.json 编译成 ResolvedStyle。 */
-export function compileCustomStyle(cwd: string, id: string, builtinDir: string): ResolvedStyle {
+export function compileCustomStyle(cwd: string, id: string, builtinDir: string, tx?: ProjectTransaction): ResolvedStyle {
   const dir = customStyleDir(cwd, id)
   const tokensFile = join(dir, 'tokens.json')
   const metaFile = join(dir, 'meta.json')
-  if (!existsSync(tokensFile) || !existsSync(metaFile)) {
+  if (!tx && (!existsSync(tokensFile) || !existsSync(metaFile))) {
     throw new InvalidInputError(`自定义设计系统不存在：${id}`)
   }
   // library/<id>/ 及两个文件都是工作区数据：读前按边界校验，链接越界即拒绝。
-  const tokens = readJson(tokensFile, `${id}/tokens.json`, cwd) as Record<string, any>
-  const meta = readJson(metaFile, `${id}/meta.json`, cwd) as Record<string, any>
+  const tokens = (tx ? JSON.parse(tx.readFile(tokensFile) ?? 'null') : readJson(tokensFile, `${id}/tokens.json`, cwd)) as Record<string, any>
+  const meta = (tx ? JSON.parse(tx.readFile(metaFile) ?? 'null') : readJson(metaFile, `${id}/meta.json`, cwd)) as Record<string, any>
 
+  if (!tokens || !meta) throw new InvalidInputError('自定义设计系统不存在')
   const iconStyle = meta.iconStyle as DesignIconSet['stroke']
   const contract = sharedContract(builtinDir)
   const shared = sharedAssets(builtinDir, contract.builtinId, iconStyle)
@@ -271,11 +272,6 @@ export function resetSharedContractCache(): void {
 // create / remove
 // ---------------------------------------------------------------------------
 
-function writeJsonAtomic(cwd: string, file: string, value: unknown): void {
-  // 自定义设计系统产物走统一边界：library/ 自身或其叶子被预置成链接时拒绝。
-  writeFileInWorkspace(cwd, file, JSON.stringify(value, null, 2).replace(/\r\n/g, '\n') + '\n')
-}
-
 /**
  * 创建（或覆盖）一套自定义风格。
  * 校验全部通过后才写盘；任何错误抛 InvalidInputError，消息为逐条中文。
@@ -287,7 +283,9 @@ export function createCustomStyle(
   metaIn: unknown,
   builtinDir: string,
   options: CustomCreateOptions,
+  tx?: ProjectTransaction,
 ): CustomCreateResult {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => createCustomStyle(cwd, id, tokensIn, metaIn, builtinDir, options, transaction))
   if (!isSafeId(id)) {
     throw new InvalidInputError(`非法 id：${String(id)}（仅允许字母数字、下划线、连字符，1–64 位）`)
   }
@@ -364,20 +362,21 @@ export function createCustomStyle(
   }
 
   const dir = customStyleDir(cwd, id)
-  writeJsonAtomic(cwd, join(dir, 'tokens.json'), tokens)
-  writeJsonAtomic(cwd, join(dir, 'meta.json'), meta)
+  tx.stageFile(join(dir, 'tokens.json'), JSON.stringify(tokens, null, 2) + '\n')
+  tx.stageFile(join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n')
 
-  const summary = compileCustomStyle(cwd, id, builtinDir).summary
+  const summary = compileCustomStyle(cwd, id, builtinDir, tx).summary
   return { id, summary, warnings }
 }
 
 /** 删除自定义风格目录。 */
-export function removeCustomStyle(cwd: string, id: unknown): void {
+export function removeCustomStyle(cwd: string, id: unknown, tx?: ProjectTransaction): void {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => removeCustomStyle(cwd, id, transaction))
   if (!isSafeId(id)) throw new InvalidInputError(`非法 id：${String(id)}`)
   const dir = join(libraryDir(cwd), id)
   if (!existsSync(dir)) throw new InvalidInputError(`自定义设计系统不存在：${id}`)
   // 删除前按边界校验：library/<id> 若被预置成指向工作区外的目录联接，删它等于删外部目录。
   assertInsideWorkspace(cwd, dir, '自定义设计系统目录')
-  rmSync(dir, { recursive: true, force: true })
+  tx.stageDelete(dir, true)
 }
 

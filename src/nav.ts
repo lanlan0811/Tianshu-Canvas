@@ -26,6 +26,26 @@ export interface NavResolution {
   ambiguous: string[]
 }
 
+/** A single lookup is reused by every link in a write/backfill/export batch. */
+export interface NavIndex {
+  ids: ReadonlySet<string>
+  slugs: ReadonlyMap<string, readonly string[]>
+}
+
+export function createNavIndex(pages: readonly PageRef[]): NavIndex {
+  const ids = new Set<string>()
+  const slugs = new Map<string, string[]>()
+  for (const page of pages) {
+    ids.add(page.id)
+    const slug = titleSlug(page.title)
+    if (!slug) continue
+    const matches = slugs.get(slug) ?? []
+    matches.push(page.id)
+    slugs.set(slug, matches)
+  }
+  return { ids, slugs }
+}
+
 const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/
 
 /** 标题 → slug（确定性；返回 '' 表示无可用 slug 别名）。 */
@@ -75,19 +95,19 @@ function hrefKey(href: string): string {
  * 优先级：data-nav（精确 id）> href 精确 id > href 标题 slug。
  * 歧义（slug 命中 ≥2）时 target=null 并返回候选。
  */
-export function resolveNavRef(ref: NavRef, pages: PageRef[]): NavResolution {
-  const idSet = new Set(pages.map((p) => p.id))
+export function resolveNavRef(ref: NavRef, pages: readonly PageRef[] | NavIndex): NavResolution {
+  const index = Array.isArray(pages) ? createNavIndex(pages) : pages as NavIndex
   if (ref.dataNav) {
-    return { target: idSet.has(ref.dataNav) ? ref.dataNav : null, ambiguous: [] }
+    return { target: index.ids.has(ref.dataNav) ? ref.dataNav : null, ambiguous: [] }
   }
   if (!ref.href) return { target: null, ambiguous: [] }
   const key = hrefKey(ref.href)
   if (!key) return { target: null, ambiguous: [] }
   // 精确 id（id 本身即小写安全字符，直接比对）。
-  if (idSet.has(key)) return { target: key, ambiguous: [] }
-  const slugMatches = pages.filter((p) => titleSlug(p.title) === key).map((p) => p.id)
+  if (index.ids.has(key)) return { target: key, ambiguous: [] }
+  const slugMatches = index.slugs.get(key) ?? []
   if (slugMatches.length === 1) return { target: slugMatches[0]!, ambiguous: [] }
-  if (slugMatches.length > 1) return { target: null, ambiguous: slugMatches }
+  if (slugMatches.length > 1) return { target: null, ambiguous: [...slugMatches] }
   return { target: null, ambiguous: [] }
 }
 
@@ -103,6 +123,27 @@ export interface NavRewriteResult {
 
 const ANCHOR_RE = /<a\b([^>]*)>/gi
 const ATTR_RE = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
+
+export interface ParsedNavAnchor {
+  start: number
+  end: number
+  text: string
+  href: string | null
+  ref: NavRef
+}
+
+/** Parsed offsets remain valid until the HTML bytes change. */
+export interface ParsedNavDocument {
+  html: string
+  anchors: readonly ParsedNavAnchor[]
+}
+
+/** Distinct namespaces stop an explicit ID from being rebound to a title slug. */
+export function navReferenceKeys(ref: NavRef): string[] {
+  if (ref.dataNav) return [`id:${ref.dataNav}`]
+  const key = ref.href ? hrefKey(ref.href) : ''
+  return key ? [`id:${key}`, `slug:${key}`] : []
+}
 
 function maskSegments(html: string): string {
   const mask = (text: string): string => text.replace(/[^\n]/g, ' ')
@@ -124,24 +165,31 @@ function readAttr(attrs: string, name: string): string | null {
  * hrefPrefix='' 用于 pages/*.html；'pages/' 用于根 index.html。
  * data-nav 存在时保留其属性，并补/正 href。
  */
-export function rewriteNavLinks(html: string, pages: PageRef[], hrefPrefix: string): NavRewriteResult {
+export function parseNavDocument(html: string): ParsedNavDocument {
+  const anchors: ParsedNavAnchor[] = []
+  for (const m of maskSegments(html).matchAll(ANCHOR_RE)) {
+    const attrs = m[1] ?? ''
+    const href = readAttr(attrs, 'href')
+    const ref = parseNavRef(href, readAttr(attrs, 'data-nav'))
+    if (!ref) continue
+    const start = m.index ?? 0
+    anchors.push({ start, end: start + m[0]!.length, text: m[0]!, href, ref })
+  }
+  return { html, anchors }
+}
+
+export function rewriteParsedNavLinks(document: ParsedNavDocument, index: NavIndex, hrefPrefix: string): NavRewriteResult {
+  const { html } = document
   const unresolved: string[] = []
   const ambiguous: { ref: string; ids: string[] }[] = []
   let rewritten = 0
 
   // 掩码保证下标与原文一致：只在掩码里定位 <a>，再到原文里替换。
-  const masked = maskSegments(html)
   const edits: { start: number; end: number; text: string }[] = []
 
-  for (const m of masked.matchAll(ANCHOR_RE)) {
-    const start = m.index ?? 0
-    const end = start + m[0]!.length
-    const attrs = m[1] ?? ''
-    const href = readAttr(attrs, 'href')
-    const dataNav = readAttr(attrs, 'data-nav')
-    const ref = parseNavRef(href, dataNav)
-    if (!ref) continue
-    const res = resolveNavRef(ref, pages)
+  for (const anchor of document.anchors) {
+    const { start, end, href, ref } = anchor
+    const res = resolveNavRef(ref, index)
     if (res.ambiguous.length) {
       ambiguous.push({ ref: ref.dataNav ?? ref.href ?? '', ids: res.ambiguous })
       continue
@@ -154,10 +202,10 @@ export function rewriteNavLinks(html: string, pages: PageRef[], hrefPrefix: stri
     let next: string
     if (href !== null) {
       if (href === wanted) continue // 已是目标形式
-      next = m[0]!.replace(/(\bhref\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s>]+)/i, `$1"${wanted}"`)
+      next = anchor.text.replace(/(\bhref\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s>]+)/i, `$1"${wanted}"`)
     } else {
       // 仅 data-nav：补一个 href。
-      next = m[0]!.replace(/\s*(\/?>)$/, ` href="${wanted}"$1`)
+      next = anchor.text.replace(/\s*(\/?>)$/, ` href="${wanted}"$1`)
     }
     edits.push({ start, end, text: next })
     rewritten++
@@ -172,6 +220,11 @@ export function rewriteNavLinks(html: string, pages: PageRef[], hrefPrefix: stri
   }
   out += html.slice(cursor)
   return { html: out, rewritten, unresolved, ambiguous }
+}
+
+export function rewriteNavLinks(html: string, pages: readonly PageRef[] | NavIndex, hrefPrefix: string): NavRewriteResult {
+  const index = Array.isArray(pages) ? createNavIndex(pages) : pages as NavIndex
+  return rewriteParsedNavLinks(parseNavDocument(html), index, hrefPrefix)
 }
 
 /** 页面里是否可能存在需要解析的导航链接（供写入后补齐 pass 做廉价预筛）。 */

@@ -175,7 +175,7 @@ export function confineToWorkspace(cwd: string, abs: string): string | null {
  * 尤其不能用 stat(realpath) 复检：realpath 返回后路径仍可被换成链接，stat 会再次
  * 跟随它，使已打开的外部 fd 与外部 stat 恰好相等。lstat 不跟随叶子，关闭该窗口。
  */
-function readCheckedText(cwd: string, target: string, confined: boolean, label: string): string {
+function readCheckedBytes(cwd: string, target: string, confined: boolean, label: string): Buffer {
   if (confined) assertInsideWorkspace(cwd, target, label)
   const statOpts = { bigint: true } as const
   const before = lstatSync(target, statOpts)
@@ -193,7 +193,7 @@ function readCheckedText(cwd: string, target: string, confined: boolean, label: 
       throw new PathBoundaryError(`${label}在读取时被替换，已拒绝：${target}`)
     }
     // 检查后不再按路径打开；后续替换不能改变此 fd 已指向的普通文件。
-    return readFileSync(fd, 'utf8')
+    return readFileSync(fd)
   } finally {
     closeSync(fd)
   }
@@ -207,7 +207,7 @@ export function readConfined(cwd: string, abs: string): string | null {
   const target = confineToWorkspace(cwd, abs)
   if (target === null) return null
   try {
-    return readCheckedText(cwd, target, true, '候选文件')
+    return readCheckedBytes(cwd, target, true, '候选文件').toString('utf8')
   } catch {
     return null
   }
@@ -219,7 +219,13 @@ export function readConfined(cwd: string, abs: string): string | null {
  */
 export function readTextInWorkspace(cwd: string, abs: string, label = '文件'): string {
   const target = resolve(abs)
-  return readCheckedText(cwd, target, insideLexically(cwd, target), label)
+  return readCheckedBytes(cwd, target, insideLexically(cwd, target), label).toString('utf8')
+}
+
+/** Binary equivalent used to preserve the exact damaged project bytes. */
+export function readBytesInWorkspace(cwd: string, abs: string, label = '文件'): Buffer {
+  const target = resolve(abs)
+  return readCheckedBytes(cwd, target, insideLexically(cwd, target), label)
 }
 
 function tempSibling(dir: string, base: string): { path: string; fd: number } {
@@ -253,6 +259,23 @@ export function assertWritableTarget(cwd: string, abs: string, label = '写入�
  *   - rename 之前再拒一次叶子链接，堵住「校验后被替换」的竞态。
  */
 export function writeFileAtomic(cwd: string, dest: string, data: string | Buffer): string {
+  const prepared = prepareFileAtomic(cwd, dest, data)
+  try {
+    prepared.commit()
+  } finally {
+    prepared.discard()
+  }
+  return prepared.path
+}
+
+export interface PreparedFileWrite {
+  path: string
+  commit(): void
+  discard(): void
+}
+
+/** Stage bytes in a random sibling; publishing is explicitly deferred. */
+export function prepareFileAtomic(cwd: string, dest: string, data: string | Buffer): PreparedFileWrite {
   const target = assertWritableTarget(cwd, dest, '写入目标')
   const dir = resolve(target, '..')
   // 工作区内时，落盘目录（含其各级父目录）也必须经得起边界校验。
@@ -261,21 +284,31 @@ export function writeFileAtomic(cwd: string, dest: string, data: string | Buffer
   }
   const { path: tmp, fd } = tempSibling(dir, basename(target))
   try {
-    writeSync(fd, typeof data === 'string' ? Buffer.from(data, 'utf8') : data)
-  } finally {
-    closeSync(fd)
-  }
-  try {
-    // rename 会把叶子处的链接整体替换成普通文件；但若它是指向目录的联接，
-    // rename 会失败。这里显式拒绝，避免出现半成品。
-    if (isLink(target)) throw new PathBoundaryError(`写入目标已被替换为符号链接，已拒绝：${target}`)
-    assertWritableTarget(cwd, target, '写入目标')
-    renameSync(tmp, target)
-  } catch (err) {
+    try {
+      const bytes = typeof data === 'string' ? Buffer.from(data, 'utf8') : data
+      let offset = 0
+      while (offset < bytes.length) offset += writeSync(fd, bytes, offset)
+    } finally {
+      closeSync(fd)
+    }
+  } catch (error) {
     rmSync(tmp, { force: true })
-    throw err
+    throw error
   }
-  return target
+  let published = false
+  return {
+    path: target,
+    commit() {
+      if (published) return
+      if (isLink(target)) throw new PathBoundaryError(`写入目标已被替换为符号链接，已拒绝：${target}`)
+      assertWritableTarget(cwd, target, '写入目标')
+      renameSync(tmp, target)
+      published = true
+    },
+    discard() {
+      if (!published) rmSync(tmp, { force: true })
+    },
+  }
 }
 
 /**

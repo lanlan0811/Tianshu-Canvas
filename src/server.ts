@@ -1,3 +1,4 @@
+import { backfillNavigation, clearNavigationCache } from './navigation.js'
 /**
  * 本地画布服务（127.0.0.1 单例）。
  *
@@ -41,6 +42,7 @@ import {
   duplicateNode,
   setCommentsResolved,
   setViewport,
+  withProjectTransaction,
   writeSelection,
   type Selection,
 } from './project.js'
@@ -147,6 +149,7 @@ export function currentUrl(cwd: string): string | null {
 
 /** 关闭服务、断开事件流并撤销所有工作区授权。 */
 export async function shutdownForTests(): Promise<void> {
+  clearNavigationCache()
   if (stopping) return stopping
   if (starting) await starting
   if (!state) return
@@ -482,13 +485,20 @@ function handleNodes(req: http.IncomingMessage, res: http.ServerResponse): void 
     const id = typeof body.id === 'string' ? body.id : ''
     if (op === 'remove') {
       if (!id) throw new InvalidInputError('missing id')
-      removeNode(cwd, id)
-      return sendJson(res, { ok: true, id })
+      const navigation = withProjectTransaction(cwd, (tx) => {
+        removeNode(cwd, id, tx)
+        return backfillNavigation(cwd, tx)
+      })
+      return sendJson(res, { ok: true, id, warnings: navigation.warnings })
     }
     if (op === 'rename') {
       if (!id || typeof body.title !== 'string') throw new InvalidInputError('missing id or title')
-      renameNode(cwd, id, body.title)
-      return sendJson(res, { ok: true, id, title: body.title })
+      const title = body.title
+      const navigation = withProjectTransaction(cwd, (tx) => {
+        renameNode(cwd, id, title, tx)
+        return backfillNavigation(cwd, tx)
+      })
+      return sendJson(res, { ok: true, id, title, warnings: navigation.warnings })
     }
     if (op === 'move') {
       if (!id) throw new InvalidInputError('missing id')
@@ -497,8 +507,11 @@ function handleNodes(req: http.IncomingMessage, res: http.ServerResponse): void 
     }
     if (op === 'duplicate') {
       if (!id) throw new InvalidInputError('missing id')
-      const node = duplicateNode(cwd, id, typeof body.title === 'string' ? body.title : undefined)
-      return sendJson(res, { ok: true, node })
+      const { node, warnings } = withProjectTransaction(cwd, (tx) => {
+        const node = duplicateNode(cwd, id, typeof body.title === 'string' ? body.title : undefined, tx)
+        return { node, warnings: backfillNavigation(cwd, tx).warnings }
+      })
+      return sendJson(res, { ok: true, node, warnings })
     }
     return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: `unknown op: ${op}` }))
   })

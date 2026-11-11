@@ -1,6 +1,6 @@
 /** Page-local design intent. Confirmation is a user action, never inferred from HTML. */
 import { InvalidInputError, assertSafeId } from './ids.js'
-import { projectIssue, readProject, writeProject } from './project.js'
+import { projectIssue, readProject, writeProject, withProjectTransaction, type ProjectTransaction } from './project.js'
 
 export const DIRECTION_IDS = ['editorial-narrative', 'product-evidence', 'brand-poster'] as const
 export type DirectionId = typeof DIRECTION_IDS[number]
@@ -122,10 +122,10 @@ export function normalizeStoredPageBrief(value: unknown): PageBrief | null {
   }
 }
 
-function existingProject(cwd: string, pageId: string) {
+function existingProject(cwd: string, pageId: string, tx?: ProjectTransaction) {
   assertSafeId(pageId)
-  if (projectIssue(cwd)) throw new InvalidInputError('project.json 已损坏或含无效条目，请先修复后再读写页面简报。')
-  const project = readProject(cwd)
+  if (projectIssue(cwd, tx)) throw new InvalidInputError('project.json 已损坏或含无效条目，请先修复后再读写页面简报。')
+  const project = readProject(cwd, tx)
   if (!project.nodes.some((node) => node.id === pageId)) throw new InvalidInputError(`节点不存在：${pageId}`)
   return project
 }
@@ -135,8 +135,9 @@ export function readPageBrief(cwd: string, pageId: string): PageBrief | null {
 }
 
 /** Partial update. Only confirmation:{confirmed:true,directionId,reason} creates approval. */
-export function savePageBrief(cwd: string, pageId: string, value: unknown): PageBrief {
-  const project = existingProject(cwd, pageId)
+export function savePageBrief(cwd: string, pageId: string, value: unknown, tx?: ProjectTransaction): PageBrief {
+  if (!tx) return withProjectTransaction(cwd, (transaction) => savePageBrief(cwd, pageId, value, transaction))
+  const project = existingProject(cwd, pageId, tx)
   const input = record(value, '页面简报更新')
   keys(input, [...CONTENT_KEYS, 'confirmation'], '页面简报更新')
   if (Object.keys(input).length === 0) throw new InvalidInputError('页面简报更新不能为空。')
@@ -156,6 +157,6 @@ export function savePageBrief(cwd: string, pageId: string, value: unknown): Page
   }
   bounded(next)
   project.pageBriefs = { ...project.pageBriefs, [pageId]: next }
-  writeProject(cwd, project)
+  writeProject(cwd, project, tx)
   return next
 }

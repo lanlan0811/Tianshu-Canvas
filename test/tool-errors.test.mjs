@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { installFakeSdk } from './helpers/host.mjs'
 
@@ -28,6 +28,45 @@ function assertPrivate(result, cwd) {
   assert.equal(result.isError, true, result.content)
   assert.equal(result.content.includes(cwd), false, result.content)
   assert.doesNotMatch(result.content, /[A-Za-z]:[\\/]|\\\\|EACCES.*open|EISDIR.*read/)
+}
+
+/** Match the actual file behind checked fd reads; never make a read fault a no-op. */
+function injectReadFailure(file, getFailure) {
+  const original = { openSync: fs.openSync, closeSync: fs.closeSync, readFileSync: fs.readFileSync }
+  const descriptors = new Map()
+  const pathKey = value => {
+    if (typeof value === 'number') return descriptors.get(value)
+    const path = value instanceof URL ? fileURLToPath(value) : Buffer.isBuffer(value) ? value.toString() : value
+    if (typeof path !== 'string') return undefined
+    const absolute = resolve(path)
+    return process.platform === 'win32' ? absolute.toLowerCase() : absolute
+  }
+  const target = pathKey(file)
+  let hits = 0
+  fs.openSync = function (path, ...args) {
+    const fd = original.openSync.call(this, path, ...args)
+    descriptors.set(fd, pathKey(path))
+    return fd
+  }
+  fs.closeSync = function (fd, ...args) {
+    try { return original.closeSync.call(this, fd, ...args) } finally { descriptors.delete(fd) }
+  }
+  fs.readFileSync = function (pathOrFd, ...args) {
+    if (pathKey(pathOrFd) === target) {
+      const failure = getFailure()
+      if (failure) { hits++; throw failure }
+    }
+    return original.readFileSync.call(this, pathOrFd, ...args)
+  }
+  syncBuiltinESMExports()
+  return {
+    get hits() { return hits },
+    restore() {
+      Object.assign(fs, original)
+      descriptors.clear()
+      syncBuiltinESMExports()
+    },
+  }
 }
 
 test('原始工具边界：项目文件是目录时返回错误而非 reject，修复后恢复', async () => {
@@ -99,18 +138,13 @@ test('原始工具边界：确定性权限故障不泄露系统错误，恢复�
   await fixture(async ({ cwd, call }) => {
     await call('canvas_upsert_page', { id: 'page-a', html: '<p>A</p>' })
     const file = join(cwd, '.tianshu-canvas', 'project.json')
-    const original = fs.readFileSync
-    fs.readFileSync = function (path, ...args) {
-      if (String(path) === file) {
-        throw Object.assign(new Error(`EACCES: permission denied, open '${file}'`), { code: 'EACCES' })
-      }
-      return original.call(this, path, ...args)
-    }
-    syncBuiltinESMExports()
-    try { assertPrivate(await call('canvas_get_state'), cwd) } finally {
-      fs.readFileSync = original
-      syncBuiltinESMExports()
-    }
+    const failure = Object.assign(new Error(`EACCES: permission denied, open '${file}'`), { code: 'EACCES' })
+    const injected = injectReadFailure(file, () => failure)
+    try {
+      const result = await call('canvas_get_state')
+      assert.ok(injected.hits > 0, 'EACCES must be injected into an actual project read')
+      assertPrivate(result, cwd)
+    } finally { injected.restore() }
     assert.ok(!(await call('canvas_get_state')).isError)
   })
 })
@@ -147,13 +181,8 @@ test('HTTP 变更统一映射锁争用409、HTML超限413、页数400和未知50
     await call('canvas_upsert_page', { id: 'page-a', html: '<p>A</p>' })
     const url = new URL(opened.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)[0])
     const file = join(cwd, '.tianshu-canvas', 'project.json')
-    const original = fs.readFileSync
     let failure
-    fs.readFileSync = function (path, ...args) {
-      if (String(path) === file && failure) throw failure
-      return original.call(this, path, ...args)
-    }
-    syncBuiltinESMExports()
+    const injected = injectReadFailure(file, () => failure)
     try {
       for (const [code, status, message] of [
         ['WORKSPACE_BUSY', 409, '工作区正在写入，请稍后重试'],
@@ -162,18 +191,20 @@ test('HTTP 变更统一映射锁争用409、HTML超限413、页数400和未知50
         ['EIO', 500, 'raw system error'],
       ]) {
         failure = Object.assign(new Error(message + '：' + file), { code })
+        const previousHits = injected.hits
         const response = await fetch(url.origin + url.pathname + 'api/nodes', {
           method: 'POST',
           headers: { Authorization: `Bearer ${url.hash.slice(1)}`, 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' },
           body: JSON.stringify({ ws: url.searchParams.get('ws'), op: 'rename', id: 'page-a', title: 'Changed' }),
         })
+        assert.ok(injected.hits > previousHits, `${code} must be injected into this request's actual project read`)
         assert.equal(response.status, status)
         const body = await response.json()
         assert.equal(body.error.includes(cwd), false, body.error)
         if (status === 500) assert.equal(body.error, 'internal error')
         else assert.ok(body.error.includes(message), body.error)
       }
-    } finally { fs.readFileSync = original; syncBuiltinESMExports() }
+    } finally { injected.restore() }
     assert.ok(!(await call('canvas_get_state')).isError)
   })
 })
