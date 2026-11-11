@@ -28,7 +28,7 @@
  * 不是用户显式指定，因此一律经 {@link confineToWorkspace} 收敛后再读——
  * 配置里写成 `../outside/x.css`、或候选文件本身是指向工作区外的符号链接，都会被拒绝。
  */
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from 'node:fs'
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { basename, isAbsolute, join, relative, resolve } from 'node:path'
 
@@ -171,75 +171,55 @@ export function confineToWorkspace(cwd: string, abs: string): string | null {
 }
 
 /**
- * 「自动发现」文件的读取入口：收敛到工作区内后再读。
- * 路径越界、叶子是链接、或文件不存在/不可读时返回 null（调用方按「未找到」处理）。
- * 这是 package.json / components.json / tailwind.config.* / globals.css / src 扫描等
- * 一切**由工作区内容决定**的读取的唯一入口，避免配置或链接把工作区外的文件读进来。
- *
- * 竞态处理（反馈点名的「检查后替换」）：先**打开**再校验——
- *   - `O_NOFOLLOW`（支持的平台）让叶子是链接时 open 直接失败，不存在检查与打开的窗口；
- *   - 打开后 `fstat(fd)` 必须是普通文件，并对**打开后的路径**再 realpath 一次仍在工作区内；
- *   - 再把 `fstat(fd)` 的 dev/ino 与「当前路径解析出的文件」比对：若 open 与 realpath
- *     之间路径被换成另一个文件（例如先指向工作区外的链接，随后又恢复），fd 与路径不再
- *     指向同一对象，直接判失败。可比对的平台（含 Windows）能关闭这个窗口；
- *     两者都为 0 时保留 realpath 复检的结果；
- *   - 内容从 **fd** 读取，不再按路径二次解析，因此读到的一定是被校验的那个文件。
+ * 从已校验的文件描述符读取。lstat 的普通文件身份必须在 open 前后均与 fd 一致。
+ * 尤其不能用 stat(realpath) 复检：realpath 返回后路径仍可被换成链接，stat 会再次
+ * 跟随它，使已打开的外部 fd 与外部 stat 恰好相等。lstat 不跟随叶子，关闭该窗口。
  */
-export function readConfined(cwd: string, abs: string): string | null {
-  const target = confineToWorkspace(cwd, abs)
-  if (target === null) return null
-  // O_NOFOLLOW 在 Windows 上不存在；存在时用它把「叶子是链接」变成 open 失败（无窗口）。
-  const noFollow = O_NOFOLLOW ?? 0
-  let fd: number
+function readCheckedText(cwd: string, target: string, confined: boolean, label: string): string {
+  if (confined) assertInsideWorkspace(cwd, target, label)
+  const statOpts = { bigint: true } as const
+  const before = lstatSync(target, statOpts)
+  if (before.isSymbolicLink()) throw new PathBoundaryError(`${label}是符号链接，已拒绝：${target}`)
+  if (!before.isFile()) throw new Error(`${label}不是普通文件：${target}`)
+  const fd = openSync(target, O_RDONLY | (O_NOFOLLOW ?? 0))
   try {
-    fd = openSync(target, O_RDONLY | noFollow)
-  } catch {
-    return null
-  }
-  try {
-    const statOpts = { bigint: true } as const
-    const info = fstatSync(fd, statOpts)
-    if (!info.isFile()) return null
-    // open 之后路径被替换成指向工作区外的链接时，这里复检会失败。
-    let real: string
-    try {
-      real = realpathSync(target)
-    } catch {
-      return null
+    const opened = fstatSync(fd, statOpts)
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
+      throw new PathBoundaryError(`${label}在读取前被替换，已拒绝：${target}`)
     }
-    if (!isInside(realRoot(cwd), real)) return null
-    // fd 与当前路径必须是同一个文件对象（挡住「open 后、realpath 前」的替换）。
-    try {
-      const onDisk = statSync(real, statOpts)
-      if (info.dev !== onDisk.dev || info.ino !== onDisk.ino) return null
-    } catch {
-      return null
+    if (confined) assertInsideWorkspace(cwd, target, label)
+    const after = lstatSync(target, statOpts)
+    if (!after.isFile() || after.isSymbolicLink() || opened.dev !== after.dev || opened.ino !== after.ino) {
+      throw new PathBoundaryError(`${label}在读取时被替换，已拒绝：${target}`)
     }
+    // 检查后不再按路径打开；后续替换不能改变此 fd 已指向的普通文件。
     return readFileSync(fd, 'utf8')
-  } catch {
-    return null
   } finally {
     closeSync(fd)
   }
 }
 
 /**
- * 读取文本文件：工作区内的路径按边界拒绝越界；工作区外的（用户显式指定的
- * `pack_path` 等）不按边界拒绝。两种情况都拒绝**叶子符号链接**——
- * 读链接会把工作区外的文件内容带进来。
+ * 自动发现文件的唯一读取入口。越界、链接、并发替换及不可读候选当作不存在。
+ * 内容直接从身份已核对的 fd 读取，绝不在校验后以裸路径再次 readFile。
+ */
+export function readConfined(cwd: string, abs: string): string | null {
+  const target = confineToWorkspace(cwd, abs)
+  if (target === null) return null
+  try {
+    return readCheckedText(cwd, target, true, '候选文件')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 显式文件来源：工作区内严格限制根目录，外部来源保持既有契约；两者均拒绝
+ * 叶子链接并核对 open 前后的文件身份，不能让校验后的路径替换泄露内容。
  */
 export function readTextInWorkspace(cwd: string, abs: string, label = '文件'): string {
   const target = resolve(abs)
-  if (insideLexically(cwd, target)) assertInsideWorkspace(cwd, target, label)
-  let info
-  try {
-    info = lstatSync(target)
-  } catch {
-    throw new Error(`${label}不存在：${target}`)
-  }
-  if (info.isSymbolicLink()) throw new PathBoundaryError(`${label}是符号链接，已拒绝：${target}`)
-  if (!info.isFile()) throw new Error(`${label}不是普通文件：${target}`)
-  return readFileSync(target, 'utf8')
+  return readCheckedText(cwd, target, insideLexically(cwd, target), label)
 }
 
 function tempSibling(dir: string, base: string): { path: string; fd: number } {

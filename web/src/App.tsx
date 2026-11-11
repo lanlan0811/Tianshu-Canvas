@@ -29,6 +29,7 @@ import { SelectionPanel } from './SelectionPanel'
 import { CanvasActionsProvider, type CanvasActions } from './actions'
 import { postToPage, useProbeBridge } from './ProbeBridge'
 import {
+  ApiRequestError,
   exportFileUrl,
   fetchDesignSystems,
   fetchProject,
@@ -120,6 +121,7 @@ function Canvas() {
   // 首次拉到项目后才知道怎么定位：undefined=加载中，null=适应视图。
   const [initialViewport, setInitialViewport] = useState<Viewport | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [selection, setSelection] = useState<ApiSelection | null>(null)
   const [comments, setComments] = useState<ApiComment[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -170,10 +172,32 @@ function Canvas() {
   }, [setNodes, setEdges])
 
   const loadSelection = useCallback(async () => {
-    const sel = await fetchSelection(ws)
-    setSelection(sel)
-    markElementSelected(sel)
+    try {
+      const sel = await fetchSelection(ws)
+      setSelection(sel)
+      markElementSelected(sel)
+    } catch {
+      setError('无法读取选中状态，请检查画布服务后重试。')
+    }
   }, [])
+
+  /** 变更失败后重新读取服务端；错误独立保存，避免 SSE 刷新把拒绝提示清掉。 */
+  const runMutation = useCallback(async (operation: () => Promise<unknown>, restoreViewport = false): Promise<void> => {
+    try {
+      await operation()
+    } catch (err) {
+      setMutationError(err instanceof ApiRequestError ? err.message : '操作失败，请检查画布服务和工作区状态后重试。')
+      await Promise.all([loadProject(), loadSelection()])
+      if (restoreViewport) {
+        try {
+          const latest = await fetchProject(ws)
+          await setViewport(latest.viewport)
+        } catch {
+          // 原始拒绝原因保留在画布；恢复失败不覆盖它。
+        }
+      }
+    }
+  }, [loadProject, loadSelection, setViewport])
 
   function markElementSelected(sel: ApiSelection | null): void {
     setNodes((nds) =>
@@ -190,11 +214,11 @@ function Canvas() {
       baseOnNodesChange(changes)
       for (const c of changes) {
         if (c.type === 'position' && c.dragging === false && c.position) {
-          void postNodeOp(ws, 'move', { id: c.id, x: Math.round(c.position.x), y: Math.round(c.position.y) })
+          void runMutation(() => postNodeOp(ws, 'move', { id: c.id, x: Math.round(c.position!.x), y: Math.round(c.position!.y) }))
         }
       }
     },
-    [baseOnNodesChange],
+    [baseOnNodesChange, runMutation],
   )
 
   // 侧栏点击 / 页面内链接跳转：选中该页并定位到它
@@ -205,10 +229,10 @@ function Canvas() {
       const sel: ApiSelection = { pageId: id, kind: 'page', at: Date.now() }
       setSelection(sel)
       markElementSelected(sel)
-      void postSelection(ws, id, 'page')
+      void runMutation(() => postSelection(ws, id, 'page'))
       void fitView({ nodes: [{ id }], padding: 0.5, maxZoom: 1, duration: 600 })
     },
-    [fitView],
+    [fitView, runMutation],
   )
 
   // 探针桥
@@ -231,7 +255,7 @@ function Canvas() {
       }
       setSelection(sel)
       markElementSelected(sel)
-      void postSelection(ws, pageId, 'element', { ...payload } as Record<string, unknown>)
+      void runMutation(() => postSelection(ws, pageId, 'element', { ...payload } as Record<string, unknown>))
     },
     onHeight: (pageId, height) => {
       if (height <= 0) return
@@ -248,7 +272,7 @@ function Canvas() {
       }
       void setViewport(next)
       // 程序设置视口时 onMove 没有事件对象，不会保存，这里补上。
-      if (!exporting) postViewport(ws, next)
+      if (!exporting) void runMutation(() => postViewport(ws, next), true)
     },
     onNavigate: (_pageId, nav) => {
       const ids = new Set(nodesRef.current.map((n) => n.id))
@@ -263,9 +287,9 @@ function Canvas() {
       const sel: ApiSelection = { pageId: node.id, kind: 'page', at: Date.now() }
       setSelection(sel)
       markElementSelected(sel)
-      void postSelection(ws, node.id, 'page')
+      void runMutation(() => postSelection(ws, node.id, 'page'))
     },
-    [],
+    [runMutation],
   )
 
   // 右键菜单：节点 / 空白
@@ -294,31 +318,31 @@ function Canvas() {
   const onConnect = useCallback(
     (c: Connection) => {
       if (!c.source || !c.target) return
-      void postEdge(ws, 'add', c.source, c.target)
+      void runMutation(() => postEdge(ws, 'add', c.source!, c.target!))
     },
-    [],
+    [runMutation],
   )
 
   // 批注：写盘后重拉项目（SSE 也会刷新，这里保证即时反馈）。
   const addComment = useCallback(
     async (input: { pageId: string; xpath: string; tagName: string; textContent?: string; note: string }) => {
-      if (await postCommentOp(ws, 'add', input)) await loadProject()
+      await runMutation(async () => { await postCommentOp(ws, 'add', input); await loadProject() })
     },
-    [loadProject],
+    [loadProject, runMutation],
   )
 
   const toggleResolve = useCallback(
     async (id: string, resolved: boolean) => {
-      if (await postCommentOp(ws, 'resolve', { ids: [id], resolved })) await loadProject()
+      await runMutation(async () => { await postCommentOp(ws, 'resolve', { ids: [id], resolved }); await loadProject() })
     },
-    [loadProject],
+    [loadProject, runMutation],
   )
 
   const removeComment = useCallback(
     async (id: string) => {
-      if (await postCommentOp(ws, 'remove', { ids: [id] })) await loadProject()
+      await runMutation(async () => { await postCommentOp(ws, 'remove', { ids: [id] }); await loadProject() })
     },
-    [loadProject],
+    [loadProject, runMutation],
   )
 
   const [exportingNow, setExportingNow] = useState(false)
@@ -328,7 +352,7 @@ function Canvas() {
     try {
       const result = await requestExport(ws, kind)
       if (!result.ok) {
-        setError(result.error ?? '导出失败')
+        setMutationError(result.error ?? '导出失败')
         return
       }
       for (const f of result.files) {
@@ -339,9 +363,9 @@ function Canvas() {
         a.click()
         a.remove()
       }
-      if (result.pngError) setError(`PNG 导出未完成：${result.pngError}`)
+      if (result.pngError) setMutationError(`PNG 导出未完成：${result.pngError}`)
     } catch (err) {
-      setError((err as Error).message)
+      setMutationError(err instanceof ApiRequestError ? err.message : '导出失败，请检查画布服务和工作区状态后重试。')
     } finally {
       setExportingNow(false)
     }
@@ -350,13 +374,13 @@ function Canvas() {
   // 画布编排动作（供节点工具栏调用）
   const actions: CanvasActions = {
     rename: (id, title) => {
-      void postNodeOp(ws, 'rename', { id, title })
+      void runMutation(() => postNodeOp(ws, 'rename', { id, title }))
     },
     duplicate: (id) => {
-      void postNodeOp(ws, 'duplicate', { id })
+      void runMutation(() => postNodeOp(ws, 'duplicate', { id }))
     },
     remove: (id) => {
-      void postNodeOp(ws, 'remove', { id })
+      void runMutation(() => postNodeOp(ws, 'remove', { id }))
     },
   }
 
@@ -383,9 +407,9 @@ function Canvas() {
   const onMove = useCallback(
     (evt: unknown, viewport: { x: number; y: number; zoom: number }) => {
       // 只保存用户操作。初次适应视图等程序调用没有事件对象，保存了会盖掉真正的视口。
-      if (evt && ws && !exporting) postViewport(ws, viewport)
+      if (evt && ws && !exporting) void runMutation(() => postViewport(ws, viewport), true)
     },
-    [],
+    [runMutation],
   )
 
   // 导出模式：铺满全部节点、隐藏交互外壳
@@ -444,7 +468,12 @@ function Canvas() {
         </ReactFlow>
         )}
         {showIdle && <EmptyState />}
-        {error && <div className="app-error">{error}</div>}
+        {(mutationError || error) && (
+          <div className="app-error" role="alert">
+            <span>{mutationError || error}</span>
+            {mutationError && <button type="button" className="app-error__dismiss" onClick={() => setMutationError(null)}>关闭提示</button>}
+          </div>
+        )}
         {!exporting && (
           <TopBar
             sidebarOpen={sidebarOpen}

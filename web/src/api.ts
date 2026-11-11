@@ -86,6 +86,57 @@ export interface ApiSelection {
 const API_ROOT = location.pathname.replace(/\/$/, '')
 const MUTATION_HEADERS = { 'Content-Type': 'application/json', 'X-Tianshu-Canvas': '1' }
 
+export class ApiRequestError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message)
+    this.name = 'ApiRequestError'
+  }
+}
+
+/** 服务端错误已经脱敏；此处再屏蔽旧服务可能返回的绝对路径。 */
+function safeErrorText(text: string): string {
+  return text
+    .replace(/[A-Za-z]:[\\/][^\n\r"<>]*/g, '[本地路径]')
+    .replace(/(?:\\\\[^\\\s]+\\|\/(?:Users|home|tmp|var|private|mnt)\/)[^\n\r"<>]*/g, '[本地路径]')
+    .slice(0, 600)
+}
+
+async function checkResponse(res: Response): Promise<Response> {
+  if (res.ok) return res
+  let detail = ''
+  try {
+    const raw = await res.text()
+    if (res.headers.get('content-type')?.includes('application/json')) {
+      const body: unknown = JSON.parse(raw)
+      if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') detail = body.error
+    } else detail = raw
+  } catch {
+    // 响应可能断开；仍可用状态码给出恢复指引。
+  }
+  const fallback = res.status === 409
+    ? '工作区正被其他进程写入，请稍后重试。'
+    : res.status === 413
+      ? '页面超过容量上限，请压缩或减少内联资源后重试。'
+      : res.status >= 500
+        ? '工作区操作失败，请检查文件状态后重试。'
+        : '操作已被拒绝，请检查输入和工作区状态后重试。'
+  throw new ApiRequestError(res.status, `操作失败（${res.status}）：${res.status >= 500 ? fallback : safeErrorText(detail.trim()) || fallback}`)
+}
+
+async function mutate(path: string, data: Record<string, unknown>): Promise<Response> {
+  let res: Response
+  try {
+    res = await fetch(`${API_ROOT}/api/${path}`, {
+      method: 'POST',
+      headers: MUTATION_HEADERS,
+      body: JSON.stringify(data),
+    })
+  } catch {
+    throw new ApiRequestError(0, '无法连接画布服务，请检查服务是否仍在运行后重试。')
+  }
+  return checkResponse(res)
+}
+
 export async function fetchProject(ws: string): Promise<ApiProject> {
   const res = await fetch(`${API_ROOT}/api/project?ws=${encodeURIComponent(ws)}`)
   if (!res.ok) throw new Error(`project ${res.status}`)
@@ -109,19 +160,22 @@ export async function fetchSelection(ws: string): Promise<ApiSelection | null> {
   return data.selection
 }
 
-let viewportTimer: ReturnType<typeof setTimeout> | undefined
+const viewportSaves = new Map<string, { timer: ReturnType<typeof setTimeout>; cancel: () => void }>()
 
-export function postViewport(ws: string, vp: { x: number; y: number; zoom: number }): void {
-  clearTimeout(viewportTimer)
-  viewportTimer = setTimeout(() => {
-    void fetch(`${API_ROOT}/api/viewport`, {
-      method: 'POST',
-      headers: MUTATION_HEADERS,
-      body: JSON.stringify({ ws, ...vp }),
-    }).catch(() => {
-      /* ignore */
-    })
-  }, 500)
+/** 只合并尚未发送的保存；取消正常结束，真实失败由调用方显示，不自动重试。 */
+export function postViewport(ws: string, vp: { x: number; y: number; zoom: number }): Promise<void> {
+  const previous = viewportSaves.get(ws)
+  if (previous) {
+    clearTimeout(previous.timer)
+    previous.cancel()
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      viewportSaves.delete(ws)
+      void mutate('viewport', { ws, ...vp }).then(() => resolve(), reject)
+    }, 500)
+    viewportSaves.set(ws, { timer, cancel: resolve })
+  })
 }
 
 export async function postSelection(
@@ -130,13 +184,7 @@ export async function postSelection(
   kind: 'page' | 'element',
   payload?: Record<string, unknown>,
 ): Promise<void> {
-  await fetch(`${API_ROOT}/api/selection`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, pageId, kind, payload }),
-  }).catch(() => {
-    /* ignore */
-  })
+  await mutate('selection', { ws, pageId, kind, payload })
 }
 
 export interface CommentInput {
@@ -153,12 +201,8 @@ export async function postCommentOp(
   op: 'add' | 'resolve' | 'remove',
   data: CommentInput | { ids?: string[]; resolved?: boolean },
 ): Promise<boolean> {
-  const res = await fetch(`${API_ROOT}/api/comments`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, op, ...data }),
-  })
-  return res.ok
+  await mutate('comments', { ws, op, ...data })
+  return true
 }
 
 export type NodeOp = 'remove' | 'rename' | 'duplicate' | 'move'
@@ -168,12 +212,7 @@ export async function postNodeOp(
   op: NodeOp,
   data: { id: string; title?: string; x?: number; y?: number },
 ): Promise<ApiPageNode | null> {
-  const res = await fetch(`${API_ROOT}/api/nodes`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, op, ...data }),
-  })
-  if (!res.ok) return null
+  const res = await mutate('nodes', { ws, op, ...data })
   const body = (await res.json()) as { node?: ApiPageNode }
   return body.node ?? null
 }
@@ -184,13 +223,7 @@ export async function postEdge(
   source: string,
   target: string,
 ): Promise<void> {
-  await fetch(`${API_ROOT}/api/edges`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, op, source, target }),
-  }).catch(() => {
-    /* ignore */
-  })
+  await mutate('edges', { ws, op, source, target })
 }
 
 export interface ExportResult {
@@ -201,11 +234,7 @@ export interface ExportResult {
 }
 
 export async function requestExport(ws: string, kind: 'png' | 'zip' | 'both'): Promise<ExportResult> {
-  const res = await fetch(`${API_ROOT}/api/export`, {
-    method: 'POST',
-    headers: MUTATION_HEADERS,
-    body: JSON.stringify({ ws, kind }),
-  })
+  const res = await mutate('export', { ws, kind })
   return (await res.json()) as ExportResult
 }
 

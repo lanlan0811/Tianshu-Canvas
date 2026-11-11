@@ -316,6 +316,7 @@ export function PreviewOverlay({
                   className={`preview-device-seg__btn${device === d ? ' is-active' : ''}`}
                   aria-pressed={device === d}
                   title={PREVIEW_DEVICES[d].label}
+                  aria-label={PREVIEW_DEVICES[d].label}
                   onClick={() => pickDevice(d)}
                 >
                   <Icon size={17} />

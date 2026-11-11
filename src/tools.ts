@@ -56,7 +56,7 @@ import { applyProjectStyle, currentStyleId, interactionDocument, templateDocumen
 import { extractTokens } from './extract.js'
 import { inlineAssets } from './inlineAssets.js'
 import { isSafeId, newPageId } from './ids.js'
-import { PathBoundaryError, readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
+import { readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
 import { toReactComponent, toFrameworklessHtml, toTailwindConfig } from './codegen.js'
@@ -88,6 +88,7 @@ import {
 } from './project.js'
 import { mayHaveNavLinks, rewriteNavLinks, type PageRef } from './nav.js'
 import { currentUrl, ensureServer } from './server.js'
+import { redactErrorPaths, reportError } from './errors.js'
 
 export interface ToolCall {
   args: Record<string, unknown>
@@ -138,18 +139,15 @@ function kbToBytes(v: unknown): number | undefined {
 /** 写入前若备份过有问题的项目文件，把备份路径告诉调用方（宿主只透传 content）。 */
 function withBackupNotice(run: (call: ToolCall) => Promise<ToolResult>): (call: ToolCall) => Promise<ToolResult> {
   return async (call) => {
-    let result: ToolResult
     try {
-      result = await run(call)
+      const rawResult = await run(call)
+      const result = rawResult.isError ? { ...rawResult, content: redactErrorPaths(rawResult.content) } : rawResult
+      const backup = takeProjectBackup(call.cwd)
+      if (!backup) return result
+      return { ...result, content: `${result.content}\n注意：project.json 曾损坏或含无效条目，覆盖前已备份到 ${backup}` }
     } catch (err) {
-      // 工作区边界（符号链接/目录联接越界）属于用户可修复的输入问题，
-      // 转成工具错误返回，而不是让异常穿到宿主。
-      if (err instanceof PathBoundaryError) return { content: `已拒绝：${err.message}`, isError: true }
-      throw err
+      return { content: reportError(err), isError: true }
     }
-    const backup = takeProjectBackup(call.cwd)
-    if (!backup) return result
-    return { ...result, content: `${result.content}\n注意：project.json 曾损坏或含无效条目，覆盖前已备份到 ${backup}` }
   }
 }
 
@@ -224,13 +222,13 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
   let html: string | undefined
   if (htmlPath) {
     if (!existsSync(htmlPath)) {
-      return { content: `读取失败：文件不存在 ${htmlPath}`, isError: true }
+      return { content: '读取失败：原型文件不存在，请核对 html_path 后重试。', isError: true }
     }
     try {
       // 工作区内的来源文件按边界校验；工作区外（用户显式指定）只拒叶子链接。
       html = readTextInWorkspace(call.cwd, htmlPath, '原型文件')
     } catch (err) {
-      return { content: `读取失败：${(err as Error).message}`, isError: true }
+      return { content: `读取失败：${reportError(err)}`, isError: true }
     }
   } else {
     html = str(args.html)
@@ -291,7 +289,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     assetNote =
       `\n资源内联：成功 ${inlineResult.inlined} 项` +
       (skipped.length
-        ? `，跳过 ${skipped.length} 项：\n${skipped.slice(0, 8).map((s) => `  - ${s.ref}（${s.reason}）`).join('\n')}${skipped.length > 8 ? `\n  …等 ${skipped.length} 项` : ''}`
+        ? `，跳过 ${skipped.length} 项：\n${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}（${redactErrorPaths(s.reason)}）`).join('\n')}${skipped.length > 8 ? `\n  …等 ${skipped.length} 项` : ''}`
         : '')
   }
 
@@ -367,7 +365,7 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       (backfilled.length ? `\n页面跳转：已补齐 ${backfilled.length} 个页面的前向链接（${backfilled.join('、')}）。` : '') +
       scriptIconNote(injection?.scriptIcons ?? []) +
       (blocked.length
-        ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
+        ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).map(redactErrorPaths).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
         : ''),
   }
 }
@@ -545,7 +543,7 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
             `位置：x=${node.x}, y=${node.y}\n画布 URL：${url}`,
         }
       } catch (err) {
-        return { content: (err as Error).message, isError: true }
+        return { content: reportError(err), isError: true }
       }
     }
     case 'link': {
@@ -556,7 +554,7 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
         const edge = addEdge(call.cwd, source, target, str(call.args.label))
         return { content: `已连线 ${edge.source} → ${edge.target}${edge.label ? `（${edge.label}）` : ''}。` }
       } catch (err) {
-        return { content: (err as Error).message, isError: true }
+        return { content: reportError(err), isError: true }
       }
     }
     case 'unlink': {
@@ -581,12 +579,7 @@ async function canvasArrange(call: ToolCall): Promise<ToolResult> {
 // ---------------------------------------------------------------------------
 
 function formatStyleList(cwd: string): string {
-  let catalog
-  try {
-    catalog = loadDesignCatalog(cwd)
-  } catch (err) {
-    return (err as Error).message
-  }
+  const catalog = loadDesignCatalog(cwd)
   if (catalog.styles.length === 0) return '当前构建不包含任何设计风格。'
   const current = currentStyleId(cwd)
   const lines = catalog.styles.map((s) => {
@@ -776,7 +769,7 @@ function buildCodegenFiles(call: ToolCall, target: string, stack: string | undef
     try {
       return { files: generatePlatformFiles(platform, chosen, input).map((f) => ({ name: f.name, content: f.content })), label: `${resolved.label} · ${target}/${chosen}` }
     } catch (err) {
-      return { files: [], label: '', error: (err as Error).message }
+      return { files: [], label: '', error: reportError(err) }
     }
   }
 
@@ -960,7 +953,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
 
     return { content: `未知的 action：${action}。可选：list / get / set / template / interaction / prototype / direction / brief / codegen。`, isError: true }
   } catch (err) {
-    return { content: (err as Error).message, isError: true }
+    return { content: reportError(err), isError: true }
   }
 }
 
@@ -1037,6 +1030,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
   try {
     if (action === 'list') {
       const all = await canvasStyle({ ...call, args: { action: 'list' } })
+      if (all.isError) return all
       return { content: `${formatCustomList(call.cwd)}\n\n${all.content}` }
     }
 
@@ -1069,7 +1063,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
         // 传入 cwd：工作区内的来源文件按边界校验，越界链接一律拒绝。
         extracted = await extractTokens({ source, file: filePath, url, cwd: filePath ? call.cwd : undefined })
       } catch (err) {
-        return { content: `反抽取失败：${(err as Error).message}`, isError: true }
+        return { content: `反抽取失败：${reportError(err)}`, isError: true }
       }
       const summary =
         `从来源反抽取设计系统（${extracted.report.length} 组）：\n${extracted.report.map((r) => `  ${r}`).join('\n')}\n` +
@@ -1137,7 +1131,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       try {
         imported = adapter.importTokens(call.cwd, sourcePath)
       } catch (err) {
-        return { content: `导入主题失败：${(err as Error).message}`, isError: true }
+        return { content: `导入主题失败：${reportError(err)}`, isError: true }
       }
 
       const summary =
@@ -1239,7 +1233,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       try {
         pack = buildBrandPack(call.cwd, id, designDir())
       } catch (err) {
-        return { content: (err as Error).message, isError: true }
+        return { content: reportError(err), isError: true }
       }
       const rawOut = str(call.args.out_dir)
       const dir = rawOut ? (isAbsolute(rawOut) ? rawOut : join(call.cwd, rawOut)) : join(call.cwd, PROJECT_DIR_NAME, 'exports')
@@ -1247,7 +1241,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       try {
         exportBrandPack(call.cwd, pack, file)
       } catch (err) {
-        return { content: `品牌包导出失败：${(err as Error).message}`, isError: true }
+        return { content: `品牌包导出失败：${reportError(err)}`, isError: true }
       }
       return {
         content:
@@ -1262,19 +1256,19 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       const rawPath = str(call.args.pack_path)
       if (!rawPath) return { content: 'import_pack 需要 pack_path（品牌包 JSON 的路径）。', isError: true }
       const file = isAbsolute(rawPath) ? rawPath : join(call.cwd, rawPath)
-      if (!existsSync(file)) return { content: `品牌包不存在：${file}`, isError: true }
+      if (!existsSync(file)) return { content: '品牌包不存在，请核对 pack_path 后重试。', isError: true }
       let raw: string
       try {
         // 工作区内的路径按边界拒绝越界读；工作区外按用户显式指定，但拒绝叶子符号链接。
         raw = readTextInWorkspace(call.cwd, file, '品牌包')
       } catch (err) {
-        return { content: `品牌包读取失败：${(err as Error).message}`, isError: true }
+        return { content: `品牌包读取失败：${reportError(err)}`, isError: true }
       }
       let pack: unknown
       try {
         pack = JSON.parse(raw)
       } catch (err) {
-        return { content: `品牌包不是合法 JSON：${(err as Error).message}`, isError: true }
+        return { content: '品牌包不是合法 JSON，请修复格式后重试。', isError: true }
       }
       const errors = verifyBrandPack(pack)
       if (errors.length) return { content: `品牌包校验失败：\n${errors.map((e) => `  - ${e}`).join('\n')}`, isError: true }
@@ -1288,7 +1282,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       try {
         compileCustomStyle(call.cwd, typed.id, designDir())
       } catch (err) {
-        return { content: `品牌包已解包，但 token 校验失败：${(err as Error).message}`, isError: true }
+        return { content: `品牌包已解包，但 token 校验失败：${reportError(err)}`, isError: true }
       }
       const set = await canvasStyle({ ...call, args: { action: 'set', style_id: typed.id } })
       return {
@@ -1318,7 +1312,7 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
 
     return { content: `未知的 action：${action}。可选：create / extract / list / get / remove。`, isError: true }
   } catch (err) {
-    return { content: (err as Error).message, isError: true }
+    return { content: reportError(err), isError: true }
   }
 }
 
@@ -1461,7 +1455,7 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
 
     return { content: `未知的 action：${action}。可选：contract / a11y / visual / baseline / drift / review。`, isError: true }
   } catch (err) {
-    return { content: (err as Error).message, isError: true }
+    return { content: reportError(err), isError: true }
   }
 }
 
@@ -1536,7 +1530,7 @@ async function canvasComments(call: ToolCall): Promise<ToolResult> {
 
     return { content: `未知的 action：${action}。可选：list / resolve / reopen / remove。`, isError: true }
   } catch (err) {
-    return { content: (err as Error).message, isError: true }
+    return { content: reportError(err), isError: true }
   }
 }
 
@@ -1564,7 +1558,7 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 30_000,
-    execute: canvasOpen,
+    execute: withBackupNotice(canvasOpen),
   },
   {
     definition: {
@@ -1748,7 +1742,7 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => true,
     isEnabled: () => true,
     timeoutMs: 60_000,
-    execute: canvasCheckStyle,
+    execute: withBackupNotice(canvasCheckStyle),
   },
   {
     definition: {
@@ -1826,7 +1820,7 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 120_000,
-    execute: canvasDesignSystem,
+    execute: withBackupNotice(canvasDesignSystem),
   },
   {
     definition: {
@@ -1868,7 +1862,7 @@ export const tools: TpiTool[] = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 300_000,
-    execute: canvasAudit,
+    execute: withBackupNotice(canvasAudit),
   },
   {
     definition: {

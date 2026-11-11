@@ -30,6 +30,7 @@ export function TopBar({
   const { zoom } = useViewport()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     function onClick(e: MouseEvent): void {
@@ -39,8 +40,21 @@ export function TopBar({
     return () => window.removeEventListener('mousedown', onClick)
   }, [])
 
+  useEffect(() => {
+    if (!open) return
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open])
+
   function pick(kind: 'png' | 'zip' | 'both'): void {
     setOpen(false)
+    triggerRef.current?.focus()
     onExport(kind)
   }
 
@@ -78,6 +92,9 @@ export function TopBar({
         <button
           type="button"
           className="btn btn--primary export-menu__trigger"
+          ref={triggerRef}
+          aria-expanded={open}
+          aria-controls="canvas-export-options"
           onClick={() => setOpen((v) => !v)}
           disabled={busy}
         >
@@ -85,7 +102,7 @@ export function TopBar({
           <ChevronIcon size={13} />
         </button>
         {open && (
-          <div className="export-menu__list">
+          <div className="export-menu__list" id="canvas-export-options" role="group" aria-label="导出选项">
             <button type="button" onClick={() => pick('png')}>
               画布截图 PNG
             </button>

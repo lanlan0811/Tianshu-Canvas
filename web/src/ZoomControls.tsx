@@ -11,11 +11,11 @@ export function ZoomControls() {
 
   return (
     <div className="zoom-controls">
-      <button type="button" className="zoom-controls__btn" title="缩小" onClick={() => void zoomOut({ duration: 200 })}>
+      <button type="button" className="zoom-controls__btn" title="缩小" aria-label="缩小" onClick={() => void zoomOut({ duration: 200 })}>
         <ZoomOutIcon size={16} />
       </button>
       <span className="zoom-controls__value">{Math.round(zoom * 100)}%</span>
-      <button type="button" className="zoom-controls__btn" title="放大" onClick={() => void zoomIn({ duration: 200 })}>
+      <button type="button" className="zoom-controls__btn" title="放大" aria-label="放大" onClick={() => void zoomIn({ duration: 200 })}>
         <ZoomInIcon size={16} />
       </button>
       <span className="zoom-controls__sep" />
@@ -23,6 +23,7 @@ export function ZoomControls() {
         type="button"
         className="zoom-controls__btn"
         title="适应视图"
+        aria-label="适应视图"
         onClick={() => void fitView({ padding: 0.3, maxZoom: 1, duration: 400 })}
       >
         <FitViewIcon size={16} />

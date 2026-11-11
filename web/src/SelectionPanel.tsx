@@ -168,6 +168,7 @@ export function SelectionPanel({
                       type="button"
                       className="comment-item__btn"
                       title="删除批注"
+                      aria-label="删除批注"
                       onClick={() => onRemoveComment(c.id)}
                     >
                       ×

@@ -18,6 +18,10 @@ process.env.TIANSHU_CANVAS_BROWSER = notABrowser
 
 const root = resolve(import.meta.dirname, '..')
 const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
+const mod = await import(pathToFileURL(join(root, 'dist', 'index.mjs')).href)
+const diagnostics = []
+const diagnosticInstance = mod.default.activate({ log: { debug() {}, warn(message) { diagnostics.push(message) } } })
+test.after(() => diagnosticInstance.dispose())
 
 test.after(() => rmSync(cwd, { recursive: true, force: true }))
 
@@ -41,7 +45,8 @@ test('PNG 导出：浏览器无法启动时返回可读错误，且不重试', a
   const started = Date.now()
   const png = await (await post('png')).json()
   assert.match(png.pngError, /无法启动浏览器/)
-  assert.ok(png.pngError.includes(notABrowser), `错误里应有路径：${png.pngError}`)
+  assert.equal(png.pngError.includes(notABrowser), false, `错误不应泄露路径：${png.pngError}`)
+  assert.ok(diagnostics.some(message => message.includes(notABrowser)), '宿主日志应保留故障路径供定位')
   // 重试三轮至少要 7.5 秒；上限留出加载 puppeteer 的余量。
   assert.ok(Date.now() - started < 6000, '程序本身无法启动时不应重试')
 

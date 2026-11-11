@@ -245,8 +245,9 @@ test('导出产物目录为目录联接：拒绝导出且工作区外不产生�
       body: JSON.stringify({ ws: token, kind: 'zip' }),
     })
     const body = await res.json()
-    assert.equal(res.status, 500, JSON.stringify(body))
+    assert.equal(res.status, 403, JSON.stringify(body))
     assert.match(String(body.error), /符号链接|工作区外/, JSON.stringify(body))
+    assert.equal(String(body.error).includes(ws) || String(body.error).includes(outside), false, '拒绝响应不得泄露绝对路径')
     assert.deepEqual(readdirSafe(outside), ['keep.txt'], '工作区外不得产生导出产物')
   } finally {
     rmSync(base, { recursive: true, force: true })

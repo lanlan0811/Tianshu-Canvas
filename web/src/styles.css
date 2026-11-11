@@ -27,6 +27,12 @@ body {
   height: 100%;
 }
 
+/* 焦点环覆盖局部输入框的 outline:none，只作用于画布外壳。 */
+.app :is(button, input, textarea, select, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
 /* ---------- 点阵纸背景 ---------- */
 .grid-layer {
   position: absolute;
@@ -380,6 +386,11 @@ body {
 }
 
 .app-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 32px);
+  overflow-wrap: anywhere;
   position: absolute;
   top: 60px;
   left: 50%;
@@ -392,6 +403,17 @@ body {
   border: 1.5px solid var(--danger);
   border-radius: 12px 5px 11px 6px / 6px 12px 5px 11px;
   box-shadow: var(--shadow-note);
+}
+
+.app-error__dismiss {
+  flex-shrink: 0;
+  border: 0;
+  padding: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* ---------- React Flow 覆盖 ---------- */

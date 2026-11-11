@@ -3,6 +3,8 @@
  * 断言的是构建产物（dist/index.mjs），与其它测试一致。
  */
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -410,6 +412,91 @@ await test('重复导入：同一输入产物字节一致；默认不覆盖已�
   const again = await importStyle(cwd, { id: 'repeat', stack: 'shadcn', set_current: false, overwrite: true })
   assert.equal(again.isError, undefined, again.content)
   assert.equal(readFileSync(join(cwd, '.tianshu-canvas/library/repeat/tokens.json'), 'utf8'), bytes, '同一输入两次导入应一致')
+})
+
+await test('确定性替换：realpath 之后再换外链也不能通过文件身份复检', { skip: skipIfNoSymlink }, async () => {
+  const base = mkdtempSync(join(tmpdir(), 'tsc-race-deterministic-'))
+  const cwd = join(base, 'workspace')
+  const target = join(cwd, 'app', 'globals.css')
+  const secret = join(base, 'private-theme.css')
+  mkdirSync(join(cwd, 'app'), { recursive: true })
+  writeFileSync(target, FEEDBACK_CSS)
+  writeFileSync(secret, SECRET_CSS)
+  writeFileSync(join(cwd, 'package.json'), JSON.stringify({ dependencies: { tailwindcss: '^3', 'class-variance-authority': '^0.7' } }))
+  const originalOpen = fs.openSync
+  const originalRealpath = fs.realpathSync
+  let opened = false
+  let restored = false
+  let relinked = false
+  fs.openSync = function (path, ...args) {
+    if (String(path) !== target || opened) return originalOpen.call(this, path, ...args)
+    opened = true
+    fs.unlinkSync(target)
+    symlinkSync(secret, target, 'file')
+    // 模拟 Windows 没有 O_NOFOLLOW 的读取分支；POSIX 自身的 O_NOFOLLOW 已有真实并发覆盖。
+    if (typeof args[0] === 'number') args[0] &= ~(fs.constants.O_NOFOLLOW ?? 0)
+    const fd = originalOpen.call(this, path, ...args)
+    fs.unlinkSync(target)
+    writeFileSync(target, FEEDBACK_CSS)
+    restored = true
+    return fd
+  }
+  fs.realpathSync = function (path, ...args) {
+    const real = originalRealpath.call(this, path, ...args)
+    if (String(path) === target && restored && !relinked) {
+      relinked = true
+      fs.unlinkSync(target)
+      symlinkSync(secret, target, 'file')
+    }
+    return real
+  }
+  syncBuiltinESMExports()
+  try {
+    const result = await importStyle(cwd, { id: 'race-fixed', stack: 'shadcn', dry_run: true })
+    assert.ok(opened && restored, '必须实际在 open 时打开外部文件并恢复候选')
+    assert.equal(String(result.content).toLowerCase().includes(SECRET.slice(1)), false, result.content)
+    assert.equal(result.isError, true, '已打开外部 fd 的候选必须被当作缺失，不得导入')
+  } finally {
+    fs.openSync = originalOpen
+    fs.realpathSync = originalRealpath
+    syncBuiltinESMExports()
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+await test('显式主题来源：lstat 后替换为外链不能读取外部文件', { skip: skipIfNoSymlink }, async () => {
+  const base = mkdtempSync(join(tmpdir(), 'tsc-explicit-race-'))
+  const cwd = join(base, 'workspace')
+  const target = join(cwd, 'theme.json')
+  const secret = join(base, 'private-theme.json')
+  mkdirSync(cwd)
+  writeFileSync(target, `const theme = { token: { colorPrimary: '#1677ff' } }`)
+  writeFileSync(secret, `const theme = { token: { colorPrimary: '${SECRET}' } }`)
+  const originalLstat = fs.lstatSync
+  let replaced = false
+  let leafChecks = 0
+  fs.lstatSync = function (path, ...args) {
+    const result = originalLstat.call(this, path, ...args)
+    if (String(path) === target) leafChecks++
+    // 首次为边界检查，第二次才是旧实现紧邻裸 readFile 的普通文件检查。
+    if (String(path) === target && leafChecks === 2 && result.isFile() && !replaced) {
+      replaced = true
+      fs.unlinkSync(target)
+      symlinkSync(secret, target, 'file')
+    }
+    return result
+  }
+  syncBuiltinESMExports()
+  try {
+    const result = await importStyle(cwd, { id: 'explicit-race', stack: 'antd', dry_run: true, source_path: 'theme.json' })
+    assert.ok(replaced, '必须实际在 lstat 后替换目标')
+    assert.equal(String(result.content).toLowerCase().includes(SECRET.slice(1)), false, result.content)
+    assert.equal(result.isError, true)
+  } finally {
+    fs.lstatSync = originalLstat
+    syncBuiltinESMExports()
+    rmSync(base, { recursive: true, force: true })
+  }
 })
 
 await test('并发替换：读取期间候选被换成指向工作区外的链接，不泄露外部内容', { skip: skipIfNoSymlink }, async () => {

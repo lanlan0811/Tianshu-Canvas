@@ -22,7 +22,7 @@ import { assertSafeId, InvalidInputError } from './ids.js'
 import { assertReadableFile, PathBoundaryError } from './paths.js'
 import { loadDesignCatalog } from './design.js'
 import { injectProbe } from './probe.js'
-import { warnUser } from './host.js'
+import { formatPublicError, reportError, reportResultError } from './errors.js'
 import { exportsDir, runExport, type ExportKind } from './export.js'
 import {
   addComment,
@@ -185,12 +185,14 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     routeRequest(req, res)
   } catch (err) {
     // 同步异常（例如读页面文件失败）不能打垮进程。
-    warnUser(`请求处理失败：${(err as Error)?.message ?? String(err)}`)
+    reportError(err, '请求处理失败')
     // 响应头已发出时无法再改状态码，只能断开，否则客户端会一直挂起。
     if (res.headersSent) res.destroy()
     // 越界/符号链接属于调用方输入问题，按 403 明确拒绝，不伪装成服务端故障。
-    else if (err instanceof PathBoundaryError) send(res, 403, 'text/plain; charset=utf-8', err.message)
-    else send(res, 500, 'text/plain; charset=utf-8', 'internal error')
+    else {
+      const error = formatPublicError(err)
+      send(res, error.status, 'text/plain; charset=utf-8', error.status === 500 ? 'internal error' : error.message)
+    }
   }
 }
 
@@ -240,7 +242,7 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
     try {
       return sendJson(res, loadDesignCatalog(cwd ?? undefined))
     } catch (err) {
-      return send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message }))
+      return sendErrorJson(res, err)
     }
   }
 
@@ -328,14 +330,24 @@ function routeRequest(req: http.IncomingMessage, res: http.ServerResponse): void
   return send(res, 404, 'text/plain; charset=utf-8', 'not found')
 }
 
+/** Every asynchronous request callback uses the same status and redaction policy. */
+function sendErrorJson(res: http.ServerResponse, err: unknown): void {
+  reportError(err, '请求处理失败')
+  if (res.headersSent) { res.destroy(); return }
+  const error = formatPublicError(err)
+  send(res, error.status, 'application/json; charset=utf-8', JSON.stringify({
+    error: error.status === 500 ? 'internal error' : error.message,
+  }))
+}
+
 function handleExport(req: http.IncomingMessage, res: http.ServerResponse): void {
   readJsonBody(req, res, (body) => {
     const cwd = String(body.__cwd)
     const kindRaw = String(body.kind ?? 'both')
     const kind: ExportKind = kindRaw === 'png' || kindRaw === 'zip' ? kindRaw : 'both'
     void runExport(cwd, kind)
-      .then((result) => sendJson(res, { ok: true, ...result }))
-      .catch((err) => send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: (err as Error).message })))
+      .then((result) => sendJson(res, { ok: true, ...result, ...(result.pngError ? { pngError: reportResultError(result.pngError) } : {}) }))
+      .catch((err) => sendErrorJson(res, err))
   })
 }
 
@@ -399,16 +411,7 @@ function readJsonBody(
       if (!cwd) return send(res, 404, 'application/json; charset=utf-8', JSON.stringify({ error: 'unknown workspace' }))
       onBody({ ...body, __cwd: cwd })
     } catch (err) {
-      if (err instanceof InvalidInputError) {
-        return send(res, 400, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
-      }
-      // 越界写入/符号链接：403 明确拒绝。
-      if (err instanceof PathBoundaryError) {
-        return send(res, 403, 'application/json; charset=utf-8', JSON.stringify({ error: err.message }))
-      }
-      warnUser(`请求处理失败：${(err as Error)?.message ?? String(err)}`)
-      if (res.headersSent) res.destroy()
-      else send(res, 500, 'application/json; charset=utf-8', JSON.stringify({ error: 'internal error' }))
+      sendErrorJson(res, err)
     }
   })
 }

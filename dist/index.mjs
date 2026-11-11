@@ -51,9 +51,9 @@ var init_environment = __esm({
             throw new Error("ScreenRecorder is not available in this environment");
           }
         },
-        readFile: () => {
+        readFile: (() => {
           throw new Error("readFile is not available in this environment");
-        },
+        }),
         writeFile: () => {
           throw new Error("writeFile is not available in this environment");
         },
@@ -1613,7 +1613,7 @@ var init_rxjs = __esm({
         this.errors = errors;
       };
     });
-    Subscription = function() {
+    Subscription = (function() {
       function Subscription2(initialTeardown) {
         this.initialTeardown = initialTeardown;
         this.closed = false;
@@ -1726,13 +1726,13 @@ var init_rxjs = __esm({
           teardown._removeParent(this);
         }
       };
-      Subscription2.EMPTY = function() {
+      Subscription2.EMPTY = (function() {
         var empty = new Subscription2();
         empty.closed = true;
         return empty;
-      }();
+      })();
       return Subscription2;
-    }();
+    })();
     EMPTY_SUBSCRIPTION = Subscription.EMPTY;
     config = {
       onUnhandledError: null,
@@ -1759,11 +1759,11 @@ var init_rxjs = __esm({
       },
       delegate: void 0
     };
-    COMPLETE_NOTIFICATION = function() {
+    COMPLETE_NOTIFICATION = (function() {
       return createNotification("C", void 0, void 0);
-    }();
+    })();
     context = null;
-    Subscriber = function(_super) {
+    Subscriber = (function(_super) {
       __extends(Subscriber2, _super);
       function Subscriber2(destination) {
         var _this = _super.call(this) || this;
@@ -1829,9 +1829,9 @@ var init_rxjs = __esm({
         }
       };
       return Subscriber2;
-    }(Subscription);
+    })(Subscription);
     _bind = Function.prototype.bind;
-    ConsumerObserver = function() {
+    ConsumerObserver = (function() {
       function ConsumerObserver2(partialObserver) {
         this.partialObserver = partialObserver;
       }
@@ -1868,8 +1868,8 @@ var init_rxjs = __esm({
         }
       };
       return ConsumerObserver2;
-    }();
-    SafeSubscriber = function(_super) {
+    })();
+    SafeSubscriber = (function(_super) {
       __extends(SafeSubscriber2, _super);
       function SafeSubscriber2(observerOrNext, error, complete) {
         var _this = _super.call(this) || this;
@@ -1900,17 +1900,17 @@ var init_rxjs = __esm({
         return _this;
       }
       return SafeSubscriber2;
-    }(Subscriber);
+    })(Subscriber);
     EMPTY_OBSERVER = {
       closed: true,
       next: noop,
       error: defaultErrorHandler,
       complete: noop
     };
-    observable = function() {
+    observable = (function() {
       return typeof Symbol === "function" && Symbol.observable || "@@observable";
-    }();
-    Observable = function() {
+    })();
+    Observable = (function() {
       function Observable2(subscribe) {
         if (subscribe) {
           this._subscribe = subscribe;
@@ -1989,8 +1989,8 @@ var init_rxjs = __esm({
         return new Observable2(subscribe);
       };
       return Observable2;
-    }();
-    OperatorSubscriber = function(_super) {
+    })();
+    OperatorSubscriber = (function(_super) {
       __extends(OperatorSubscriber2, _super);
       function OperatorSubscriber2(destination, onNext, onComplete, onError, onFinalize, shouldUnsubscribe) {
         var _this = _super.call(this, destination) || this;
@@ -2032,7 +2032,7 @@ var init_rxjs = __esm({
         }
       };
       return OperatorSubscriber2;
-    }(Subscriber);
+    })(Subscriber);
     ObjectUnsubscribedError = createErrorClass(function(_super) {
       return function ObjectUnsubscribedErrorImpl() {
         _super(this);
@@ -2040,7 +2040,7 @@ var init_rxjs = __esm({
         this.message = "object unsubscribed";
       };
     });
-    Subject = function(_super) {
+    Subject = (function(_super) {
       __extends(Subject2, _super);
       function Subject2() {
         var _this = _super.call(this) || this;
@@ -2166,8 +2166,8 @@ var init_rxjs = __esm({
         return new AnonymousSubject(destination, source2);
       };
       return Subject2;
-    }(Observable);
-    AnonymousSubject = function(_super) {
+    })(Observable);
+    AnonymousSubject = (function(_super) {
       __extends(AnonymousSubject2, _super);
       function AnonymousSubject2(destination, source2) {
         var _this = _super.call(this) || this;
@@ -2192,14 +2192,14 @@ var init_rxjs = __esm({
         return (_b2 = (_a9 = this.source) === null || _a9 === void 0 ? void 0 : _a9.subscribe(subscriber)) !== null && _b2 !== void 0 ? _b2 : EMPTY_SUBSCRIPTION;
       };
       return AnonymousSubject2;
-    }(Subject);
+    })(Subject);
     dateTimestampProvider = {
       now: function() {
         return (dateTimestampProvider.delegate || Date).now();
       },
       delegate: void 0
     };
-    ReplaySubject = function(_super) {
+    ReplaySubject = (function(_super) {
       __extends(ReplaySubject2, _super);
       function ReplaySubject2(_bufferSize, _windowTime, _timestampProvider) {
         if (_bufferSize === void 0) {
@@ -2257,8 +2257,8 @@ var init_rxjs = __esm({
         }
       };
       return ReplaySubject2;
-    }(Subject);
-    Action = function(_super) {
+    })(Subject);
+    Action = (function(_super) {
       __extends(Action2, _super);
       function Action2(scheduler, work) {
         return _super.call(this) || this;
@@ -2270,7 +2270,7 @@ var init_rxjs = __esm({
         return this;
       };
       return Action2;
-    }(Subscription);
+    })(Subscription);
     intervalProvider = {
       setInterval: function(handler, timeout2) {
         var args = [];
@@ -2289,7 +2289,7 @@ var init_rxjs = __esm({
       },
       delegate: void 0
     };
-    AsyncAction = function(_super) {
+    AsyncAction = (function(_super) {
       __extends(AsyncAction2, _super);
       function AsyncAction2(scheduler, work) {
         var _this = _super.call(this, scheduler, work) || this;
@@ -2376,8 +2376,8 @@ var init_rxjs = __esm({
         }
       };
       return AsyncAction2;
-    }(Action);
-    Scheduler = function() {
+    })(Action);
+    Scheduler = (function() {
       function Scheduler2(schedulerActionCtor, now2) {
         if (now2 === void 0) {
           now2 = Scheduler2.now;
@@ -2393,8 +2393,8 @@ var init_rxjs = __esm({
       };
       Scheduler2.now = dateTimestampProvider.now;
       return Scheduler2;
-    }();
-    AsyncScheduler = function(_super) {
+    })();
+    AsyncScheduler = (function(_super) {
       __extends(AsyncScheduler2, _super);
       function AsyncScheduler2(SchedulerAction, now2) {
         if (now2 === void 0) {
@@ -2427,15 +2427,15 @@ var init_rxjs = __esm({
         }
       };
       return AsyncScheduler2;
-    }(Scheduler);
+    })(Scheduler);
     asyncScheduler = new AsyncScheduler(AsyncAction);
     async = asyncScheduler;
     EMPTY = new Observable(function(subscriber) {
       return subscriber.complete();
     });
-    isArrayLike = function(x2) {
+    isArrayLike = (function(x2) {
       return x2 && typeof x2.length === "number" && typeof x2 !== "function";
-    };
+    });
     iterator = getSymbolIterator();
     EmptyError = createErrorClass(function(_super) {
       return function EmptyErrorImpl() {
@@ -4277,6 +4277,7 @@ var init_Browser = __esm({
        * @experimental
        */
       restrictNetwork(conditions) {
+        void conditions;
         throw new UnsupportedOperation();
       }
       /**
@@ -4984,9 +4985,9 @@ async function* transposeIterableHandle(handle) {
   const env_3 = { stack: [], error: void 0, hasError: false };
   try {
     const generatorHandle = __addDisposableResource(env_3, await handle.evaluateHandle((iterable) => {
-      return async function* () {
+      return (async function* () {
         yield* iterable;
-      }();
+      })();
     }), false);
     yield* transposeIteratorHandle(generatorHandle);
   } catch (e_3) {
@@ -5027,7 +5028,7 @@ var init_HandleIterator = __esm({
       }
       return value;
     };
-    __disposeResources = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -5054,7 +5055,7 @@ var init_HandleIterator = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -5118,7 +5119,7 @@ var init_QueryHandler = __esm({
       }
       return value;
     };
-    __disposeResources2 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources2 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -5145,7 +5146,7 @@ var init_QueryHandler = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -6077,7 +6078,7 @@ var init_decorators = __esm({
       }
       return value;
     };
-    __disposeResources3 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources3 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -6104,7 +6105,7 @@ var init_decorators = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -6202,7 +6203,7 @@ var init_JSHandle = __esm({
       }
       return value;
     };
-    __disposeResources4 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources4 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -6229,7 +6230,7 @@ var init_JSHandle = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -6389,7 +6390,7 @@ var init_locators = __esm({
       }
       return value;
     };
-    __disposeResources5 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources5 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -6416,7 +6417,7 @@ var init_locators = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -7261,7 +7262,7 @@ var init_ElementHandle = __esm({
       }
       return value;
     };
-    __disposeResources6 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources6 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -7288,7 +7289,7 @@ var init_ElementHandle = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -8621,7 +8622,7 @@ var init_Frame = __esm({
       }
       return value;
     };
-    __disposeResources7 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources7 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -8648,7 +8649,7 @@ var init_Frame = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -10168,7 +10169,7 @@ var init_Page = __esm({
       }
       return value;
     };
-    __disposeResources8 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources8 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -10195,7 +10196,7 @@ var init_Page = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -12175,7 +12176,7 @@ var init_Accessibility = __esm({
       }
       return value;
     };
-    __disposeResources9 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources9 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -12202,7 +12203,7 @@ var init_Accessibility = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -12730,7 +12731,7 @@ var init_Binding = __esm({
       }
       return value;
     };
-    __disposeResources10 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources10 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -12757,7 +12758,7 @@ var init_Binding = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -14974,7 +14975,7 @@ var init_ExecutionContext = __esm({
       }
       return value;
     };
-    __disposeResources11 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources11 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -15001,7 +15002,7 @@ var init_ExecutionContext = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -15020,12 +15021,12 @@ var init_ExecutionContext = __esm({
       static getOrCreateAriaQuerySelectorAllBinding(logger) {
         return this.#ariaQuerySelectorAllBinding ??= new Binding(
           "__ariaQuerySelectorAll",
-          async (element, selector) => {
+          (async (element, selector) => {
             const results = ARIAQueryHandler.queryAll(element, selector);
             return await element.realm.evaluateHandle((...elements) => {
               return elements;
             }, ...await AsyncIterableUtil.collect(results));
-          },
+          }),
           "",
           // custom init
           logger
@@ -17715,7 +17716,7 @@ var init_FrameManager = __esm({
       }
       return value;
     };
-    __disposeResources12 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources12 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -17742,7 +17743,7 @@ var init_FrameManager = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -19672,7 +19673,7 @@ var init_Page2 = __esm({
       }
       return value;
     };
-    __disposeResources13 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources13 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -19699,7 +19700,7 @@ var init_Page2 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -20648,7 +20649,7 @@ var init_BrowserContext2 = __esm({
       }
       return value;
     };
-    __disposeResources14 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources14 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -20675,7 +20676,7 @@ var init_BrowserContext2 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -36965,7 +36966,7 @@ var require_out = __commonJS({
     } : function(o, v2) {
       o["default"] = v2;
     });
-    var __importStar = exports && exports.__importStar || /* @__PURE__ */ function() {
+    var __importStar = exports && exports.__importStar || /* @__PURE__ */ (function() {
       var ownKeys = function(o) {
         ownKeys = Object.getOwnPropertyNames || function(o2) {
           var ar = [];
@@ -36985,7 +36986,7 @@ var require_out = __commonJS({
         __setModuleDefault(result, mod);
         return result;
       };
-    }();
+    })();
     var __exportStar = exports && exports.__exportStar || function(m, exports2) {
       for (var p in m)
         if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p))
@@ -38272,10 +38273,10 @@ var init_BrowsingContext = __esm({
         }
         get realms() {
           const self2 = this;
-          return function* () {
+          return (function* () {
             yield self2.defaultRealm;
             yield* self2.#realms.values();
-          }();
+          })();
         }
         get top() {
           let context2 = this;
@@ -39035,7 +39036,7 @@ var init_ElementHandle3 = __esm({
       }
       return value;
     };
-    __disposeResources15 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources15 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -39062,7 +39063,7 @@ var init_ElementHandle3 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -39242,7 +39243,7 @@ var init_ExposedFunction = __esm({
       }
       return value;
     };
-    __disposeResources16 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources16 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -39269,7 +39270,7 @@ var init_ExposedFunction = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -40129,7 +40130,7 @@ var init_Realm4 = __esm({
       }
       return value;
     };
-    __disposeResources17 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources17 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -40156,7 +40157,7 @@ var init_Realm4 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -41894,7 +41895,7 @@ var init_Page3 = __esm({
       }
       return value;
     };
-    __disposeResources18 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources18 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -41921,7 +41922,7 @@ var init_Page3 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -42813,7 +42814,7 @@ var init_BrowserContext3 = __esm({
       }
       return value;
     };
-    __disposeResources19 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources19 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -42840,7 +42841,7 @@ var init_BrowserContext3 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -43184,7 +43185,7 @@ var init_Browser3 = __esm({
       }
       return value;
     };
-    __disposeResources20 = /* @__PURE__ */ function(SuppressedError3) {
+    __disposeResources20 = /* @__PURE__ */ (function(SuppressedError3) {
       return function(env2) {
         function fail(e) {
           env2.error = env2.hasError ? new SuppressedError3(e, env2.error, "An error was suppressed during disposal.") : e;
@@ -43211,7 +43212,7 @@ var init_Browser3 = __esm({
         }
         return next();
       };
-    }(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
+    })(typeof SuppressedError === "function" ? SuppressedError : function(error, suppressed, message) {
       var e = new Error(message);
       return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     });
@@ -47927,8 +47928,8 @@ var init_NodeWebSocketTransport = __esm({
 // node_modules/@puppeteer/browsers/lib/httpUtil.js
 import { createHash as createHash3 } from "node:crypto";
 import { createWriteStream, unlinkSync } from "node:fs";
-import * as http2 from "node:http";
-import * as https from "node:https";
+import * as http3 from "node:http";
+import * as https2 from "node:https";
 import { URL as URL2, urlToHttpOptions } from "node:url";
 async function headHttpRequest(url) {
   return await new Promise((resolve11) => {
@@ -47969,7 +47970,7 @@ async function httpRequest(url, method, response, keepAlive = true) {
       response(res);
     }
   };
-  const request3 = options.protocol === "https:" ? https.request(options, requestCallback) : http2.request(options, requestCallback);
+  const request3 = options.protocol === "https:" ? https2.request(options, requestCallback) : http3.request(options, requestCallback);
   request3.end();
   return request3;
 }
@@ -52676,7 +52677,7 @@ var init_string_width = __esm({
     init_get_east_asian_width();
     import_emoji_regex = __toESM(require_emoji_regex(), 1);
     segmenter = new Intl.Segmenter();
-    defaultIgnorableCodePointRegex = /^\p{Default_Ignorable_Code_Point}$/u;
+    defaultIgnorableCodePointRegex = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
   }
 });
 
@@ -52732,7 +52733,7 @@ var init_string_width2 = __esm({
     init_get_east_asian_width();
     import_emoji_regex2 = __toESM(require_emoji_regex(), 1);
     segmenter2 = new Intl.Segmenter();
-    defaultIgnorableCodePointRegex2 = /^\p{Default_Ignorable_Code_Point}$/u;
+    defaultIgnorableCodePointRegex2 = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
   }
 });
 
@@ -53109,10 +53110,10 @@ var init_cliui = __esm({
 
 // node_modules/escalade/sync/index.mjs
 import { dirname as dirname3, resolve as resolve4 } from "path";
-import { readdirSync as readdirSync4, statSync as statSync3 } from "fs";
+import { readdirSync as readdirSync4, statSync as statSync2 } from "fs";
 function sync_default(start, callback) {
   let dir = resolve4(".", start);
-  let tmp, stats = statSync3(dir);
+  let tmp, stats = statSync2(dir);
   if (!stats.isDirectory()) {
     dir = dirname3(dir);
   }
@@ -54283,12 +54284,12 @@ var init_string_width3 = __esm({
     spacingMarkRegex = new RegExp("\\p{Spacing_Mark}", "v");
     rgiEmojiRegex = new RegExp("^\\p{RGI_Emoji}$", "v");
     unqualifiedKeycapRegex = /^[\d#*]\u20E3$/;
-    extendedPictographicRegex = /\p{Extended_Pictographic}/gu;
+    extendedPictographicRegex = new RegExp("\\p{Extended_Pictographic}", "gu");
   }
 });
 
 // node_modules/y18n/build/lib/platform-shims/node.js
-import { readFileSync as readFileSync10, statSync as statSync4, writeFile } from "fs";
+import { readFileSync as readFileSync10, statSync as statSync3, writeFile } from "fs";
 import { format as format2 } from "util";
 import { resolve as resolve6 } from "path";
 var node_default;
@@ -54303,7 +54304,7 @@ var init_node = __esm({
       resolve: resolve6,
       exists: (file) => {
         try {
-          return statSync4(file).isFile();
+          return statSync3(file).isFile();
         } catch (err) {
           return false;
         }
@@ -60754,7 +60755,7 @@ function newCommentId() {
 }
 
 // src/paths.ts
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 var O_NOFOLLOW = constants.O_NOFOLLOW;
@@ -60847,52 +60848,40 @@ function confineToWorkspace(cwd, abs) {
   }
   return target;
 }
-function readConfined(cwd, abs) {
-  const target = confineToWorkspace(cwd, abs);
-  if (target === null) return null;
-  const noFollow = O_NOFOLLOW ?? 0;
-  let fd;
+function readCheckedText(cwd, target, confined, label) {
+  if (confined) assertInsideWorkspace(cwd, target, label);
+  const statOpts = { bigint: true };
+  const before = lstatSync(target, statOpts);
+  if (before.isSymbolicLink()) throw new PathBoundaryError(`${label}\u662F\u7B26\u53F7\u94FE\u63A5\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
+  if (!before.isFile()) throw new Error(`${label}\u4E0D\u662F\u666E\u901A\u6587\u4EF6\uFF1A${target}`);
+  const fd = openSync(target, O_RDONLY | (O_NOFOLLOW ?? 0));
   try {
-    fd = openSync(target, O_RDONLY | noFollow);
-  } catch {
-    return null;
-  }
-  try {
-    const statOpts = { bigint: true };
-    const info = fstatSync(fd, statOpts);
-    if (!info.isFile()) return null;
-    let real;
-    try {
-      real = realpathSync(target);
-    } catch {
-      return null;
+    const opened = fstatSync(fd, statOpts);
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
+      throw new PathBoundaryError(`${label}\u5728\u8BFB\u53D6\u524D\u88AB\u66FF\u6362\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
     }
-    if (!isInside(realRoot(cwd), real)) return null;
-    try {
-      const onDisk = statSync(real, statOpts);
-      if (info.dev !== onDisk.dev || info.ino !== onDisk.ino) return null;
-    } catch {
-      return null;
+    if (confined) assertInsideWorkspace(cwd, target, label);
+    const after = lstatSync(target, statOpts);
+    if (!after.isFile() || after.isSymbolicLink() || opened.dev !== after.dev || opened.ino !== after.ino) {
+      throw new PathBoundaryError(`${label}\u5728\u8BFB\u53D6\u65F6\u88AB\u66FF\u6362\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
     }
     return readFileSync(fd, "utf8");
-  } catch {
-    return null;
   } finally {
     closeSync(fd);
   }
 }
+function readConfined(cwd, abs) {
+  const target = confineToWorkspace(cwd, abs);
+  if (target === null) return null;
+  try {
+    return readCheckedText(cwd, target, true, "\u5019\u9009\u6587\u4EF6");
+  } catch {
+    return null;
+  }
+}
 function readTextInWorkspace(cwd, abs, label = "\u6587\u4EF6") {
   const target = resolve(abs);
-  if (insideLexically(cwd, target)) assertInsideWorkspace(cwd, target, label);
-  let info;
-  try {
-    info = lstatSync(target);
-  } catch {
-    throw new Error(`${label}\u4E0D\u5B58\u5728\uFF1A${target}`);
-  }
-  if (info.isSymbolicLink()) throw new PathBoundaryError(`${label}\u662F\u7B26\u53F7\u94FE\u63A5\uFF0C\u5DF2\u62D2\u7EDD\uFF1A${target}`);
-  if (!info.isFile()) throw new Error(`${label}\u4E0D\u662F\u666E\u901A\u6587\u4EF6\uFF1A${target}`);
-  return readFileSync(target, "utf8");
+  return readCheckedText(cwd, target, insideLexically(cwd, target), label);
 }
 function tempSibling(dir, base) {
   for (let attempt = 0; attempt < 64; attempt++) {
@@ -63643,6 +63632,7 @@ function renderTable(node, ctx, used) {
     const entries = cells.map((td, i) => `col${i}: '${textOf(td).replace(/'/g, "\\'")}'`).join(", ");
     return `{ key: 'row-${bodyRows.indexOf(row)}', ${entries} }`;
   });
+  void ctx;
   return `<Table columns={[${columns.join(", ")}]} dataSource={[${data.join(", ")}]} pagination={false}${renderAttrs(node)} />`;
 }
 function semanticValue(ctx, path14) {
@@ -64111,6 +64101,7 @@ ${row.children.filter((c) => c.type === "element" && c.tag === "th").map((th) =>
 ${row.children.filter((c) => c.type === "element" && c.tag === "td").map((td) => `  <TableCell>${escapeText2(textOf(td))}</TableCell>`).join("\n")}
 </TableRow>`
   ).join("\n");
+  void cell;
   return `<Table${renderAttrs2(node)}>
   <TableHeader>
 ${indent2(head, 4)}
@@ -64913,9 +64904,9 @@ import { join as join14 } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
 // src/server.ts
-import http from "node:http";
+import http2 from "node:http";
 import { randomBytes as randomBytes2, timingSafeEqual } from "node:crypto";
-import { existsSync as existsSync6, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync7, statSync } from "node:fs";
 import { join as join9 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
@@ -65253,6 +65244,294 @@ ${safe}
   return html.slice(0, at) + tag + html.slice(at);
 }
 
+// src/netFetch.ts
+import { lookup as dnsLookup } from "node:dns";
+import http from "node:http";
+import https from "node:https";
+import { isIP } from "node:net";
+var FetchError = class extends Error {
+};
+var DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
+var DEFAULT_DEADLINE_MS = 1e4;
+var DEFAULT_MAX_REDIRECTS = 3;
+var BLOCKED_V4 = [
+  { base: 0, bits: 8 },
+  // 0.0.0.0/8
+  { base: 167772160, bits: 8 },
+  // 10/8
+  { base: 1681915904, bits: 10 },
+  // 100.64/10 (CGNAT)
+  { base: 2130706432, bits: 8 },
+  // 127/8 (loopback)
+  { base: 2851995648, bits: 16 },
+  // 169.254/16 (link-local)
+  { base: 2886729728, bits: 12 },
+  // 172.16/12
+  { base: 3221225472, bits: 24 },
+  // 192.0.0/24
+  { base: 3232235520, bits: 16 },
+  // 192.168/16
+  { base: 3323068416, bits: 15 },
+  // 198.18/15 (benchmark)
+  { base: 3758096384, bits: 4 },
+  // 224/4 (multicast)
+  { base: 4026531840, bits: 4 }
+  // 240/4 (reserved)
+];
+function v4ToInt(ip) {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+  return (parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3]) >>> 0;
+}
+function ipv4IntBlocked(value) {
+  for (const { base, bits } of BLOCKED_V4) {
+    const mask2 = bits === 0 ? 0 : 4294967295 << 32 - bits >>> 0;
+    if ((value & mask2) === (base & mask2)) return true;
+  }
+  return false;
+}
+function ipv4Blocked(ip) {
+  const value = v4ToInt(ip);
+  return value === null ? true : ipv4IntBlocked(value);
+}
+function parseV6(raw) {
+  let text3 = raw.trim().replace(/^\[|\]$/g, "").split("%")[0];
+  if (!text3.includes(":")) return null;
+  const v4Tail = /^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text3);
+  if (v4Tail) {
+    const n = v4ToInt(v4Tail[2]);
+    if (n === null) return null;
+    text3 = `${v4Tail[1]}${(n >>> 16).toString(16)}:${(n & 65535).toString(16)}`;
+  }
+  const sides = text3.split("::");
+  if (sides.length > 2) return null;
+  const toGroups = (s) => {
+    if (s === "") return [];
+    const out = [];
+    for (const g of s.split(":")) {
+      if (!/^[0-9a-f]{1,4}$/i.test(g)) return null;
+      out.push(parseInt(g, 16));
+    }
+    return out;
+  };
+  const left2 = toGroups(sides[0]);
+  if (left2 === null) return null;
+  if (sides.length === 1) {
+    return left2.length === 8 ? left2 : null;
+  }
+  const right2 = toGroups(sides[1]);
+  if (right2 === null) return null;
+  const fill = 8 - left2.length - right2.length;
+  if (fill < 0) return null;
+  return [...left2, ...Array(fill).fill(0), ...right2];
+}
+function embeddedV4Blocked(hi, lo) {
+  return ipv4IntBlocked((hi << 16 | lo) >>> 0);
+}
+function ipv6Blocked(raw) {
+  const g = parseV6(raw);
+  if (!g) return true;
+  const [g0, g1, g2, g3, g4, g5, g6, g7] = g;
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0) {
+    return ipv4IntBlocked((g6 << 16 | g7) >>> 0);
+  }
+  if (g0 === 100 && g1 === 65435 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
+    return embeddedV4Blocked(g6, g7);
+  }
+  if (g0 === 8194) return embeddedV4Blocked(g1, g2);
+  if (g0 === 8193 && g1 === 0) {
+    const server = (~(g2 << 16 | g3) & 4294967295) >>> 0;
+    const client = (~(g6 << 16 | g7) & 4294967295) >>> 0;
+    if (ipv4IntBlocked(server) || ipv4IntBlocked(client)) return true;
+  }
+  if ((g0 & 65024) === 64512) return true;
+  if ((g0 & 65472) === 65152) return true;
+  if ((g0 & 65472) === 65216) return true;
+  if ((g0 & 65280) === 65280) return true;
+  if (g0 === 8193 && g1 === 3512) return true;
+  if (g0 === 8193 && g1 === 2 && g2 === 0) return true;
+  return false;
+}
+function isBlockedIp(raw) {
+  const value = String(raw).trim().replace(/^\[|\]$/g, "").split("%")[0];
+  const family = isIP(value);
+  if (family === 4) return ipv4Blocked(value);
+  if (family === 6) return ipv6Blocked(value);
+  return true;
+}
+async function assertUrlAllowed(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new FetchError(`\u4E0D\u662F\u5408\u6CD5 URL\uFF1A${rawUrl}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new FetchError(`\u4EC5\u5141\u8BB8 http/https\uFF1A${url.protocol}`);
+  }
+  if (url.username || url.password) {
+    throw new FetchError("\u4E0D\u5141\u8BB8 URL \u5185\u5D4C\u51ED\u636E\uFF08user:pass@\uFF09\u3002");
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host)) {
+    if (isBlockedIp(host)) throw new FetchError(`\u7981\u6B62\u8BBF\u95EE\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1A${host}`);
+    return { url, address: host, family: isIP(host) };
+  }
+  const addresses = await resolveAll(host);
+  if (addresses.length === 0) throw new FetchError(`\u65E0\u6CD5\u89E3\u6790\u4E3B\u673A\uFF1A${host}`);
+  for (const addr of addresses) {
+    if (isBlockedIp(addr.address)) throw new FetchError(`\u4E3B\u673A ${host} \u89E3\u6790\u5230\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1A${addr.address}`);
+  }
+  return { url, address: addresses[0].address, family: addresses[0].family };
+}
+function resolveAll(host) {
+  return new Promise((resolve11, reject) => {
+    dnsLookup(host, { all: true }, (err, addresses) => {
+      if (err) reject(new FetchError(`DNS \u89E3\u6790\u5931\u8D25\uFF1A${host}\uFF08${err.message}\uFF09`));
+      else resolve11(addresses);
+    });
+  });
+}
+function requestOnce(target, options, maxBytes, signal) {
+  return new Promise((resolve11, reject) => {
+    const isHttps = target.url.protocol === "https:";
+    const mod = isHttps ? https : http;
+    const pinnedLookup = (_hostname, opts, callback) => {
+      if (opts?.all) {
+        callback(null, [{ address: target.address, family: target.family }]);
+        return;
+      }
+      callback(null, target.address, target.family);
+    };
+    const req = mod.request(
+      {
+        protocol: target.url.protocol,
+        hostname: target.url.hostname.replace(/^\[|\]$/g, ""),
+        port: target.url.port || (isHttps ? 443 : 80),
+        path: target.url.pathname + target.url.search,
+        method: "GET",
+        // identity：不解压，避免 gzip 炸弹。
+        headers: { "Accept-Encoding": "identity", "User-Agent": "tianshu-canvas", ...options.headers },
+        lookup: pinnedLookup,
+        ...isHttps ? { servername: target.url.hostname.replace(/^\[|\]$/g, "") } : {},
+        signal
+      },
+      (res) => {
+        const chunks = [];
+        let size = 0;
+        res.on("data", (chunk) => {
+          size += chunk.length;
+          if (size > maxBytes) {
+            res.destroy(new FetchError(`\u54CD\u5E94\u8D85\u8FC7\u4F53\u79EF\u4E0A\u9650\uFF08${maxBytes} \u5B57\u8282\uFF09`));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on(
+          "end",
+          () => resolve11({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
+        );
+        res.on("error", reject);
+      }
+    );
+    req.on("error", (err) => {
+      if (signal.aborted) reject(new FetchError("\u6293\u53D6\u8D85\u65F6\u6216\u5DF2\u53D6\u6D88"));
+      else reject(new FetchError(`\u8BF7\u6C42\u5931\u8D25\uFF1A${err.message}`));
+    });
+    req.end();
+  });
+}
+async function fetchUrl(rawUrl, options = {}) {
+  if (options.fetchImpl) return options.fetchImpl(rawUrl, options);
+  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+  const deadline = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
+  const controller = new AbortController();
+  const timer2 = setTimeout(() => controller.abort(), deadline);
+  timer2.unref?.();
+  try {
+    let current = rawUrl;
+    for (let hop = 0; hop <= maxRedirects; hop++) {
+      const target = await assertUrlAllowed(current);
+      const res = await requestOnce(target, options, maxBytes, controller.signal);
+      if (res.status >= 300 && res.status < 400 && res.headers.location) {
+        if (hop === maxRedirects) throw new FetchError(`\u91CD\u5B9A\u5411\u6B21\u6570\u8D85\u8FC7 ${maxRedirects} \u6B21`);
+        current = new URL(String(res.headers.location), target.url).toString();
+        continue;
+      }
+      if (res.status < 200 || res.status >= 300) {
+        throw new FetchError(`HTTP ${res.status}\uFF1A${target.url.toString()}`);
+      }
+      const contentType = typeof res.headers["content-type"] === "string" ? res.headers["content-type"] : null;
+      return { body: res.body, url: target.url.toString(), contentType };
+    }
+    throw new FetchError("\u91CD\u5B9A\u5411\u5904\u7406\u5F02\u5E38");
+  } finally {
+    clearTimeout(timer2);
+  }
+}
+async function fetchText(rawUrl, options = {}) {
+  const result = await fetchUrl(rawUrl, options);
+  return { text: result.body.toString("utf8"), url: result.url, contentType: result.contentType };
+}
+
+// src/errors.ts
+function redactCredentials(message) {
+  return message.replace(/(Bearer\s+)[^\s"']+/gi, "$1[\u51ED\u8BC1\u5DF2\u9690\u85CF]").replace(/([?&](?:ws|token|secret)=)[^&#\s"']+/gi, "$1[\u51ED\u8BC1\u5DF2\u9690\u85CF]").replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[\u51ED\u8BC1\u5DF2\u9690\u85CF]@").replace(/(https?:\/\/[^\s#]+)#[a-f0-9]{64}\b/gi, "$1#[\u51ED\u8BC1\u5DF2\u9690\u85CF]");
+}
+function redactErrorPaths(message) {
+  return redactCredentials(message).replace(/(?<![A-Za-z0-9+.-])[A-Za-z]:[\\/][^\r\n"'<>，。；）]*/g, "[\u8DEF\u5F84\u5DF2\u9690\u85CF]").replace(/\\\\[^\r\n"'<>，。；）]*/g, "[\u8DEF\u5F84\u5DF2\u9690\u85CF]").replace(/(^|[\s:：("'])(\/(?!\/)[^\s"'<>，。；）]+)/g, "$1[\u8DEF\u5F84\u5DF2\u9690\u85CF]");
+}
+function formatPublicError(error) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const code = err.code;
+  if (code === "WORKSPACE_BUSY" || err.name === "WorkspaceBusyError") {
+    return { status: 409, message: redactErrorPaths(err.message) };
+  }
+  if (code === "HTML_SIZE_LIMIT" || err.name === "HtmlSizeLimitError") {
+    return { status: 413, message: redactErrorPaths(err.message) };
+  }
+  if (code === "PAGE_COUNT_LIMIT") return { status: 400, message: redactErrorPaths(err.message) };
+  if (error instanceof PathBoundaryError) {
+    return { status: 403, message: redactErrorPaths(err.message) };
+  }
+  if (error instanceof InvalidInputError) {
+    return { status: 400, message: redactErrorPaths(err.message) };
+  }
+  if (error instanceof FetchError) {
+    if (/内网|保留地址/.test(err.message)) return { status: 400, message: "\u7F51\u7EDC\u5730\u5740\u88AB\u62D2\u7EDD\uFF1A\u7981\u6B62\u8BBF\u95EE\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1B\u8BF7\u4F7F\u7528\u516C\u5F00\u7684 http/https \u5730\u5740\u3002" };
+    if (/凭据/.test(err.message)) return { status: 400, message: "\u4E0D\u5141\u8BB8 URL \u5185\u5D4C\u51ED\u636E\uFF08user:pass@\uFF09\uFF1B\u8BF7\u79FB\u9664\u51ED\u636E\u540E\u91CD\u8BD5\u3002" };
+    if (/合法 URL|仅允许 http/.test(err.message)) return { status: 400, message: "\u7F51\u7EDC\u5730\u5740\u65E0\u6548\uFF1B\u8BF7\u63D0\u4F9B\u5408\u6CD5\u7684 http/https URL\u3002" };
+    return { status: 400, message: "\u7F51\u7EDC\u6293\u53D6\u5931\u8D25\uFF1B\u8BF7\u68C0\u67E5\u516C\u5F00\u5730\u5740\u3001\u54CD\u5E94\u4F53\u79EF\u53CA\u8D85\u65F6\u540E\u91CD\u8BD5\uFF0C\u8BE6\u7EC6\u539F\u56E0\u89C1\u5BBF\u4E3B\u65E5\u5FD7\u3002" };
+  }
+  if (err.constructor.name === "BrowserSpawnError") {
+    return { status: 500, message: "\u65E0\u6CD5\u542F\u52A8\u6D4F\u89C8\u5668\uFF1B\u8BF7\u68C0\u67E5 Chrome/Edge \u5B89\u88C5\u53CA TIANSHU_CANVAS_BROWSER \u914D\u7F6E\u540E\u91CD\u8BD5\u3002" };
+  }
+  if (err.constructor.name === "SandboxUnavailableError") {
+    return { status: 500, message: "Chromium \u6C99\u7BB1\u65E0\u6CD5\u542F\u52A8\uFF0C\u5DF2\u505C\u6B62\u64CD\u4F5C\uFF1B\u8BF7\u4FEE\u590D\u6C99\u7BB1\u73AF\u5883\u540E\u91CD\u8BD5\uFF0C\u4E0D\u4F1A\u81EA\u52A8\u964D\u7EA7\u3002" };
+  }
+  if (/^(没有找到可导入的主题|主题缺少主色|主题的 primary 无法解析为颜色|未找到 Chrome\/Edge|审阅期间页面内容已变化)/.test(err.message)) {
+    return { status: 400, message: redactErrorPaths(err.message) };
+  }
+  return { status: 500, message: "\u64CD\u4F5C\u5931\u8D25\uFF1A\u8BF7\u68C0\u67E5\u5DE5\u4F5C\u533A\u6587\u4EF6\u662F\u5426\u88AB\u5360\u7528\u3001\u6743\u9650\u53CA\u6587\u4EF6\u7C7B\u578B\uFF0C\u4FEE\u590D\u540E\u91CD\u8BD5\uFF1B\u8BE6\u7EC6\u539F\u56E0\u89C1\u5BBF\u4E3B\u65E5\u5FD7\u3002" };
+}
+function reportError(error, operation = "\u64CD\u4F5C\u5931\u8D25") {
+  try {
+    const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+    const diagnostic = redactCredentials(detail).slice(0, 16e3);
+    warnUser(`${operation}\uFF1A${diagnostic}`);
+  } catch {
+  }
+  return formatPublicError(error).message;
+}
+function reportResultError(message) {
+  reportError(new Error(message), "\u5BFC\u51FA\u5931\u8D25");
+  if (/无法启动浏览器/.test(message)) return "\u65E0\u6CD5\u542F\u52A8\u6D4F\u89C8\u5668\uFF1B\u8BF7\u68C0\u67E5 Chrome/Edge \u5B89\u88C5\u53CA TIANSHU_CANVAS_BROWSER \u914D\u7F6E\u540E\u91CD\u8BD5\u3002";
+  if (/沙箱/.test(message)) return "Chromium \u6C99\u7BB1\u65E0\u6CD5\u542F\u52A8\uFF0C\u5DF2\u505C\u6B62\u64CD\u4F5C\uFF1B\u8BF7\u4FEE\u590D\u6C99\u7BB1\u73AF\u5883\u540E\u91CD\u8BD5\uFF0C\u4E0D\u4F1A\u81EA\u52A8\u964D\u7EA7\u3002";
+  if (/未找到 Chrome\/Edge/.test(message)) return "\u672A\u627E\u5230 Chrome/Edge\uFF1B\u8BF7\u5B89\u88C5\u6D4F\u89C8\u5668\u6216\u8BBE\u7F6E TIANSHU_CANVAS_BROWSER \u540E\u91CD\u8BD5\u3002";
+  return formatPublicError(new Error(message)).message;
+}
+
 // src/server.ts
 var WEB_DIR = fileURLToPath2(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
@@ -65296,7 +65575,7 @@ async function listenWithFallback(server, preferred) {
 async function ensureServer(cwd, preferredPort = DEFAULT_PORT) {
   if (stopping) await stopping;
   if (!state && !starting) starting = (async () => {
-    const server = http.createServer(handleRequest);
+    const server = http2.createServer(handleRequest);
     server.on("clientError", (_err, socket) => socket.destroy());
     const port = await listenWithFallback(server, preferredPort);
     server.unref();
@@ -65377,10 +65656,12 @@ function handleRequest(req, res) {
   try {
     routeRequest(req, res);
   } catch (err) {
-    warnUser(`\u8BF7\u6C42\u5904\u7406\u5931\u8D25\uFF1A${err?.message ?? String(err)}`);
+    reportError(err, "\u8BF7\u6C42\u5904\u7406\u5931\u8D25");
     if (res.headersSent) res.destroy();
-    else if (err instanceof PathBoundaryError) send(res, 403, "text/plain; charset=utf-8", err.message);
-    else send(res, 500, "text/plain; charset=utf-8", "internal error");
+    else {
+      const error = formatPublicError(err);
+      send(res, error.status, "text/plain; charset=utf-8", error.status === 500 ? "internal error" : error.message);
+    }
   }
 }
 function routeRequest(req, res) {
@@ -65421,7 +65702,7 @@ function routeRequest(req, res) {
     try {
       return sendJson(res, loadDesignCatalog(cwd ?? void 0));
     } catch (err) {
-      return send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
+      return sendErrorJson(res, err);
     }
   }
   if (req.method === "GET" && path14 === "/api/project") {
@@ -65467,7 +65748,7 @@ function routeRequest(req, res) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
     const file = join9(exportsDir(cwd), name);
-    if (!existsSync6(file) || !statSync2(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
+    if (!existsSync6(file) || !statSync(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     try {
       assertReadableFile(cwd, file, "\u5BFC\u51FA\u6587\u4EF6");
     } catch (err) {
@@ -65495,12 +65776,23 @@ function routeRequest(req, res) {
   }
   return send(res, 404, "text/plain; charset=utf-8", "not found");
 }
+function sendErrorJson(res, err) {
+  reportError(err, "\u8BF7\u6C42\u5904\u7406\u5931\u8D25");
+  if (res.headersSent) {
+    res.destroy();
+    return;
+  }
+  const error = formatPublicError(err);
+  send(res, error.status, "application/json; charset=utf-8", JSON.stringify({
+    error: error.status === 500 ? "internal error" : error.message
+  }));
+}
 function handleExport(req, res) {
   readJsonBody(req, res, (body) => {
     const cwd = String(body.__cwd);
     const kindRaw = String(body.kind ?? "both");
     const kind = kindRaw === "png" || kindRaw === "zip" ? kindRaw : "both";
-    void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result })).catch((err) => send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: err.message })));
+    void runExport(cwd, kind).then((result) => sendJson(res, { ok: true, ...result, ...result.pngError ? { pngError: reportResultError(result.pngError) } : {} })).catch((err) => sendErrorJson(res, err));
   });
 }
 function readJsonBody(req, res, onBody, maxBytes = MAX_BODY, bootstrap = false) {
@@ -65548,15 +65840,7 @@ function readJsonBody(req, res, onBody, maxBytes = MAX_BODY, bootstrap = false) 
       if (!cwd) return send(res, 404, "application/json; charset=utf-8", JSON.stringify({ error: "unknown workspace" }));
       onBody({ ...body, __cwd: cwd });
     } catch (err) {
-      if (err instanceof InvalidInputError) {
-        return send(res, 400, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
-      }
-      if (err instanceof PathBoundaryError) {
-        return send(res, 403, "application/json; charset=utf-8", JSON.stringify({ error: err.message }));
-      }
-      warnUser(`\u8BF7\u6C42\u5904\u7406\u5931\u8D25\uFF1A${err?.message ?? String(err)}`);
-      if (res.headersSent) res.destroy();
-      else send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: "internal error" }));
+      sendErrorJson(res, err);
     }
   });
 }
@@ -67078,6 +67362,7 @@ function memorySummary(cwd, styleId) {
   return parts.join("\uFF1B");
 }
 function buildBrandPack(cwd, styleId, builtinDir) {
+  void builtinDir;
   const dir = customStyleDir(cwd, styleId);
   const tokensFile = join18(dir, "tokens.json");
   const metaFile = join18(dir, "meta.json");
@@ -67168,239 +67453,6 @@ function positiveOr(value, fallback) {
 
 // src/extract.ts
 import { existsSync as existsSync13, readFileSync as readFileSync14 } from "node:fs";
-
-// src/netFetch.ts
-import { lookup as dnsLookup } from "node:dns";
-import http3 from "node:http";
-import https2 from "node:https";
-import { isIP } from "node:net";
-var FetchError = class extends Error {
-};
-var DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
-var DEFAULT_DEADLINE_MS = 1e4;
-var DEFAULT_MAX_REDIRECTS = 3;
-var BLOCKED_V4 = [
-  { base: 0, bits: 8 },
-  // 0.0.0.0/8
-  { base: 167772160, bits: 8 },
-  // 10/8
-  { base: 1681915904, bits: 10 },
-  // 100.64/10 (CGNAT)
-  { base: 2130706432, bits: 8 },
-  // 127/8 (loopback)
-  { base: 2851995648, bits: 16 },
-  // 169.254/16 (link-local)
-  { base: 2886729728, bits: 12 },
-  // 172.16/12
-  { base: 3221225472, bits: 24 },
-  // 192.0.0/24
-  { base: 3232235520, bits: 16 },
-  // 192.168/16
-  { base: 3323068416, bits: 15 },
-  // 198.18/15 (benchmark)
-  { base: 3758096384, bits: 4 },
-  // 224/4 (multicast)
-  { base: 4026531840, bits: 4 }
-  // 240/4 (reserved)
-];
-function v4ToInt(ip) {
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
-  return (parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3]) >>> 0;
-}
-function ipv4IntBlocked(value) {
-  for (const { base, bits } of BLOCKED_V4) {
-    const mask2 = bits === 0 ? 0 : 4294967295 << 32 - bits >>> 0;
-    if ((value & mask2) === (base & mask2)) return true;
-  }
-  return false;
-}
-function ipv4Blocked(ip) {
-  const value = v4ToInt(ip);
-  return value === null ? true : ipv4IntBlocked(value);
-}
-function parseV6(raw) {
-  let text3 = raw.trim().replace(/^\[|\]$/g, "").split("%")[0];
-  if (!text3.includes(":")) return null;
-  const v4Tail = /^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text3);
-  if (v4Tail) {
-    const n = v4ToInt(v4Tail[2]);
-    if (n === null) return null;
-    text3 = `${v4Tail[1]}${(n >>> 16).toString(16)}:${(n & 65535).toString(16)}`;
-  }
-  const sides = text3.split("::");
-  if (sides.length > 2) return null;
-  const toGroups = (s) => {
-    if (s === "") return [];
-    const out = [];
-    for (const g of s.split(":")) {
-      if (!/^[0-9a-f]{1,4}$/i.test(g)) return null;
-      out.push(parseInt(g, 16));
-    }
-    return out;
-  };
-  const left2 = toGroups(sides[0]);
-  if (left2 === null) return null;
-  if (sides.length === 1) {
-    return left2.length === 8 ? left2 : null;
-  }
-  const right2 = toGroups(sides[1]);
-  if (right2 === null) return null;
-  const fill = 8 - left2.length - right2.length;
-  if (fill < 0) return null;
-  return [...left2, ...Array(fill).fill(0), ...right2];
-}
-function embeddedV4Blocked(hi, lo) {
-  return ipv4IntBlocked((hi << 16 | lo) >>> 0);
-}
-function ipv6Blocked(raw) {
-  const g = parseV6(raw);
-  if (!g) return true;
-  const [g0, g1, g2, g3, g4, g5, g6, g7] = g;
-  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0) {
-    return ipv4IntBlocked((g6 << 16 | g7) >>> 0);
-  }
-  if (g0 === 100 && g1 === 65435 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
-    return embeddedV4Blocked(g6, g7);
-  }
-  if (g0 === 8194) return embeddedV4Blocked(g1, g2);
-  if (g0 === 8193 && g1 === 0) {
-    const server = (~(g2 << 16 | g3) & 4294967295) >>> 0;
-    const client = (~(g6 << 16 | g7) & 4294967295) >>> 0;
-    if (ipv4IntBlocked(server) || ipv4IntBlocked(client)) return true;
-  }
-  if ((g0 & 65024) === 64512) return true;
-  if ((g0 & 65472) === 65152) return true;
-  if ((g0 & 65472) === 65216) return true;
-  if ((g0 & 65280) === 65280) return true;
-  if (g0 === 8193 && g1 === 3512) return true;
-  if (g0 === 8193 && g1 === 2 && g2 === 0) return true;
-  return false;
-}
-function isBlockedIp(raw) {
-  const value = String(raw).trim().replace(/^\[|\]$/g, "").split("%")[0];
-  const family = isIP(value);
-  if (family === 4) return ipv4Blocked(value);
-  if (family === 6) return ipv6Blocked(value);
-  return true;
-}
-async function assertUrlAllowed(rawUrl) {
-  let url;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    throw new FetchError(`\u4E0D\u662F\u5408\u6CD5 URL\uFF1A${rawUrl}`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new FetchError(`\u4EC5\u5141\u8BB8 http/https\uFF1A${url.protocol}`);
-  }
-  if (url.username || url.password) {
-    throw new FetchError("\u4E0D\u5141\u8BB8 URL \u5185\u5D4C\u51ED\u636E\uFF08user:pass@\uFF09\u3002");
-  }
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host)) {
-    if (isBlockedIp(host)) throw new FetchError(`\u7981\u6B62\u8BBF\u95EE\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1A${host}`);
-    return { url, address: host, family: isIP(host) };
-  }
-  const addresses = await resolveAll(host);
-  if (addresses.length === 0) throw new FetchError(`\u65E0\u6CD5\u89E3\u6790\u4E3B\u673A\uFF1A${host}`);
-  for (const addr of addresses) {
-    if (isBlockedIp(addr.address)) throw new FetchError(`\u4E3B\u673A ${host} \u89E3\u6790\u5230\u5185\u7F51/\u4FDD\u7559\u5730\u5740\uFF1A${addr.address}`);
-  }
-  return { url, address: addresses[0].address, family: addresses[0].family };
-}
-function resolveAll(host) {
-  return new Promise((resolve11, reject) => {
-    dnsLookup(host, { all: true }, (err, addresses) => {
-      if (err) reject(new FetchError(`DNS \u89E3\u6790\u5931\u8D25\uFF1A${host}\uFF08${err.message}\uFF09`));
-      else resolve11(addresses);
-    });
-  });
-}
-function requestOnce(target, options, maxBytes, signal) {
-  return new Promise((resolve11, reject) => {
-    const isHttps = target.url.protocol === "https:";
-    const mod = isHttps ? https2 : http3;
-    const pinnedLookup = (_hostname, opts, callback) => {
-      if (opts?.all) {
-        callback(null, [{ address: target.address, family: target.family }]);
-        return;
-      }
-      callback(null, target.address, target.family);
-    };
-    const req = mod.request(
-      {
-        protocol: target.url.protocol,
-        hostname: target.url.hostname.replace(/^\[|\]$/g, ""),
-        port: target.url.port || (isHttps ? 443 : 80),
-        path: target.url.pathname + target.url.search,
-        method: "GET",
-        // identity：不解压，避免 gzip 炸弹。
-        headers: { "Accept-Encoding": "identity", "User-Agent": "tianshu-canvas", ...options.headers },
-        lookup: pinnedLookup,
-        ...isHttps ? { servername: target.url.hostname.replace(/^\[|\]$/g, "") } : {},
-        signal
-      },
-      (res) => {
-        const chunks = [];
-        let size = 0;
-        res.on("data", (chunk) => {
-          size += chunk.length;
-          if (size > maxBytes) {
-            res.destroy(new FetchError(`\u54CD\u5E94\u8D85\u8FC7\u4F53\u79EF\u4E0A\u9650\uFF08${maxBytes} \u5B57\u8282\uFF09`));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        res.on(
-          "end",
-          () => resolve11({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
-        );
-        res.on("error", reject);
-      }
-    );
-    req.on("error", (err) => {
-      if (signal.aborted) reject(new FetchError("\u6293\u53D6\u8D85\u65F6\u6216\u5DF2\u53D6\u6D88"));
-      else reject(new FetchError(`\u8BF7\u6C42\u5931\u8D25\uFF1A${err.message}`));
-    });
-    req.end();
-  });
-}
-async function fetchUrl(rawUrl, options = {}) {
-  if (options.fetchImpl) return options.fetchImpl(rawUrl, options);
-  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
-  const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
-  const deadline = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
-  const controller = new AbortController();
-  const timer2 = setTimeout(() => controller.abort(), deadline);
-  timer2.unref?.();
-  try {
-    let current = rawUrl;
-    for (let hop = 0; hop <= maxRedirects; hop++) {
-      const target = await assertUrlAllowed(current);
-      const res = await requestOnce(target, options, maxBytes, controller.signal);
-      if (res.status >= 300 && res.status < 400 && res.headers.location) {
-        if (hop === maxRedirects) throw new FetchError(`\u91CD\u5B9A\u5411\u6B21\u6570\u8D85\u8FC7 ${maxRedirects} \u6B21`);
-        current = new URL(String(res.headers.location), target.url).toString();
-        continue;
-      }
-      if (res.status < 200 || res.status >= 300) {
-        throw new FetchError(`HTTP ${res.status}\uFF1A${target.url.toString()}`);
-      }
-      const contentType = typeof res.headers["content-type"] === "string" ? res.headers["content-type"] : null;
-      return { body: res.body, url: target.url.toString(), contentType };
-    }
-    throw new FetchError("\u91CD\u5B9A\u5411\u5904\u7406\u5F02\u5E38");
-  } finally {
-    clearTimeout(timer2);
-  }
-}
-async function fetchText(rawUrl, options = {}) {
-  const result = await fetchUrl(rawUrl, options);
-  return { text: result.body.toString("utf8"), url: result.url, contentType: result.contentType };
-}
-
-// src/extract.ts
 var NEUTRAL_KEYS = ["0", "50", "100", "200", "300", "500", "700", "900"];
 var BRAND_KEYS = ["100", "300", "500", "600", "700"];
 var STATUS_KEYS = ["50", "500"];
@@ -68285,17 +68337,16 @@ function kbToBytes(v2) {
 }
 function withBackupNotice(run) {
   return async (call) => {
-    let result;
     try {
-      result = await run(call);
-    } catch (err) {
-      if (err instanceof PathBoundaryError) return { content: `\u5DF2\u62D2\u7EDD\uFF1A${err.message}`, isError: true };
-      throw err;
-    }
-    const backup = takeProjectBackup(call.cwd);
-    if (!backup) return result;
-    return { ...result, content: `${result.content}
+      const rawResult = await run(call);
+      const result = rawResult.isError ? { ...rawResult, content: redactErrorPaths(rawResult.content) } : rawResult;
+      const backup = takeProjectBackup(call.cwd);
+      if (!backup) return result;
+      return { ...result, content: `${result.content}
 \u6CE8\u610F\uFF1Aproject.json \u66FE\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8986\u76D6\u524D\u5DF2\u5907\u4EFD\u5230 ${backup}` };
+    } catch (err) {
+      return { content: reportError(err), isError: true };
+    }
   };
 }
 function scriptIconNote(names) {
@@ -68350,12 +68401,12 @@ async function canvasUpsertPage(call) {
   let html;
   if (htmlPath) {
     if (!existsSync14(htmlPath)) {
-      return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A\u6587\u4EF6\u4E0D\u5B58\u5728 ${htmlPath}`, isError: true };
+      return { content: "\u8BFB\u53D6\u5931\u8D25\uFF1A\u539F\u578B\u6587\u4EF6\u4E0D\u5B58\u5728\uFF0C\u8BF7\u6838\u5BF9 html_path \u540E\u91CD\u8BD5\u3002", isError: true };
     }
     try {
       html = readTextInWorkspace(call.cwd, htmlPath, "\u539F\u578B\u6587\u4EF6");
     } catch (err) {
-      return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
+      return { content: `\u8BFB\u53D6\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
     }
   } else {
     html = str(args.html);
@@ -68403,7 +68454,7 @@ async function canvasUpsertPage(call) {
     const skipped = inlineResult.skipped;
     assetNote = `
 \u8D44\u6E90\u5185\u8054\uFF1A\u6210\u529F ${inlineResult.inlined} \u9879` + (skipped.length ? `\uFF0C\u8DF3\u8FC7 ${skipped.length} \u9879\uFF1A
-${skipped.slice(0, 8).map((s) => `  - ${s.ref}\uFF08${s.reason}\uFF09`).join("\n")}${skipped.length > 8 ? `
+${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactErrorPaths(s.reason)}\uFF09`).join("\n")}${skipped.length > 8 ? `
   \u2026\u7B49 ${skipped.length} \u9879` : ""}` : "");
   }
   const pageTitle = str(args.title) ?? existing?.title ?? id;
@@ -68462,7 +68513,7 @@ ${detail}
 `) + `\u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + navNote + (backfilled.length ? `
 \u9875\u9762\u8DF3\u8F6C\uFF1A\u5DF2\u8865\u9F50 ${backfilled.length} \u4E2A\u9875\u9762\u7684\u524D\u5411\u94FE\u63A5\uFF08${backfilled.join("\u3001")}\uFF09\u3002` : "") + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
-\u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
+\u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).map(redactErrorPaths).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
 }
 function pageRefsWith(project, self2) {
@@ -68606,7 +68657,7 @@ async function canvasArrange(call) {
 \u753B\u5E03 URL\uFF1A${url}`
         };
       } catch (err) {
-        return { content: err.message, isError: true };
+        return { content: reportError(err), isError: true };
       }
     }
     case "link": {
@@ -68617,7 +68668,7 @@ async function canvasArrange(call) {
         const edge = addEdge(call.cwd, source2, target, str(call.args.label));
         return { content: `\u5DF2\u8FDE\u7EBF ${edge.source} \u2192 ${edge.target}${edge.label ? `\uFF08${edge.label}\uFF09` : ""}\u3002` };
       } catch (err) {
-        return { content: err.message, isError: true };
+        return { content: reportError(err), isError: true };
       }
     }
     case "unlink": {
@@ -68637,12 +68688,7 @@ async function canvasArrange(call) {
   }
 }
 function formatStyleList(cwd) {
-  let catalog;
-  try {
-    catalog = loadDesignCatalog(cwd);
-  } catch (err) {
-    return err.message;
-  }
+  const catalog = loadDesignCatalog(cwd);
   if (catalog.styles.length === 0) return "\u5F53\u524D\u6784\u5EFA\u4E0D\u5305\u542B\u4EFB\u4F55\u8BBE\u8BA1\u98CE\u683C\u3002";
   const current = currentStyleId(cwd);
   const lines = catalog.styles.map((s) => {
@@ -68824,7 +68870,7 @@ function buildCodegenFiles(call, target, stack) {
     try {
       return { files: generatePlatformFiles(platform, chosen, input2).map((f) => ({ name: f.name, content: f.content })), label: `${resolved.label} \xB7 ${target}/${chosen}` };
     } catch (err) {
-      return { files: [], label: "", error: err.message };
+      return { files: [], label: "", error: reportError(err) };
     }
   }
   return { files: [], label: "", error: `\u672A\u77E5\u7684 target\uFF1A${target}\u3002Web\uFF1Areact / css-vars / tailwind\uFF1B\u591A\u7AEF\uFF1Aios / android / miniprogram\u3002` };
@@ -68995,7 +69041,7 @@ ${doc.skeletonHtml}
     }
     return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template / interaction / prototype / direction / brief / codegen\u3002`, isError: true };
   } catch (err) {
-    return { content: err.message, isError: true };
+    return { content: reportError(err), isError: true };
   }
 }
 async function canvasCheckStyle(call) {
@@ -69063,6 +69109,7 @@ async function canvasDesignSystem(call) {
   try {
     if (action === "list") {
       const all = await canvasStyle({ ...call, args: { action: "list" } });
+      if (all.isError) return all;
       return { content: `${formatCustomList(call.cwd)}
 
 ${all.content}` };
@@ -69095,7 +69142,7 @@ ${memory}` : ""}
       try {
         extracted = await extractTokens({ source: source2, file: filePath, url, cwd: filePath ? call.cwd : void 0 });
       } catch (err) {
-        return { content: `\u53CD\u62BD\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
+        return { content: `\u53CD\u62BD\u53D6\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
       }
       const summary = `\u4ECE\u6765\u6E90\u53CD\u62BD\u53D6\u8BBE\u8BA1\u7CFB\u7EDF\uFF08${extracted.report.length} \u7EC4\uFF09\uFF1A
 ${extracted.report.map((r) => `  ${r}`).join("\n")}
@@ -69163,7 +69210,7 @@ ${lockLine}
       try {
         imported = adapter.importTokens(call.cwd, sourcePath);
       } catch (err) {
-        return { content: `\u5BFC\u5165\u4E3B\u9898\u5931\u8D25\uFF1A${err.message}`, isError: true };
+        return { content: `\u5BFC\u5165\u4E3B\u9898\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
       }
       const summary = `\u4ECE\u4ED3\u5E93\u5BFC\u5165\u4E3B\u9898\uFF08${adapterId}\uFF09\uFF1A\u89C2\u6D4B ${imported.observed.length} \u9879\u3001\u63A8\u65AD ${imported.inferred.length} \u9879\u3002
 ` + (detection ? `\u63A2\u6D4B\u4F9D\u636E\uFF1A${detection.evidence.join("\uFF1B")}
@@ -69261,7 +69308,7 @@ ${lockLine}${warnLine}
       try {
         pack = buildBrandPack(call.cwd, id, designDir());
       } catch (err) {
-        return { content: err.message, isError: true };
+        return { content: reportError(err), isError: true };
       }
       const rawOut = str(call.args.out_dir);
       const dir = rawOut ? isAbsolute4(rawOut) ? rawOut : join19(call.cwd, rawOut) : join19(call.cwd, PROJECT_DIR_NAME, "exports");
@@ -69269,7 +69316,7 @@ ${lockLine}${warnLine}
       try {
         exportBrandPack(call.cwd, pack, file);
       } catch (err) {
-        return { content: `\u54C1\u724C\u5305\u5BFC\u51FA\u5931\u8D25\uFF1A${err.message}`, isError: true };
+        return { content: `\u54C1\u724C\u5305\u5BFC\u51FA\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
       }
       return {
         content: `\u5DF2\u5BFC\u51FA\u54C1\u724C\u5305\u300C${pack.name}\u300D\uFF08${id}\uFF09\uFF1A${file}
@@ -69282,18 +69329,18 @@ checksum\uFF1A${pack.checksum.slice(0, 16)}\u2026\uFF08\u5BFC\u5165\u65F6\u4F1A\
       const rawPath = str(call.args.pack_path);
       if (!rawPath) return { content: "import_pack \u9700\u8981 pack_path\uFF08\u54C1\u724C\u5305 JSON \u7684\u8DEF\u5F84\uFF09\u3002", isError: true };
       const file = isAbsolute4(rawPath) ? rawPath : join19(call.cwd, rawPath);
-      if (!existsSync14(file)) return { content: `\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF1A${file}`, isError: true };
+      if (!existsSync14(file)) return { content: "\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF0C\u8BF7\u6838\u5BF9 pack_path \u540E\u91CD\u8BD5\u3002", isError: true };
       let raw;
       try {
         raw = readTextInWorkspace(call.cwd, file, "\u54C1\u724C\u5305");
       } catch (err) {
-        return { content: `\u54C1\u724C\u5305\u8BFB\u53D6\u5931\u8D25\uFF1A${err.message}`, isError: true };
+        return { content: `\u54C1\u724C\u5305\u8BFB\u53D6\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
       }
       let pack;
       try {
         pack = JSON.parse(raw);
       } catch (err) {
-        return { content: `\u54C1\u724C\u5305\u4E0D\u662F\u5408\u6CD5 JSON\uFF1A${err.message}`, isError: true };
+        return { content: "\u54C1\u724C\u5305\u4E0D\u662F\u5408\u6CD5 JSON\uFF0C\u8BF7\u4FEE\u590D\u683C\u5F0F\u540E\u91CD\u8BD5\u3002", isError: true };
       }
       const errors = verifyBrandPack(pack);
       if (errors.length) return { content: `\u54C1\u724C\u5305\u6821\u9A8C\u5931\u8D25\uFF1A
@@ -69308,7 +69355,7 @@ ${errors.map((e) => `  - ${e}`).join("\n")}`, isError: true };
       try {
         compileCustomStyle(call.cwd, typed.id, designDir());
       } catch (err) {
-        return { content: `\u54C1\u724C\u5305\u5DF2\u89E3\u5305\uFF0C\u4F46 token \u6821\u9A8C\u5931\u8D25\uFF1A${err.message}`, isError: true };
+        return { content: `\u54C1\u724C\u5305\u5DF2\u89E3\u5305\uFF0C\u4F46 token \u6821\u9A8C\u5931\u8D25\uFF1A${reportError(err)}`, isError: true };
       }
       const set = await canvasStyle({ ...call, args: { action: "set", style_id: typed.id } });
       return {
@@ -69335,7 +69382,7 @@ ${errors.map((e) => `  - ${e}`).join("\n")}`, isError: true };
     }
     return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acreate / extract / list / get / remove\u3002`, isError: true };
   } catch (err) {
-    return { content: err.message, isError: true };
+    return { content: reportError(err), isError: true };
   }
 }
 function resolveAuditStyle(call) {
@@ -69474,7 +69521,7 @@ async function canvasAudit(call) {
     }
     return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / visual / baseline / drift / review\u3002`, isError: true };
   } catch (err) {
-    return { content: err.message, isError: true };
+    return { content: reportError(err), isError: true };
   }
 }
 function formatComment(c, index, project) {
@@ -69541,7 +69588,7 @@ ${body}
     }
     return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / resolve / reopen / remove\u3002`, isError: true };
   } catch (err) {
-    return { content: err.message, isError: true };
+    return { content: reportError(err), isError: true };
   }
 }
 var tools = [
@@ -69564,7 +69611,7 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 3e4,
-    execute: canvasOpen
+    execute: withBackupNotice(canvasOpen)
   },
   {
     definition: {
@@ -69747,7 +69794,7 @@ var tools = [
     isConcurrencySafe: () => true,
     isEnabled: () => true,
     timeoutMs: 6e4,
-    execute: canvasCheckStyle
+    execute: withBackupNotice(canvasCheckStyle)
   },
   {
     definition: {
@@ -69817,7 +69864,7 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 12e4,
-    execute: canvasDesignSystem
+    execute: withBackupNotice(canvasDesignSystem)
   },
   {
     definition: {
@@ -69857,7 +69904,7 @@ var tools = [
     isConcurrencySafe: () => false,
     isEnabled: () => true,
     timeoutMs: 3e5,
-    execute: canvasAudit
+    execute: withBackupNotice(canvasAudit)
   },
   {
     definition: {
