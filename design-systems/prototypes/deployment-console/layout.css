@@ -1,0 +1,17 @@
+:scope .tp-ops-heading{display:grid;gap:var(--ts-space-6);padding:var(--ts-space-12) 0}
+
+:scope .tp-ops-heading h1{font-size:clamp(2.5rem,5vw,5.5rem)}
+
+:scope .tp-ops-rows{display:grid;gap:var(--ts-space-6)}
+
+:scope .tp-ops-section{padding:var(--ts-space-8) 0;border-top:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-deploy-overview{display:grid;grid-template-columns:1.3fr 1fr;gap:var(--ts-space-12);border:1px solid var(--ts-color-border-strong);padding:var(--ts-space-8)}
+
+:scope .tp-deploy-overview h2{font-family:var(--ts-font-mono);font-size:clamp(2.5rem,5vw,5rem)}
+
+:scope .tp-log{max-width:100%;overflow:auto;font:var(--ts-fs-md)/2 var(--ts-font-mono);padding:var(--ts-space-6);background:var(--ts-color-bg-inverse);color:var(--ts-color-text-inverse)}
+
+@media(max-width:780px){:scope .tp-deploy-overview{grid-template-columns:1fr}
+
+}

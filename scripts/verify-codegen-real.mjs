@@ -33,7 +33,12 @@ const PAGE = `<!doctype html>
 </body></html>`
 
 function run(cmd, args, cwd) {
-  return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe', shell: process.platform === 'win32' })
+  // Invoke npm through its JS entry point on Windows; never concatenate paths
+  // into cmd.exe command text (workspaces may contain spaces or metacharacters).
+  const executable = cmd === 'npm' ? process.execPath : cmd
+  const npmCli = process.env.npm_execpath
+  if (cmd === 'npm' && !npmCli) throw new Error('请通过 npm run verify:codegen:real 运行，以定位 npm CLI。')
+  return execFileSync(executable, cmd === 'npm' ? [npmCli, ...args] : args, { cwd, encoding: 'utf8', stdio: 'pipe', shell: false })
 }
 
 function splitFiles(content) {
@@ -100,8 +105,8 @@ async function verifyShadcn() {
     JSON.stringify({ compilerOptions: { target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler', jsx: 'react-jsx', strict: true, noEmit: true, skipLibCheck: true, baseUrl: '.', paths: { '@/*': ['./*'] } }, include: ['**/*.ts', '**/*.tsx'] }, null, 2),
   )
   const map = {
-    'app/page.tsx': files['app/page.tsx']!,
-    'lib/theme.ts': files['lib/theme.ts']!,
+    'app/page.tsx': files['app/page.tsx'],
+    'lib/theme.ts': files['lib/theme.ts'],
     'components/ui/button.tsx': SHADCN_COMPONENTS,
     'components/ui/input.tsx': SHADCN_INPUT,
     'components/ui/table.tsx': SHADCN_TABLE,
@@ -135,7 +140,7 @@ async function verifyAntd() {
     join(dir, 'tsconfig.json'),
     JSON.stringify({ compilerOptions: { target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler', jsx: 'react-jsx', strict: true, noEmit: true, skipLibCheck: true, baseUrl: '.', paths: { '@/*': ['./*'] } }, include: ['**/*.ts', '**/*.tsx'] }, null, 2),
   )
-  for (const [rel, content] of Object.entries({ 'src/App.tsx': files['src/App.tsx']!, 'src/theme.ts': files['src/theme.ts']! })) {
+  for (const [rel, content] of Object.entries({ 'src/App.tsx': files['src/App.tsx'], 'src/theme.ts': files['src/theme.ts'] })) {
     mkdirSync(join(dir, rel, '..'), { recursive: true })
     writeFileSync(join(dir, rel), content, 'utf8')
   }
@@ -146,10 +151,59 @@ async function verifyAntd() {
   return dir
 }
 
+/** All shared compositions use the actual tool transport and real React types; no JSX-any stub. */
+async function verifyOriginalCompositions() {
+  const dir = join(root, '.tmp', 'verify-codegen-real', 'compositions')
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  const catalogResult = await styleTool.execute({ args: { action: 'prototype' }, cwd, sessionId: 'real' })
+  if (catalogResult.isError) throw new Error(catalogResult.content)
+  const summaries = JSON.parse(catalogResult.content).entries
+  if (summaries.length !== 32) throw new Error('Expected 32 target prototypes')
+  const pages = []
+  for (const summary of summaries) {
+    const result = await styleTool.execute({ args: { action: 'prototype', prototype_id: summary.id }, cwd, sessionId: 'real' })
+    if (result.isError) throw new Error(result.content)
+    pages.push({ id: summary.id, html: JSON.parse(result.content).html })
+  }
+  const directionsResult = await styleTool.execute({ args: { action: 'direction' }, cwd, sessionId: 'real' })
+  if (directionsResult.isError) throw new Error(directionsResult.content)
+  for (const summary of JSON.parse(directionsResult.content).entries) {
+    const result = await styleTool.execute({ args: { action: 'direction', direction_id: summary.id }, cwd, sessionId: 'real' })
+    if (result.isError) throw new Error(result.content)
+    for (const example of JSON.parse(result.content).examples) pages.push({ id: 'direction-' + example.id, html: example.html })
+  }
+  if (pages.length !== 38) throw new Error('Expected 32 prototypes and six direction examples')
+  for (const page of pages) {
+    const result = await styleTool.execute({ args: { action: 'codegen', target: 'react', html: page.html }, cwd, sessionId: 'real' })
+    if (result.isError) throw new Error(result.content)
+    const files = splitFiles(result.content)
+    if (!files['CanvasPage.tsx'] || !files['layout.css']) throw new Error(page.id + ' is missing React/layout output')
+    const pageDir = join(dir, page.id)
+    mkdirSync(pageDir)
+    for (const [name, content] of Object.entries(files)) {
+      if (!/^[A-Za-z0-9_.-]+$/.test(name)) throw new Error('Unsafe codegen output name')
+      writeFileSync(join(pageDir, name), content)
+    }
+  }
+  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler', jsx: 'react-jsx', strict: true, noEmit: true, skipLibCheck: true, types: ['react'], lib: ['ES2022', 'DOM'] }, include: ['**/*.tsx'] }, null, 2))
+  const tsc = join(root, 'node_modules', 'typescript', 'bin', 'tsc')
+  run(process.execPath, [tsc, '-p', dir], dir)
+  writeFileSync(join(dir, 'negative.tsx'), 'export const InvalidProps = () => <button type="not-a-button-type" />')
+  let rejected = false
+  try { run(process.execPath, [tsc, '-p', dir], dir) } catch (error) {
+    rejected = String(error.stdout ?? '').includes('not-a-button-type')
+  }
+  rmSync(join(dir, 'negative.tsx'))
+  if (!rejected) throw new Error('Real React type gate failed to reject invalid button props')
+  return dir
+}
+
 let failures = 0
 const results = []
 
 for (const [name, fn] of [
+  ['全部 32 原型与 6 方向（真实 React 类型）', verifyOriginalCompositions],
   ['shadcn（真实 react 类型）', verifyShadcn],
   ['antd（真实 antd 类型）', verifyAntd],
 ]) {

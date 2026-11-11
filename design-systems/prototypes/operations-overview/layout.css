@@ -1,0 +1,21 @@
+:scope .tp-ops-heading{display:grid;gap:var(--ts-space-6);padding:var(--ts-space-12) 0}
+
+:scope .tp-ops-heading h1{font-size:clamp(2.5rem,5vw,5.5rem)}
+
+:scope .tp-ops-rows{display:grid;gap:var(--ts-space-6)}
+
+:scope .tp-ops-section{padding:var(--ts-space-8) 0;border-top:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-shift-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:var(--ts-space-6)}
+
+:scope .tp-shift-main{grid-row:span 2;justify-content:center}
+
+:scope .tp-shift-main h2{font-size:clamp(2rem,4vw,4rem)}
+
+:scope .tp-shift-grid .tp-chart{max-height:160px}
+
+@media(max-width:780px){:scope .tp-shift-grid{grid-template-columns:1fr}
+
+:scope .tp-shift-main{grid-row:auto}
+
+}

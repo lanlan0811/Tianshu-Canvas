@@ -557,5 +557,83 @@
       "api": "滚动时高亮当前小节（ts-i-toc__link--active + aria-current），只读取页面锚点位置，不发网络请求。窄屏可折叠：点 toggle 开合，点链接 / 遮罩 / Esc 关闭并把焦点归还 toggle。",
       "skeletonHtml": "<aside class=\"ts-i-toc\" data-ts-toc>\n  <button class=\"ts-i-toc__toggle\" type=\"button\" aria-expanded=\"false\" aria-controls=\"toc-panel\" aria-label=\"打开目录\"><svg data-icon=\"list\" class=\"ts-icon\"></svg></button>\n  <div class=\"ts-i-toc__backdrop\"></div>\n  <nav class=\"ts-i-toc__panel\" id=\"toc-panel\" aria-label=\"目录\">\n    <p class=\"ts-i-toc__title\">目录</p>\n    <div class=\"ts-i-toc__list\">\n      <a class=\"ts-i-toc__link ts-i-toc__link--active\" href=\"#sec-1\">第一节</a>\n      <a class=\"ts-i-toc__link\" href=\"#sec-2\">第二节</a>\n    </div>\n  </nav>\n</aside>"
     }
+  ],
+  "bindings": [
+    {
+      "id": "filter",
+      "rootAttr": "data-ts-filter",
+      "attributes": [
+        "data-ts-filter-input",
+        "data-ts-filter-item",
+        "data-ts-filter-empty",
+        "data-ts-filter-count"
+      ],
+      "behavior": "按文本过滤本容器条目，维护计数、空态及分页；不联网、不持久化"
+    },
+    {
+      "id": "table-pages",
+      "rootAttr": "data-ts-table-pages",
+      "attributes": [
+        "data-ts-page-size"
+      ],
+      "behavior": "同容器 data-ts-pagination 控制匹配行，过滤后返回第一页"
+    },
+    {
+      "id": "bulk-demo",
+      "rootAttr": "data-ts-bulk-demo",
+      "attributes": [
+        "data-ts-bulk-select",
+        "data-ts-bulk-status",
+        "data-ts-bulk-archive",
+        "data-ts-bulk-count",
+        "data-ts-bulk-feedback"
+      ],
+      "behavior": "跨页与筛选保留本容器勾选，仅本地归档选中行并重算筛选分页；清空选择、不联网、不持久化，反馈明确未保存服务器"
+    },
+    {
+      "id": "chat-demo",
+      "rootAttr": "data-ts-chat-form",
+      "attributes": [
+        "data-ts-chat-messages"
+      ],
+      "behavior": "将输入作为纯文本加入演示消息区，明确不连接模型"
+    },
+    {
+      "id": "save-demo",
+      "rootAttr": "data-ts-demo-save",
+      "attributes": [
+        "data-ts-demo-feedback"
+      ],
+      "behavior": "仅在前端校验通过后显示演示反馈，不声称已保存到服务器"
+    },
+    {
+      "id": "config-demo",
+      "rootAttr": "data-ts-config-demo",
+      "attributes": [
+        "data-ts-config-region",
+        "data-ts-config-zone",
+        "data-ts-region",
+        "data-ts-config-range",
+        "data-ts-config-range-value",
+        "data-ts-config-min",
+        "data-ts-config-max",
+        "data-ts-config-start",
+        "data-ts-config-end",
+        "data-ts-config-feedback"
+      ],
+      "behavior": "本地级联选择、原生滑块文字反馈、数值与同日时间范围校验，纠错解除旧状态"
+    },
+    {
+      "id": "workbench-tab",
+      "rootAttr": "data-ts-tab-target",
+      "attributes": [],
+      "behavior": "文件树激活同工作台已有标签页，不执行文件或读取磁盘"
+    },
+    {
+      "id": "workbench-rail",
+      "rootAttr": "data-ts-rail-target",
+      "attributes": [],
+      "behavior": "活动栏激活本工作台语义区并移动键盘焦点，不改变浏览器导航"
+    }
   ]
 }

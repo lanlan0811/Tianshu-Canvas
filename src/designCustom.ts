@@ -96,7 +96,7 @@ function sharedAssets(builtinDir: string, builtinId: string, iconStyle: DesignIc
 function readInteractionLibrary(dir: string): DesignInteractionLibrary {
   const empty: DesignInteractionLibrary = { css: '', js: '', catalog: {}, rootAttrs: [] }
   try {
-    const doc = readJson(join(dir, 'interactions.json'), 'interactions.json') as { interactions?: DesignInteraction[] }
+    const doc = readJson(join(dir, 'interactions.json'), 'interactions.json') as { interactions?: DesignInteraction[]; bindings?: DesignInteractionLibrary['bindings'] }
     const catalog: Record<string, DesignInteraction> = {}
     const rootAttrs: string[] = []
     for (const entry of doc.interactions ?? []) {
@@ -108,6 +108,7 @@ function readInteractionLibrary(dir: string): DesignInteractionLibrary {
       js: readFileSync(join(dir, 'interactions.js'), 'utf8'),
       catalog,
       rootAttrs,
+      bindings: doc.bindings ?? [],
     }
   } catch {
     return empty

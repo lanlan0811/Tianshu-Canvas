@@ -1,190 +1,98 @@
 /**
- * 设计 → 生产代码（确定性转换，零新增依赖）。
- *
- * 三个 Web 目标：React + TSX、CSS 变量 + 无框架 HTML、Tailwind。
- * 多端（iOS/Android/小程序）见 codegen/platforms.ts：插件只出**主题/Token 文件 + 设计规格**，
- * 页面代码由 AI 按规格编写（HTML→原生非确定性、必然有损）。
- *
- * HTML→JSX 用手写标签层解析（不引入 DOM 库）：覆盖常见 HTML 子集即可，
- * 依赖复杂 DOM 的产物应提示人工校对。局限见 htmlToJsx 注释。
+ * Deterministic Web export. HTML values always remain data, never JavaScript expressions.
+ * Complex DOM behavior requires React state and event handlers supplied by the implementer.
  */
+import { declarations } from './cssParse.js'
+import { parseHtml, findElement, walkElements, type HtmlNode } from './htmlTree.js'
 
-export interface CodeFile {
-  /** 相对产物根的文件名。 */
-  name: string
-  content: string
-  language: string
-}
-
-// ---------------------------------------------------------------------------
-// HTML → JSX
-// ---------------------------------------------------------------------------
-
-/** 需要改名的 HTML 属性 → JSX。 */
+export interface CodeFile { name: string; content: string; language: string }
 const ATTR_MAP: Record<string, string> = {
-  class: 'className',
-  for: 'htmlFor',
-  tabindex: 'tabIndex',
-  colspan: 'colSpan',
-  rowspan: 'rowSpan',
-  readonly: 'readOnly',
-  maxlength: 'maxLength',
-  minlength: 'minLength',
-  autofocus: 'autoFocus',
-  autocomplete: 'autoComplete',
-  cellpadding: 'cellPadding',
-  cellspacing: 'cellSpacing',
-  contenteditable: 'contentEditable',
-  crossorigin: 'crossOrigin',
-  datetime: 'dateTime',
-  enctype: 'encType',
-  formaction: 'formAction',
-  frameborder: 'frameBorder',
-  srcset: 'srcSet',
-  usemap: 'useMap',
-  novalidate: 'noValidate',
-  spellcheck: 'spellCheck',
+  class: 'className', for: 'htmlFor', tabindex: 'tabIndex', colspan: 'colSpan', rowspan: 'rowSpan',
+  readonly: 'readOnly', maxlength: 'maxLength', minlength: 'minLength', autofocus: 'autoFocus',
+  autocomplete: 'autoComplete', cellpadding: 'cellPadding', cellspacing: 'cellSpacing',
+  contenteditable: 'contentEditable', crossorigin: 'crossOrigin', datetime: 'dateTime', enctype: 'encType',
+  formaction: 'formAction', frameborder: 'frameBorder', srcset: 'srcSet', usemap: 'useMap',
+  novalidate: 'noValidate', spellcheck: 'spellCheck', acceptcharset: 'acceptCharset', httpequiv: 'httpEquiv',
+  inputmode: 'inputMode', formactiontarget: 'formActionTarget', formnovalidate: 'formNoValidate',
+  allowfullscreen: 'allowFullScreen', playsinline: 'playsInline', controlslist: 'controlsList',
 }
-
-/** 值恒为真的布尔属性（JSX 可简写）。 */
-const BOOLEAN_ATTRS = new Set([
-  'disabled', 'checked', 'readonly', 'required', 'multiple', 'selected', 'autofocus', 'hidden', 'open', 'default', 'async', 'defer',
-])
-
-/** 自闭合的空元素。 */
-const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
-
+const BOOLEAN_ATTRS = new Set(['disabled','checked','readonly','required','multiple','selected','autofocus','hidden','open','default','async','defer','novalidate','formnovalidate','controls','loop','muted','autoplay','playsinline','allowfullscreen'])
+const NUMERIC_ATTRS = new Set(['colspan','rowspan','maxlength','minlength','tabindex','size','rows','cols','start','span'])
+const VOID_TAGS = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr'])
 const SVG_ATTRS: Record<string, string> = {
-  'stroke-width': 'strokeWidth',
-  'stroke-linecap': 'strokeLinecap',
-  'stroke-linejoin': 'strokeLinejoin',
-  'fill-rule': 'fillRule',
-  'clip-rule': 'clipRule',
-  'clip-path': 'clipPath',
-  'stroke-dasharray': 'strokeDasharray',
-  'stroke-dashoffset': 'strokeDashoffset',
-  'text-anchor': 'textAnchor',
-  'font-size': 'fontSize',
-  'font-family': 'fontFamily',
-  'font-weight': 'fontWeight',
-  'xlink:href': 'xlinkHref',
-  'xml:space': 'xmlSpace',
-  'stop-color': 'stopColor',
-  'stop-opacity': 'stopOpacity',
-  'preserveaspectratio': 'preserveAspectRatio',
+  viewbox: 'viewBox', preserveaspectratio: 'preserveAspectRatio', 'stroke-width': 'strokeWidth',
+  'stroke-linecap': 'strokeLinecap', 'stroke-linejoin': 'strokeLinejoin', 'stroke-miterlimit': 'strokeMiterlimit',
+  'stroke-opacity': 'strokeOpacity', 'fill-opacity': 'fillOpacity', 'fill-rule': 'fillRule', 'clip-rule': 'clipRule',
+  'clip-path': 'clipPath', 'stroke-dasharray': 'strokeDasharray', 'stroke-dashoffset': 'strokeDashoffset',
+  'text-anchor': 'textAnchor', 'font-size': 'fontSize', 'font-family': 'fontFamily', 'font-weight': 'fontWeight',
+  'dominant-baseline': 'dominantBaseline', 'alignment-baseline': 'alignmentBaseline', 'vector-effect': 'vectorEffect',
+  'xlink:href': 'xlinkHref', 'xml:space': 'xmlSpace', 'stop-color': 'stopColor', 'stop-opacity': 'stopOpacity',
+  gradientunits: 'gradientUnits', gradienttransform: 'gradientTransform', patternunits: 'patternUnits',
+  patterncontentunits: 'patternContentUnits', patterntransform: 'patternTransform', markerwidth: 'markerWidth',
+  markerheight: 'markerHeight', refx: 'refX', refy: 'refY', textlength: 'textLength', lengthadjust: 'lengthAdjust',
+  clippathunits: 'clipPathUnits', filterunits: 'filterUnits', primitiveunits: 'primitiveUnits',
 }
+const SVG_TAGS: Record<string, string> = { clippath: 'clipPath', lineargradient: 'linearGradient', radialgradient: 'radialGradient', foreignobject: 'foreignObject', textpath: 'textPath' }
+const camelCase = (name: string): string => name.replace(/^-ms-/, 'ms-').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
+const literal = (value: string): string => "'" + value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + "'"
+const attributeText = (value: string): string => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const text = (value: string): string => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\{/g, '&#123;').replace(/\}/g, '&#125;')
 
-function camelCase(name: string): string {
-  return name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
-}
-
-/** `style="a: b; c: d"` → `{{ a: 'b', c: 'd' }}`（属性名驼峰、值加引号）。 */
 function styleToObject(value: string): string {
-  const entries = value
-    .split(';')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const idx = part.indexOf(':')
-      if (idx < 0) return null
-      const prop = camelCase(part.slice(0, idx).trim())
-      const val = part.slice(idx + 1).trim().replace(/'/g, "\\'")
-      return `${prop}: '${val}'`
-    })
-    .filter((e): e is string => e !== null)
-  return `{{ ${entries.join(', ')} }}`
+  const parsed = declarations(value)
+  const entries = parsed.map(({ prop, value: val }) => {
+    const key = prop.startsWith('--') ? prop : camelCase(prop)
+    return (/^[A-Za-z_$][\w$]*$/.test(key) ? key : literal(key)) + ': ' + literal(val)
+  })
+  const custom = parsed.some(({ prop }) => prop.startsWith('--'))
+  return '{{ ' + entries.join(', ') + ' }' + (custom ? ' as CSSProperties' : '') + '}'
 }
-
-function attrsToJsx(rawAttrs: string): string {
+function attrsToJsx(node: HtmlNode): string {
   const parts: string[] = []
-  const attrRe = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g
-  for (const match of rawAttrs.matchAll(attrRe)) {
-    const rawName = match[1]!
-    const value = match[2] ?? match[3] ?? match[4]
-    const lower = rawName.toLowerCase()
-    if (lower.startsWith('on') && value !== undefined) continue // 内联事件处理器不迁移
-    const name = ATTR_MAP[lower] ?? SVG_ATTRS[lower] ?? (rawName.includes('-') || rawName.includes(':') ? rawName : camelCase(rawName))
-    if (value === undefined) {
-      if (BOOLEAN_ATTRS.has(lower)) parts.push(name)
-      else parts.push(`${name}={true}`)
-      continue
-    }
-    if (lower === 'style') {
-      parts.push(`style=${styleToObject(value)}`)
-      continue
-    }
-    if (lower === 'class') {
-      parts.push(`${name}="${value}"`)
-      continue
-    }
-    // 含表达式字符的值用 {} 包裹；否则保持字符串（用双引号，内部双引号转义）。
-    if (/[{}]/.test(value)) parts.push(`${name}={${value}}`)
-    else parts.push(`${name}="${value.replace(/"/g, '&quot;')}"`)
+  const used = new Set<string>()
+  for (const attr of node.attrs) {
+    const lower = attr.name
+    if (used.has(lower)) continue
+    used.add(lower)
+    if (lower.startsWith('on') || lower === 'srcdoc') continue
+    if (['href','src','action','formaction','xlink:href'].includes(lower) && /^[\s\u0000-\u0020]*(?:javascript|vbscript):/i.test(attr.value.replace(/[\t\r\n]/g, ''))) continue
+    const name = ATTR_MAP[lower] ?? SVG_ATTRS[lower] ?? lower
+    if (lower === 'style') { parts.push('style=' + styleToObject(attr.value)); continue }
+    if (BOOLEAN_ATTRS.has(lower)) { parts.push(name); continue }
+    if (NUMERIC_ATTRS.has(lower) && /^-?\d+$/.test(attr.value)) { parts.push(name + '={' + Number(attr.value) + '}'); continue }
+    // Quoted JSX attribute values are literals, including braces and apparent JS code.
+    parts.push(name + '="' + attributeText(attr.value) + '"')
   }
   return parts.length ? ' ' + parts.join(' ') : ''
 }
-
-/**
- * HTML → JSX。
- * 覆盖：属性改名/驼峰、style 字符串→对象、void 元素自闭合、布尔属性、SVG 属性驼峰、
- * 文本里的 `{`/`}` 转义。
- * 局限：不处理内联 `<script>`（React 需 dangerouslySetInnerHTML）、不解析 JSX 表达式、
- * 复杂嵌套/畸形 HTML 依赖人工校对；`<style>` 会被保留为注释提示。
- */
+function renderNode(node: HtmlNode): string {
+  if (node.type === 'text') return text(node.text)
+  if (['script','style','head','title','meta','link','base'].includes(node.tag)) return ''
+  if (node.tag === 'html' || node.tag === 'body') return node.children.map(renderNode).join('')
+  const tag = SVG_TAGS[node.tag] ?? node.tag
+  const attrs = attrsToJsx(node)
+  return '<' + tag + attrs + (VOID_TAGS.has(node.tag) ? ' />' : '>' + node.children.map(renderNode).join('') + '</' + tag + '>')
+}
+/** HTML is parsed as data; comments and executable scripts are omitted. No source expression is evaluated. */
 export function htmlToJsx(html: string): string {
-  // 去掉 doctype 与 html/head/body 外壳，只保留 body 内容。
-  let body = html
-  const bodyMatch = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html)
-  if (bodyMatch) body = bodyMatch[1]!
-  else body = html.replace(/<!doctype[^>]*>/gi, '').replace(/<\/?(?:html|head)\b[^>]*>/gi, '')
-
-  let out = ''
-  let i = 0
-  const tokens = /<!--[\s\S]*?-->|<\/([a-zA-Z][-a-zA-Z0-9]*)\s*>|<([a-zA-Z][-a-zA-Z0-9]*)((?:\s+[^>]*?)?)\/?>/g
-  let match: RegExpExecArray | null
-  while ((match = tokens.exec(body)) !== null) {
-    // 标签之前的文本：转义花括号（JSX 里是表达式边界）。
-    const text = body.slice(i, match.index)
-    if (text) out += text.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;')
-    i = match.index + match[0].length
-
-    if (match[0].startsWith('<!--')) {
-      out += `{/* ${match[0].slice(4, -3).trim()} */}`
-      continue
-    }
-    if (match[1]) {
-      out += `</${match[1]}>`
-      continue
-    }
-    const tag = match[2]!
-    const attrs = match[3] ?? ''
-    const lower = tag.toLowerCase()
-    const selfClosed = /\/>$/.test(match[0]) || VOID_TAGS.has(lower)
-    out += `<${tag}${attrsToJsx(attrs)}${selfClosed ? ' />' : '>'}`
-  }
-  const rest = body.slice(i)
-  if (rest) out += rest.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;')
-
-  return out.replace(/\n{3,}/g, '\n\n').trim()
+  const parsed = parseHtml(html)
+  const body = findElement(parsed, (node) => node.tag === 'body')
+  return (body ? body.children : parsed).map(renderNode).join('').replace(/\n{3,}/g, '\n\n').trim()
 }
-
-/** 生成 React 组件文件（含前导注释与 components.css 依赖说明）。 */
+function pageCss(html: string): string {
+  const styles: string[] = []
+  walkElements(parseHtml(html), (node) => {
+    if (node.tag === 'style') styles.push(node.children.map((child) => child.text).join(''))
+  })
+  return styles.join('\n\n').replace(/\r\n/g, '\n')
+}
+/** Preserve page-specific layout in a separate stylesheet, including original prototype scope selectors. */
 export function toReactComponent(pageHtml: string, componentName = 'CanvasPage'): CodeFile[] {
+  if (!/^[A-Z][A-Za-z0-9_]*$/.test(componentName)) throw new Error('React component name must be an uppercase identifier.')
   const jsx = htmlToJsx(pageHtml)
-  const component = `/**
- * 由天枢画布生成。样式依赖同目录的 components.css 与 tokens.css（--ts-* 变量）。
- * 注意：原型的 <style> / 内联样式无法 1:1 映射到 JSX，必要处请人工校对。
- */
-import './tokens.css'
-import './components.css'
-
-export default function ${componentName}() {
-  return (
-    ${jsx}
-  )
-}
-`
-  return [{ name: `${componentName}.tsx`, content: component, language: 'tsx' }]
+  const css = pageCss(pageHtml)
+  const component = "/**\n * 由天枢画布生成。tokens.css / components.css 提供设计系统；layout.css 保留页面布局。\n * 静态结构导出：原型脚本和内联事件未迁移；Tab、筛选、分页等需接入 React 状态和事件。\n */\nimport type { CSSProperties } from 'react'\nimport './tokens.css'\nimport './components.css'\nimport './layout.css'\n\nexport default function " + componentName + "() {\n  return (\n    <>\n      " + jsx + "\n    </>\n  )\n}\n"
+  return [{ name: componentName + '.tsx', content: component, language: 'tsx' }, { name: 'layout.css', content: css, language: 'css' }]
 }
 
 // ---------------------------------------------------------------------------
@@ -236,21 +144,21 @@ export interface TailwindInput {
 /** 生成 tailwind.config.js 的 theme.extend（确定性、键序固定）。 */
 export function toTailwindConfig(input: TailwindInput): string {
   const colors = Object.entries(input.colors)
-    .map(([k, v]) => `        '${k}': '${v}',`)
+    .map(([k, v]) => `        ${literal(k)}: ${literal(v)},`)
     .join('\n')
   const families = Object.entries(input.fontFamilies)
-    .map(([k, v]) => `        ${k}: [${v.split(',').map((f) => `'${f.trim().replace(/^['"]|['"]$/g, '')}'`).join(', ')}],`)
+    .map(([k, v]) => `        ${literal(k)}: [${v.split(',').map((f) => literal(f.trim().replace(/^['"]|['"]$/g, ''))).join(', ')}],`)
     .join('\n')
   const fontSizes = Object.entries(input.fontSizes)
-    .map(([k, v]) => `        '${k}': '${v}px',`)
+    .map(([k, v]) => `        ${literal(k)}: ${literal(String(v) + 'px')},`)
     .join('\n')
-  const spacing = input.spacing.map((v) => `        '${v}': '${v}px',`).join('\n')
+  const spacing = input.spacing.map((v) => `        ${literal(String(v))}: ${literal(String(v) + 'px')},`).join('\n')
   const radius = input.radius
     .filter((v) => v < 9999)
-    .map((v) => `        'ts-${v}': '${v}px',`)
+    .map((v) => `        ${literal('ts-' + v)}: ${literal(String(v) + 'px')},`)
     .join('\n')
   const shadows = Object.entries(input.shadows)
-    .map(([k, v]) => `        '${k}': '${v}',`)
+    .map(([k, v]) => `        ${literal(k)}: ${literal(v)},`)
     .join('\n')
 
   return `/** 由天枢画布生成：Tailwind 主题映射（值来自当前设计系统 tokens）。 */

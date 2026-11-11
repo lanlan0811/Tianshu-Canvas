@@ -1,0 +1,66 @@
+<main data-ts-prototype="ai-workspace">
+<div class="tp-ai-layout">
+<aside class="tp-sidebar">
+<a class="tp-mark" href="#intro">问间 / ASK</a>
+<p>从问题到线索。</p>
+<nav aria-label="知识目录">
+<a href="#intro">发现</a>
+<a href="#chat">对话</a>
+<a href="#apps">应用说明</a>
+</nav>
+<details>
+<summary>最近的问题 / 演示</summary>
+<p>如何把简报写清楚？<br>哪些证据需要补充？</p>
+</details>
+<p class="tp-demo-note">原创演示 · 本地交互，不连接AI、账号、文件系统或外部服务。</p>
+</aside>
+<div class="tp-app-main">
+<header id="intro" class="tp-nav">
+<a class="tp-mark" href="#intro">发现有用的问题</a>
+<span class="tp-label">AI工作区 / 演示</span>
+</header>
+<section class="tp-stack">
+<h1 class="tp-app-title">先想清楚，<br>再得到更多答案。</h1>
+<p>围绕任务整理输入、证据和下一步。这里展示的是界面，而不是一个真实模型服务。</p>
+<div class="tp-grid">
+<article class="tp-card tp-stack">
+<span class="tp-eyebrow">写作</span>
+<h3>把散乱想法整理成提纲</h3>
+<p>先明确读者和目标，再组织章节。</p>
+<a href="#chat">打开本地对话演示</a>
+</article>
+<article class="tp-card tp-stack">
+<span class="tp-eyebrow">研究</span>
+<h3>区分证据与待验证假设</h3>
+<p>不把模型生成文字当事实来源。</p>
+<a href="#chat">查看输入示例</a>
+</article>
+<article class="tp-card tp-stack">
+<span class="tp-eyebrow">协作</span>
+<h3>给下一步写清楚上下文</h3>
+<p>围绕当前要做的决定整理材料。</p>
+<a href="#chat">从一个问题开始</a>
+</article>
+</div>
+</section>
+<section id="chat" class="tp-chat-panel tp-stack">
+<div>
+<span class="tp-eyebrow">LOCAL DEMO / 无AI请求</span>
+<h2>从一个清楚的问题开始。</h2>
+</div>
+<div data-ts-chat-messages class="tp-chat-messages" aria-live="polite">
+<p class="tp-chat-assistant">这是本地界面演示。发送后只回显输入与演示提示，不会调用真实AI。</p>
+</div>
+<form data-ts-chat-form class="tp-chat-form">
+<label class="tp-field">你的问题<input name="message" required maxlength="1000" placeholder="例如：帮我整理本次项目的待决问题">
+</label>
+<button class="tp-button tp-button-primary" type="submit">发送演示</button>
+</form>
+</section>
+<section id="apps" class="tp-card tp-stack">
+<h2>能力与边界</h2>
+<p>正式接入模型时，应明确数据去向、成本与权限。此页面不访问网络、不读取本地文件。</p>
+</section>
+</div>
+</div>
+</main>

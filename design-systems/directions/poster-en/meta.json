@@ -1,0 +1,27 @@
+{
+  "id": "poster-en",
+  "name": "A different angle / English brand poster",
+  "language": "en",
+  "category": "direction-example",
+  "description": "原创方向示例，以内容结构而非配色体现差异。",
+  "variants": [
+    "依据用户真实品牌和内容调整"
+  ],
+  "contentRequirements": [
+    "示例文字与图形均为原创演示",
+    "真实证据与素材由用户提供或明确确认"
+  ],
+  "responsive": [
+    "1440px：保留方向构图",
+    "768px：辅助内容下移",
+    "390px：主张和主行动优先，正文线性重排"
+  ],
+  "interactions": [
+    "原生目录与内容展开"
+  ],
+  "designDecisions": [
+    "English two-word proposition controls typographic scale and composition",
+    "Geometric artwork has a defined idea and is original SVG rather than borrowed brand imagery",
+    "A separate explanatory chapter makes a bold identity usable beyond a poster"
+  ]
+}

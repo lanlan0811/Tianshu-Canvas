@@ -15,6 +15,7 @@ import { assertSafeId, InvalidInputError, isSafeId, newCommentId, newPageId } fr
 import { assertInsideWorkspace, assertReadableFile, writeFileAtomic } from './paths.js'
 import { warnUser } from './host.js'
 import type { DeviceType } from './device.js'
+import { normalizeStoredPageBrief, type PageBrief } from './brief.js'
 
 export const PROJECT_DIR_NAME = '.tianshu-canvas'
 
@@ -91,6 +92,8 @@ export interface Project {
   edges: Edge[]
   design?: ProjectDesign
   comments?: Comment[]
+  /** Optional page-local design intent, keyed only by existing page IDs. */
+  pageBriefs?: Record<string, PageBrief>
 }
 
 /** 项目变更事件总线；服务端订阅后向浏览器广播。 */
@@ -119,6 +122,8 @@ interface ProjectInspection {
   problem?: string
   /** 读取时被过滤掉的无效节点与连线数量。 */
   dropped: number
+  /** Invalid optional brief data must not be silently overwritten by routine writes. */
+  briefProblem?: string
 }
 
 /**
@@ -151,8 +156,27 @@ function inspectProject(cwd: string): ProjectInspection {
   const rawComments = Array.isArray(obj.comments) ? obj.comments : []
   const comments = rawComments.map(normalizeComment).filter((c): c is Comment => c !== null)
   if (comments.length > 0) project.comments = comments
+  let briefProblem: string | undefined
+  if (Object.hasOwn(obj, 'pageBriefs')) {
+    if (!obj.pageBriefs || typeof obj.pageBriefs !== 'object' || Array.isArray(obj.pageBriefs)) {
+      briefProblem = 'pageBriefs 必须是普通对象'
+    } else {
+      const briefs: Record<string, PageBrief> = Object.create(null)
+      const nodeIds = new Set(nodes.map((node) => node.id))
+      for (const [id, value] of Object.entries(obj.pageBriefs)) {
+        const brief = normalizeStoredPageBrief(value)
+        if (!isSafeId(id) || !nodeIds.has(id) || !brief) {
+          briefProblem = '存在无效、越界或无对应页面的简报条目'
+          continue
+        }
+        briefs[id] = brief
+      }
+      if (Object.keys(briefs).length > 0) project.pageBriefs = briefs
+    }
+  }
   return {
     project,
+    ...(briefProblem ? { briefProblem } : {}),
     // 无效批注静默过滤（与 design 一致），不计入 dropped。
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length,
   }
@@ -164,13 +188,14 @@ export function readProject(cwd: string): Project {
 
 /** 需要告知用户的项目文件问题；文件健康时返回 null。 */
 export function projectIssue(cwd: string): string | null {
-  const { problem, dropped } = inspectProject(cwd)
+  const { problem, dropped, briefProblem } = inspectProject(cwd)
   if (problem) {
     return `project.json 已损坏（${problem}）。画布暂按空项目显示，原文件未改动，修复后会自动恢复；继续写入前会先备份为 project.json.corrupt-*。`
   }
   if (dropped > 0) {
     return `project.json 中有 ${dropped} 条无效的节点或连线，读取时已忽略。原文件未改动，下次写入前会先备份为 project.json.corrupt-*。`
   }
+  if (briefProblem) return `project.json 中有无效页面简报（${briefProblem}）。原文件未改动，修复前不应覆盖；显式其它写入前会先备份。`
   return null
 }
 
@@ -185,8 +210,8 @@ export function takeProjectBackup(cwd: string): string | null {
 
 /** 写入会丢弃无法识别的内容，因此覆盖前先备份一份；备份是工作区内数据，同样走边界校验。 */
 function backupDamagedProject(cwd: string): void {
-  const { problem, dropped } = inspectProject(cwd)
-  if (!problem && dropped === 0) return
+  const { problem, dropped, briefProblem } = inspectProject(cwd)
+  if (!problem && dropped === 0 && !briefProblem) return
   const file = projectFile(cwd)
   assertReadableFile(cwd, file, '项目文件')
   const data = readFileSync(file, 'utf8')
@@ -345,9 +370,9 @@ export function autoLayoutPosition(cwd: string, index: number, size: { width: nu
 }
 
 export function setViewport(cwd: string, viewport: Viewport): Project {
-  const { project, problem, dropped } = inspectProject(cwd)
+  const { project, problem, dropped, briefProblem } = inspectProject(cwd)
   // 平移画布不是用户的写入意图，不能因此备份并改写有问题的项目文件。
-  if (problem || dropped > 0) return project
+  if (problem || dropped > 0 || briefProblem) return project
   project.viewport = normalizeViewport(viewport)
   // 视口就来自浏览器本身，不需要广播；广播会让画布全量重载节点。
   writeProjectAtomic(cwd, project, false)
@@ -373,6 +398,10 @@ export function removeNode(cwd: string, id: string): Project {
     const keep = project.comments.filter((c) => c.pageId !== id)
     if (keep.length > 0) project.comments = keep
     else delete project.comments
+  }
+  if (project.pageBriefs) {
+    delete project.pageBriefs[id]
+    if (Object.keys(project.pageBriefs).length === 0) delete project.pageBriefs
   }
   writeProjectAtomic(cwd, project)
   try {
@@ -427,6 +456,10 @@ export function duplicateNode(cwd: string, id: string, title?: string): PageNode
     updatedAt: now,
   }
   project.nodes.push(node)
+  if (project.pageBriefs && Object.hasOwn(project.pageBriefs, id)) {
+    // A copy inherits the original decision and its timestamp; it is not new approval.
+    project.pageBriefs[newId] = structuredClone(project.pageBriefs[id]!)
+  }
   writeProjectAtomic(cwd, project)
   return node
 }

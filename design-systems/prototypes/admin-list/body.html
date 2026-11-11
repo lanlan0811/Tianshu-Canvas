@@ -1,0 +1,160 @@
+<main data-ts-prototype="admin-list">
+<div class="tp-app">
+<aside class="tp-sidebar">
+<a class="tp-mark" href="#intro">目录 / INDEX</a>
+<nav aria-label="工作区目录">
+<a href="#intro" aria-current="page">当前任务</a>
+<a href="#details">详细信息</a>
+<a href="#notes">操作说明</a>
+</nav>
+<p class="tp-demo-note">原创演示工作台<br>数据与操作均为本地示例。</p>
+</aside>
+<div class="tp-app-main">
+<header id="intro" class="tp-app-header">
+<div class="tp-stack">
+<div class="tp-eyebrow">组织 / 成员</div>
+<h1>团队成员</h1>
+</div>
+<span class="tp-badge">演示工作区</span>
+</header>
+<section class="tp-stack" data-ts-filter data-ts-table-pages data-ts-bulk-demo data-ts-page-size="4">
+<div class="tp-toolbar">
+<label class="tp-field">搜索项目<input type="search" data-ts-filter-input placeholder="名称、状态、负责人">
+</label>
+<span data-ts-filter-count aria-live="polite">8 条演示记录</span>
+<a class="tp-button tp-button-primary" href="#invite">邀请成员演示</a>
+</div>
+<div class="tp-toolbar">
+<p>已选 <span data-ts-bulk-count aria-live="polite">0</span> 条（跨页与筛选保留）</p>
+<button type="button" class="tp-button" data-ts-bulk-archive disabled>归档所选（本地演示）</button>
+</div>
+<p data-ts-bulk-feedback role="status" hidden></p>
+<div>
+<div class="tp-scroll" tabindex="0" aria-label="成员项目职责，可横向滚动">
+<table>
+<caption>成员项目职责 / 演示数据</caption>
+<thead>
+<tr>
+<th>选择</th>
+<th>名称</th>
+<th>状态</th>
+<th>区域</th>
+<th>负责人</th>
+<th>更新时间</th>
+</tr>
+</thead>
+<tbody>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择晨光计划"></td>
+<td>
+<a href="#details">晨光计划</a>
+</td>
+<td data-ts-bulk-status>正在运行</td>
+<td>华东</td>
+<td>林青</td>
+<td>11-11 09:20</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择海岸档案"></td>
+<td>
+<a href="#details">海岸档案</a>
+</td>
+<td data-ts-bulk-status>待确认</td>
+<td>华南</td>
+<td>许文</td>
+<td>11-10 17:40</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择河流工作室"></td>
+<td>
+<a href="#details">河流工作室</a>
+</td>
+<td data-ts-bulk-status>正在运行</td>
+<td>华东</td>
+<td>陈雨</td>
+<td>11-10 14:05</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择纸上花园"></td>
+<td>
+<a href="#details">纸上花园</a>
+</td>
+<td data-ts-bulk-status>已归档</td>
+<td>华北</td>
+<td>周宁</td>
+<td>11-09 10:30</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择山间信号"></td>
+<td>
+<a href="#details">山间信号</a>
+</td>
+<td data-ts-bulk-status>待确认</td>
+<td>西南</td>
+<td>王溪</td>
+<td>11-08 16:15</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择蓝色时刻"></td>
+<td>
+<a href="#details">蓝色时刻</a>
+</td>
+<td data-ts-bulk-status>正在运行</td>
+<td>华南</td>
+<td>林青</td>
+<td>11-08 11:20</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择秋日手记"></td>
+<td>
+<a href="#details">秋日手记</a>
+</td>
+<td data-ts-bulk-status>已归档</td>
+<td>华北</td>
+<td>许文</td>
+<td>11-07 13:10</td>
+</tr>
+<tr data-ts-filter-item>
+<td><input type="checkbox" data-ts-bulk-select aria-label="选择清晨散步"></td>
+<td>
+<a href="#details">清晨散步</a>
+</td>
+<td data-ts-bulk-status>正在运行</td>
+<td>西南</td>
+<td>陈雨</td>
+<td>11-07 09:30</td>
+</tr>
+</tbody>
+</table>
+</div>
+<nav class="ts-i-pagination" data-ts-pagination data-ts-total="2" data-ts-page="1" aria-label="表格分页">
+<button class="ts-i-pagination__prev" data-ts-page-prev aria-label="上一页">
+<svg data-icon="chevron-left" class="tp-icon">
+</svg>
+</button>
+<button class="ts-i-pagination__item ts-i-pagination__item--active" aria-current="page">1</button>
+<button class="ts-i-pagination__item">2</button>
+<button class="ts-i-pagination__next" data-ts-page-next aria-label="下一页">
+<svg data-icon="chevron-right" class="tp-icon">
+</svg>
+</button>
+</nav>
+</div>
+<p data-ts-filter-empty hidden>没有匹配的成员记录。</p>
+</section>
+<section id="invite" class="tp-card tp-stack">
+<h2>邀请前确认职责</h2>
+<p>真实邀请会涉及外部通知。本演示仅展示说明，不发送邮件。</p>
+</section>
+<section id="details" class="tp-card tp-stack">
+<h2>当前项目说明</h2>
+<p>点击列表名称可定位此说明区。正式业务应绑定具体详情；本地操作明确标为演示，不代表真实业务变更。</p>
+<details>
+<summary>批量操作的边界</summary>
+<p>勾选跨页与筛选保留；归档所选仅更新本地演示状态并清空选择，不请求服务器、不永久保存，刷新后恢复。</p>
+</details>
+</section>
+<p id="notes" class="tp-demo-note">演示数据 · 无真实后端连接。表单、筛选和视图切换仅用于验证界面任务。</p>
+</div>
+</div>
+</main>

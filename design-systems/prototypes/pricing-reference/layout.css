@@ -1,0 +1,15 @@
+:scope .tp-doc-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--ts-space-16);padding:var(--ts-space-12) 0}
+
+:scope .tp-doc-nav{position:sticky;top:var(--ts-space-6);align-self:start;display:grid;gap:var(--ts-space-4);padding-left:var(--ts-space-4);border-left:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-pricing-main h1{font-size:clamp(2.5rem,5vw,5rem)}
+
+:scope .tp-pricing-main{max-width:none}
+
+:scope .tp-pricing-main caption{text-align:left;padding-bottom:var(--ts-space-4);font-size:var(--ts-fs-sm)}
+
+@media(max-width:780px){:scope .tp-doc-layout{grid-template-columns:1fr;gap:var(--ts-space-8)}
+
+:scope .tp-doc-nav{position:static;display:flex;flex-wrap:wrap}
+
+}

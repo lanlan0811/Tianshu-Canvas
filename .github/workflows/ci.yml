@@ -68,3 +68,16 @@ jobs:
 
       - name: Plugin release self-check
         run: npm run check:plugin
+
+      - name: Verify all original compositions
+        run: npm run verify:prototypes -- --out .tmp/ci-prototypes
+
+      - name: Retain composition review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prototype-review-${{ github.sha }}
+          path: .tmp/ci-prototypes
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error

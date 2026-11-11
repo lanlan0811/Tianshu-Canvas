@@ -1,0 +1,25 @@
+:scope .tp-story-hero{padding:clamp(3rem,7vw,7rem) 0 var(--ts-space-12)}
+
+:scope .tp-story-hero .tp-split{margin-top:var(--ts-space-8);grid-template-columns:1.5fr 1fr;align-items:end}
+
+:scope .tp-story-lead{font-size:clamp(1.2rem,2vw,1.8rem)}
+
+:scope .tp-product-window{border:1px solid var(--ts-color-border-strong);background:var(--ts-color-bg-raised);padding:var(--ts-space-5);box-shadow:var(--ts-shadow-lg)}
+
+:scope .tp-window-top{display:flex;justify-content:space-between;border-bottom:1px solid var(--ts-color-border-default);padding-bottom:var(--ts-space-4);font-size:var(--ts-fs-sm)}
+
+:scope .tp-window-body{display:grid;grid-template-columns:1fr 3fr;gap:var(--ts-space-8);padding-top:var(--ts-space-8);min-height:340px}
+
+:scope .tp-window-body aside{border-right:1px solid var(--ts-color-border-default);line-height:2.6}
+
+:scope .tp-task{display:flex;justify-content:space-between;padding:var(--ts-space-4);background:var(--ts-color-bg-surface);border-left:3px solid var(--ts-color-action-primary)}
+
+:scope .tp-task span{font-size:var(--ts-fs-sm);color:var(--ts-color-text-secondary)}
+
+@media(max-width:780px){:scope .tp-story-hero .tp-split{grid-template-columns:1fr}
+
+:scope .tp-window-body{grid-template-columns:1fr}
+
+:scope .tp-window-body aside{display:none}
+
+}

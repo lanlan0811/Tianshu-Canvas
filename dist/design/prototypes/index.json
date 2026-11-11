@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "prototypes": [
+    {
+      "id": "product-story",
+      "name": "产品证据长页",
+      "category": "marketing",
+      "description": "先主张，再用可阅读的产品画面解释工作流，而非一屏抽象卖点。",
+      "language": "zh-CN",
+      "variants": [
+        "依据简报重组信息，不以换色作为变体"
+      ]
+    },
+    {
+      "id": "editorial-casebook",
+      "name": "编辑专题与案例目录",
+      "category": "marketing",
+      "description": "以长标题、边注、编号章节和目录组织观点，适合有明确论点的内容。",
+      "language": "en",
+      "variants": [
+        "依据简报重组信息，不以换色作为变体"
+      ]
+    },
+    {
+      "id": "product-showcase",
+      "name": "产品舞台与商品展示",
+      "category": "marketing",
+      "description": "以物件尺度、材料细节和明暗章节呈现实体产品，强调原创示意与真实素材的区别。",
+      "language": "zh-CN",
+      "variants": [
+        "依据简报重组信息，不以换色作为变体"
+      ]
+    },
+    {
+      "id": "saas-landing",
+      "name": "软件工作流落地页",
+      "category": "marketing",
+      "description": "以同一产品的关键视图、流程切换与隐私说明构成可验证的软件叙事。",
+      "language": "en",
+      "variants": [
+        "依据简报重组信息，不以换色作为变体"
+      ]
+    },
+    {
+      "id": "pricing-reference",
+      "name": "复杂价格与计费说明",
+      "category": "marketing",
+      "description": "以目录、维度表格、口径说明和FAQ解释复杂计费，避免强塞三档套餐。",
+      "language": "zh-CN",
+      "variants": [
+        "依据简报重组信息，不以换色作为变体"
+      ]
+    },
+    {
+      "id": "resource-catalog",
+      "name": "资源与作品目录",
+      "category": "marketing",
+      "description": "主推内容与可搜索索引分工明确，适合资源库、插件市场或作品集。",
+      "language": "zh-CN",
+      "variants": [
+        "依据简报重组信息，不以换色作为变体"
+      ]
+    },
+    {
+      "id": "admin-list-tabs",
+      "name": "带标签的业务列表",
+      "category": "enterprise",
+      "description": "状态分组与筛选、选择和分页并行，保持当前任务清楚。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "admin-list",
+      "name": "简洁业务列表",
+      "category": "enterprise",
+      "description": "没有多余标签层的主操作与搜索列表，适合单实体管理。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "admin-detail",
+      "name": "基本详情",
+      "category": "enterprise",
+      "description": "以实体状态、属性与时间线组织详情，避免散落的标签卡片。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "admin-detail-tabs",
+      "name": "多标签详情",
+      "category": "enterprise",
+      "description": "把概览、活动与交付分开呈现，切换时保留本地编辑状态。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "admin-detail-sidebar",
+      "name": "带上下文侧栏的详情",
+      "category": "enterprise",
+      "description": "主阅读区聚焦事项，侧栏固定负责人、时间和下一步。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "admin-metrics",
+      "name": "指标与图表详情",
+      "category": "enterprise",
+      "description": "解释一项指标的时间、维度与口径，让趋势与定义一起可读。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "admin-create",
+      "name": "创建与配置表单",
+      "category": "enterprise",
+      "description": "分组信息、步骤提示和明确校验，先确认范围再做配置。",
+      "language": "zh-CN",
+      "variants": [
+        "依据具体业务实体与任务选择密度、分组和视图"
+      ]
+    },
+    {
+      "id": "editorial-operations",
+      "name": "编辑式运营工作台",
+      "category": "operations",
+      "description": "大标题、叙事指标和不对称名单围绕今日运营安排展开。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "executive-briefing",
+      "name": "高管决策简报",
+      "category": "operations",
+      "description": "将结论、行动与证据分层，聚焦续费与客户关系决策。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "training-operations",
+      "name": "训练与恢复运营",
+      "category": "operations",
+      "description": "按训练时段、恢复状态和名单安排资源，避免以营销口吻呈现训练数据。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "monitoring-console",
+      "name": "高密度监控控制台",
+      "category": "operations",
+      "description": "以服务状态、告警优先级和读数解释监控任务，深色仅服务夜间阅读。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "hard-edge-analytics",
+      "name": "硬边分析工作台",
+      "category": "operations",
+      "description": "等宽排版、方角和硬边界突出数据核对与操作责任。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "metrics-workspace",
+      "name": "规整指标工作区",
+      "category": "operations",
+      "description": "维度导航、主趋势和定义入口让分析过程可追踪。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "campaign-operations",
+      "name": "活动运营工作台",
+      "category": "operations",
+      "description": "鲜明标题与任务名单形成活动节奏，同时保持可读性与执行状态。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "neutral-analytics",
+      "name": "中性分析视图",
+      "category": "operations",
+      "description": "低装饰的摘要、表格和文字解释，适合细读与核对。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "deployment-console",
+      "name": "部署与运行控制台",
+      "category": "operations",
+      "description": "当前版本、部署阶段与日志线索围绕一次发布组织。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "developer-dashboard",
+      "name": "开发项目工作台",
+      "category": "operations",
+      "description": "把活跃项目、待决事项和工作说明连接起来，区别于IDE编辑壳。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "business-analytics",
+      "name": "商业分析工作台",
+      "category": "operations",
+      "description": "主趋势、区域拆解和解释边界组成层次明确的分析视图。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "operations-overview",
+      "name": "综合运营概览",
+      "category": "operations",
+      "description": "待办、访问趋势与交接消息围绕当班运营组织，模块取舍有依据。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实决策与数据密度适配，保留本原型的信息组织特征"
+      ]
+    },
+    {
+      "id": "ai-workspace",
+      "name": "AI发现与对话工作台",
+      "category": "application",
+      "description": "发现、对话与应用入口各有任务，输入器明确本地演示与真实模型的边界。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    },
+    {
+      "id": "knowledge-workspace",
+      "name": "桌面阅读与知识工作台",
+      "category": "application",
+      "description": "阅读、线程、收藏与偏好围绕同一份知识材料组织。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    },
+    {
+      "id": "mobile-content",
+      "name": "移动内容与发现应用",
+      "category": "mobile",
+      "description": "内容流、搜索发现、消息和个人中心围绕移动浏览任务组织。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    },
+    {
+      "id": "mobile-reading",
+      "name": "移动阅读与知识应用",
+      "category": "mobile",
+      "description": "面向单手阅读的文章、推荐、线程和偏好视图。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    },
+    {
+      "id": "developer-workbench",
+      "name": "多栏开发工作台",
+      "category": "tool",
+      "description": "标题、活动、文件、编辑与助手各自承担明确职责，窄屏通过任务视图重排。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    },
+    {
+      "id": "workspace-settings",
+      "name": "工作区设置与权限",
+      "category": "tool",
+      "description": "默认行为、已安装能力与运行权限分组呈现，危险承诺不藏在开关里。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    },
+    {
+      "id": "implementation-brief",
+      "name": "长篇实施方案",
+      "category": "document",
+      "description": "摘要、阶段、数据流、示意、代码、风险和待决项构成可审阅的技术方案。",
+      "language": "zh-CN",
+      "variants": [
+        "按真实用户任务调整视图和内容，不强行使用营销首屏"
+      ]
+    }
+  ]
+}

@@ -155,11 +155,11 @@ function __extends(d, b2) {
 }
 function __awaiter(thisArg, _arguments, P2, generator) {
   function adopt(value) {
-    return value instanceof P2 ? value : new P2(function(resolve10) {
-      resolve10(value);
+    return value instanceof P2 ? value : new P2(function(resolve11) {
+      resolve11(value);
     });
   }
-  return new (P2 || (P2 = Promise))(function(resolve10, reject) {
+  return new (P2 || (P2 = Promise))(function(resolve11, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -175,7 +175,7 @@ function __awaiter(thisArg, _arguments, P2, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve10(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve11(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -338,14 +338,14 @@ function __asyncValues(o) {
   }, i);
   function verb(n) {
     i[n] = o[n] && function(v2) {
-      return new Promise(function(resolve10, reject) {
-        v2 = o[n](v2), settle(resolve10, reject, v2.done, v2.value);
+      return new Promise(function(resolve11, reject) {
+        v2 = o[n](v2), settle(resolve11, reject, v2.done, v2.value);
       });
     };
   }
-  function settle(resolve10, reject, d, v2) {
+  function settle(resolve11, reject, d, v2) {
     Promise.resolve(v2).then(function(v22) {
-      resolve10({ value: v22, done: d });
+      resolve11({ value: v22, done: d });
     }, reject);
   }
 }
@@ -870,7 +870,7 @@ function of() {
 }
 function lastValueFrom(source2, config2) {
   var hasConfig = typeof config2 === "object";
-  return new Promise(function(resolve10, reject) {
+  return new Promise(function(resolve11, reject) {
     var _hasValue = false;
     var _value;
     source2.subscribe({
@@ -881,9 +881,9 @@ function lastValueFrom(source2, config2) {
       error: reject,
       complete: function() {
         if (_hasValue) {
-          resolve10(_value);
+          resolve11(_value);
         } else if (hasConfig) {
-          resolve10(config2.defaultValue);
+          resolve11(config2.defaultValue);
         } else {
           reject(new EmptyError());
         }
@@ -893,16 +893,16 @@ function lastValueFrom(source2, config2) {
 }
 function firstValueFrom(source2, config2) {
   var hasConfig = typeof config2 === "object";
-  return new Promise(function(resolve10, reject) {
+  return new Promise(function(resolve11, reject) {
     var subscriber = new SafeSubscriber({
       next: function(value) {
-        resolve10(value);
+        resolve11(value);
         subscriber.unsubscribe();
       },
       error: reject,
       complete: function() {
         if (hasConfig) {
-          resolve10(config2.defaultValue);
+          resolve11(config2.defaultValue);
         } else {
           reject(new EmptyError());
         }
@@ -937,12 +937,12 @@ function argsArgArrayOrObject(args) {
       return { args: first_1, keys: null };
     }
     if (isPOJO(first_1)) {
-      var keys = getKeys(first_1);
+      var keys2 = getKeys(first_1);
       return {
-        args: keys.map(function(key) {
+        args: keys2.map(function(key) {
           return first_1[key];
         }),
-        keys
+        keys: keys2
       };
     }
   }
@@ -951,8 +951,8 @@ function argsArgArrayOrObject(args) {
 function isPOJO(obj) {
   return obj && typeof obj === "object" && getPrototypeOf(obj) === objectProto;
 }
-function createObject(keys, values) {
-  return keys.reduce(function(result, key, i) {
+function createObject(keys2, values) {
+  return keys2.reduce(function(result, key, i) {
     return result[key] = values[i], result;
   }, {});
 }
@@ -963,12 +963,12 @@ function combineLatest() {
   }
   var scheduler = popScheduler(args);
   var resultSelector = popResultSelector(args);
-  var _a9 = argsArgArrayOrObject(args), observables = _a9.args, keys = _a9.keys;
+  var _a9 = argsArgArrayOrObject(args), observables = _a9.args, keys2 = _a9.keys;
   if (observables.length === 0) {
     return from([], scheduler);
   }
-  var result = new Observable(combineLatestInit(observables, scheduler, keys ? function(values) {
-    return createObject(keys, values);
+  var result = new Observable(combineLatestInit(observables, scheduler, keys2 ? function(values) {
+    return createObject(keys2, values);
   } : identity));
   return resultSelector ? result.pipe(mapOneOrManyArgs(resultSelector)) : result;
 }
@@ -1941,7 +1941,7 @@ var init_rxjs = __esm({
       Observable2.prototype.forEach = function(next, promiseCtor) {
         var _this = this;
         promiseCtor = getPromiseCtor(promiseCtor);
-        return new promiseCtor(function(resolve10, reject) {
+        return new promiseCtor(function(resolve11, reject) {
           var subscriber = new SafeSubscriber({
             next: function(value) {
               try {
@@ -1952,7 +1952,7 @@ var init_rxjs = __esm({
               }
             },
             error: reject,
-            complete: resolve10
+            complete: resolve11
           });
           _this.subscribe(subscriber);
         });
@@ -1974,14 +1974,14 @@ var init_rxjs = __esm({
       Observable2.prototype.toPromise = function(promiseCtor) {
         var _this = this;
         promiseCtor = getPromiseCtor(promiseCtor);
-        return new promiseCtor(function(resolve10, reject) {
+        return new promiseCtor(function(resolve11, reject) {
           var value;
           _this.subscribe(function(x2) {
             return value = x2;
           }, function(err) {
             return reject(err);
           }, function() {
-            return resolve10(value);
+            return resolve11(value);
           });
         });
       };
@@ -4045,17 +4045,17 @@ function convertPrintParameterToInches(parameter, lengthUnit = "in") {
   if (isNumber(parameter)) {
     pixels = parameter;
   } else if (isString(parameter)) {
-    const text = parameter;
-    let unit = text.substring(text.length - 2).toLowerCase();
+    const text3 = parameter;
+    let unit = text3.substring(text3.length - 2).toLowerCase();
     let valueText = "";
     if (unit in unitToPixels) {
-      valueText = text.substring(0, text.length - 2);
+      valueText = text3.substring(0, text3.length - 2);
     } else {
       unit = "px";
-      valueText = text;
+      valueText = text3;
     }
     const value = Number(valueText);
-    assert(!isNaN(value), "Failed to parse parameter value: " + text);
+    assert(!isNaN(value), "Failed to parse parameter value: " + text3);
     pixels = value * unitToPixels[unit];
   } else {
     throw new Error("page.pdf() Cannot handle parameter type: " + typeof parameter);
@@ -4442,8 +4442,8 @@ var init_Deferred = __esm({
       // SAFETY: This is ensured by #taskPromise.
       #resolve;
       // TODO: Switch to Promise.withResolvers with Node 22
-      #taskPromise = new Promise((resolve10) => {
-        this.#resolve = resolve10;
+      #taskPromise = new Promise((resolve11) => {
+        this.#resolve = resolve11;
       });
       #timeoutId;
       #timeoutError;
@@ -4534,12 +4534,12 @@ var init_Mutex = __esm({
         return new _Mutex.Guard(this, onRelease);
       }
       release() {
-        const resolve10 = this.#acquirers.shift();
-        if (!resolve10) {
+        const resolve11 = this.#acquirers.shift();
+        if (!resolve11) {
           this.#locked = false;
           return;
         }
-        resolve10();
+        resolve11();
       }
     };
   }
@@ -5535,11 +5535,11 @@ var init_PQueryHandler = __esm({
 });
 
 // node_modules/puppeteer-core/lib/third_party/parsel-js/parsel-js.js
-function gobbleParens(text, offset) {
+function gobbleParens(text3, offset) {
   let nesting = 0;
   let result = "";
-  for (; offset < text.length; offset++) {
-    const char = text[offset];
+  for (; offset < text3.length; offset++) {
+    const char = text3[offset];
     switch (char) {
       case "(":
         ++nesting;
@@ -5555,11 +5555,11 @@ function gobbleParens(text, offset) {
   }
   return result;
 }
-function tokenizeBy(text, grammar = TOKENS) {
-  if (!text) {
+function tokenizeBy(text3, grammar = TOKENS) {
+  if (!text3) {
     return [];
   }
-  const tokens = [text];
+  const tokens = [text3];
   for (const [type, pattern] of Object.entries(grammar)) {
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -5573,7 +5573,7 @@ function tokenizeBy(text, grammar = TOKENS) {
       }
       const from2 = match.index - 1;
       const args = [];
-      const content = match[0];
+      const content2 = match[0];
       const before = token.slice(0, from2 + 1);
       if (before) {
         args.push(before);
@@ -5581,9 +5581,9 @@ function tokenizeBy(text, grammar = TOKENS) {
       args.push({
         ...match.groups,
         type,
-        content
+        content: content2
       });
-      const after = token.slice(from2 + content.length + 1);
+      const after = token.slice(from2 + content2.length + 1);
       if (after) {
         args.push(after);
       }
@@ -5616,9 +5616,9 @@ function tokenize(selector, grammar = TOKENS) {
     replacements.push({ value, offset });
     return "\uE000".repeat(value.length);
   });
-  selector = selector.replace(STRING_PATTERN, (value, quote, content, offset) => {
+  selector = selector.replace(STRING_PATTERN, (value, quote, content2, offset) => {
     replacements.push({ value, offset });
-    return `${quote}${"\uE001".repeat(content.length)}${quote}`;
+    return `${quote}${"\uE001".repeat(content2.length)}${quote}`;
   });
   {
     let pos = 0;
@@ -5638,10 +5638,10 @@ function tokenize(selector, grammar = TOKENS) {
       if (!(token.pos[0] <= offset && offset + value.length <= token.pos[1])) {
         continue;
       }
-      const { content } = token;
+      const { content: content2 } = token;
       const tokenOffset = offset - token.pos[0];
-      token.content = content.slice(0, tokenOffset) + value + content.slice(tokenOffset + value.length);
-      if (token.content !== content) {
+      token.content = content2.slice(0, tokenOffset) + value + content2.slice(tokenOffset + value.length);
+      if (token.content !== content2) {
         changedTokens.add(token);
       }
     }
@@ -5797,14 +5797,14 @@ var init_PSelectorParser = __esm({
     TOKENS["nesting"] = /&/g;
     TOKENS["combinator"] = /\s*(>>>>?|[\s>+~])\s*/g;
     ESCAPE_REGEXP = /\\[\s\S]/g;
-    unquote = (text) => {
-      if (text.length <= 1) {
-        return text;
+    unquote = (text3) => {
+      if (text3.length <= 1) {
+        return text3;
       }
-      if ((text[0] === '"' || text[0] === "'") && text.endsWith(text[0])) {
-        text = text.slice(1, -1);
+      if ((text3[0] === '"' || text3[0] === "'") && text3.endsWith(text3[0])) {
+        text3 = text3.slice(1, -1);
       }
-      return text.replace(ESCAPE_REGEXP, (match) => {
+      return text3.replace(ESCAPE_REGEXP, (match) => {
         return match[1];
       });
     };
@@ -6587,12 +6587,12 @@ var init_locators = __esm({
         }
         return defer(() => {
           return from(handle.evaluate((element) => {
-            return new Promise((resolve10) => {
+            return new Promise((resolve11) => {
               window.requestAnimationFrame(() => {
                 const rect1 = element.getBoundingClientRect();
                 window.requestAnimationFrame(() => {
                   const rect2 = element.getBoundingClientRect();
-                  resolve10([
+                  resolve11([
                     {
                       x: rect1.x,
                       y: rect1.y,
@@ -8076,9 +8076,9 @@ var init_ElementHandle = __esm({
          *
          * @param options - Delay in milliseconds. Defaults to 0.
          */
-        async type(text, options) {
+        async type(text3, options) {
           await this.focus();
-          await this.frame.page().keyboard.type(text, options);
+          await this.frame.page().keyboard.type(text3, options);
         }
         /**
          * Focuses the element, and then uses {@link Keyboard.down} and {@link Keyboard.up}.
@@ -8248,10 +8248,10 @@ var init_ElementHandle = __esm({
               { x: rect.left, y: rect.top + rect.height }
             ];
             const padding = transformQuadWithOffsets(border, offsets.border);
-            const content = transformQuadWithOffsets(padding, offsets.padding);
+            const content2 = transformQuadWithOffsets(padding, offsets.padding);
             const margin = transformQuadWithOffsets(border, offsets.margin);
             return {
-              content,
+              content: content2,
               padding,
               border,
               margin,
@@ -8412,9 +8412,9 @@ var init_ElementHandle = __esm({
             const handle = await this.#asSVGElementHandle();
             const target = __addDisposableResource6(env_5, handle && await handle.#getOwnerSVGElement(), false);
             return await (target ?? this).evaluate(async (element, threshold) => {
-              const visibleRatio = await new Promise((resolve10) => {
+              const visibleRatio = await new Promise((resolve11) => {
                 const observer = new IntersectionObserver((entries) => {
-                  resolve10(entries[0].intersectionRatio);
+                  resolve11(entries[0].intersectionRatio);
                   observer.disconnect();
                 });
                 observer.observe(element);
@@ -9055,29 +9055,29 @@ var init_Frame = __esm({
          */
         async content() {
           return await this.evaluate(() => {
-            let content = "";
+            let content2 = "";
             for (const node of document.childNodes) {
               switch (node) {
                 case document.documentElement:
-                  content += document.documentElement.outerHTML;
+                  content2 += document.documentElement.outerHTML;
                   break;
                 default:
-                  content += new XMLSerializer().serializeToString(node);
+                  content2 += new XMLSerializer().serializeToString(node);
                   break;
               }
             }
-            return content;
+            return content2;
           });
         }
         /**
          * @internal
          */
-        async setFrameContent(content) {
+        async setFrameContent(content2) {
           return await this.evaluate((html) => {
             document.open();
             document.write(html);
             document.close();
-          }, content);
+          }, content2);
         }
         /**
          * The frame's `name` attribute as specified in the tag.
@@ -9121,21 +9121,21 @@ var init_Frame = __esm({
          * `<script>` element.
          */
         async addScriptTag(options) {
-          let { content = "", type } = options;
+          let { content: content2 = "", type } = options;
           const { path: path14 } = options;
-          if (+!!options.url + +!!path14 + +!!content !== 1) {
+          if (+!!options.url + +!!path14 + +!!content2 !== 1) {
             throw new Error("Exactly one of `url`, `path`, or `content` must be specified.");
           }
           if (path14) {
-            content = await environment.value.readFile(path14, "utf8");
-            content += `//# sourceURL=${path14.replace(/\n/g, "")}`;
+            content2 = await environment.value.readFile(path14, "utf8");
+            content2 += `//# sourceURL=${path14.replace(/\n/g, "")}`;
           }
           type = type ?? "text/javascript";
-          return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, id, type: type2, content: content2 }) => {
-            return await new Promise((resolve10, reject) => {
+          return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, id, type: type2, content: content3 }) => {
+            return await new Promise((resolve11, reject) => {
               const script = document.createElement("script");
               script.type = type2;
-              script.text = content2;
+              script.text = content3;
               script.addEventListener("error", (event) => {
                 reject(new Error(event.message ?? "Could not load script"));
               }, { once: true });
@@ -9145,36 +9145,36 @@ var init_Frame = __esm({
               if (url) {
                 script.src = url;
                 script.addEventListener("load", () => {
-                  resolve10(script);
+                  resolve11(script);
                 }, { once: true });
                 document.head.appendChild(script);
               } else {
                 document.head.appendChild(script);
-                resolve10(script);
+                resolve11(script);
               }
             });
-          }, { ...options, type, content }));
+          }, { ...options, type, content: content2 }));
         }
         /**
          * @internal
          */
         async addStyleTag(options) {
-          let { content = "" } = options;
+          let { content: content2 = "" } = options;
           const { path: path14 } = options;
-          if (+!!options.url + +!!path14 + +!!content !== 1) {
+          if (+!!options.url + +!!path14 + +!!content2 !== 1) {
             throw new Error("Exactly one of `url`, `path`, or `content` must be specified.");
           }
           if (path14) {
-            content = await environment.value.readFile(path14, "utf8");
-            content += "/*# sourceURL=" + path14.replace(/\n/g, "") + "*/";
-            options.content = content;
+            content2 = await environment.value.readFile(path14, "utf8");
+            content2 += "/*# sourceURL=" + path14.replace(/\n/g, "") + "*/";
+            options.content = content2;
           }
-          return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, content: content2 }) => {
-            return await new Promise((resolve10, reject) => {
+          return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, content: content3 }) => {
+            return await new Promise((resolve11, reject) => {
               let element;
               if (!url) {
                 element = document.createElement("style");
-                element.appendChild(document.createTextNode(content2));
+                element.appendChild(document.createTextNode(content3));
               } else {
                 const link2 = document.createElement("link");
                 link2.rel = "stylesheet";
@@ -9182,7 +9182,7 @@ var init_Frame = __esm({
                 element = link2;
               }
               element.addEventListener("load", () => {
-                resolve10(element);
+                resolve11(element);
               }, { once: true });
               element.addEventListener("error", (event) => {
                 reject(new Error(event.message ?? "Could not load style"));
@@ -9334,12 +9334,12 @@ var init_Frame = __esm({
          * @param options - takes one option, `delay`, which sets the time to wait
          * between key presses in milliseconds. Defaults to `0`.
          */
-        async type(selector, text, options) {
+        async type(selector, text3, options) {
           const env_8 = { stack: [], error: void 0, hasError: false };
           try {
             const handle = __addDisposableResource7(env_8, await this.$(selector), false);
             assert(handle, `No element found for selector: ${selector}`);
-            await handle.type(text, options);
+            await handle.type(text3, options);
           } catch (e_8) {
             env_8.error = e_8;
             env_8.hasError = true;
@@ -9842,8 +9842,8 @@ var init_HTTPResponse = __esm({
        * {@inheritDoc HTTPResponse.content}
        */
       async buffer() {
-        const content = await this.content();
-        return Buffer.from(content);
+        const content2 = await this.content();
+        return Buffer.from(content2);
       }
       /**
        * Promise which resolves to a text (utf8) representation of response body.
@@ -9853,8 +9853,8 @@ var init_HTTPResponse = __esm({
        * This method will throw if the content is not utf-8 string
        */
       async text() {
-        const content = await this.content();
-        return new TextDecoder("utf-8", { fatal: true }).decode(content);
+        const content2 = await this.content();
+        return new TextDecoder("utf-8", { fatal: true }).decode(content2);
       }
       /**
        * Promise which resolves to a JSON representation of response body.
@@ -9865,8 +9865,8 @@ var init_HTTPResponse = __esm({
        * `JSON.parse`.
        */
       async json() {
-        const content = await this.text();
-        return JSON.parse(content);
+        const content2 = await this.text();
+        return JSON.parse(content2);
       }
       /**
        * Converts the response to a Fetch API Response instance.
@@ -11101,9 +11101,9 @@ var init_Page = __esm({
           ++this.#screencastSessionCount;
           if (!this.#startScreencastPromise) {
             const client = this.mainFrame().client;
-            const firstFrame = new Promise((resolve10) => {
+            const firstFrame = new Promise((resolve11) => {
               return client.once("Page.screencastFrame", () => {
-                return resolve10();
+                return resolve11();
               });
             });
             this.#startScreencastPromise = client.send("Page.startScreencast", { format: "png" }).then(() => {
@@ -11466,8 +11466,8 @@ var init_Page = __esm({
          * key presses in milliseconds. Defaults to `0`.
          * @returns
          */
-        type(selector, text, options) {
-          return this.mainFrame().type(selector, text, options);
+        type(selector, text3, options) {
+          return this.mainFrame().type(selector, text3, options);
         }
         /**
          * Wait for the `selector` to appear in page. If at the moment of calling the
@@ -11962,13 +11962,13 @@ var init_ScreenRecording = __esm({
           dest.end();
         }
         const destinationPromises = Array.from(this.destinations).map((dest) => {
-          return new Promise((resolve10) => {
+          return new Promise((resolve11) => {
             if (dest.writableFinished || dest.closed || dest.destroyed) {
-              resolve10(void 0);
+              resolve11(void 0);
             } else {
-              dest.once?.("finish", resolve10);
-              dest.once?.("close", resolve10);
-              dest.once?.("error", resolve10);
+              dest.once?.("finish", resolve11);
+              dest.once?.("close", resolve11);
+              dest.once?.("error", resolve11);
             }
           });
         });
@@ -12893,9 +12893,9 @@ var init_ConsoleMessage = __esm({
       /**
        * @internal
        */
-      constructor(type, text, args, stackTraceLocations, frame, rawStackTrace, targetId, worker) {
+      constructor(type, text3, args, stackTraceLocations, frame, rawStackTrace, targetId, worker) {
         this.#type = type;
-        this.#text = text;
+        this.#text = text3;
         this.#args = args;
         this.#stackTraceLocations = stackTraceLocations;
         this.#frame = frame;
@@ -13767,8 +13767,8 @@ var init_Coverage = __esm({
           if (!url && this.#reportAnonymousScripts) {
             url = "debugger://VM" + entry.scriptId;
           }
-          const text = this.#scriptSources.get(entry.scriptId);
-          if (text === void 0 || url === void 0) {
+          const text3 = this.#scriptSources.get(entry.scriptId);
+          if (text3 === void 0 || url === void 0) {
             continue;
           }
           const flattenRanges = [];
@@ -13777,9 +13777,9 @@ var init_Coverage = __esm({
           }
           const ranges = convertToDisjointRanges(flattenRanges);
           if (!this.#includeRawScriptCoverage) {
-            coverage.push({ url, ranges, text });
+            coverage.push({ url, ranges, text: text3 });
           } else {
-            coverage.push({ url, ranges, text, rawScriptCoverage: entry });
+            coverage.push({ url, ranges, text: text3, rawScriptCoverage: entry });
           }
         }
         return coverage;
@@ -13868,10 +13868,10 @@ var init_Coverage = __esm({
         for (const styleSheetId of this.#stylesheetURLs.keys()) {
           const url = this.#stylesheetURLs.get(styleSheetId);
           assert(typeof url !== "undefined", `Stylesheet URL is undefined (styleSheetId=${styleSheetId})`);
-          const text = this.#stylesheetSources.get(styleSheetId);
-          assert(typeof text !== "undefined", `Stylesheet text is undefined (styleSheetId=${styleSheetId})`);
+          const text3 = this.#stylesheetSources.get(styleSheetId);
+          assert(typeof text3 !== "undefined", `Stylesheet text is undefined (styleSheetId=${styleSheetId})`);
           const ranges = convertToDisjointRanges(styleSheetIdToCoverage.get(styleSheetId) || []);
-          coverage.push({ url, ranges, text });
+          coverage.push({ url, ranges, text: text3 });
         }
         return coverage;
       }
@@ -14582,11 +14582,11 @@ function addPageBinding(type, name, prefix) {
           return value instanceof Node;
         })
       }));
-      return new Promise((resolve10, reject) => {
+      return new Promise((resolve11, reject) => {
         callPuppeteer.callbacks.set(seq, {
           resolve(value) {
             callPuppeteer.args.delete(seq);
-            resolve10(value);
+            resolve11(value);
           },
           reject(value) {
             callPuppeteer.args.delete(seq);
@@ -16087,10 +16087,10 @@ var init_Frame2 = __esm({
         /**
          * @internal
          */
-        async setFrameContent(content) {
+        async setFrameContent(content2) {
           await this.#client.send("Page.setDocumentContent", {
             frameId: this._id,
-            html: content
+            html: content2
           });
         }
         url() {
@@ -16581,11 +16581,11 @@ var init_HTTPRequest2 = __esm({
         return this.#hasPostData;
       }
       async fetchPostData() {
-        const content = await this.content();
-        if (content === void 0) {
+        const content2 = await this.content();
+        if (content2 === void 0) {
           return void 0;
         }
-        return new TextDecoder().decode(content);
+        return new TextDecoder().decode(content2);
       }
       async content() {
         if (this._interceptionId !== void 0 && this.interception.enabled && !this.isInterceptResolutionHandled() && this.#hasCompletePostData) {
@@ -18623,15 +18623,15 @@ var init_Input2 = __esm({
         const autoRepeat = this.#pressedKeys.has(description.code);
         this.#pressedKeys.add(description.code);
         this._modifiers |= this.#modifierBit(description.key);
-        const text = options.text === void 0 ? description.text : options.text;
+        const text3 = options.text === void 0 ? description.text : options.text;
         await this.#client.send("Input.dispatchKeyEvent", {
-          type: text ? "keyDown" : "rawKeyDown",
+          type: text3 ? "keyDown" : "rawKeyDown",
           modifiers: this._modifiers,
           windowsVirtualKeyCode: description.keyCode,
           code: description.code,
           key: description.key,
-          text,
-          unmodifiedText: text,
+          text: text3,
+          unmodifiedText: text3,
           autoRepeat,
           location: description.location,
           isKeypad: description.location === 3,
@@ -18715,9 +18715,9 @@ var init_Input2 = __esm({
       charIsKey(char) {
         return !!_keyDefinitions[char];
       }
-      async type(text, options = {}) {
+      async type(text3, options = {}) {
         const delay = options.delay || void 0;
-        for (const char of text) {
+        for (const char of text3) {
           if (this.charIsKey(char)) {
             await this.press(char, { delay });
           } else {
@@ -18922,8 +18922,8 @@ var init_Input2 = __esm({
         if (typeof delay === "number") {
           await Promise.all(actions);
           actions.length = 0;
-          await new Promise((resolve10) => {
-            setTimeout(resolve10, delay);
+          await new Promise((resolve11) => {
+            setTimeout(resolve11, delay);
           });
         }
         actions.push(this.up({ ...options, clickCount: count }));
@@ -18943,9 +18943,9 @@ var init_Input2 = __esm({
         });
       }
       async drag(start, target) {
-        const promise = new Promise((resolve10) => {
+        const promise = new Promise((resolve11) => {
           this.#client.once("Input.dragIntercepted", (event) => {
-            return resolve10(event.data);
+            return resolve11(event.data);
           });
         });
         await this.move(start.x, start.y);
@@ -18986,8 +18986,8 @@ var init_Input2 = __esm({
         await this.dragEnter(target, data);
         await this.dragOver(target, data);
         if (delay) {
-          await new Promise((resolve10) => {
-            return setTimeout(resolve10, delay);
+          await new Promise((resolve11) => {
+            return setTimeout(resolve11, delay);
           });
         }
         await this.drop(target, data);
@@ -19379,7 +19379,7 @@ var init_WebMCP = __esm({
        */
       async execute(input2 = {}, options = {}) {
         const { invocationId } = await this.#webmcp.invokeTool(this, input2);
-        return await new Promise((resolve10) => {
+        return await new Promise((resolve11) => {
           const onAbort = () => {
             void this.#webmcp.cancelInvocation(invocationId);
           };
@@ -19387,7 +19387,7 @@ var init_WebMCP = __esm({
             if (event.id === invocationId) {
               options.signal?.removeEventListener("abort", onAbort);
               this.#webmcp.off("toolresponded", handler);
-              resolve10(event);
+              resolve11(event);
             }
           };
           this.#webmcp.on("toolresponded", handler);
@@ -20057,14 +20057,14 @@ var init_Page2 = __esm({
         this.emit("error", new Error("Page crashed!"));
       }
       #onLogEntryAdded(event) {
-        const { level, text, args, source: source2, url, lineNumber, stackTrace } = event.entry;
+        const { level, text: text3, args, source: source2, url, lineNumber, stackTrace } = event.entry;
         if (args) {
           args.map((arg) => {
             void releaseObject(this.#primaryTargetClient, arg, this.logger);
           });
         }
         if (source2 !== "worker") {
-          this.emit("console", new ConsoleMessage(convertConsoleMessageLevel(level), text, [], [{ url, lineNumber }], void 0, stackTrace, this.#primaryTarget._targetId, void 0));
+          this.emit("console", new ConsoleMessage(convertConsoleMessageLevel(level), text3, [], [{ url, lineNumber }], void 0, stackTrace, this.#primaryTarget._targetId, void 0));
         }
       }
       mainFrame() {
@@ -20257,9 +20257,9 @@ var init_Page2 = __esm({
         const env_2 = { stack: [], error: void 0, hasError: false };
         try {
           const stream = environment.value.createWriteStream(options.path);
-          const streamPromise = new Promise((resolve10, reject) => {
+          const streamPromise = new Promise((resolve11, reject) => {
             stream.on("error", reject);
-            stream.on("finish", resolve10);
+            stream.on("finish", resolve11);
           });
           const client = this.#primaryTargetClient;
           await client.send("HeapProfiler.enable");
@@ -21878,12 +21878,12 @@ var init_Browser2 = __esm({
         for (const [targetId, targetInfo] of this._targetManager().getDiscoveredTargetInfos().entries()) {
           if ((!existingTargetIds || existingTargetIds.has(targetId)) && targetInfo.url.includes(id) && targetInfo.type === "service_worker") {
             this._targetManager().addToIgnoreTarget(targetId);
-            targetDestroyedPromises.push(new Promise((resolve10) => {
+            targetDestroyedPromises.push(new Promise((resolve11) => {
               return setTimeout(() => {
                 this.#connection.emit("Target.targetDestroyed", {
                   targetId
                 });
-                resolve10(null);
+                resolve11(null);
               }, 0);
             }));
           }
@@ -22362,10 +22362,10 @@ var init_BrowserWebSocketTransport = __esm({
     init_Debug();
     BrowserWebSocketTransport = class _BrowserWebSocketTransport {
       static create(url, _headers, logger, _options) {
-        return new Promise((resolve10, reject) => {
+        return new Promise((resolve11, reject) => {
           const ws = new WebSocket(url);
           ws.addEventListener("open", () => {
-            return resolve10(new _BrowserWebSocketTransport(ws, logger));
+            return resolve11(new _BrowserWebSocketTransport(ws, logger));
           });
           ws.addEventListener("error", reject);
         });
@@ -25609,11 +25609,11 @@ var init_BrowsingContextProcessor = __esm({
         }
         const parentCdpClient = context2.cdpTarget.parentCdpClient;
         try {
-          const detachedFromTargetPromise = new Promise((resolve10) => {
+          const detachedFromTargetPromise = new Promise((resolve11) => {
             const onContextDestroyed = (event) => {
               if (event.targetId === params.context) {
                 parentCdpClient.off("Target.detachedFromTarget", onContextDestroyed);
-                resolve10();
+                resolve11();
               }
             };
             parentCdpClient.on("Target.detachedFromTarget", onContextDestroyed);
@@ -27101,7 +27101,7 @@ var init_ActionDispatcher = __esm({
           }
         }
         const promises = [
-          new Promise((resolve10) => setTimeout(resolve10, this.#tickDuration))
+          new Promise((resolve11) => setTimeout(resolve11, this.#tickDuration))
         ];
         for (const option of options) {
           promises.push(this.#dispatchAction(option));
@@ -27438,7 +27438,7 @@ var init_ActionDispatcher = __esm({
         source2.pressed.add(key);
         const { modifiers } = source2;
         const unmodifiedText = getKeyEventUnmodifiedText(key, source2, isGrapheme);
-        const text = getKeyEventText(code ?? "", source2) ?? unmodifiedText;
+        const text3 = getKeyEventText(code ?? "", source2) ?? unmodifiedText;
         let command2;
         if (this.#isMacOS && source2.meta) {
           switch (code) {
@@ -27462,11 +27462,11 @@ var init_ActionDispatcher = __esm({
         }
         const promises = [
           this.#context.cdpTarget.cdpClient.sendCommand("Input.dispatchKeyEvent", {
-            type: text ? "keyDown" : "rawKeyDown",
+            type: text3 ? "keyDown" : "rawKeyDown",
             windowsVirtualKeyCode: KeyToKeyCode[key],
             key,
             code,
-            text,
+            text: text3,
             unmodifiedText,
             autoRepeat: repeat,
             isSystemKey: source2.alt || void 0,
@@ -27512,13 +27512,13 @@ var init_ActionDispatcher = __esm({
         source2.pressed.delete(key);
         const { modifiers } = source2;
         const unmodifiedText = getKeyEventUnmodifiedText(key, source2, isGrapheme);
-        const text = getKeyEventText(code ?? "", source2) ?? unmodifiedText;
+        const text3 = getKeyEventText(code ?? "", source2) ?? unmodifiedText;
         return this.#context.cdpTarget.cdpClient.sendCommand("Input.dispatchKeyEvent", {
           type: "keyUp",
           windowsVirtualKeyCode: KeyToKeyCode[key],
           key,
           code,
-          text,
+          text: text3,
           unmodifiedText,
           location: location < 3 ? location : void 0,
           isSystemKey: source2.alt || void 0,
@@ -27631,8 +27631,8 @@ var init_Mutex2 = __esm({
       acquire() {
         const state2 = { resolved: false };
         if (this.#locked) {
-          return new Promise((resolve10) => {
-            this.#acquirers.push(() => resolve10(this.#release.bind(this, state2)));
+          return new Promise((resolve11) => {
+            this.#acquirers.push(() => resolve11(this.#release.bind(this, state2)));
           });
         }
         this.#locked = true;
@@ -27643,12 +27643,12 @@ var init_Mutex2 = __esm({
           throw new Error("Cannot release more than once.");
         }
         state2.resolved = true;
-        const resolve10 = this.#acquirers.shift();
-        if (!resolve10) {
+        const resolve11 = this.#acquirers.shift();
+        if (!resolve11) {
           this.#locked = false;
           return;
         }
-        resolve10();
+        resolve11();
       }
       async run(action) {
         const release = await this.acquire();
@@ -28754,8 +28754,8 @@ var init_ChannelProxy = __esm({
              * in the queue.
              */
             async getMessage() {
-              const onMessage = queue2.length > 0 ? Promise.resolve() : new Promise((resolve10) => {
-                queueNonEmptyResolver = resolve10;
+              const onMessage = queue2.length > 0 ? Promise.resolve() : new Promise((resolve11) => {
+                queueNonEmptyResolver = resolve11;
               });
               await onMessage;
               return queue2.shift();
@@ -28856,7 +28856,7 @@ var init_ChannelProxy = __esm({
           functionDeclaration: String((id) => {
             const w2 = window;
             if (w2[id] === void 0) {
-              return new Promise((resolve10) => w2[id] = resolve10);
+              return new Promise((resolve11) => w2[id] = resolve11);
             }
             const channelProxy = w2[id];
             delete w2[id];
@@ -30360,8 +30360,8 @@ var init_Deferred2 = __esm({
         return this.#result;
       }
       constructor() {
-        this.#promise = new Promise((resolve10, reject) => {
-          this.#resolve = resolve10;
+        this.#promise = new Promise((resolve11, reject) => {
+          this.#resolve = resolve11;
           this.#reject = reject;
         });
         this.#promise.catch((_error) => {
@@ -33018,7 +33018,7 @@ var init_LogManager = __esm({
             return;
           }
           for (const browsingContext of realm.associatedBrowsingContexts) {
-            this.#eventManager.registerPromiseEvent(_a3.#getExceptionText(params, realm).then((text) => ({
+            this.#eventManager.registerPromiseEvent(_a3.#getExceptionText(params, realm).then((text3) => ({
               kind: "success",
               value: {
                 type: "event",
@@ -33026,7 +33026,7 @@ var init_LogManager = __esm({
                 params: {
                   level: Log2.Level.Error,
                   source: realm.source,
-                  text,
+                  text: text3,
                   timestamp: Math.round(params.timestamp),
                   stackTrace: getBidiStackTrace(params.exceptionDetails.stackTrace),
                   type: "javascript"
@@ -35371,11 +35371,11 @@ var init_BrowsingContextStorage = __esm({
         if (this.#contexts.has(browsingContextId)) {
           return Promise.resolve(this.getContext(browsingContextId));
         }
-        return new Promise((resolve10) => {
+        return new Promise((resolve11) => {
           const listener = (event) => {
             if (event.browsingContext.id === browsingContextId) {
               this.#eventEmitter.off("added", listener);
-              resolve10(event.browsingContext);
+              resolve11(event.browsingContext);
             }
           };
           this.#eventEmitter.on("added", listener);
@@ -37815,11 +37815,11 @@ var init_Request = __esm({
           return await this.#requestContentPromise;
         }
         async fetchPostData() {
-          const content = await this.getRequestContent();
-          if (content === void 0) {
+          const content2 = await this.getRequestContent();
+          if (content2 === void 0) {
             return void 0;
           }
-          return new TextDecoder().decode(content);
+          return new TextDecoder().decode(content2);
         }
         async getResponseContent() {
           if (!this.#responseContentPromise) {
@@ -39309,8 +39309,8 @@ var init_ExposedFunction = __esm({
         const functionDeclaration = stringifyFunction(interpolateFunction((callback) => {
           Object.assign(globalThis, {
             [PLACEHOLDER("name")]: function(...args) {
-              return new Promise((resolve10, reject) => {
-                callback([resolve10, reject, args]);
+              return new Promise((resolve11, reject) => {
+                callback([resolve11, reject, args]);
               });
             }
           });
@@ -39398,8 +39398,8 @@ var init_ExposedFunction = __esm({
             return;
           }
           try {
-            await dataHandle.evaluate(([resolve10], result2) => {
-              resolve10(result2);
+            await dataHandle.evaluate(([resolve11], result2) => {
+              resolve11(result2);
             }, result);
           } catch (error) {
             this.#logger?.(DEBUG_PREFIXES.error)?.(error);
@@ -40013,11 +40013,11 @@ function getStackTraceLocations(stackTrace) {
   return stackTraceLocations;
 }
 function getConsoleMessage(entry, args, frame, targetId, worker) {
-  const text = args.reduce((value, arg) => {
+  const text3 = args.reduce((value, arg) => {
     const parsedValue = arg instanceof BidiJSHandle && arg.isPrimitiveValue ? BidiDeserializer.deserialize(arg.remoteValue()) : arg.toString();
     return `${value} ${parsedValue}`;
   }, "").slice(1);
-  return new ConsoleMessage(convertConsoleMessageLevel2(entry.method), text, args, getStackTraceLocations(entry.stackTrace), frame, void 0, targetId, worker);
+  return new ConsoleMessage(convertConsoleMessageLevel2(entry.method), text3, args, getStackTraceLocations(entry.stackTrace), frame, void 0, targetId, worker);
 }
 function isConsoleLogEntry(event) {
   return event.type === "console";
@@ -41236,9 +41236,9 @@ var init_Input3 = __esm({
           }
         ]);
       }
-      async type(text, options = {}) {
+      async type(text3, options = {}) {
         const { delay = 0 } = options;
-        const values = [...text].map(getBidiKeyValue);
+        const values = [...text3].map(getBidiKeyValue);
         const actions = [];
         if (delay <= 0) {
           for (const value of values) {
@@ -46358,7 +46358,7 @@ var require_websocket = __commonJS({
     var http4 = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes3, createHash: createHash5 } = __require("crypto");
+    var { randomBytes: randomBytes4, createHash: createHash6 } = __require("crypto");
     var { Duplex, Readable: Readable2 } = __require("stream");
     var { URL: URL3 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -46909,7 +46909,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes3(16).toString("base64");
+      const key = randomBytes4(16).toString("base64");
       const request3 = isSecure ? https3.request : http4.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -47044,7 +47044,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash5("sha1").update(key + GUID).digest("base64");
+        const digest = createHash6("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -47413,7 +47413,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter5 = __require("events");
     var http4 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash5 } = __require("crypto");
+    var { createHash: createHash6 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -47720,7 +47720,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash5("sha1").update(key + GUID).digest("base64");
+        const digest = createHash6("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -47840,7 +47840,7 @@ var init_NodeWebSocketTransport = __esm({
     DEFAULT_MAX_PAYLOAD_BYTES = 256 * 1024 * 1024;
     NodeWebSocketTransport = class _NodeWebSocketTransport {
       static create(url, headers, logger, options = {}) {
-        return new Promise((resolve10, reject) => {
+        return new Promise((resolve11, reject) => {
           const ws = new wrapper_default(url, [], {
             followRedirects: true,
             perMessageDeflate: false,
@@ -47853,7 +47853,7 @@ var init_NodeWebSocketTransport = __esm({
             }
           });
           ws.addEventListener("open", () => {
-            return resolve10(new _NodeWebSocketTransport(ws, logger, options));
+            return resolve11(new _NodeWebSocketTransport(ws, logger, options));
           });
           ws.addEventListener("error", reject);
         });
@@ -47931,16 +47931,16 @@ import * as http2 from "node:http";
 import * as https from "node:https";
 import { URL as URL2, urlToHttpOptions } from "node:url";
 async function headHttpRequest(url) {
-  return await new Promise((resolve10) => {
+  return await new Promise((resolve11) => {
     httpRequest(url, "HEAD", (response) => {
       response.resume();
-      resolve10(response.statusCode === 200);
+      resolve11(response.statusCode === 200);
     }, false).then((request3) => {
       request3.on("error", () => {
-        resolve10(false);
+        resolve11(false);
       });
     }).catch(() => {
-      resolve10(false);
+      resolve11(false);
     });
   });
 }
@@ -47974,7 +47974,7 @@ async function httpRequest(url, method, response, keepAlive = true) {
   return request3;
 }
 function downloadFile(url, destinationPath, progressCallback, expectedHash) {
-  return new Promise(async (resolve10, reject) => {
+  return new Promise(async (resolve11, reject) => {
     let downloadedBytes = 0;
     let totalBytes;
     const verifier = expectedHash ? new HashVerifier() : null;
@@ -48020,7 +48020,7 @@ function downloadFile(url, destinationPath, progressCallback, expectedHash) {
               return;
             }
           }
-          return resolve10();
+          return resolve11();
         });
         file.on("error", failDownload);
         const contentLength = Number.parseInt(response.headers["content-length"] ?? "", 10);
@@ -48051,15 +48051,15 @@ function downloadFile(url, destinationPath, progressCallback, expectedHash) {
   });
 }
 async function getJSON(url) {
-  const text = await getText(url);
+  const text3 = await getText(url);
   try {
-    return JSON.parse(text);
+    return JSON.parse(text3);
   } catch {
     throw new Error("Could not parse JSON from " + url.toString());
   }
 }
 function getText(url) {
-  return new Promise(async (resolve10, reject) => {
+  return new Promise(async (resolve11, reject) => {
     try {
       const request3 = await httpRequest(url, "GET", (response) => {
         let data = "";
@@ -48071,7 +48071,7 @@ function getText(url) {
         });
         response.on("end", () => {
           try {
-            return resolve10(String(data));
+            return resolve11(String(data));
           } catch {
             return reject(new Error(`Failed to read text response from ${url}`));
           }
@@ -49590,7 +49590,7 @@ var init_launch = __esm({
         if (opts.onExit) {
           this.#onExitHook = opts.onExit;
         }
-        this.#browserProcessExiting = new Promise((resolve10, reject) => {
+        this.#browserProcessExiting = new Promise((resolve11, reject) => {
           this.#browserProcess.once("exit", async () => {
             this.#logger?.(`Browser process ${this.#browserProcess.pid} onExit`);
             this.#clearListeners();
@@ -49601,7 +49601,7 @@ var init_launch = __esm({
               reject(err);
               return;
             }
-            resolve10();
+            resolve11();
           });
         });
       }
@@ -49716,7 +49716,7 @@ Error cause: ${isErrorLike2(error) ? error.stack : error}`);
         return [...this.#logs];
       }
       waitForLineOutput(regex2, timeout2 = 0) {
-        return new Promise((resolve10, reject) => {
+        return new Promise((resolve11, reject) => {
           const onClose = (errorOrCode) => {
             cleanup();
             reject(new Error([
@@ -49752,7 +49752,7 @@ Error cause: ${isErrorLike2(error) ? error.stack : error}`);
               return;
             }
             cleanup();
-            resolve10(match[1]);
+            resolve11(match[1]);
           }
         });
       }
@@ -50035,12 +50035,12 @@ function generatePax(header) {
   const paxEntries = Object.entries(paxRecords);
   if (paxEntries.length === 0) return null;
   const paxBody = encoder.encode(paxEntries.map(([key, value]) => {
-    const record = `${key}=${value}
+    const record2 = `${key}=${value}
 `;
-    const partLength = encoder.encode(record).length + 1;
+    const partLength = encoder.encode(record2).length + 1;
     let totalLength = partLength + String(partLength).length;
     totalLength = partLength + String(totalLength).length;
-    return `${totalLength} ${record}`;
+    return `${totalLength} ${record2}`;
   }).join(""));
   return {
     paxHeader: createTarHeader({
@@ -50490,10 +50490,10 @@ function packTar(sources, options = {}) {
   let resumeWriter = null;
   let cancelError;
   const unblock = () => {
-    const resolve10 = resume;
+    const resolve11 = resume;
     resume = null;
     drain = null;
-    resolve10?.();
+    resolve11?.();
   };
   const wakeWriter = () => {
     resumeWriter?.();
@@ -50529,8 +50529,8 @@ function packTar(sources, options = {}) {
   const onError = (error) => stream.destroy(error);
   const packer = createTarPacker((chunk) => {
     if (stream.destroyed) throw cancelError;
-    if (!stream.push(Buffer.from(chunk)) && !drain) drain = new Promise((resolve10) => {
-      resume = resolve10;
+    if (!stream.push(Buffer.from(chunk)) && !drain) drain = new Promise((resolve11) => {
+      resume = resolve11;
     });
   });
   (async () => {
@@ -50577,8 +50577,8 @@ function packTar(sources, options = {}) {
         if (stream.destroyed) return;
         if (allJobsQueued && writeIndex >= jobs.length) break;
         if (!results.has(writeIndex)) {
-          await new Promise((resolve10) => {
-            resumeWriter = resolve10;
+          await new Promise((resolve11) => {
+            resumeWriter = resolve11;
           });
           continue;
         }
@@ -50666,9 +50666,9 @@ function packTar(sources, options = {}) {
             if (!isDir && job.size <= 0 || isDir && job.size !== 0) throw new Error(isDir ? "Streams for directories must have size 0." : "Streams require a positive size.");
             size = job.size;
           } else {
-            const content = await normalizeBody(job.content);
-            size = content.length;
-            body2 = content;
+            const content2 = await normalizeBody(job.content);
+            size = content2.length;
+            body2 = content2;
           }
           const stat3 = {
             size: isDir ? 0 : size,
@@ -50862,13 +50862,13 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
   let drainReject = null;
   const settleDrain = (error) => {
     if (!drainPromise) return;
-    const resolve10 = drainResolve;
+    const resolve11 = drainResolve;
     const reject = drainReject;
     drainPromise = null;
     drainResolve = null;
     drainReject = null;
     if (error) reject?.(error);
-    else resolve10?.();
+    else resolve11?.();
   };
   const resetBuffers = () => {
     bytes = 0;
@@ -50998,8 +50998,8 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
   };
   const waitDrain = () => {
     if (storedError) return Promise.reject(storedError);
-    if (state2 === STATE_OPENING || state2 === STATE_OPEN && (bytes >= BUFFER_LIMIT || queue2.length >= MAX_WRITE_VECTORS)) return drainPromise ??= new Promise((resolve10, reject) => {
-      drainResolve = resolve10;
+    if (state2 === STATE_OPENING || state2 === STATE_OPEN && (bytes >= BUFFER_LIMIT || queue2.length >= MAX_WRITE_VECTORS)) return drainPromise ??= new Promise((resolve11, reject) => {
+      drainResolve = resolve11;
       drainReject = reject;
     });
     return DRAINED_PROMISE;
@@ -51008,8 +51008,8 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
     if (storedError) return Promise.reject(storedError);
     if (state2 >= STATE_CLOSED) return DRAINED_PROMISE;
     if (endPromise) return endPromise;
-    endPromise = new Promise((resolve10, reject) => {
-      endResolve = resolve10;
+    endPromise = new Promise((resolve11, reject) => {
+      endResolve = resolve11;
       endReject = reject;
       if (state2 === STATE_OPEN && !flushing) if (queue2.length > 0) flush();
       else close2();
@@ -51182,7 +51182,7 @@ var init_fs = __esm({
       let head = 0;
       let idle = null;
       let resolveIdle = null;
-      const ensureIdle = () => idle ??= new Promise((resolve10) => resolveIdle = resolve10);
+      const ensureIdle = () => idle ??= new Promise((resolve11) => resolveIdle = resolve11);
       const flush = () => {
         while (active < concurrency && head < tasks.length) {
           const task = tasks[head++];
@@ -51205,8 +51205,8 @@ var init_fs = __esm({
       return {
         add(op) {
           const wasIdle = active === 0 && head === tasks.length;
-          return new Promise((resolve10, reject) => {
-            tasks.push(() => Promise.resolve().then(op).then(resolve10, reject));
+          return new Promise((resolve11, reject) => {
+            tasks.push(() => Promise.resolve().then(op).then(resolve11, reject));
             if (wasIdle) ensureIdle();
             flush();
           });
@@ -51649,8 +51649,8 @@ async function extractZipWithYauzl(archivePath, folderPath, _logger) {
   const open3 = promisify(yauzl.open);
   try {
     const zipFile = await open3(archivePath, { lazyEntries: true });
-    await new Promise((resolve10, reject) => {
-      zipFile.on("error", reject).on("end", resolve10).on("entry", (entry) => {
+    await new Promise((resolve11, reject) => {
+      zipFile.on("error", reject).on("end", resolve11).on("entry", (entry) => {
         extractZipEntry(zipFile, entry, folderPath).then(() => {
           zipFile.readEntry();
         }, reject);
@@ -51918,7 +51918,7 @@ var init_ProgressBar = __esm({
 // node_modules/@puppeteer/browsers/lib/install.js
 import assert3 from "node:assert";
 import { spawnSync as spawnSync2 } from "node:child_process";
-import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
+import { existsSync as existsSync7, readFileSync as readFileSync8 } from "node:fs";
 import { mkdir as mkdir3, unlink } from "node:fs/promises";
 import os5 from "node:os";
 import path10 from "node:path";
@@ -52015,7 +52015,7 @@ async function installDeps(installedBrowser, logger) {
     logger?.(DEBUG_PREFIXES2.install)?.(`deb.deps file was not found at ${depsPath}`);
     return;
   }
-  const data = readFileSync7(depsPath, "utf-8").split("\n").join(",");
+  const data = readFileSync8(depsPath, "utf-8").split("\n").join(",");
   if (process.getuid?.() !== 0) {
     throw new Error("Installing system dependencies requires root privileges");
   }
@@ -52330,10 +52330,10 @@ var init_lib = __esm({
         });
         return this.rows[this.rows.length - 1];
       }
-      colFromString(text) {
+      colFromString(text3) {
         return {
-          text,
-          padding: this.measurePadding(text)
+          text: text3,
+          padding: this.measurePadding(text3)
         };
       }
       measurePadding(str2) {
@@ -53703,8 +53703,8 @@ var init_yargs_parser = __esm({
             });
           }
           if (checkAllAliases(key, flags.normalize) && !checkAllAliases(key, flags.arrays)) {
-            const keys = [key].concat(flags.aliases[key] || []);
-            keys.forEach(function(key2) {
+            const keys2 = [key].concat(flags.aliases[key] || []);
+            keys2.forEach(function(key2) {
               Object.defineProperty(argvReturn, key2, {
                 enumerable: true,
                 get() {
@@ -53821,14 +53821,14 @@ var init_yargs_parser = __esm({
           const env2 = mixin2.env();
           Object.keys(env2).forEach(function(envVar) {
             if (prefix === "" || envVar.lastIndexOf(prefix, 0) === 0) {
-              const keys = envVar.split("__").map(function(key, i) {
+              const keys2 = envVar.split("__").map(function(key, i) {
                 if (i === 0) {
                   key = key.substring(prefix.length);
                 }
                 return camelCase(key);
               });
-              if ((configOnly && flags.configs[keys.join(".")] || !configOnly) && !hasKey(argv2, keys)) {
-                setArg(keys.join("."), env2[envVar]);
+              if ((configOnly && flags.configs[keys2.join(".")] || !configOnly) && !hasKey(argv2, keys2)) {
+                setArg(keys2.join("."), env2[envVar]);
               }
             }
           });
@@ -53876,24 +53876,24 @@ var init_yargs_parser = __esm({
             }
           });
         }
-        function hasKey(obj, keys) {
+        function hasKey(obj, keys2) {
           let o = obj;
           if (!configuration["dot-notation"])
-            keys = [keys.join(".")];
-          keys.slice(0, -1).forEach(function(key2) {
+            keys2 = [keys2.join(".")];
+          keys2.slice(0, -1).forEach(function(key2) {
             o = o[key2] || {};
           });
-          const key = keys[keys.length - 1];
+          const key = keys2[keys2.length - 1];
           if (typeof o !== "object")
             return false;
           else
             return key in o;
         }
-        function setKey(obj, keys, value) {
+        function setKey(obj, keys2, value) {
           let o = obj;
           if (!configuration["dot-notation"])
-            keys = [keys.join(".")];
-          keys.slice(0, -1).forEach(function(key2) {
+            keys2 = [keys2.join(".")];
+          keys2.slice(0, -1).forEach(function(key2) {
             key2 = sanitizeKey(key2);
             if (typeof o === "object" && o[key2] === void 0) {
               o[key2] = {};
@@ -53909,8 +53909,8 @@ var init_yargs_parser = __esm({
               o = o[key2];
             }
           });
-          const key = sanitizeKey(keys[keys.length - 1]);
-          const isTypeArray = checkAllAliases(keys.join("."), flags.arrays);
+          const key = sanitizeKey(keys2[keys2.length - 1]);
+          const isTypeArray = checkAllAliases(keys2.join("."), flags.arrays);
           const isValueArray = Array.isArray(value);
           let duplicate = configuration["duplicate-arguments-array"];
           if (!duplicate && checkAllAliases(key, flags.nargs)) {
@@ -53971,8 +53971,8 @@ var init_yargs_parser = __esm({
         }
         function checkAllAliases(key, flag) {
           const toCheck = [].concat(flags.aliases[key] || [], key);
-          const keys = Object.keys(flag);
-          const setAlias = toCheck.find((key2) => keys.includes(key2));
+          const keys2 = Object.keys(flag);
+          const setAlias = toCheck.find((key2) => keys2.includes(key2));
           return setAlias ? flag[setAlias] : false;
         }
         function hasAnyFlag(key) {
@@ -54085,7 +54085,7 @@ var init_yargs_parser = __esm({
 // node_modules/yargs-parser/build/lib/index.js
 import { format } from "util";
 import { normalize as normalize2, resolve as resolve5 } from "path";
-import { readFileSync as readFileSync8 } from "fs";
+import { readFileSync as readFileSync9 } from "fs";
 import { createRequire } from "node:module";
 var _a8, _b, _c, minNodeVersion, nodeVersion, env, require2, parser, yargsParser, lib_default;
 var init_lib2 = __esm({
@@ -54114,7 +54114,7 @@ var init_lib2 = __esm({
         if (typeof require2 !== "undefined") {
           return require2(path14);
         } else if (path14.match(/\.json$/)) {
-          return JSON.parse(readFileSync8(path14, "utf8"));
+          return JSON.parse(readFileSync9(path14, "utf8"));
         } else {
           throw Error("only .json config files are supported in ESM");
         }
@@ -54288,7 +54288,7 @@ var init_string_width3 = __esm({
 });
 
 // node_modules/y18n/build/lib/platform-shims/node.js
-import { readFileSync as readFileSync9, statSync as statSync4, writeFile } from "fs";
+import { readFileSync as readFileSync10, statSync as statSync4, writeFile } from "fs";
 import { format as format2 } from "util";
 import { resolve as resolve6 } from "path";
 var node_default;
@@ -54296,7 +54296,7 @@ var init_node = __esm({
   "node_modules/y18n/build/lib/platform-shims/node.js"() {
     node_default = {
       fs: {
-        readFileSync: readFileSync9,
+        readFileSync: readFileSync10,
         writeFile
       },
       format: format2,
@@ -54518,9 +54518,9 @@ var require_get_caller_file = __commonJS({
 import { notStrictEqual, strictEqual } from "assert";
 import { inspect } from "util";
 import { fileURLToPath as fileURLToPath3 } from "url";
-import { basename as basename3, dirname as dirname4, extname, relative as relative3, resolve as resolve7, join as join11 } from "path";
+import { basename as basename3, dirname as dirname4, extname, relative as relative3, resolve as resolve7, join as join12 } from "path";
 import { createRequire as createRequire2 } from "node:module";
-import { readFileSync as readFileSync10, readdirSync as readdirSync5 } from "node:fs";
+import { readFileSync as readFileSync11, readdirSync as readdirSync5 } from "node:fs";
 var import_get_caller_file, __dirname, mainFilename, require3, esm_default;
 var init_esm = __esm({
   "node_modules/yargs/lib/platform-shims/esm.mjs"() {
@@ -54555,7 +54555,7 @@ var init_esm = __esm({
         extname,
         relative: relative3,
         resolve: resolve7,
-        join: join11
+        join: join12
       },
       process: {
         argv: () => process.argv,
@@ -54568,7 +54568,7 @@ var init_esm = __esm({
         nextTick: process.nextTick,
         stdColumns: typeof process.stdout.columns !== "undefined" ? process.stdout.columns : null
       },
-      readFileSync: readFileSync10,
+      readFileSync: readFileSync11,
       readdirSync: readdirSync5,
       require: require3,
       getCallerFile: () => {
@@ -55448,13 +55448,13 @@ function usage(yargs, shim3) {
     const deprecatedOptions = yargs.getDeprecatedOptions();
     const groups = yargs.getGroups();
     const options = yargs.getOptions();
-    let keys = [];
-    keys = keys.concat(Object.keys(descriptions));
-    keys = keys.concat(Object.keys(demandedOptions));
-    keys = keys.concat(Object.keys(demandedCommands));
-    keys = keys.concat(Object.keys(options.default));
-    keys = keys.filter(filterHiddenOptions);
-    keys = Object.keys(keys.reduce((acc, key) => {
+    let keys2 = [];
+    keys2 = keys2.concat(Object.keys(descriptions));
+    keys2 = keys2.concat(Object.keys(demandedOptions));
+    keys2 = keys2.concat(Object.keys(demandedCommands));
+    keys2 = keys2.concat(Object.keys(options.default));
+    keys2 = keys2.filter(filterHiddenOptions);
+    keys2 = Object.keys(keys2.reduce((acc, key) => {
       if (key !== "_")
         acc[key] = true;
       return acc;
@@ -55526,11 +55526,11 @@ function usage(yargs, shim3) {
       ui2.div();
     }
     const aliasKeys = (Object.keys(options.alias) || []).concat(Object.keys(yargs.parsed.newAliases) || []);
-    keys = keys.filter((key) => !yargs.parsed.newAliases[key] && aliasKeys.every((alias) => (options.alias[alias] || []).indexOf(key) === -1));
+    keys2 = keys2.filter((key) => !yargs.parsed.newAliases[key] && aliasKeys.every((alias) => (options.alias[alias] || []).indexOf(key) === -1));
     const defaultGroup = __("Options:");
     if (!groups[defaultGroup])
       groups[defaultGroup] = [];
-    addUngroupedKeys(keys, options.alias, groups, defaultGroup);
+    addUngroupedKeys(keys2, options.alias, groups, defaultGroup);
     const isLongSwitch = (sw) => /^--/.test(getText2(sw));
     const displayedGroups = Object.keys(groups).filter((groupName) => groups[groupName].length > 0).map((groupName) => {
       const normalizedKeys = groups[groupName].filter(filterHiddenOptions).map((key) => {
@@ -55683,13 +55683,13 @@ function usage(yargs, shim3) {
   self2.hasCachedHelpMessage = function() {
     return !!cachedHelpMessage;
   };
-  function addUngroupedKeys(keys, aliases, groups, defaultGroup) {
+  function addUngroupedKeys(keys2, aliases, groups, defaultGroup) {
     let groupedKeys = [];
     let toCheck = null;
     Object.keys(groups).forEach((group) => {
       groupedKeys = groupedKeys.concat(groups[group]);
     });
-    keys.forEach((key) => {
+    keys2.forEach((key) => {
       toCheck = [key].concat(aliases[key]);
       if (!toCheck.some((k) => groupedKeys.indexOf(k) !== -1)) {
         groups[defaultGroup].push(key);
@@ -55812,17 +55812,17 @@ function usage(yargs, shim3) {
   };
   return self2;
 }
-function isIndentedText(text) {
-  return typeof text === "object";
+function isIndentedText(text3) {
+  return typeof text3 === "object";
 }
-function addIndentation(text, indent3) {
-  return isIndentedText(text) ? { text: text.text, indentation: text.indentation + indent3 } : { text, indentation: indent3 };
+function addIndentation(text3, indent3) {
+  return isIndentedText(text3) ? { text: text3.text, indentation: text3.indentation + indent3 } : { text: text3, indentation: indent3 };
 }
-function getIndentation(text) {
-  return isIndentedText(text) ? text.indentation : 0;
+function getIndentation(text3) {
+  return isIndentedText(text3) ? text3.indentation : 0;
 }
-function getText2(text) {
-  return isIndentedText(text) ? text.text : text;
+function getText2(text3) {
+  return isIndentedText(text3) ? text3.text : text3;
 }
 var init_usage = __esm({
   "node_modules/yargs/build/lib/usage.js"() {
@@ -56696,16 +56696,16 @@ var init_yargs_factory = __esm({
         this[kPopulateParserHintArrayDictionary](this.alias.bind(this), "alias", key, value);
         return this;
       }
-      array(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("array", keys);
-        this[kTrackManuallySetKeys](keys);
+      array(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("array", keys2);
+        this[kTrackManuallySetKeys](keys2);
         return this;
       }
-      boolean(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("boolean", keys);
-        this[kTrackManuallySetKeys](keys);
+      boolean(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("boolean", keys2);
+        this[kTrackManuallySetKeys](keys2);
         return this;
       }
       check(f, global) {
@@ -56732,26 +56732,26 @@ var init_yargs_factory = __esm({
         this[kPopulateParserHintArrayDictionary](this.choices.bind(this), "choices", key, value);
         return this;
       }
-      coerce(keys, value) {
-        argsert("<object|string|array> [function]", [keys, value], arguments.length);
-        if (Array.isArray(keys)) {
+      coerce(keys2, value) {
+        argsert("<object|string|array> [function]", [keys2, value], arguments.length);
+        if (Array.isArray(keys2)) {
           if (!value) {
             throw new YError("coerce callback must be provided");
           }
-          for (const key of keys) {
+          for (const key of keys2) {
             this.coerce(key, value);
           }
           return this;
-        } else if (typeof keys === "object") {
-          for (const key of Object.keys(keys)) {
-            this.coerce(key, keys[key]);
+        } else if (typeof keys2 === "object") {
+          for (const key of Object.keys(keys2)) {
+            this.coerce(key, keys2[key]);
           }
           return this;
         }
         if (!value) {
           throw new YError("coerce callback must be provided");
         }
-        const coerceKey = keys;
+        const coerceKey = keys2;
         __classPrivateFieldGet(this, _YargsInstance_options, "f").key[coerceKey] = true;
         __classPrivateFieldGet(this, _YargsInstance_globalMiddleware, "f").addCoerceMiddleware((argv, yargs) => {
           var _a9;
@@ -56824,10 +56824,10 @@ var init_yargs_factory = __esm({
         __classPrivateFieldGet(this, _YargsInstance_command, "f").addDirectory(dir, req, __classPrivateFieldGet(this, _YargsInstance_shim, "f").getCallerFile(), opts);
         return this;
       }
-      count(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("count", keys);
-        this[kTrackManuallySetKeys](keys);
+      count(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("count", keys2);
+        this[kTrackManuallySetKeys](keys2);
         return this;
       }
       default(key, value, defaultDescription) {
@@ -56863,7 +56863,7 @@ var init_yargs_factory = __esm({
         };
         return this;
       }
-      demand(keys, max, msg) {
+      demand(keys2, max, msg) {
         if (Array.isArray(max)) {
           max.forEach((key) => {
             assertNotStrictEqual(msg, true, __classPrivateFieldGet(this, _YargsInstance_shim, "f"));
@@ -56874,26 +56874,26 @@ var init_yargs_factory = __esm({
           msg = max;
           max = Infinity;
         }
-        if (typeof keys === "number") {
+        if (typeof keys2 === "number") {
           assertNotStrictEqual(msg, true, __classPrivateFieldGet(this, _YargsInstance_shim, "f"));
-          this.demandCommand(keys, max, msg, msg);
-        } else if (Array.isArray(keys)) {
-          keys.forEach((key) => {
+          this.demandCommand(keys2, max, msg, msg);
+        } else if (Array.isArray(keys2)) {
+          keys2.forEach((key) => {
             assertNotStrictEqual(msg, true, __classPrivateFieldGet(this, _YargsInstance_shim, "f"));
             this.demandOption(key, msg);
           });
         } else {
           if (typeof msg === "string") {
-            this.demandOption(keys, msg);
+            this.demandOption(keys2, msg);
           } else if (msg === true || typeof msg === "undefined") {
-            this.demandOption(keys);
+            this.demandOption(keys2);
           }
         }
         return this;
       }
-      demandOption(keys, msg) {
-        argsert("<object|string|array> [string]", [keys, msg], arguments.length);
-        this[kPopulateParserHintSingleValueDictionary](this.demandOption.bind(this), "demandedOptions", keys, msg);
+      demandOption(keys2, msg) {
+        argsert("<object|string|array> [string]", [keys2, msg], arguments.length);
+        this[kPopulateParserHintSingleValueDictionary](this.demandOption.bind(this), "demandedOptions", keys2, msg);
         return this;
       }
       deprecateOption(option, message) {
@@ -56901,10 +56901,10 @@ var init_yargs_factory = __esm({
         __classPrivateFieldGet(this, _YargsInstance_options, "f").deprecatedOptions[option] = message;
         return this;
       }
-      describe(keys, description) {
-        argsert("<object|string|array> [string]", [keys, description], arguments.length);
-        this[kSetKey](keys, true);
-        __classPrivateFieldGet(this, _YargsInstance_usage, "f").describe(keys, description);
+      describe(keys2, description) {
+        argsert("<object|string|array> [string]", [keys2, description], arguments.length);
+        this[kSetKey](keys2, true);
+        __classPrivateFieldGet(this, _YargsInstance_usage, "f").describe(keys2, description);
         return this;
       }
       detectLocale(detect) {
@@ -56962,12 +56962,12 @@ var init_yargs_factory = __esm({
       async getCompletion(args, done) {
         argsert("<array> [function]", [args, done], arguments.length);
         if (!done) {
-          return new Promise((resolve10, reject) => {
+          return new Promise((resolve11, reject) => {
             __classPrivateFieldGet(this, _YargsInstance_completion, "f").getCompletion(args, (err, completions) => {
               if (err)
                 reject(err);
               else
-                resolve10(completions);
+                resolve11(completions);
             });
           });
         } else {
@@ -57082,15 +57082,15 @@ var init_yargs_factory = __esm({
         this[kPopulateParserHintSingleValueDictionary](this.nargs.bind(this), "narg", key, value);
         return this;
       }
-      normalize(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("normalize", keys);
+      normalize(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("normalize", keys2);
         return this;
       }
-      number(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("number", keys);
-        this[kTrackManuallySetKeys](keys);
+      number(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("number", keys2);
+        this[kTrackManuallySetKeys](keys2);
         return this;
       }
       option(key, opt) {
@@ -57319,18 +57319,18 @@ var init_yargs_factory = __esm({
         __classPrivateFieldSet(this, _YargsInstance_recommendCommands, recommend, "f");
         return this;
       }
-      required(keys, max, msg) {
-        return this.demand(keys, max, msg);
+      required(keys2, max, msg) {
+        return this.demand(keys2, max, msg);
       }
-      require(keys, max, msg) {
-        return this.demand(keys, max, msg);
+      require(keys2, max, msg) {
+        return this.demand(keys2, max, msg);
       }
-      requiresArg(keys) {
-        argsert("<array|string|object> [number]", [keys], arguments.length);
-        if (typeof keys === "string" && __classPrivateFieldGet(this, _YargsInstance_options, "f").narg[keys]) {
+      requiresArg(keys2) {
+        argsert("<array|string|object> [number]", [keys2], arguments.length);
+        if (typeof keys2 === "string" && __classPrivateFieldGet(this, _YargsInstance_options, "f").narg[keys2]) {
           return this;
         } else {
-          this[kPopulateParserHintSingleValueDictionary](this.requiresArg.bind(this), "narg", keys, NaN);
+          this[kPopulateParserHintSingleValueDictionary](this.requiresArg.bind(this), "narg", keys2, NaN);
         }
         return this;
       }
@@ -57379,9 +57379,9 @@ var init_yargs_factory = __esm({
         __classPrivateFieldGet(this, _YargsInstance_usage, "f").showVersion(level);
         return this;
       }
-      skipValidation(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("skipValidation", keys);
+      skipValidation(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("skipValidation", keys2);
         return this;
       }
       strict(enabled) {
@@ -57399,10 +57399,10 @@ var init_yargs_factory = __esm({
         __classPrivateFieldSet(this, _YargsInstance_strictOptions, enabled !== false, "f");
         return this;
       }
-      string(keys) {
-        argsert("<array|string>", [keys], arguments.length);
-        this[kPopulateParserHintArray]("string", keys);
-        this[kTrackManuallySetKeys](keys);
+      string(keys2) {
+        argsert("<array|string>", [keys2], arguments.length);
+        this[kPopulateParserHintArray]("string", keys2);
+        this[kTrackManuallySetKeys](keys2);
         return this;
       }
       terminalWidth() {
@@ -57608,9 +57608,9 @@ var init_yargs_factory = __esm({
         __classPrivateFieldGet(this, _YargsInstance_pkgs, "f")[npath] = obj || {};
         return __classPrivateFieldGet(this, _YargsInstance_pkgs, "f")[npath];
       }
-      [kPopulateParserHintArray](type, keys) {
-        keys = [].concat(keys);
-        keys.forEach((key) => {
+      [kPopulateParserHintArray](type, keys2) {
+        keys2 = [].concat(keys2);
+        keys2.forEach((key) => {
           key = this[kSanitizeKey](key);
           __classPrivateFieldGet(this, _YargsInstance_options, "f")[type].push(key);
         });
@@ -57781,9 +57781,9 @@ var init_yargs_factory = __esm({
           });
         });
         Object.assign(__classPrivateFieldGet(this, _YargsInstance_preservedGroups, "f"), Object.keys(__classPrivateFieldGet(this, _YargsInstance_groups, "f")).reduce((acc, groupName) => {
-          const keys = __classPrivateFieldGet(this, _YargsInstance_groups, "f")[groupName].filter((key) => !(key in localLookup));
-          if (keys.length > 0) {
-            acc[groupName] = keys;
+          const keys2 = __classPrivateFieldGet(this, _YargsInstance_groups, "f")[groupName].filter((key) => !(key in localLookup));
+          if (keys2.length > 0) {
+            acc[groupName] = keys2;
           }
           return acc;
         }, {}));
@@ -57994,11 +57994,11 @@ var init_yargs_factory = __esm({
       [kSetHasOutput]() {
         __classPrivateFieldSet(this, _YargsInstance_hasOutput, true, "f");
       }
-      [kTrackManuallySetKeys](keys) {
-        if (typeof keys === "string") {
-          __classPrivateFieldGet(this, _YargsInstance_options, "f").key[keys] = true;
+      [kTrackManuallySetKeys](keys2) {
+        if (typeof keys2 === "string") {
+          __classPrivateFieldGet(this, _YargsInstance_options, "f").key[keys2] = true;
         } else {
-          for (const k of keys) {
+          for (const k of keys2) {
             __classPrivateFieldGet(this, _YargsInstance_options, "f").key[k] = true;
           }
         }
@@ -58315,7 +58315,7 @@ var init_CLI = __esm({
             "-c",
             testCommand
           ];
-          await new Promise((resolve10, reject) => {
+          await new Promise((resolve11, reject) => {
             const createProcess = spawn2(pythonExecutable, bisectArgs, {
               stdio: "inherit"
             });
@@ -58326,7 +58326,7 @@ var init_CLI = __esm({
               if (code !== 0) {
                 reject(new Error(`Process exited with code ${code}`));
               } else {
-                resolve10();
+                resolve11();
               }
             });
           });
@@ -58507,9 +58507,9 @@ async function getConnectionTransport(options) {
       throw new Error("Could not detect required browser platform");
     }
     const { convertPuppeteerChannelToBrowsersChannel: convertPuppeteerChannelToBrowsersChannel2 } = await Promise.resolve().then(() => (init_LaunchOptions(), LaunchOptions_exports));
-    const { join: join18 } = await import("node:path");
+    const { join: join20 } = await import("node:path");
     const userDataDir = resolveDefaultUserDataDir3(Browser4.CHROME, platform, convertPuppeteerChannelToBrowsersChannel2(options.channel));
-    const portPath = join18(userDataDir, "DevToolsActivePort");
+    const portPath = join20(userDataDir, "DevToolsActivePort");
     try {
       const fileContent = await environment.value.readFile(portPath, "ascii");
       const [rawPort, rawPath] = fileContent.split("\n").map((line) => {
@@ -58857,7 +58857,7 @@ var init_PipeTransport = __esm({
 // node_modules/puppeteer-core/lib/puppeteer/node/BrowserLauncher.js
 import { accessSync as accessSync2, constants as constants4, existsSync as existsSync8, rmSync as rmSync4 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 function isWritableDirectory(directory) {
   try {
     accessSync2(directory, constants4.W_OK);
@@ -59073,7 +59073,7 @@ var init_BrowserLauncher = __esm({
           const logs = browserProcess.getRecentLogs().join("\n");
           if (logs.includes("Failed to create a ProcessSingleton for your profile directory") || // On Windows we will not get logs due to the singleton process handover. See
           // https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/process_singleton_win.cc;l=46;drc=fc7952f0422b5073515a205a04ec9c3a1ae81658
-          process.platform === "win32" && existsSync8(join12(launchArgs.userDataDir, "lockfile"))) {
+          process.platform === "win32" && existsSync8(join13(launchArgs.userDataDir, "lockfile"))) {
             if (!isWritableDirectory(launchArgs.userDataDir)) {
               throw new Error(`The browser cannot write to ${launchArgs.userDataDir}. Make the \`userDataDir\` writable or use a different one.`);
             }
@@ -59211,7 +59211,7 @@ var init_BrowserLauncher = __esm({
        */
       async getProfilePath() {
         const config2 = await this.puppeteer.configuration();
-        return join12(config2.temporaryDirectory ?? tmpdir(), `puppeteer_dev_${this.browser}_profile-`);
+        return join13(config2.temporaryDirectory ?? tmpdir(), `puppeteer_dev_${this.browser}_profile-`);
       }
       /**
        * @internal
@@ -59979,8 +59979,8 @@ var init_ScreenRecorder = __esm({
         static {
           const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
           __esDecorate24(this, _private_writeFrame_descriptor = { value: __setFunctionName5(async function(buffer) {
-            const error = await new Promise((resolve10) => {
-              this.#process.stdin.write(buffer, resolve10);
+            const error = await new Promise((resolve11) => {
+              this.#process.stdin.write(buffer, resolve11);
             });
             if (error) {
               console.log(`ffmpeg failed to write: ${error.message}.`);
@@ -60174,8 +60174,8 @@ var init_ScreenRecorder = __esm({
           const [buffer, timestamp] = await this.#lastFrame;
           await Promise.all(Array(Math.max(1, Math.round(this.#fps * (performance.now() - timestamp) / 1e3))).fill(buffer).map(this.#writeFrame.bind(this)));
           this.#process.stdin.end();
-          await new Promise((resolve10) => {
-            this.#process.once("close", resolve10);
+          await new Promise((resolve11) => {
+            this.#process.once("close", resolve11);
           });
         }
         async [(_private_writeFrame_decorators = [guarded()], _stop_decorators = [guarded()], asyncDisposeSymbol)]() {
@@ -60485,7 +60485,7 @@ function warnUser(message) {
 // src/tools.ts
 import { spawn as spawn5 } from "node:child_process";
 import { existsSync as existsSync14, mkdirSync as mkdirSync5 } from "node:fs";
-import { dirname as dirname6, isAbsolute as isAbsolute4, join as join17, resolve as resolve9 } from "node:path";
+import { dirname as dirname6, isAbsolute as isAbsolute4, join as join19, resolve as resolve10 } from "node:path";
 
 // src/design.ts
 import { readFileSync as readFileSync4, existsSync as existsSync4 } from "node:fs";
@@ -60496,6 +60496,238 @@ import { fileURLToPath } from "node:url";
 function afterDoctype(html) {
   const match = /^(?:\s|<!--[\s\S]*?-->)*<!doctype\b[^>]*>/i.exec(html);
   return match ? match[0].length : 0;
+}
+
+// src/htmlTree.ts
+var VOID_TAGS = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+var RAW_TAGS = /* @__PURE__ */ new Set(["script", "style", "textarea", "title"]);
+var NAMED_ENTITIES = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: "\xA0",
+  copy: "\xA9",
+  reg: "\xAE",
+  hellip: "\u2026",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  middot: "\xB7",
+  times: "\xD7",
+  laquo: "\xAB",
+  raquo: "\xBB",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  ldquo: "\u201C",
+  rdquo: "\u201D",
+  bull: "\u2022",
+  deg: "\xB0",
+  plusmn: "\xB1",
+  euro: "\u20AC",
+  pound: "\xA3",
+  yen: "\xA5",
+  check: "\u2713",
+  cross: "\u2717"
+};
+function decodeEntities(text3) {
+  if (!text3.includes("&")) return text3;
+  return text3.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (whole, body) => {
+    if (body[0] === "#") {
+      const hex = body[1] === "x" || body[1] === "X";
+      const code = Number.parseInt(hex ? body.slice(2) : body.slice(1), hex ? 16 : 10);
+      if (!Number.isFinite(code) || code <= 0 || code > 1114111) return whole;
+      return String.fromCodePoint(code);
+    }
+    const named = NAMED_ENTITIES[body];
+    return named ?? whole;
+  });
+}
+function isNameChar(ch) {
+  return /[A-Za-z0-9:_-]/.test(ch);
+}
+function readAttr(src, i) {
+  while (i < src.length && /\s/.test(src[i])) i++;
+  const start = i;
+  while (i < src.length && isNameChar(src[i])) i++;
+  if (i === start) return null;
+  const name = src.slice(start, i).toLowerCase();
+  while (i < src.length && /\s/.test(src[i])) i++;
+  if (src[i] !== "=") return { attr: { name, value: "", start, end: i }, next: i };
+  i++;
+  while (i < src.length && /\s/.test(src[i])) i++;
+  const quote = src[i];
+  if (quote === '"' || quote === "'") {
+    const valueStart2 = i + 1;
+    const close2 = src.indexOf(quote, valueStart2);
+    const valueEnd = close2 < 0 ? src.length : close2;
+    return {
+      attr: { name, value: decodeEntities(src.slice(valueStart2, valueEnd)), start, end: Math.min(valueEnd + 1, src.length) },
+      next: valueEnd + 1
+    };
+  }
+  const valueStart = i;
+  while (i < src.length && !/[\s>]/.test(src[i])) i++;
+  return { attr: { name, value: decodeEntities(src.slice(valueStart, i)), start, end: i }, next: i };
+}
+function parseHtml(src, baseOffset = 0) {
+  const root = [];
+  const stack = [];
+  const push = (node) => {
+    const parent = stack[stack.length - 1];
+    if (parent) parent.children.push(node);
+    else root.push(node);
+  };
+  const addText = (start, end, raw) => {
+    if (!raw) return;
+    push({ type: "text", tag: "#text", attrs: [], children: [], start: start + baseOffset, end: end + baseOffset, text: decodeEntities(raw) });
+  };
+  let i = 0;
+  let textStart = 0;
+  const flushText = (end) => {
+    if (end > textStart) addText(textStart, end, src.slice(textStart, end));
+    textStart = end;
+  };
+  while (i < src.length) {
+    const lt = src.indexOf("<", i);
+    if (lt < 0) break;
+    if (src.startsWith("<!--", lt)) {
+      flushText(lt);
+      const close2 = src.indexOf("-->", lt + 4);
+      i = close2 < 0 ? src.length : close2 + 3;
+      textStart = i;
+      continue;
+    }
+    if (src[lt + 1] === "!" || src[lt + 1] === "?") {
+      flushText(lt);
+      const close2 = src.indexOf(">", lt + 2);
+      i = close2 < 0 ? src.length : close2 + 1;
+      textStart = i;
+      continue;
+    }
+    if (src[lt + 1] === "/") {
+      const nameEnd = lt + 2;
+      let j3 = nameEnd;
+      while (j3 < src.length && isNameChar(src[j3])) j3++;
+      const name = src.slice(nameEnd, j3).toLowerCase();
+      flushText(lt);
+      const close2 = src.indexOf(">", j3);
+      i = close2 < 0 ? src.length : close2 + 1;
+      textStart = i;
+      for (let k = stack.length - 1; k >= 0; k--) {
+        if (stack[k].tag === name) {
+          while (stack.length > k) {
+            const done = stack.pop();
+            done.end = i + baseOffset;
+          }
+          break;
+        }
+      }
+      continue;
+    }
+    if (!/[A-Za-z]/.test(src[lt + 1] ?? "")) {
+      i = lt + 1;
+      continue;
+    }
+    flushText(lt);
+    let j2 = lt + 1;
+    while (j2 < src.length && isNameChar(src[j2])) j2++;
+    const tag = src.slice(lt + 1, j2).toLowerCase();
+    const attrs = [];
+    let selfClosing = false;
+    while (j2 < src.length) {
+      const read2 = readAttr(src, j2);
+      if (!read2) {
+        if (src[j2] === "/") {
+          selfClosing = true;
+          j2++;
+          continue;
+        }
+        if (src[j2] === ">") {
+          j2++;
+          break;
+        }
+        j2++;
+        continue;
+      }
+      attrs.push(read2.attr);
+      j2 = read2.next;
+      if (src[j2] === "/") {
+        selfClosing = true;
+        j2++;
+      }
+    }
+    const openEnd = j2;
+    if (RAW_TAGS.has(tag) && !selfClosing) {
+      const closeRe = new RegExp(`</${tag}\\s*>`, "ig");
+      closeRe.lastIndex = openEnd;
+      const match = closeRe.exec(src);
+      const innerEnd = match ? match.index : src.length;
+      const node2 = {
+        type: "element",
+        tag,
+        attrs,
+        children: [],
+        start: lt + baseOffset,
+        end: (match ? match.index + match[0].length : src.length) + baseOffset,
+        text: ""
+      };
+      if (innerEnd > openEnd) {
+        node2.children.push({
+          type: "text",
+          tag: "#text",
+          attrs: [],
+          children: [],
+          start: openEnd + baseOffset,
+          end: innerEnd + baseOffset,
+          text: src.slice(openEnd, innerEnd)
+        });
+      }
+      push(node2);
+      i = match ? match.index + match[0].length : src.length;
+      textStart = i;
+      continue;
+    }
+    const node = { type: "element", tag, attrs, children: [], start: lt + baseOffset, end: openEnd + baseOffset, text: "" };
+    push(node);
+    i = openEnd;
+    textStart = i;
+    if (selfClosing || VOID_TAGS.has(tag)) {
+      node.end = openEnd + baseOffset;
+      continue;
+    }
+    stack.push(node);
+  }
+  flushText(src.length);
+  while (stack.length) {
+    const done = stack.pop();
+    done.end = src.length + baseOffset;
+  }
+  return root;
+}
+function classesOf(node) {
+  const raw = node.attrs.find((a2) => a2.name === "class")?.value ?? "";
+  return raw.split(/\s+/).filter(Boolean);
+}
+function walkElements(nodes, visit, parent = null) {
+  for (const node of nodes) {
+    if (node.type !== "element") continue;
+    visit(node, parent);
+    walkElements(node.children, visit, node);
+  }
+}
+function textOf(node) {
+  if (node.type === "text") return node.text;
+  return node.children.map(textOf).join("").replace(/\s+/g, " ").trim();
+}
+function findElement(nodes, predicate) {
+  for (const node of nodes) {
+    if (node.type !== "element") continue;
+    if (predicate(node)) return node;
+    const hit = findElement(node.children, predicate);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 // src/designCustom.ts
@@ -60715,6 +60947,151 @@ function insideLexically(cwd, targetAbs) {
 import { EventEmitter } from "node:events";
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, rmSync as rmSync2 } from "node:fs";
 import { join as join2 } from "node:path";
+
+// src/brief.ts
+var DIRECTION_IDS = ["editorial-narrative", "product-evidence", "brand-poster"];
+var BRIEF_PROTOTYPE_IDS = [
+  "product-story",
+  "editorial-casebook",
+  "product-showcase",
+  "saas-landing",
+  "pricing-reference",
+  "resource-catalog",
+  "admin-list-tabs",
+  "admin-list",
+  "admin-detail",
+  "admin-detail-tabs",
+  "admin-detail-sidebar",
+  "admin-metrics",
+  "admin-create",
+  "editorial-operations",
+  "executive-briefing",
+  "training-operations",
+  "monitoring-console",
+  "hard-edge-analytics",
+  "metrics-workspace",
+  "campaign-operations",
+  "neutral-analytics",
+  "deployment-console",
+  "developer-dashboard",
+  "business-analytics",
+  "operations-overview",
+  "ai-workspace",
+  "knowledge-workspace",
+  "mobile-content",
+  "mobile-reading",
+  "developer-workbench",
+  "workspace-settings",
+  "implementation-brief"
+];
+var TEXT_FIELDS = ["audience", "purpose", "proposition", "primaryAction"];
+var LIST_FIELDS = ["evidence", "assets", "brandConstraints"];
+var CONTENT_KEYS = [...TEXT_FIELDS, ...LIST_FIELDS, "prototypeId", "directionId"];
+var MAX_TEXT = 2e3;
+var MAX_ITEMS = 20;
+var MAX_TOTAL = 16e3;
+function record(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw new InvalidInputError(`${label}\u5FC5\u987B\u662F\u666E\u901A\u5BF9\u8C61\u3002`);
+  }
+  return value;
+}
+function keys(value, allowed, label) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) throw new InvalidInputError(`${label}\u542B\u672A\u77E5\u5B57\u6BB5\uFF1A${key}`);
+  }
+}
+function text(value, label, required = false) {
+  if (typeof value !== "string" || value.length > MAX_TEXT || required && value.trim() === "") {
+    throw new InvalidInputError(`${label}\u5FC5\u987B\u662F${required ? "\u975E\u7A7A" : ""}\u5B57\u7B26\u4E32\uFF0C\u4E14\u4E0D\u8D85\u8FC7 ${MAX_TEXT} \u5B57\u3002`);
+  }
+  return value.trim();
+}
+function direction(value) {
+  if (typeof value !== "string" || !DIRECTION_IDS.includes(value)) {
+    throw new InvalidInputError(`\u672A\u77E5\u89C6\u89C9\u65B9\u5411\uFF1A${String(value)}`);
+  }
+  return value;
+}
+function content(input2) {
+  const out = {};
+  for (const key of TEXT_FIELDS) if (Object.hasOwn(input2, key)) out[key] = text(input2[key], key);
+  for (const key of LIST_FIELDS) {
+    if (!Object.hasOwn(input2, key)) continue;
+    const value = input2[key];
+    if (!Array.isArray(value) || value.length > MAX_ITEMS) {
+      throw new InvalidInputError(`${key}\u5FC5\u987B\u662F\u6700\u591A ${MAX_ITEMS} \u9879\u7684\u5B57\u7B26\u4E32\u6570\u7EC4\u3002`);
+    }
+    out[key] = Array.from(value, (item) => text(item, key, true));
+  }
+  if (Object.hasOwn(input2, "directionId")) out.directionId = direction(input2.directionId);
+  if (Object.hasOwn(input2, "prototypeId")) {
+    if (typeof input2.prototypeId !== "string" || !BRIEF_PROTOTYPE_IDS.includes(input2.prototypeId)) {
+      throw new InvalidInputError(`\u672A\u77E5\u9875\u9762\u539F\u578B\uFF1A${String(input2.prototypeId)}`);
+    }
+    out.prototypeId = input2.prototypeId;
+  }
+  return out;
+}
+function bounded(brief) {
+  const count = TEXT_FIELDS.reduce((n, key) => n + (brief[key]?.length ?? 0), 0) + LIST_FIELDS.reduce((n, key) => n + (brief[key]?.reduce((sum, item) => sum + item.length, 0) ?? 0), 0) + (brief.confirmedDirection?.reason.length ?? 0);
+  if (count > MAX_TOTAL) throw new InvalidInputError(`\u9875\u9762\u7B80\u62A5\u603B\u5185\u5BB9\u4E0D\u80FD\u8D85\u8FC7 ${MAX_TOTAL} \u5B57\uFF1B\u4E0D\u8981\u5B58\u50A8\u5B8C\u6574\u5BF9\u8BDD\u3002`);
+  return brief;
+}
+function normalizeStoredPageBrief(value) {
+  try {
+    const input2 = record(value, "\u9875\u9762\u7B80\u62A5");
+    keys(input2, [...CONTENT_KEYS, "version", "updatedAt", "confirmedDirection"], "\u9875\u9762\u7B80\u62A5");
+    if (input2.version !== 1 || typeof input2.updatedAt !== "number" || !Number.isFinite(input2.updatedAt) || input2.updatedAt < 0) return null;
+    const result = { ...content(input2), version: 1, updatedAt: input2.updatedAt };
+    if (Object.hasOwn(input2, "confirmedDirection")) {
+      const confirmed = record(input2.confirmedDirection, "\u786E\u8BA4\u65B9\u5411");
+      keys(confirmed, ["directionId", "reason", "confirmedAt"], "\u786E\u8BA4\u65B9\u5411");
+      const id = direction(confirmed.directionId);
+      if (typeof confirmed.confirmedAt !== "number" || !Number.isFinite(confirmed.confirmedAt) || confirmed.confirmedAt < 0 || result.directionId !== id) return null;
+      result.confirmedDirection = { directionId: id, reason: text(confirmed.reason, "\u786E\u8BA4\u7406\u7531", true), confirmedAt: confirmed.confirmedAt };
+    }
+    return bounded(result);
+  } catch {
+    return null;
+  }
+}
+function existingProject(cwd, pageId) {
+  assertSafeId(pageId);
+  if (projectIssue(cwd)) throw new InvalidInputError("project.json \u5DF2\u635F\u574F\u6216\u542B\u65E0\u6548\u6761\u76EE\uFF0C\u8BF7\u5148\u4FEE\u590D\u540E\u518D\u8BFB\u5199\u9875\u9762\u7B80\u62A5\u3002");
+  const project = readProject(cwd);
+  if (!project.nodes.some((node) => node.id === pageId)) throw new InvalidInputError(`\u8282\u70B9\u4E0D\u5B58\u5728\uFF1A${pageId}`);
+  return project;
+}
+function readPageBrief(cwd, pageId) {
+  return existingProject(cwd, pageId).pageBriefs?.[pageId] ?? null;
+}
+function savePageBrief(cwd, pageId, value) {
+  const project = existingProject(cwd, pageId);
+  const input2 = record(value, "\u9875\u9762\u7B80\u62A5\u66F4\u65B0");
+  keys(input2, [...CONTENT_KEYS, "confirmation"], "\u9875\u9762\u7B80\u62A5\u66F4\u65B0");
+  if (Object.keys(input2).length === 0) throw new InvalidInputError("\u9875\u9762\u7B80\u62A5\u66F4\u65B0\u4E0D\u80FD\u4E3A\u7A7A\u3002");
+  const patch = content(input2);
+  const now2 = Date.now();
+  const previous = project.pageBriefs?.[pageId];
+  const next = { ...previous, ...patch, version: 1, updatedAt: now2 };
+  if (Object.hasOwn(patch, "directionId") && next.confirmedDirection?.directionId !== patch.directionId) delete next.confirmedDirection;
+  if (Object.hasOwn(input2, "confirmation")) {
+    const selection = record(input2.confirmation, "\u65B9\u5411\u786E\u8BA4");
+    keys(selection, ["confirmed", "directionId", "reason"], "\u65B9\u5411\u786E\u8BA4");
+    if (selection.confirmed !== true) throw new InvalidInputError("\u4EC5\u7528\u6237\u5DF2\u660E\u786E\u9009\u5B9A\u65B9\u5411\u65F6\uFF0C\u624D\u53EF\u4F20 confirmation.confirmed=true\u3002");
+    const id = direction(selection.directionId);
+    if (patch.directionId && patch.directionId !== id) throw new InvalidInputError("\u8349\u7A3F\u65B9\u5411\u4E0E\u672C\u6B21\u786E\u8BA4\u65B9\u5411\u4E0D\u4E00\u81F4\u3002");
+    next.directionId = id;
+    next.confirmedDirection = { directionId: id, reason: text(selection.reason, "\u786E\u8BA4\u7406\u7531", true), confirmedAt: now2 };
+  }
+  bounded(next);
+  project.pageBriefs = { ...project.pageBriefs, [pageId]: next };
+  writeProject(cwd, project);
+  return next;
+}
+
+// src/project.ts
 var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
 projectEvents.setMaxListeners(0);
@@ -60754,8 +61131,27 @@ function inspectProject(cwd) {
   const rawComments = Array.isArray(obj.comments) ? obj.comments : [];
   const comments = rawComments.map(normalizeComment).filter((c) => c !== null);
   if (comments.length > 0) project.comments = comments;
+  let briefProblem;
+  if (Object.hasOwn(obj, "pageBriefs")) {
+    if (!obj.pageBriefs || typeof obj.pageBriefs !== "object" || Array.isArray(obj.pageBriefs)) {
+      briefProblem = "pageBriefs \u5FC5\u987B\u662F\u666E\u901A\u5BF9\u8C61";
+    } else {
+      const briefs = /* @__PURE__ */ Object.create(null);
+      const nodeIds = new Set(nodes.map((node) => node.id));
+      for (const [id, value] of Object.entries(obj.pageBriefs)) {
+        const brief = normalizeStoredPageBrief(value);
+        if (!isSafeId(id) || !nodeIds.has(id) || !brief) {
+          briefProblem = "\u5B58\u5728\u65E0\u6548\u3001\u8D8A\u754C\u6216\u65E0\u5BF9\u5E94\u9875\u9762\u7684\u7B80\u62A5\u6761\u76EE";
+          continue;
+        }
+        briefs[id] = brief;
+      }
+      if (Object.keys(briefs).length > 0) project.pageBriefs = briefs;
+    }
+  }
   return {
     project,
+    ...briefProblem ? { briefProblem } : {},
     // 无效批注静默过滤（与 design 一致），不计入 dropped。
     dropped: obj.nodes.length - nodes.length + rawEdges.length - edges.length
   };
@@ -60764,13 +61160,14 @@ function readProject(cwd) {
   return inspectProject(cwd).project;
 }
 function projectIssue(cwd) {
-  const { problem, dropped } = inspectProject(cwd);
+  const { problem, dropped, briefProblem } = inspectProject(cwd);
   if (problem) {
     return `project.json \u5DF2\u635F\u574F\uFF08${problem}\uFF09\u3002\u753B\u5E03\u6682\u6309\u7A7A\u9879\u76EE\u663E\u793A\uFF0C\u539F\u6587\u4EF6\u672A\u6539\u52A8\uFF0C\u4FEE\u590D\u540E\u4F1A\u81EA\u52A8\u6062\u590D\uFF1B\u7EE7\u7EED\u5199\u5165\u524D\u4F1A\u5148\u5907\u4EFD\u4E3A project.json.corrupt-*\u3002`;
   }
   if (dropped > 0) {
     return `project.json \u4E2D\u6709 ${dropped} \u6761\u65E0\u6548\u7684\u8282\u70B9\u6216\u8FDE\u7EBF\uFF0C\u8BFB\u53D6\u65F6\u5DF2\u5FFD\u7565\u3002\u539F\u6587\u4EF6\u672A\u6539\u52A8\uFF0C\u4E0B\u6B21\u5199\u5165\u524D\u4F1A\u5148\u5907\u4EFD\u4E3A project.json.corrupt-*\u3002`;
   }
+  if (briefProblem) return `project.json \u4E2D\u6709\u65E0\u6548\u9875\u9762\u7B80\u62A5\uFF08${briefProblem}\uFF09\u3002\u539F\u6587\u4EF6\u672A\u6539\u52A8\uFF0C\u4FEE\u590D\u524D\u4E0D\u5E94\u8986\u76D6\uFF1B\u663E\u5F0F\u5176\u5B83\u5199\u5165\u524D\u4F1A\u5148\u5907\u4EFD\u3002`;
   return null;
 }
 var pendingBackups = /* @__PURE__ */ new Map();
@@ -60780,8 +61177,8 @@ function takeProjectBackup(cwd) {
   return path14;
 }
 function backupDamagedProject(cwd) {
-  const { problem, dropped } = inspectProject(cwd);
-  if (!problem && dropped === 0) return;
+  const { problem, dropped, briefProblem } = inspectProject(cwd);
+  if (!problem && dropped === 0 && !briefProblem) return;
   const file = projectFile(cwd);
   assertReadableFile(cwd, file, "\u9879\u76EE\u6587\u4EF6");
   const data = readFileSync2(file, "utf8");
@@ -60911,8 +61308,8 @@ function autoLayoutPosition(cwd, index, size) {
   };
 }
 function setViewport(cwd, viewport) {
-  const { project, problem, dropped } = inspectProject(cwd);
-  if (problem || dropped > 0) return project;
+  const { project, problem, dropped, briefProblem } = inspectProject(cwd);
+  if (problem || dropped > 0 || briefProblem) return project;
   project.viewport = normalizeViewport(viewport);
   writeProjectAtomic(cwd, project, false);
   return project;
@@ -60929,6 +61326,10 @@ function removeNode(cwd, id) {
     const keep = project.comments.filter((c) => c.pageId !== id);
     if (keep.length > 0) project.comments = keep;
     else delete project.comments;
+  }
+  if (project.pageBriefs) {
+    delete project.pageBriefs[id];
+    if (Object.keys(project.pageBriefs).length === 0) delete project.pageBriefs;
   }
   writeProjectAtomic(cwd, project);
   try {
@@ -60978,6 +61379,9 @@ function duplicateNode(cwd, id, title) {
     updatedAt: now2
   };
   project.nodes.push(node);
+  if (project.pageBriefs && Object.hasOwn(project.pageBriefs, id)) {
+    project.pageBriefs[newId] = structuredClone(project.pageBriefs[id]);
+  }
   writeProjectAtomic(cwd, project);
   return node;
 }
@@ -61291,31 +61695,31 @@ var REQUIRED_SEMANTIC = {
   chart: ["1", "2", "3", "4", "5"],
   overlay: ["scrim"]
 };
-function auditForbidden(label, text, errors) {
+function auditForbidden(label, text3, errors) {
   for (const token of FORBIDDEN) {
-    if (text.includes(token)) errors.push(`${label}\uFF1A\u51FA\u73B0\u88AB\u7981\u7528\u7684\u6807\u8BC6 ${token}`);
+    if (text3.includes(token)) errors.push(`${label}\uFF1A\u51FA\u73B0\u88AB\u7981\u7528\u7684\u6807\u8BC6 ${token}`);
   }
-  if (/https?:\/\//.test(text)) errors.push(`${label}\uFF1A\u51FA\u73B0\u5916\u94FE URL`);
+  if (/https?:\/\//.test(text3)) errors.push(`${label}\uFF1A\u51FA\u73B0\u5916\u94FE URL`);
 }
-function checkMonotonic(label, record, errors) {
-  const keys = Object.keys(record);
-  const nums = keys.map((k) => Number(k));
+function checkMonotonic(label, record2, errors) {
+  const keys2 = Object.keys(record2);
+  const nums = keys2.map((k) => Number(k));
   if (nums.some((n) => !Number.isFinite(n) || n < 0)) {
     errors.push(`${label}\uFF1A\u952E\u5FC5\u987B\u662F\u975E\u8D1F\u6570\u5B57\uFF08\u53EF\u6392\u5E8F\uFF09`);
     return;
   }
   for (let i = 1; i < nums.length; i++) {
-    if (nums[i] <= nums[i - 1]) errors.push(`${label}\uFF1A\u952E\u5FC5\u987B\u4E25\u683C\u9012\u589E\uFF08${keys[i - 1]} -> ${keys[i]}\uFF09`);
+    if (nums[i] <= nums[i - 1]) errors.push(`${label}\uFF1A\u952E\u5FC5\u987B\u4E25\u683C\u9012\u589E\uFF08${keys2[i - 1]} -> ${keys2[i]}\uFF09`);
   }
-  for (let i = 1; i < keys.length; i++) {
-    const prev = record[keys[i - 1]];
-    const cur = record[keys[i]];
+  for (let i = 1; i < keys2.length; i++) {
+    const prev = record2[keys2[i - 1]];
+    const cur = record2[keys2[i]];
     if (typeof prev !== "number" || typeof cur !== "number") continue;
-    if (cur <= prev) errors.push(`${label}\uFF1A\u503C\u5FC5\u987B\u4E25\u683C\u9012\u589E\uFF08${keys[i - 1]}=${prev} -> ${keys[i]}=${cur}\uFF09`);
+    if (cur <= prev) errors.push(`${label}\uFF1A\u503C\u5FC5\u987B\u4E25\u683C\u9012\u589E\uFF08${keys2[i - 1]}=${prev} -> ${keys2[i]}=${cur}\uFF09`);
   }
 }
-function checkRadius(record, errors) {
-  const entries = Object.entries(record);
+function checkRadius(record2, errors) {
+  const entries = Object.entries(record2);
   let prev = -Infinity;
   for (const [key, value] of entries) {
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
@@ -61462,9 +61866,9 @@ function customStyleDir(cwd, id) {
   assertSafeId(id);
   return join3(libraryDir(cwd), id);
 }
-function collectVars(text) {
+function collectVars(text3) {
   const out = /* @__PURE__ */ new Set();
-  for (const match of text.matchAll(/var\(\s*(--ts-[A-Za-z0-9-]+)/g)) out.add(match[1]);
+  for (const match of text3.matchAll(/var\(\s*(--ts-[A-Za-z0-9-]+)/g)) out.add(match[1]);
   return out;
 }
 function stampLibrary(cwd) {
@@ -61515,7 +61919,8 @@ function readInteractionLibrary(dir) {
       css: readFileSync3(join3(dir, "interactions.css"), "utf8"),
       js: readFileSync3(join3(dir, "interactions.js"), "utf8"),
       catalog,
-      rootAttrs
+      rootAttrs,
+      bindings: doc.bindings ?? []
     };
   } catch {
     return empty;
@@ -61814,17 +62219,23 @@ function readInteractionLibrary2(dir) {
       css: readFileSync4(join4(dir, "interactions.css"), "utf8"),
       js: readFileSync4(join4(dir, "interactions.js"), "utf8"),
       catalog,
-      rootAttrs
+      rootAttrs,
+      bindings: doc.bindings ?? []
     };
   } catch {
     return empty;
   }
 }
+function readDesignMarker(html) {
+  const match = /<!--tianshu-ds:start\s+style=([A-Za-z0-9._-]+)\s+version=([^>\s]+)\s*-->/.exec(html);
+  if (!match) return null;
+  return { styleId: match[1], version: match[2] };
+}
 function stripDesign(html) {
   return html.replace(START_RE, "");
 }
 function maskSegments(html) {
-  const mask2 = (text) => text.replace(/[^\n]/g, " ");
+  const mask2 = (text3) => text3.replace(/[^\n]/g, " ");
   return html.replace(/<script\b[\s\S]*?<\/script>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
 }
 function findInsertOffset(html) {
@@ -61874,7 +62285,23 @@ function expandIcons(html, set) {
   });
   return { html: expanded, usedIcons: [...used], missingIcons: [...missing], scriptIcons: [...inScripts] };
 }
+function hasRegisteredPrototypeRoot(html) {
+  const roots = parseHtml(html);
+  const documentRoot = roots.find((n) => n.type === "element" && n.tag === "html");
+  const body = documentRoot?.children.find((n) => n.type === "element" && n.tag === "body");
+  const candidates = (body?.children ?? roots).filter((n) => n.type === "element" && !["head", "script", "style"].includes(n.tag));
+  const id = candidates.find((n) => n.attrs.some((a2) => a2.name === "data-ts-prototype"))?.attrs.find((a2) => a2.name === "data-ts-prototype")?.value;
+  if (!id) return false;
+  const prototypes = readJson2(join4(DESIGN_DIR, "prototypes", "index.json")).prototypes;
+  if (prototypes.some((p) => p.id === id)) return true;
+  const directions = readJson2(join4(DESIGN_DIR, "directions", "index.json")).directions;
+  return directions.some((d) => readJson2(join4(DESIGN_DIR, "directions", d.id + ".json")).examples.some((e) => e.resourceId === id));
+}
 function injectDesign(html, styleId, cwd) {
+  if (styleId === null && hasRegisteredPrototypeRoot(html)) {
+    const marker = readDesignMarker(html);
+    if (marker && designStyleExists(cwd, marker.styleId)) styleId = marker.styleId;
+  }
   const stripped = stripDesign(html);
   if (styleId === null) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] };
@@ -61917,6 +62344,9 @@ function detectInteractions(html, style) {
   const masked = maskSegments(html);
   const ownClasses = new Set(style.manifest.interactionClasses);
   const used = [];
+  for (const binding of lib.bindings ?? []) {
+    if (new RegExp("\\b" + binding.rootAttr + "(?=[\\s=>])").test(masked)) used.push("binding:" + binding.id);
+  }
   for (const id of style.manifest.interactionIds) {
     const entry = lib.catalog[id];
     if (!entry) continue;
@@ -62389,222 +62819,6 @@ function generatePlatformFiles(target, stack, input2) {
   ];
 }
 
-// src/htmlTree.ts
-var VOID_TAGS = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
-var RAW_TAGS = /* @__PURE__ */ new Set(["script", "style", "textarea", "title"]);
-var NAMED_ENTITIES = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  nbsp: "\xA0",
-  copy: "\xA9",
-  reg: "\xAE",
-  hellip: "\u2026",
-  mdash: "\u2014",
-  ndash: "\u2013",
-  middot: "\xB7",
-  times: "\xD7",
-  laquo: "\xAB",
-  raquo: "\xBB",
-  lsquo: "\u2018",
-  rsquo: "\u2019",
-  ldquo: "\u201C",
-  rdquo: "\u201D",
-  bull: "\u2022",
-  deg: "\xB0",
-  plusmn: "\xB1",
-  euro: "\u20AC",
-  pound: "\xA3",
-  yen: "\xA5",
-  check: "\u2713",
-  cross: "\u2717"
-};
-function decodeEntities(text) {
-  if (!text.includes("&")) return text;
-  return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (whole, body) => {
-    if (body[0] === "#") {
-      const hex = body[1] === "x" || body[1] === "X";
-      const code = Number.parseInt(hex ? body.slice(2) : body.slice(1), hex ? 16 : 10);
-      if (!Number.isFinite(code) || code <= 0 || code > 1114111) return whole;
-      return String.fromCodePoint(code);
-    }
-    const named = NAMED_ENTITIES[body];
-    return named ?? whole;
-  });
-}
-function isNameChar(ch) {
-  return /[A-Za-z0-9:_-]/.test(ch);
-}
-function readAttr(src, i) {
-  while (i < src.length && /\s/.test(src[i])) i++;
-  const start = i;
-  while (i < src.length && isNameChar(src[i])) i++;
-  if (i === start) return null;
-  const name = src.slice(start, i).toLowerCase();
-  while (i < src.length && /\s/.test(src[i])) i++;
-  if (src[i] !== "=") return { attr: { name, value: "", start, end: i }, next: i };
-  i++;
-  while (i < src.length && /\s/.test(src[i])) i++;
-  const quote = src[i];
-  if (quote === '"' || quote === "'") {
-    const valueStart2 = i + 1;
-    const close2 = src.indexOf(quote, valueStart2);
-    const valueEnd = close2 < 0 ? src.length : close2;
-    return {
-      attr: { name, value: decodeEntities(src.slice(valueStart2, valueEnd)), start, end: Math.min(valueEnd + 1, src.length) },
-      next: valueEnd + 1
-    };
-  }
-  const valueStart = i;
-  while (i < src.length && !/[\s>]/.test(src[i])) i++;
-  return { attr: { name, value: decodeEntities(src.slice(valueStart, i)), start, end: i }, next: i };
-}
-function parseHtml(src, baseOffset = 0) {
-  const root = [];
-  const stack = [];
-  const push = (node) => {
-    const parent = stack[stack.length - 1];
-    if (parent) parent.children.push(node);
-    else root.push(node);
-  };
-  const addText = (start, end, raw) => {
-    if (!raw) return;
-    push({ type: "text", tag: "#text", attrs: [], children: [], start: start + baseOffset, end: end + baseOffset, text: decodeEntities(raw) });
-  };
-  let i = 0;
-  let textStart = 0;
-  const flushText = (end) => {
-    if (end > textStart) addText(textStart, end, src.slice(textStart, end));
-    textStart = end;
-  };
-  while (i < src.length) {
-    const lt = src.indexOf("<", i);
-    if (lt < 0) break;
-    if (src.startsWith("<!--", lt)) {
-      flushText(lt);
-      const close2 = src.indexOf("-->", lt + 4);
-      i = close2 < 0 ? src.length : close2 + 3;
-      textStart = i;
-      continue;
-    }
-    if (src[lt + 1] === "!" || src[lt + 1] === "?") {
-      flushText(lt);
-      const close2 = src.indexOf(">", lt + 2);
-      i = close2 < 0 ? src.length : close2 + 1;
-      textStart = i;
-      continue;
-    }
-    if (src[lt + 1] === "/") {
-      const nameEnd = lt + 2;
-      let j3 = nameEnd;
-      while (j3 < src.length && isNameChar(src[j3])) j3++;
-      const name = src.slice(nameEnd, j3).toLowerCase();
-      flushText(lt);
-      const close2 = src.indexOf(">", j3);
-      i = close2 < 0 ? src.length : close2 + 1;
-      textStart = i;
-      for (let k = stack.length - 1; k >= 0; k--) {
-        if (stack[k].tag === name) {
-          while (stack.length > k) {
-            const done = stack.pop();
-            done.end = i + baseOffset;
-          }
-          break;
-        }
-      }
-      continue;
-    }
-    if (!/[A-Za-z]/.test(src[lt + 1] ?? "")) {
-      i = lt + 1;
-      continue;
-    }
-    flushText(lt);
-    let j2 = lt + 1;
-    while (j2 < src.length && isNameChar(src[j2])) j2++;
-    const tag = src.slice(lt + 1, j2).toLowerCase();
-    const attrs = [];
-    let selfClosing = false;
-    while (j2 < src.length) {
-      const read = readAttr(src, j2);
-      if (!read) {
-        if (src[j2] === "/") {
-          selfClosing = true;
-          j2++;
-          continue;
-        }
-        if (src[j2] === ">") {
-          j2++;
-          break;
-        }
-        j2++;
-        continue;
-      }
-      attrs.push(read.attr);
-      j2 = read.next;
-      if (src[j2] === "/") {
-        selfClosing = true;
-        j2++;
-      }
-    }
-    const openEnd = j2;
-    if (RAW_TAGS.has(tag) && !selfClosing) {
-      const closeRe = new RegExp(`</${tag}\\s*>`, "ig");
-      closeRe.lastIndex = openEnd;
-      const match = closeRe.exec(src);
-      const innerEnd = match ? match.index : src.length;
-      const node2 = {
-        type: "element",
-        tag,
-        attrs,
-        children: [],
-        start: lt + baseOffset,
-        end: (match ? match.index + match[0].length : src.length) + baseOffset,
-        text: ""
-      };
-      if (innerEnd > openEnd) {
-        node2.children.push({
-          type: "text",
-          tag: "#text",
-          attrs: [],
-          children: [],
-          start: openEnd + baseOffset,
-          end: innerEnd + baseOffset,
-          text: src.slice(openEnd, innerEnd)
-        });
-      }
-      push(node2);
-      i = match ? match.index + match[0].length : src.length;
-      textStart = i;
-      continue;
-    }
-    const node = { type: "element", tag, attrs, children: [], start: lt + baseOffset, end: openEnd + baseOffset, text: "" };
-    push(node);
-    i = openEnd;
-    textStart = i;
-    if (selfClosing || VOID_TAGS.has(tag)) {
-      node.end = openEnd + baseOffset;
-      continue;
-    }
-    stack.push(node);
-  }
-  flushText(src.length);
-  while (stack.length) {
-    const done = stack.pop();
-    done.end = src.length + baseOffset;
-  }
-  return root;
-}
-function classesOf(node) {
-  const raw = node.attrs.find((a2) => a2.name === "class")?.value ?? "";
-  return raw.split(/\s+/).filter(Boolean);
-}
-function textOf(node) {
-  if (node.type === "text") return node.text;
-  return node.children.map(textOf).join("").replace(/\s+/g, " ").trim();
-}
-
 // src/adapters/antd.ts
 import { readdirSync as readdirSync3 } from "node:fs";
 import { join as join6 } from "node:path";
@@ -62622,10 +62836,10 @@ function to255(v2) {
   return Math.round(clamp01(v2) * 255);
 }
 function parseColor(input2) {
-  const text = input2.trim().toLowerCase();
-  if (!text) return null;
-  if (/^#[0-9a-f]{3,8}$/.test(text)) {
-    let h = text.slice(1);
+  const text3 = input2.trim().toLowerCase();
+  if (!text3) return null;
+  if (/^#[0-9a-f]{3,8}$/.test(text3)) {
+    let h = text3.slice(1);
     if (h.length === 3 || h.length === 4) h = h.split("").map((c) => c + c).join("");
     if (h.length !== 6 && h.length !== 8) return null;
     return {
@@ -62635,7 +62849,7 @@ function parseColor(input2) {
       a: h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1
     };
   }
-  const fn = /^(rgba?|hsla?|oklch|oklab)\((.*)\)$/.exec(text);
+  const fn = /^(rgba?|hsla?|oklch|oklab)\((.*)\)$/.exec(text3);
   if (!fn) return null;
   const name = fn[1];
   const body = fn[2].replace(/\//g, " / ");
@@ -63022,20 +63236,20 @@ function materializeTokens(theme, ctx) {
       scale.forEach((key, index) => {
         next[key] = values[Math.min(index, values.length - 1)];
       });
-      const keys = Object.keys(next);
-      for (let i = 1; i < keys.length; i++) {
-        const prev = next[keys[i - 1]];
-        if (next[keys[i]] <= prev) next[keys[i]] = prev + 1;
+      const keys2 = Object.keys(next);
+      for (let i = 1; i < keys2.length; i++) {
+        const prev = next[keys2[i - 1]];
+        if (next[keys2[i]] <= prev) next[keys2[i]] = prev + 1;
       }
       tokens.space = next;
       observed.push("space");
     }
   }
   if (theme.fontSizes) {
-    const keys = Object.keys(template.font.sizes);
+    const keys2 = Object.keys(template.font.sizes);
     const values = Object.values(theme.fontSizes).filter((v2) => typeof v2 === "number").sort((a2, b2) => a2 - b2);
     if (values.length >= 3) {
-      keys.forEach((key, index) => {
+      keys2.forEach((key, index) => {
         tokens.font.sizes[key] = Math.round(values[Math.min(index, values.length - 1)]);
       });
       const ks = Object.keys(tokens.font.sizes);
@@ -63066,7 +63280,7 @@ function materializeTokens(theme, ctx) {
   tokens.modes = { light: true, dark: template.modes?.dark === true };
   const fixContrast = (fgPath, bgPath) => {
     const semantic = tokens.color.semantic;
-    const resolve10 = (path14) => {
+    const resolve11 = (path14) => {
       const [g2, n2] = path14.split(".");
       const raw = semantic[g2]?.[n2];
       if (typeof raw !== "string") return null;
@@ -63076,8 +63290,8 @@ function materializeTokens(theme, ctx) {
       }
       return raw;
     };
-    const fg = resolve10(fgPath);
-    const bg = resolve10(bgPath);
+    const fg = resolve11(fgPath);
+    const bg = resolve11(bgPath);
     if (!fg || !bg) return;
     if (contrastOf(fg, bg) >= 4.5) return;
     const replacement = bestForeground(bg, ["#ffffff", "#000000"]);
@@ -63109,15 +63323,15 @@ var SOURCE_EXT = [".tsx", ".ts", ".jsx", ".js"];
 function findConfigProvider(cwd) {
   const candidates = ["src/App.tsx", "src/App.jsx", "src/main.tsx", "src/main.jsx", "src/index.tsx", "app/layout.tsx", "src/app/layout.tsx", "app/providers.tsx"];
   for (const rel of candidates) {
-    const text = readConfined(cwd, join6(cwd, rel));
-    if (text === null) continue;
-    if (text.includes("ConfigProvider") && text.includes("theme")) return { file: rel, text };
+    const text3 = readConfined(cwd, join6(cwd, rel));
+    if (text3 === null) continue;
+    if (text3.includes("ConfigProvider") && text3.includes("theme")) return { file: rel, text: text3 };
   }
   return null;
 }
-function readLiteral(text) {
+function readLiteral(text3) {
   const out = {};
-  const tokenBlock = /token\s*:\s*\{([\s\S]*?)\}/.exec(text);
+  const tokenBlock = /token\s*:\s*\{([\s\S]*?)\}/.exec(text3);
   if (!tokenBlock) return out;
   const body = tokenBlock[1];
   for (const m of body.matchAll(/([A-Za-z][A-Za-z0-9]*)\s*:\s*(['"])([^'"]+)\2/g)) {
@@ -63129,10 +63343,10 @@ function readLiteral(text) {
   return out;
 }
 function readPackage(cwd) {
-  const text = readConfined(cwd, join6(cwd, "package.json"));
-  if (text === null) return null;
+  const text3 = readConfined(cwd, join6(cwd, "package.json"));
+  if (text3 === null) return null;
   try {
-    return JSON.parse(text);
+    return JSON.parse(text3);
   } catch {
     return null;
   }
@@ -63167,34 +63381,34 @@ var antdAdapter = {
   },
   importTokens(cwd, sourcePath) {
     let source2 = null;
-    let literal = {};
+    let literal2 = {};
     if (sourcePath) {
       const abs = sourcePath.startsWith(cwd) ? sourcePath : join6(cwd, sourcePath);
-      const text = readTextInWorkspace(cwd, abs, "\u4E3B\u9898\u6587\u4EF6");
-      literal = readLiteral(text);
+      const text3 = readTextInWorkspace(cwd, abs, "\u4E3B\u9898\u6587\u4EF6");
+      literal2 = readLiteral(text3);
       source2 = sourcePath;
     } else {
       const provider = findConfigProvider(cwd);
       if (provider) {
-        literal = readLiteral(provider.text);
+        literal2 = readLiteral(provider.text);
         source2 = provider.file;
       }
-      if (Object.keys(literal).length === 0) {
+      if (Object.keys(literal2).length === 0) {
         const files = [];
         walkFiles(cwd, cwd, 3, files);
         for (const file of files) {
-          const text = readConfined(cwd, file);
-          if (text === null || !text.includes("ConfigProvider")) continue;
-          const found = readLiteral(text);
+          const text3 = readConfined(cwd, file);
+          if (text3 === null || !text3.includes("ConfigProvider")) continue;
+          const found = readLiteral(text3);
           if (Object.keys(found).length > 0) {
-            literal = found;
+            literal2 = found;
             source2 = file.slice(cwd.length + 1).replace(/\\/g, "/");
             break;
           }
         }
       }
     }
-    const observed = source2 !== null && Object.keys(literal).length > 0;
+    const observed = source2 !== null && Object.keys(literal2).length > 0;
     const value = (key) => {
       const aliases = {
         primary: ["colorPrimary", "primary"],
@@ -63208,7 +63422,7 @@ var antdAdapter = {
         radius: ["borderRadius", "radius"]
       };
       for (const name of aliases[key] ?? [key]) {
-        const v2 = literal[name];
+        const v2 = literal2[name];
         if (v2 !== void 0) return v2;
       }
       return ANT_DEFAULT[key];
@@ -63288,12 +63502,12 @@ ${indent(body, 6)}
     ];
   }
 };
-function indent(text, spaces) {
+function indent(text3, spaces) {
   const pad = " ".repeat(spaces);
-  return text.split("\n").map((line) => line ? pad + line : line).join("\n");
+  return text3.split("\n").map((line) => line ? pad + line : line).join("\n");
 }
-function escapeText(text) {
-  return text.replace(/[{}<>]/g, (ch) => `{${JSON.stringify(ch)}}`);
+function escapeText(text3) {
+  return text3.replace(/[{}<>]/g, (ch) => `{${JSON.stringify(ch)}}`);
 }
 var VOID_HTML = /* @__PURE__ */ new Set(["img", "input", "br", "hr", "meta", "link", "source", "track", "wbr", "area", "base", "col", "embed", "param"]);
 function styleOf(node) {
@@ -63512,10 +63726,10 @@ function hasDep(pkg, name) {
   return Boolean(pkg.dependencies?.[name] ?? pkg.devDependencies?.[name]);
 }
 function readJsonInWorkspace(cwd, rel) {
-  const text = readConfined(cwd, join7(cwd, rel));
-  if (text === null) return null;
+  const text3 = readConfined(cwd, join7(cwd, rel));
+  if (text3 === null) return null;
   try {
-    return JSON.parse(text);
+    return JSON.parse(text3);
   } catch {
     return null;
   }
@@ -63543,8 +63757,8 @@ function resolveCssFile(cwd, components) {
     const abs = join7(cwd, c);
     if (seen.has(abs)) continue;
     seen.add(abs);
-    const text = readConfined(cwd, abs);
-    if (text !== null) return { path: abs, text };
+    const text3 = readConfined(cwd, abs);
+    if (text3 !== null) return { path: abs, text: text3 };
   }
   return null;
 }
@@ -63595,15 +63809,15 @@ function collectTheme(cwd, components) {
     }
   }
   for (const file of ["tailwind.config.ts", "tailwind.config.js", "tailwind.config.mjs", "tailwind.config.cjs"]) {
-    const text = readConfined(cwd, join7(cwd, file));
-    if (text === null) continue;
+    const text3 = readConfined(cwd, join7(cwd, file));
+    if (text3 === null) continue;
     if (!source2) source2 = file;
-    for (const m of text.matchAll(/(['"]?)([a-zA-Z][a-zA-Z0-9-]*)\1\s*:\s*(['"])(#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]*\)|hsl[a]?\([^)]*\)|oklch\([^)]*\))\3/g)) {
+    for (const m of text3.matchAll(/(['"]?)([a-zA-Z][a-zA-Z0-9-]*)\1\s*:\s*(['"])(#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]*\)|hsl[a]?\([^)]*\)|oklch\([^)]*\))\3/g)) {
       const key = m[2];
       const value = m[4];
       if (!(key in colors)) colors[key] = value;
     }
-    for (const m of text.matchAll(/borderRadius\s*:\s*\{([\s\S]*?)\}/g)) {
+    for (const m of text3.matchAll(/borderRadius\s*:\s*\{([\s\S]*?)\}/g)) {
       for (const kv of m[1].matchAll(/(['"]?)([a-zA-Z0-9]+)\1\s*:\s*['"]([\d.]+)(rem|px)['"]/g)) {
         const n = Number(kv[3]);
         radii[kv[2]] = kv[4] === "px" ? n : n * 16;
@@ -63732,12 +63946,12 @@ function shadcnModule(name) {
   if (name.startsWith("Dialog")) return "dialog";
   return kebab2(name);
 }
-function indent2(text, spaces) {
+function indent2(text3, spaces) {
   const pad = " ".repeat(spaces);
-  return text.split("\n").map((line) => line ? pad + line : line).join("\n");
+  return text3.split("\n").map((line) => line ? pad + line : line).join("\n");
 }
-function escapeText2(text) {
-  return text.replace(/[{}<>]/g, (ch) => `{${JSON.stringify(ch)}}`);
+function escapeText2(text3) {
+  return text3.replace(/[{}<>]/g, (ch) => `{${JSON.stringify(ch)}}`);
 }
 var VOID_HTML2 = /* @__PURE__ */ new Set(["img", "input", "br", "hr", "meta", "link", "source", "track", "wbr", "area", "base", "col", "embed", "param"]);
 function renderAttrs2(node, extraClass) {
@@ -63839,8 +64053,8 @@ ${indent2(renderChildren2(node, ctx, used), 2)}
   }
   if (role === "tab") {
     used.add("TabsTrigger");
-    const text = textOf(node);
-    return `<TabsTrigger value="tab-0">${escapeText2(text)}</TabsTrigger>`;
+    const text3 = textOf(node);
+    return `<TabsTrigger value="tab-0">${escapeText2(text3)}</TabsTrigger>`;
   }
   if (role === "app") {
     return `<div${renderAttrs2(node, "min-h-screen bg-background text-foreground")}>
@@ -64288,6 +64502,42 @@ function findBlockedResources(html) {
   return [...found];
 }
 
+// src/prototypes.ts
+import { readFileSync as readFileSync6 } from "node:fs";
+import { join as join8 } from "node:path";
+var read = (category, id) => {
+  if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) throw new InvalidInputError("\u65E0\u6548\u7684\u8BBE\u8BA1\u8D44\u6E90 ID");
+  return JSON.parse(readFileSync6(join8(designDir(), category, `${id}.json`), "utf8"));
+};
+function listPrototypes() {
+  return read("prototypes", "index").prototypes;
+}
+function compose(resource, styleId, cwd) {
+  if (!resolveDesignStyle(cwd, styleId)) throw new InvalidInputError(`\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`);
+  const escapedTitle = resource.name.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const css = resource.css.replace(/<\/style/gi, "<\\/style");
+  return injectDesign(`<!doctype html><html lang="${resource.language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapedTitle}</title><style data-tianshu-prototype="${resource.id}">${css}</style></head><body style="margin:0">${resource.html}</body></html>`, styleId, cwd).html;
+}
+function getPrototype(id, styleId = "tianshu-original", cwd) {
+  if (!listPrototypes().some((p) => p.id === id)) return null;
+  const resource = read("prototypes", id);
+  return { ...resource, html: compose(resource, styleId, cwd) };
+}
+function listDirections() {
+  return read("directions", "index").directions;
+}
+function getDirection(id, styleId = "tianshu-original", cwd) {
+  if (!listDirections().some((d) => d.id === id)) return null;
+  const direction2 = read("directions", id);
+  return { ...direction2, examples: direction2.examples.map((example) => {
+    const resource = read(example.prototypeId ? "prototypes" : "directions", example.resourceId);
+    return { ...example, html: compose(resource, styleId, cwd) };
+  }) };
+}
+function prototypeClasses() {
+  return [...new Set(listPrototypes().flatMap((p) => read("prototypes", p.id).classes).concat(listDirections().flatMap((d) => read("directions", d.id).examples.filter((e) => !e.prototypeId).flatMap((e) => read("directions", e.resourceId).classes))).filter((cls) => cls.startsWith("tp-")))];
+}
+
 // src/cssParse.ts
 var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
 var FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi;
@@ -64303,13 +64553,13 @@ var EMPTY_SVG = /<svg\b([^>]*)>\s*<\/svg>/gi;
 var SPACING_PROPS = /^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/;
 var RADIUS_PROP = /^border(?:-[a-z]+)*-radius$/;
 var FONT_PROP = /^font-family$/;
-function mask(text) {
-  return text.replace(/[^\n]/g, " ");
+function mask(text3) {
+  return text3.replace(/[^\n]/g, " ");
 }
-function maskBalanced(text, pattern) {
-  const out = text.split("");
+function maskBalanced(text3, pattern) {
+  const out = text3.split("");
   pattern.lastIndex = 0;
-  for (const match of text.matchAll(pattern)) {
+  for (const match of text3.matchAll(pattern)) {
     const start = match.index ?? 0;
     for (let i = start; i < start + match[0].length; i++) if (out[i] !== "\n") out[i] = " ";
   }
@@ -64334,13 +64584,13 @@ function styleSegments(maskedHtml) {
   }
   return segments;
 }
-function declarations(text) {
+function declarations(text3) {
   const out = [];
   let depth = 0;
   let quote = "";
   let start = 0;
   const flush = (end) => {
-    const body = text.slice(start, end);
+    const body = text3.slice(start, end);
     const colon = body.indexOf(":");
     if (colon > 0) {
       const prop = body.slice(0, colon).trim().toLowerCase();
@@ -64349,10 +64599,10 @@ function declarations(text) {
       if (prop && value) out.push({ prop, value, raw, offset: start + colon + 1 });
     }
   };
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
+  for (let i = 0; i < text3.length; i++) {
+    const ch = text3[i];
     if (quote) {
-      if (ch === quote && text[i - 1] !== "\\") quote = "";
+      if (ch === quote && text3[i - 1] !== "\\") quote = "";
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -64368,7 +64618,7 @@ function declarations(text) {
       start = i + 1;
     }
   }
-  if (start < text.length) flush(text.length);
+  if (start < text3.length) flush(text3.length);
   return out;
 }
 function lineIndex(html) {
@@ -64394,9 +64644,9 @@ function snippetAt(html, offset, length = 80) {
 }
 function pxValues(value) {
   if (/calc\(/i.test(value)) return [];
-  const literal = value.replace(/var\([^)]*\)/gi, " ");
+  const literal2 = value.replace(/var\([^)]*\)/gi, " ");
   const found = /* @__PURE__ */ new Set();
-  for (const match of literal.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
+  for (const match of literal2.matchAll(/(?<![\w.-])-?(\d+(?:\.\d+)?)px\b/g)) found.add(Number(match[1]));
   return [...found];
 }
 
@@ -64440,6 +64690,7 @@ function lintHtml(html, styleId, cwd) {
   const varSet = new Set(manifest.vars);
   const iconSet = new Set(manifest.iconNames);
   const classSet = /* @__PURE__ */ new Set([...manifest.componentClasses, ...manifest.interactionClasses ?? []]);
+  const compositionClasses = new Set(prototypeClasses());
   const interactionClassSet = new Set(manifest.interactionClasses ?? []);
   const familySet = new Set(manifest.fontFamilies.map((f) => f.split(",")[0].trim().replace(/^['"]|['"]$/g, "").toLowerCase()));
   const spacing = new Set(manifest.spacing);
@@ -64506,10 +64757,13 @@ function lintHtml(html, styleId, cwd) {
       if (cls.startsWith("ts-") && !classSet.has(cls)) {
         add("component", match.index ?? 0, `\u7EC4\u4EF6\u76EE\u5F55\u65E0\u6B64\u7C7B\uFF1A${cls}`);
       }
+      if (cls.startsWith("tp-") && !compositionClasses.has(cls)) {
+        add("component", match.index ?? 0, `\u539F\u578B\u76EE\u5F55\u672A\u767B\u8BB0\u6B64\u7C7B\uFF1A${cls}`);
+      }
     }
   }
   if (!hasRuntimeInjection(html)) {
-    const used = usedInteractions(masked, interactionClassSet);
+    const used = usedInteractions(masked, interactionClassSet, [...style.interactions.rootAttrs, ...(style.interactions.bindings ?? []).map((b2) => b2.rootAttr)]);
     if (used.length) {
       add("interaction", 0, `\u7528\u5230\u4EA4\u4E92\uFF08${used.slice(0, 6).join("\u3001")}${used.length > 6 ? " \u7B49" : ""}\uFF09\u4F46\u7F3A\u5C11\u4EA4\u4E92\u8FD0\u884C\u65F6\uFF1B\u8BF7\u7528 canvas_upsert_page \u91CD\u65B0\u5199\u5165\u4EE5\u81EA\u52A8\u6CE8\u5165`);
     }
@@ -64521,9 +64775,9 @@ function lintHtml(html, styleId, cwd) {
 function hasRuntimeInjection(html) {
   return /id="tianshu-interactions"/.test(html);
 }
-function usedInteractions(masked, interactionClasses) {
+function usedInteractions(masked, interactionClasses, roots) {
   const out = /* @__PURE__ */ new Set();
-  for (const match of masked.matchAll(/\bdata-ts-([a-z0-9-]+)\b/g)) out.add("data-ts-" + match[1]);
+  for (const root of roots) if (new RegExp("\\b" + root + "(?=[\\s=>])").test(masked)) out.add(root);
   for (const match of masked.matchAll(CLASS_ATTR_RE)) {
     const value = match[1] ?? match[2] ?? "";
     for (const cls of value.split(/\s+/).filter(Boolean)) {
@@ -64653,16 +64907,16 @@ function formatContractReport(result, label) {
 
 // src/export.ts
 import { spawn as spawn4 } from "node:child_process";
-import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync11, rmSync as rmSync5 } from "node:fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync3, mkdtempSync, readFileSync as readFileSync12, rmSync as rmSync5 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 import { deflateRawSync } from "node:zlib";
 
 // src/server.ts
 import http from "node:http";
 import { randomBytes as randomBytes2, timingSafeEqual } from "node:crypto";
-import { existsSync as existsSync6, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
-import { join as join8 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
+import { join as join9 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // src/probe.ts
@@ -65013,7 +65267,7 @@ function tokenFor(cwd) {
   return [...state?.tokens ?? []].find(([, workspace]) => workspace.cwd === cwd)?.[0];
 }
 function listen(server, port) {
-  return new Promise((resolve10, reject) => {
+  return new Promise((resolve11, reject) => {
     const onError = (err) => {
       server.off("listening", onListening);
       reject(err);
@@ -65021,7 +65275,7 @@ function listen(server, port) {
     const onListening = () => {
       server.off("error", onError);
       const addr = server.address();
-      resolve10(typeof addr === "object" && addr ? addr.port : port);
+      resolve11(typeof addr === "object" && addr ? addr.port : port);
     };
     server.once("error", onError);
     server.once("listening", onListening);
@@ -65104,8 +65358,8 @@ async function shutdownForTests() {
       }
     }
   }
-  stopping = new Promise((resolve10) => {
-    s.server.close(() => resolve10());
+  stopping = new Promise((resolve11) => {
+    s.server.close(() => resolve11());
     s.server.closeAllConnections();
   });
   try {
@@ -65212,7 +65466,7 @@ function routeRequest(req, res) {
     if (!name || /[\\/]/.test(name) || name.includes("..")) {
       return send(res, 400, "text/plain; charset=utf-8", "bad name");
     }
-    const file = join8(exportsDir(cwd), name);
+    const file = join9(exportsDir(cwd), name);
     if (!existsSync6(file) || !statSync2(file).isFile()) return send(res, 404, "text/plain; charset=utf-8", "not found");
     try {
       assertReadableFile(cwd, file, "\u5BFC\u51FA\u6587\u4EF6");
@@ -65221,7 +65475,7 @@ function routeRequest(req, res) {
       return send(res, 404, "text/plain; charset=utf-8", "not found");
     }
     const type = name.endsWith(".png") ? "image/png" : "application/zip";
-    const data = readFileSync6(file);
+    const data = readFileSync7(file);
     res.writeHead(200, { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
     res.end(data);
     return;
@@ -65483,14 +65737,14 @@ function isLocalHost(host) {
   return name === "127.0.0.1" || name === "localhost";
 }
 function serveStatic(res, name, type = "text/html; charset=utf-8") {
-  const file = join8(WEB_DIR, name);
+  const file = join9(WEB_DIR, name);
   if (!existsSync6(file)) return send(res, 404, "text/plain; charset=utf-8", "asset not built");
   const headers = { "Content-Type": type, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
   if (name === "index.html") {
     headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
   }
   res.writeHead(200, headers);
-  res.end(readFileSync6(file));
+  res.end(readFileSync7(file));
 }
 function sendUntrustedHtml(res, html) {
   res.writeHead(200, {
@@ -65632,7 +65886,7 @@ function resolveNavRef(ref, pages) {
 var ANCHOR_RE = /<a\b([^>]*)>/gi;
 var ATTR_RE = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 function maskSegments2(html) {
-  const mask2 = (text) => text.replace(/[^\n]/g, " ");
+  const mask2 = (text3) => text3.replace(/[^\n]/g, " ");
   return html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, mask2).replace(/<style\b[\s\S]*?<\/style\s*>/gi, mask2).replace(/<!--[\s\S]*?-->/g, mask2);
 }
 function readAttr2(attrs, name) {
@@ -65763,7 +66017,7 @@ function resolveBrowser() {
   return BROWSER_CANDIDATES.find((p) => existsSync9(p)) ?? null;
 }
 function exportsDir(cwd) {
-  return join13(projectDir(cwd), "exports");
+  return join14(projectDir(cwd), "exports");
 }
 function stamp() {
   const d = /* @__PURE__ */ new Date();
@@ -65805,7 +66059,7 @@ var BrowserSpawnError = class extends Error {
 var SandboxUnavailableError = class extends Error {
 };
 async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
-  const portFile = join13(userDataDir, "DevToolsActivePort");
+  const portFile = join14(userDataDir, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
   let stderr = "";
   proc.stderr?.on("data", (chunk) => {
@@ -65830,7 +66084,7 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
       throw new Error(`\u6D4F\u89C8\u5668\u8FDB\u7A0B\u5DF2\u9000\u51FA\uFF08exit code ${exitCode}\uFF09${stderr ? `\uFF1A${stderr.trim()}` : ""}`);
     }
     if (existsSync9(portFile)) {
-      const lines = readFileSync11(portFile, "utf8").split("\n");
+      const lines = readFileSync12(portFile, "utf8").split("\n");
       const port = lines[0]?.trim();
       const wsPath = lines[1]?.trim();
       if (port && wsPath) return `ws://127.0.0.1:${port}${wsPath}`;
@@ -65862,7 +66116,7 @@ async function launchBrowser(exe) {
   const puppeteer2 = (await Promise.resolve().then(() => (init_puppeteer_core(), puppeteer_core_exports))).default;
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const userDataDir = mkdtempSync(join13(tmpdir2(), "tsc-png-"));
+    const userDataDir = mkdtempSync(join14(tmpdir2(), "tsc-png-"));
     const proc = spawn4(exe, [...launchArgsFor(), `--user-data-dir=${userDataDir}`, "about:blank"], {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -65927,10 +66181,10 @@ async function exportPngOnce(cwd) {
     assertInsideWorkspace(cwd, dir, "\u5BFC\u51FA\u76EE\u5F55");
     mkdirSync3(dir, { recursive: true });
     const name = `canvas-${stamp()}.png`;
-    const path14 = join13(dir, name);
+    const path14 = join14(dir, name);
     assertWritableTarget(cwd, path14, "\u622A\u56FE\u5BFC\u51FA\u76EE\u6807");
     await page.screenshot({ path: path14, clip: clip ?? void 0 });
-    return { name, path: path14, bytes: readFileSync11(path14).length };
+    return { name, path: path14, bytes: readFileSync12(path14).length };
   } finally {
     await dispose();
   }
@@ -66065,7 +66319,7 @@ async function exportZip(cwd) {
   assertInsideWorkspace(cwd, dir, "\u5BFC\u51FA\u76EE\u5F55");
   mkdirSync3(dir, { recursive: true });
   const name = `canvas-${stamp()}.zip`;
-  const path14 = join13(dir, name);
+  const path14 = join14(dir, name);
   writeFileAtomic(cwd, path14, zip2);
   return { name, path: path14, bytes: zip2.length };
 }
@@ -66088,12 +66342,12 @@ async function runExport(cwd, kind) {
 // src/audit/drift.ts
 import { createHash as createHash4 } from "node:crypto";
 import { existsSync as existsSync10 } from "node:fs";
-import { join as join14 } from "node:path";
-function hash(text) {
-  return createHash4("sha1").update(text).digest("hex").slice(0, 12);
+import { join as join15 } from "node:path";
+function hash(text3) {
+  return createHash4("sha1").update(text3).digest("hex").slice(0, 12);
 }
 function snapshotDir(cwd) {
-  return join14(cwd, ".tianshu-canvas", "audit");
+  return join15(cwd, ".tianshu-canvas", "audit");
 }
 function buildSnapshot(input2) {
   const vars = /* @__PURE__ */ new Set();
@@ -66161,8 +66415,8 @@ function formatDriftReport(result, before, after) {
 }
 
 // src/audit/visual.ts
-import { existsSync as existsSync11, readFileSync as readFileSync12 } from "node:fs";
-import { join as join15 } from "node:path";
+import { existsSync as existsSync11, readFileSync as readFileSync13 } from "node:fs";
+import { join as join16 } from "node:path";
 
 // src/audit/png.ts
 import { deflateSync, inflateSync } from "node:zlib";
@@ -66282,10 +66536,10 @@ function diffPng(a2, b2, options = {}) {
 
 // src/audit/visual.ts
 function defaultBaselineDir(cwd) {
-  return join15(projectDir(cwd), "audit", "baseline");
+  return join16(projectDir(cwd), "audit", "baseline");
 }
 function baselineFile(dir, styleId, pageId, device) {
-  return join15(dir, styleId || "free", `${pageId}@${device}@2x.png`);
+  return join16(dir, styleId || "free", `${pageId}@${device}@2x.png`);
 }
 async function capturePage(page, canvasUrl, pageId) {
   const url = new URL(canvasUrl);
@@ -66299,10 +66553,10 @@ async function capturePage(page, canvasUrl, pageId) {
     const frames = Array.from(doc.querySelectorAll("iframe"));
     await Promise.all(
       frames.map(
-        (f) => new Promise((resolve10) => {
-          if (f.contentDocument?.readyState === "complete") return resolve10();
-          f.addEventListener("load", () => resolve10(), { once: true });
-          setTimeout(resolve10, 5e3);
+        (f) => new Promise((resolve11) => {
+          if (f.contentDocument?.readyState === "complete") return resolve11();
+          f.addEventListener("load", () => resolve11(), { once: true });
+          setTimeout(resolve11, 5e3);
         })
       )
     );
@@ -66378,10 +66632,10 @@ function compareWithBaselines(cwd, styleId, dir, options = {}) {
           }
           continue;
         }
-        const plainBaseline = join15(file, "..", `${node.id}@${node.deviceType}@2x.plain.png`);
+        const plainBaseline = join16(file, "..", `${node.id}@${node.deviceType}@2x.plain.png`);
         const readBaseline = (p) => {
           assertInsideWorkspace(cwd, p, "\u89C6\u89C9\u57FA\u7EBF");
-          return readFileSync12(p);
+          return readFileSync13(p);
         };
         if (existsSync11(plainBaseline)) {
           const a2 = decodePng(readBaseline(plainBaseline));
@@ -66412,14 +66666,339 @@ ${result.written.map((b2) => `  - ${b2.title} \u2192 ${b2.file}`).join("\n")}`;
   return lines.join("\n");
 }
 
+// src/audit/review.ts
+import { createHash as createHash5, randomBytes as randomBytes3 } from "node:crypto";
+import { join as join17, resolve as resolve8 } from "node:path";
+import { deflateSync as deflateSync2 } from "node:zlib";
+var VIEWPORTS = [{ width: 1440, height: 1e3 }, { width: 768, height: 1024 }, { width: 390, height: 844 }];
+var MAX_HEIGHT = 16e3;
+var reviewQueue = Promise.resolve();
+function reviewPage(cwd, pageId, options = {}) {
+  const run = reviewQueue.then(() => reviewOnce(cwd, pageId, options));
+  reviewQueue = run.catch(() => {
+  });
+  return run;
+}
+async function reviewOnce(cwd, pageId, options) {
+  assertSafeId(pageId);
+  const node = readProject(cwd).nodes.find((item) => item.id === pageId);
+  if (!node) throw new InvalidInputError("\u9875\u9762\u4E0D\u5B58\u5728\uFF1A" + pageId);
+  const originalHtml = readPageHtml(cwd, pageId);
+  if (originalHtml === null) throw new InvalidInputError("\u9875\u9762 HTML \u4E0D\u5B58\u5728\uFF1A" + pageId);
+  const sourceSha256 = createHash5("sha256").update(originalHtml).digest("hex");
+  if (options.outputDir !== void 0 && (typeof options.outputDir !== "string" || !options.outputDir.trim())) {
+    throw new InvalidInputError("outputDir \u5FC5\u987B\u662F\u975E\u7A7A\u8DEF\u5F84\u3002");
+  }
+  const base = resolve8(cwd, options.outputDir ?? join17(projectDir(cwd), "audit", "review"));
+  assertInsideWorkspace(cwd, base, "\u5BA1\u9605\u8F93\u51FA\u76EE\u5F55");
+  const outputDir = join17(base, pageId + "-" + Date.now() + "-" + randomBytes3(6).toString("hex"));
+  assertInsideWorkspace(cwd, outputDir, "\u5BA1\u9605\u8F93\u51FA\u76EE\u5F55");
+  const exe = resolveBrowser();
+  if (!exe) throw new Error("\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u751F\u6210\u5BA1\u9605\u622A\u56FE\uFF1B\u6B63\u5F0F\u9A8C\u6536\u4E0D\u80FD\u8DF3\u8FC7\u6D4F\u89C8\u5668\u3002");
+  const { url } = await ensureServer(cwd);
+  const { browser, dispose } = await launchBrowser(exe);
+  const captures = [];
+  try {
+    for (const viewport of VIEWPORTS) {
+      if (readPageHtml(cwd, pageId) !== originalHtml) throw new Error("\u5BA1\u9605\u671F\u95F4\u9875\u9762\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u5BF9\u6700\u65B0\u7248\u672C\u91CD\u65B0\u5BA1\u9605\u3002");
+      const page = await browser.newPage();
+      let mediaSession;
+      try {
+        await page.setViewport({ ...viewport, deviceScaleFactor: 1 });
+        await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+        const errors = [];
+        const network = /* @__PURE__ */ new Set();
+        const violations = /* @__PURE__ */ new Set();
+        const origin = new URL(url).origin;
+        await page.setRequestInterception(true);
+        page.on("request", (request3) => {
+          let allowed = false;
+          try {
+            allowed = ["data:", "blob:", "about:"].includes(new URL(request3.url()).protocol) || new URL(request3.url()).origin === origin;
+          } catch {
+          }
+          if (allowed) void request3.continue().catch(() => {
+          });
+          else {
+            if (network.size < 30) {
+              try {
+                network.add(new URL(request3.url()).origin);
+              } catch {
+                network.add("unrecognized-resource");
+              }
+            }
+            void request3.abort("blockedbyclient").catch(() => {
+            });
+          }
+        });
+        page.on("pageerror", (error) => {
+          if (errors.length < 30) errors.push(String(error).slice(0, 500));
+        });
+        await page.evaluateOnNewDocument(() => {
+          const w2 = globalThis;
+          const failures = [];
+          Object.defineProperty(w2, "__tianshuReviewErrors", { value: failures, writable: false, configurable: false });
+          w2.addEventListener("error", (event) => {
+            if (failures.length < 30) failures.push(String(event.message ?? "script error").slice(0, 500));
+          });
+          w2.addEventListener("unhandledrejection", (event) => {
+            if (failures.length < 30) failures.push(String(event.reason?.message ?? event.reason ?? "unhandled rejection").slice(0, 500));
+          });
+        });
+        page.on("console", (message) => {
+          if (violations.size < 30 && message.type() === "error" && /Content Security Policy|violates|Refused to/i.test(message.text())) violations.add(message.text().slice(0, 350));
+        });
+        const frame = await openReviewFrame(page, url, pageId, viewport);
+        const frameTarget = browser.targets().find((target) => target.url() === frame.url());
+        mediaSession = frameTarget ? await frameTarget.createCDPSession() : await page.createCDPSession();
+        await mediaSession.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+        await frame.evaluate(async () => {
+          const w2 = globalThis;
+          await Promise.race([w2.document.fonts?.ready ?? Promise.resolve(), new Promise((r) => setTimeout(r, 5e3))]);
+          await new Promise((r) => w2.requestAnimationFrame(() => w2.requestAnimationFrame(r)));
+        });
+        const evidence = await collectEvidence(frame);
+        if (!evidence.metrics.isolatedOrigin) throw new Error("\u5BA1\u9605 iframe \u672A\u9694\u79BB\u6765\u6E90\uFF0C\u5DF2\u505C\u6B62\u622A\u56FE\u3002");
+        const issues = evidence.issues;
+        if (evidence.metrics.contentHeight > MAX_HEIGHT) issues.push({ rule: "capture-limit", severity: "warning", message: "\u9875\u9762\u8D85\u8FC7 16000px\uFF0C\u622A\u56FE\u4EC5\u8986\u76D6\u524D 16000px\uFF1B\u4E0D\u80FD\u636E\u6B64\u8BA4\u5B9A\u6574\u9875\u5DF2\u5BA1\u9605\u3002" });
+        const shot = await captureScroll(page, frame, viewport.width, viewport.height, Math.min(MAX_HEIGHT, Math.max(viewport.height, evidence.metrics.contentHeight)));
+        errors.push(...await frame.evaluate(() => {
+          const entries = globalThis.__tianshuReviewErrors;
+          return Array.isArray(entries) ? entries.slice(0, 30).map((entry) => String(entry).slice(0, 500)) : [];
+        }));
+        if (errors.length) issues.push({ rule: "script-error", severity: "error", message: errors.join("\n") });
+        if (network.size) issues.push({ rule: "external-resource", severity: "error", message: "\u9875\u9762\u5C1D\u8BD5\u8BBF\u95EE\u5916\u90E8\u8D44\u6E90\uFF0C\u5DF2\u963B\u6B62\uFF1A" + [...network].join("\u3001") });
+        if (violations.size) issues.push({ rule: "csp-blocked-resource", severity: "warning", message: [...violations].join("\n") });
+        const file = join17(outputDir, pageId + "-" + viewport.width + ".png");
+        assertInsideWorkspace(cwd, file, "\u5BA1\u9605\u622A\u56FE");
+        writeFileInWorkspace(cwd, file, shot.buffer, "\u5BA1\u9605\u622A\u56FE");
+        captures.push({ ...viewport, path: file, bytes: shot.buffer.length, captureMode: shot.height > viewport.height ? "stitched-scroll" : "viewport", capturedHeight: shot.height, metrics: evidence.metrics, issues });
+      } finally {
+        await mediaSession?.detach().catch(() => {
+        });
+        await page.close().catch(() => {
+        });
+      }
+    }
+  } finally {
+    await dispose();
+  }
+  const reportFile = join17(outputDir, "review.json");
+  const result = {
+    pageId,
+    title: node.title,
+    outputDir,
+    reportFile,
+    captures,
+    sourceSha256,
+    capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    visualAssessment: "requires-human-review",
+    limitations: [
+      "\u5BA2\u89C2\u51E0\u4F55\u4E0E\u8D44\u6E90\u68C0\u67E5\u4E0D\u5224\u65AD\u54C1\u724C\u5951\u5408\u3001\u6784\u56FE\u8D28\u91CF\u6216\u5BA1\u7F8E\u9AD8\u4E0B\uFF0C\u9700\u5BBF\u4E3B\u8BFB\u56FE\u6216\u9879\u76EE\u6240\u6709\u8005\u8BC4\u5BA1\u3002",
+      "\u622A\u56FE\u6309\u56FA\u5B9A\u8BBE\u5907\u89C6\u53E3\u6EDA\u52A8\u62FC\u63A5\u5E76\u6838\u9A8C\u91CD\u53E0\u50CF\u7D20\uFF1B\u56FA\u5B9A/\u7C98\u6027\u5143\u7D20\u6216\u52A8\u6001\u6548\u679C\u53EF\u80FD\u4F7F\u6821\u9A8C\u5931\u8D25\u3002\u5185\u90E8\u6EDA\u52A8\u533A\u57DF\u4EC5\u5C55\u793A\u5176\u5F53\u524D\u72B6\u6001\u3002",
+      "\u5DF2\u542F\u7528\u51CF\u5C11\u52A8\u6001\u6548\u679C\uFF1B\u4E0D\u4F1A\u70B9\u51FB\u63D0\u4EA4\u3001\u6539\u53D8\u4FDD\u5B58\u5185\u5BB9\uFF0C\u4E5F\u4E0D\u4EE3\u8868\u5168\u90E8\u4EA4\u4E92\u72B6\u6001\u5DF2\u9A8C\u6536\u3002",
+      "\u5B57\u4F53 ready \u53EA\u80FD\u786E\u8BA4\u52A0\u8F7D\u7ED3\u675F\uFF0C\u4E0D\u80FD\u8BC1\u660E\u6BCF\u79CD\u4E2D\u6587\u5B57\u4F53\u90FD\u5B58\u5728\uFF1B\u88C1\u5207\u4E3A\u5019\u9009\u8B66\u544A\uFF0C\u9700\u7ED3\u5408\u622A\u56FE\u6838\u5B9E\u3002",
+      "\u9875\u9762\u811A\u672C\u53EF\u6355\u83B7\u81EA\u5DF1\u7684\u5F02\u5E38\uFF1B\u672C\u8F6E\u65E0\u5F02\u5E38\u8BB0\u5F55\u4E0D\u4EE3\u8868\u811A\u672C\u5DF2\u5B8C\u6210\u5B89\u5168\u5BA1\u8BA1\u3002"
+    ]
+  };
+  if (readPageHtml(cwd, pageId) !== originalHtml) throw new Error("\u5BA1\u9605\u671F\u95F4\u9875\u9762\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u5BF9\u6700\u65B0\u7248\u672C\u91CD\u65B0\u5BA1\u9605\u3002");
+  assertInsideWorkspace(cwd, reportFile, "\u5BA1\u9605\u62A5\u544A");
+  writeFileInWorkspace(cwd, reportFile, JSON.stringify(result, null, 2) + "\n", "\u5BA1\u9605\u62A5\u544A");
+  return result;
+}
+async function openReviewFrame(page, canvasUrl, pageId, viewport) {
+  const url = new URL(canvasUrl);
+  url.searchParams.set("page", pageId);
+  url.searchParams.set("export", "1");
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 3e4 });
+  await page.waitForSelector(".page-node__iframe", { timeout: 15e3 });
+  const src = new URL("page/" + encodeURIComponent(pageId), new URL(".", url));
+  src.searchParams.set("ws", url.searchParams.get("ws") ?? "");
+  src.searchParams.set("preview", "1");
+  await page.evaluate(({ source: source2, width, height }) => {
+    const d = globalThis.document;
+    const frame2 = d.createElement("iframe");
+    frame2.setAttribute("sandbox", "allow-scripts");
+    frame2.setAttribute("title", "\u9875\u9762\u5BA1\u9605");
+    frame2.setAttribute("data-review-frame", "true");
+    frame2.style.cssText = "display:block;border:0;width:" + width + "px;height:" + height + "px;";
+    d.documentElement.style.cssText = "margin:0;padding:0;overflow:hidden;background:white;";
+    d.body.style.cssText = "margin:0;padding:0;overflow:hidden;background:white;";
+    d.body.replaceChildren(frame2);
+    frame2.src = source2;
+  }, { source: src.toString(), ...viewport });
+  const deadline = Date.now() + 15e3;
+  const remaining = () => Math.max(1, deadline - Date.now());
+  const frame = await page.waitForFrame((candidate) => candidate.parentFrame() === page.mainFrame() && candidate.url() === src.toString(), { timeout: remaining() });
+  const owner = await frame.frameElement();
+  if (!owner) throw new Error("\u5BA1\u9605 iframe \u7684\u9875\u9762\u5BB9\u5668\u5DF2\u5931\u6548\u3002");
+  try {
+    if (!await owner.evaluate((element) => element.matches('iframe[data-review-frame="true"]') && element.isConnected)) {
+      throw new Error("\u5BA1\u9605 iframe \u4E0E\u6307\u5B9A\u7684\u9875\u9762\u5BB9\u5668\u4E0D\u5339\u914D\u3002");
+    }
+  } finally {
+    await owner.dispose();
+  }
+  await frame.waitForFunction((source2) => {
+    const w2 = globalThis;
+    return w2.location.href === source2 && w2.document.readyState === "complete";
+  }, { timeout: remaining() }, src.toString());
+  if (frame.url() !== src.toString()) throw new Error("\u5BA1\u9605\u9875\u9762\u672A\u52A0\u8F7D\u5230\u6307\u5B9A\u7684\u5DE5\u4F5C\u533A\u9875\u9762\u3002");
+  return frame;
+}
+async function collectEvidence(frame) {
+  return frame.evaluate(() => {
+    const w2 = globalThis;
+    const d = w2.document;
+    const root = d.documentElement;
+    const body = d.body;
+    const all = Array.from(d.querySelectorAll("body *"));
+    const visible = (e) => {
+      const r = e.getBoundingClientRect();
+      const s = w2.getComputedStyle(e);
+      return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0" && !e.closest('[hidden],[aria-hidden="true"]');
+    };
+    const elements = all.filter(visible);
+    const path14 = (e) => e.tagName.toLowerCase() + (e.id ? "#" + String(e.id).slice(0, 70) : "") + (e.classList?.length ? "." + Array.from(e.classList).slice(0, 2).join(".") : "");
+    const issues = [];
+    const contentWidth = Math.max(root.scrollWidth, body?.scrollWidth ?? 0);
+    if (contentWidth > w2.innerWidth + 2) issues.push({ rule: "horizontal-overflow", severity: "error", message: "\u6587\u6863\u5BBD\u5EA6 " + contentWidth + "px \u8D85\u51FA\u89C6\u53E3 " + w2.innerWidth + "px\u3002", selectors: elements.filter((e) => e.getBoundingClientRect().right > w2.innerWidth + 2).slice(0, 12).map(path14) });
+    const clipped = elements.filter((e) => {
+      if (!e.textContent?.trim() || e.children.length) return false;
+      const s = w2.getComputedStyle(e);
+      return ["hidden", "clip"].includes(s.overflowX) && e.scrollWidth > e.clientWidth + 2 || ["hidden", "clip"].includes(s.overflowY) && e.scrollHeight > e.clientHeight + 2;
+    });
+    if (clipped.length) issues.push({ rule: "text-clipping-candidate", severity: "warning", message: "\u53D1\u73B0\u53EF\u80FD\u7684\u6587\u5B57\u88C1\u5207\uFF1B\u7701\u7565\u53F7\u6216\u6298\u53E0\u5BB9\u5668\u53EF\u80FD\u662F\u6709\u610F\u8BBE\u8BA1\uFF0C\u8BF7\u636E\u56FE\u6838\u5B9E\u3002", selectors: clipped.slice(0, 15).map(path14) });
+    const broken = elements.filter((e) => e.tagName === "IMG" && e.complete && e.naturalWidth === 0);
+    if (broken.length) issues.push({ rule: "broken-image", severity: "error", message: "\u56FE\u7247\u52A0\u8F7D\u5931\u8D25\u3002", selectors: broken.slice(0, 15).map(path14) });
+    const controls = elements.filter((e) => e.matches('a[href],button,input:not([type="hidden"]),select,textarea,[role="button"],[role="link"],[tabindex]') && !e.disabled);
+    const unreachable = controls.filter((e) => e.tabIndex < 0 && !e.closest('[role="tablist"],[role="menu"],[role="listbox"],[data-ts-tabs]'));
+    if (unreachable.length) issues.push({ rule: "keyboard-unreachable-candidate", severity: "warning", message: "\u8FD9\u4E9B\u53EF\u64CD\u4F5C\u5143\u7D20\u672A\u8FDB\u5165\u987A\u5E8F\u952E\u76D8\u7126\u70B9\uFF1B\u81EA\u5B9A\u4E49\u65B9\u5411\u952E\u7EC4\u4EF6\u9700\u53E6\u884C\u6838\u5B9E\u3002", selectors: unreachable.slice(0, 15).map(path14) });
+    const unlabelled = controls.filter((e) => {
+      const ids = (e.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean);
+      return !(e.getAttribute("aria-label") || ids.map((id) => d.getElementById(id)?.textContent ?? "").join("").trim() || e.textContent?.trim() || e.getAttribute("title") || e.getAttribute("alt") || ["submit", "reset", "button"].includes(e.type) && e.value || e.labels?.length);
+    });
+    if (unlabelled.length) issues.push({ rule: "control-name", severity: "error", message: "\u53EF\u64CD\u4F5C\u5143\u7D20\u7F3A\u5C11\u53EF\u8BBF\u95EE\u540D\u79F0\u3002", selectors: unlabelled.slice(0, 15).map(path14) });
+    if (!elements.some((e) => e.tagName === "H1")) issues.push({ rule: "heading-h1", severity: "warning", message: "\u672A\u53D1\u73B0\u53EF\u89C1\u4E00\u7EA7\u6807\u9898\uFF1B\u5E94\u7528\u754C\u9762\u53EF\u6309\u4EFB\u52A1\u6838\u5B9E\u3002" });
+    const internalScrollRegions = elements.filter((e) => {
+      const s = w2.getComputedStyle(e);
+      return ["auto", "scroll"].includes(s.overflowY) && e.scrollHeight > e.clientHeight + 2;
+    }).length;
+    let isolatedOrigin = false;
+    try {
+      void w2.parent.document.body;
+    } catch {
+      isolatedOrigin = w2.parent !== w2;
+    }
+    return {
+      metrics: { viewportWidth: w2.innerWidth, viewportHeight: w2.innerHeight, contentWidth, contentHeight: Math.max(root.scrollHeight, body?.scrollHeight ?? 0), elements: elements.length, headings: elements.filter((e) => /^H[1-6]$/.test(e.tagName)).length, controls: controls.length, fontStatus: d.fonts?.status ?? "unavailable", reducedMotion: w2.matchMedia("(prefers-reduced-motion: reduce)").matches, isolatedOrigin, internalScrollRegions },
+      issues
+    };
+  });
+}
+async function captureScroll(page, frame, width, viewportHeight, height) {
+  const stride = width * 3;
+  const pixels = Buffer.alloc(stride * height, 255);
+  for (let y = 0; y < height; ) {
+    const actualY = await frame.evaluate(async (target) => {
+      const w2 = globalThis;
+      w2.scrollTo({ top: target, left: 0, behavior: "instant" });
+      await new Promise((r) => w2.requestAnimationFrame(() => w2.requestAnimationFrame(r)));
+      return Math.round(w2.scrollY);
+    }, y === 0 ? 0 : Math.max(0, y - 64));
+    let image;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const candidate = decodePng(Buffer.from(await page.screenshot({ type: "png", fromSurface: true })));
+      if (candidate.width !== width || candidate.height !== viewportHeight) throw new Error("\u5BA1\u9605\u622A\u56FE\u89C6\u53E3\u4E0D\u4E00\u81F4\u3002");
+      const overlap = Math.min(y - actualY, viewportHeight);
+      let mismatches = 0;
+      let samples = 0;
+      if (y > 0 && overlap <= 0) throw new Error("\u5BA1\u9605\u622A\u56FE\u7F3A\u5C11\u6EDA\u52A8\u91CD\u53E0\u8BC1\u636E\uFF0C\u5DF2\u505C\u6B62\u62FC\u63A5\u3002");
+      for (let row = 3; row < overlap - 2; row += 3) {
+        const destinationY = actualY + row;
+        if (destinationY < 0 || destinationY >= y) continue;
+        for (let x2 = 8; x2 < width - 8; x2 += 13) {
+          const from2 = (row * width + x2) * candidate.channels;
+          const to = destinationY * stride + x2 * 3;
+          samples++;
+          if (Math.abs(candidate.data[from2] - pixels[to]) > 12 || Math.abs(candidate.data[from2 + (candidate.channels >= 3 ? 1 : 0)] - pixels[to + 1]) > 12 || Math.abs(candidate.data[from2 + (candidate.channels >= 3 ? 2 : 0)] - pixels[to + 2]) > 12) mismatches++;
+        }
+      }
+      if (y === 0 || samples > 0 && mismatches / samples <= 0.02) {
+        image = candidate;
+        break;
+      }
+      await page.bringToFront();
+      await frame.evaluate(async () => {
+        const w2 = globalThis;
+        await new Promise((r) => w2.requestAnimationFrame(() => w2.requestAnimationFrame(() => w2.requestAnimationFrame(r))));
+      });
+      await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+    }
+    if (!image) throw new Error("\u9875\u9762\u6EDA\u52A8\u540E\u7684\u50CF\u7D20\u91CD\u53E0\u4E0D\u4E00\u81F4\uFF0C\u53EF\u80FD\u4E3A\u672A\u5B8C\u6210\u7684\u5408\u6210\u3001\u56FA\u5B9A\u5143\u7D20\u6216\u52A8\u753B\uFF1B\u5DF2\u505C\u6B62\uFF0C\u4E0D\u80FD\u628A\u91CD\u590D\u62FC\u63A5\u56FE\u5F53\u5B8C\u6574\u622A\u56FE\u3002");
+    const sourceY = Math.max(0, y - actualY);
+    const rows = Math.min(height - y, viewportHeight - sourceY);
+    if (rows <= 0) throw new Error("\u9875\u9762\u963B\u6B62\u6EDA\u52A8\uFF0C\u65E0\u6CD5\u751F\u6210\u5B8C\u6574\u5BA1\u9605\u622A\u56FE\u3002");
+    for (let row = 0; row < rows; row++) {
+      for (let x2 = 0; x2 < width; x2++) {
+        const from2 = ((sourceY + row) * width + x2) * image.channels;
+        const to = (y + row) * stride + x2 * 3;
+        pixels[to] = image.data[from2];
+        pixels[to + 1] = image.data[from2 + (image.channels >= 3 ? 1 : 0)];
+        pixels[to + 2] = image.data[from2 + (image.channels >= 3 ? 2 : 0)];
+      }
+    }
+    y += rows;
+  }
+  return { buffer: encodeRgb(width, height, pixels), height };
+}
+function encodeRgb(width, height, pixels) {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  const chunk = (kind, data) => {
+    const type = Buffer.from(kind);
+    const checksum = Buffer.concat([type, data]);
+    let crc = 4294967295;
+    for (const value of checksum) crc = table[(crc ^ value) & 255] ^ crc >>> 8;
+    const head = Buffer.alloc(4);
+    head.writeUInt32BE(data.length);
+    const tail = Buffer.alloc(4);
+    tail.writeUInt32BE((crc ^ 4294967295) >>> 0);
+    return Buffer.concat([head, checksum, tail]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const stride = width * 3;
+  const raw = Buffer.alloc((stride + 1) * height);
+  for (let row = 0; row < height; row++) pixels.copy(raw, row * (stride + 1) + 1, row * stride, (row + 1) * stride);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync2(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+function formatReviewReport(result) {
+  const lines = ["\u9875\u9762\u5BA1\u9605\uFF1A" + result.title + "\uFF08" + result.pageId + "\uFF09", "\u5BA1\u7F8E\u5224\u65AD\uFF1A\u5F85\u5BBF\u4E3B\u8BFB\u56FE\u6216\u9879\u76EE\u6240\u6709\u8005\u8BC4\u5BA1\uFF1B\u6CA1\u6709\u81EA\u52A8\u5BA1\u7F8E\u8BC4\u5206\u3002"];
+  for (const capture of result.captures) {
+    lines.push("\n" + capture.width + "\xD7" + capture.height + "\uFF1B\u5185\u5BB9 " + capture.metrics.contentWidth + "\xD7" + capture.metrics.contentHeight + "\uFF1A" + capture.path);
+    if (!capture.issues.length) lines.push("\u672A\u53D1\u73B0\u672C\u8F6E\u53EF\u6D4B\u95EE\u9898\uFF1B\u4E0D\u4EE3\u8868\u89C6\u89C9\u6216\u4EA4\u4E92\u5168\u9762\u901A\u8FC7\u3002");
+    for (const issue of capture.issues) lines.push("- [" + issue.severity + "] " + issue.rule + "\uFF1A" + issue.message + (issue.selectors?.length ? "\uFF08" + issue.selectors.join("\u3001") + "\uFF09" : ""));
+  }
+  lines.push("\n\u62A5\u544A\uFF1A" + result.reportFile, ...result.limitations.map((item) => "- " + item));
+  return lines.join("\n");
+}
+
 // src/brand.ts
 import { existsSync as existsSync12, mkdirSync as mkdirSync4 } from "node:fs";
-import { dirname as dirname5, join as join16, resolve as resolve8 } from "node:path";
+import { dirname as dirname5, join as join18, resolve as resolve9 } from "node:path";
 function memoryDir(cwd) {
-  return join16(projectDir(cwd), "memory");
+  return join18(projectDir(cwd), "memory");
 }
 function memoryFile(cwd) {
-  return join16(memoryDir(cwd), "brand.json");
+  return join18(memoryDir(cwd), "brand.json");
 }
 var EMPTY3 = { schemaVersion: 1, updatedAt: null, styles: {} };
 function emptyStyleMemory() {
@@ -66500,8 +67079,8 @@ function memorySummary(cwd, styleId) {
 }
 function buildBrandPack(cwd, styleId, builtinDir) {
   const dir = customStyleDir(cwd, styleId);
-  const tokensFile = join16(dir, "tokens.json");
-  const metaFile = join16(dir, "meta.json");
+  const tokensFile = join18(dir, "tokens.json");
+  const metaFile = join18(dir, "meta.json");
   if (!existsSync12(tokensFile) || !existsSync12(metaFile)) {
     throw new Error(`\u300C${styleId}\u300D\u4E0D\u662F\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u5185\u7F6E\u98CE\u683C\u4E0D\u80FD\u5BFC\u51FA\u4E3A\u54C1\u724C\u5305\uFF09\u3002`);
   }
@@ -66546,14 +67125,14 @@ function exportBrandPack(cwd, pack, file) {
     checksum: pack.checksum
   };
   const data = JSON.stringify(ordered, null, 2).replace(/\r\n/g, "\n") + "\n";
-  mkdirSync4(dirname5(resolve8(file)), { recursive: true });
+  mkdirSync4(dirname5(resolve9(file)), { recursive: true });
   if (file.startsWith(projectDir(cwd))) writeFileInWorkspace(cwd, file, data, "\u54C1\u724C\u5305");
   else writeFileAtomic(cwd, file, data);
 }
 function importBrandPack(cwd, pack) {
-  const dir = join16(libraryDir(cwd), pack.id);
+  const dir = join18(libraryDir(cwd), pack.id);
   const write2 = (name, value) => {
-    writeFileInWorkspace(cwd, join16(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
+    writeFileInWorkspace(cwd, join18(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
   };
   write2("tokens.json", pack.tokens);
   write2("meta.json", pack.meta);
@@ -66588,7 +67167,7 @@ function positiveOr(value, fallback) {
 }
 
 // src/extract.ts
-import { existsSync as existsSync13, readFileSync as readFileSync13 } from "node:fs";
+import { existsSync as existsSync13, readFileSync as readFileSync14 } from "node:fs";
 
 // src/netFetch.ts
 import { lookup as dnsLookup } from "node:dns";
@@ -66641,15 +67220,15 @@ function ipv4Blocked(ip) {
   return value === null ? true : ipv4IntBlocked(value);
 }
 function parseV6(raw) {
-  let text = raw.trim().replace(/^\[|\]$/g, "").split("%")[0];
-  if (!text.includes(":")) return null;
-  const v4Tail = /^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text);
+  let text3 = raw.trim().replace(/^\[|\]$/g, "").split("%")[0];
+  if (!text3.includes(":")) return null;
+  const v4Tail = /^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text3);
   if (v4Tail) {
     const n = v4ToInt(v4Tail[2]);
     if (n === null) return null;
-    text = `${v4Tail[1]}${(n >>> 16).toString(16)}:${(n & 65535).toString(16)}`;
+    text3 = `${v4Tail[1]}${(n >>> 16).toString(16)}:${(n & 65535).toString(16)}`;
   }
-  const sides = text.split("::");
+  const sides = text3.split("::");
   if (sides.length > 2) return null;
   const toGroups = (s) => {
     if (s === "") return [];
@@ -66731,15 +67310,15 @@ async function assertUrlAllowed(rawUrl) {
   return { url, address: addresses[0].address, family: addresses[0].family };
 }
 function resolveAll(host) {
-  return new Promise((resolve10, reject) => {
+  return new Promise((resolve11, reject) => {
     dnsLookup(host, { all: true }, (err, addresses) => {
       if (err) reject(new FetchError(`DNS \u89E3\u6790\u5931\u8D25\uFF1A${host}\uFF08${err.message}\uFF09`));
-      else resolve10(addresses);
+      else resolve11(addresses);
     });
   });
 }
 function requestOnce(target, options, maxBytes, signal) {
-  return new Promise((resolve10, reject) => {
+  return new Promise((resolve11, reject) => {
     const isHttps = target.url.protocol === "https:";
     const mod = isHttps ? https2 : http3;
     const pinnedLookup = (_hostname, opts, callback) => {
@@ -66775,7 +67354,7 @@ function requestOnce(target, options, maxBytes, signal) {
         });
         res.on(
           "end",
-          () => resolve10({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
+          () => resolve11({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
         );
         res.on("error", reject);
       }
@@ -66852,12 +67431,12 @@ function toHex2({ r, g, b: b2 }) {
   return `#${h(r)}${h(g)}${h(b2)}`;
 }
 function parseColor2(value) {
-  const text = value.trim();
-  const hex = parseHex(text);
+  const text3 = value.trim();
+  const hex = parseHex(text3);
   if (hex) return { r: hex[0], g: hex[1], b: hex[2] };
-  const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
+  const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text3);
   if (rgb) return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]) };
-  const hsl = /^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/i.exec(text);
+  const hsl = /^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/i.exec(text3);
   if (hsl) {
     const [h, s, l] = [Number(hsl[1]) / 360, Number(hsl[2]) / 100, Number(hsl[3]) / 100];
     return hslToRgb2(h, s, l);
@@ -66996,9 +67575,9 @@ async function gather(input2, warnings) {
     else cssText = input2.source;
   } else if (input2.file) {
     if (!existsSync13(input2.file)) throw new Error(`\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${input2.file}`);
-    const text = input2.cwd ? readTextInWorkspace(input2.cwd, input2.file, "\u6765\u6E90\u6587\u4EF6") : readFileSync13(input2.file, "utf8");
-    if (/\.css$/i.test(input2.file) || !/<[a-z!/]/i.test(text)) cssText = text;
-    else htmlText = text;
+    const text3 = input2.cwd ? readTextInWorkspace(input2.cwd, input2.file, "\u6765\u6E90\u6587\u4EF6") : readFileSync14(input2.file, "utf8");
+    if (/\.css$/i.test(input2.file) || !/<[a-z!/]/i.test(text3)) cssText = text3;
+    else htmlText = text3;
   } else if (input2.url) {
     const result = await fetchText(input2.url, { fetchImpl: input2.fetchImpl });
     htmlText = result.text;
@@ -67227,9 +67806,9 @@ function monotonic(values, fallback) {
   }
   return out;
 }
-function zip(keys, values) {
+function zip(keys2, values) {
   const out = {};
-  keys.forEach((k, i) => {
+  keys2.forEach((k, i) => {
     out[k] = values[i];
   });
   return out;
@@ -67347,11 +67926,11 @@ function toDataUri(body, mime) {
   }
   return `data:${mime};base64,${body.toString("base64")}`;
 }
-function escapeScript(text) {
-  return text.replace(/<\/script/gi, "<\\/script");
+function escapeScript(text3) {
+  return text3.replace(/<\/script/gi, "<\\/script");
 }
-function escapeStyle(text) {
-  return text.replace(/<\/style/gi, "<\\/style");
+function escapeStyle(text3) {
+  return text3.replace(/<\/style/gi, "<\\/style");
 }
 async function inlineCssUrls(css, ctx) {
   const refs = [...css.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)/gi)];
@@ -67507,27 +68086,28 @@ var ATTR_MAP = {
   srcset: "srcSet",
   usemap: "useMap",
   novalidate: "noValidate",
-  spellcheck: "spellCheck"
+  spellcheck: "spellCheck",
+  acceptcharset: "acceptCharset",
+  httpequiv: "httpEquiv",
+  inputmode: "inputMode",
+  formactiontarget: "formActionTarget",
+  formnovalidate: "formNoValidate",
+  allowfullscreen: "allowFullScreen",
+  playsinline: "playsInline",
+  controlslist: "controlsList"
 };
-var BOOLEAN_ATTRS = /* @__PURE__ */ new Set([
-  "disabled",
-  "checked",
-  "readonly",
-  "required",
-  "multiple",
-  "selected",
-  "autofocus",
-  "hidden",
-  "open",
-  "default",
-  "async",
-  "defer"
-]);
+var BOOLEAN_ATTRS = /* @__PURE__ */ new Set(["disabled", "checked", "readonly", "required", "multiple", "selected", "autofocus", "hidden", "open", "default", "async", "defer", "novalidate", "formnovalidate", "controls", "loop", "muted", "autoplay", "playsinline", "allowfullscreen"]);
+var NUMERIC_ATTRS = /* @__PURE__ */ new Set(["colspan", "rowspan", "maxlength", "minlength", "tabindex", "size", "rows", "cols", "start", "span"]);
 var VOID_TAGS2 = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
 var SVG_ATTRS = {
+  viewbox: "viewBox",
+  preserveaspectratio: "preserveAspectRatio",
   "stroke-width": "strokeWidth",
   "stroke-linecap": "strokeLinecap",
   "stroke-linejoin": "strokeLinejoin",
+  "stroke-miterlimit": "strokeMiterlimit",
+  "stroke-opacity": "strokeOpacity",
+  "fill-opacity": "fillOpacity",
   "fill-rule": "fillRule",
   "clip-rule": "clipRule",
   "clip-path": "clipPath",
@@ -67537,99 +68117,94 @@ var SVG_ATTRS = {
   "font-size": "fontSize",
   "font-family": "fontFamily",
   "font-weight": "fontWeight",
+  "dominant-baseline": "dominantBaseline",
+  "alignment-baseline": "alignmentBaseline",
+  "vector-effect": "vectorEffect",
   "xlink:href": "xlinkHref",
   "xml:space": "xmlSpace",
   "stop-color": "stopColor",
   "stop-opacity": "stopOpacity",
-  "preserveaspectratio": "preserveAspectRatio"
+  gradientunits: "gradientUnits",
+  gradienttransform: "gradientTransform",
+  patternunits: "patternUnits",
+  patterncontentunits: "patternContentUnits",
+  patterntransform: "patternTransform",
+  markerwidth: "markerWidth",
+  markerheight: "markerHeight",
+  refx: "refX",
+  refy: "refY",
+  textlength: "textLength",
+  lengthadjust: "lengthAdjust",
+  clippathunits: "clipPathUnits",
+  filterunits: "filterUnits",
+  primitiveunits: "primitiveUnits"
 };
-function camelCase2(name) {
-  return name.replace(/-([a-z])/g, (_2, c) => c.toUpperCase());
-}
+var SVG_TAGS = { clippath: "clipPath", lineargradient: "linearGradient", radialgradient: "radialGradient", foreignobject: "foreignObject", textpath: "textPath" };
+var camelCase2 = (name) => name.replace(/^-ms-/, "ms-").replace(/-([a-z])/g, (_2, c) => c.toUpperCase());
+var literal = (value) => "'" + value.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\r/g, "\\r").replace(/\n/g, "\\n").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") + "'";
+var attributeText = (value) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var text2 = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\{/g, "&#123;").replace(/\}/g, "&#125;");
 function styleToObject(value) {
-  const entries = value.split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
-    const idx = part.indexOf(":");
-    if (idx < 0) return null;
-    const prop = camelCase2(part.slice(0, idx).trim());
-    const val = part.slice(idx + 1).trim().replace(/'/g, "\\'");
-    return `${prop}: '${val}'`;
-  }).filter((e) => e !== null);
-  return `{{ ${entries.join(", ")} }}`;
+  const parsed = declarations(value);
+  const entries = parsed.map(({ prop, value: val }) => {
+    const key = prop.startsWith("--") ? prop : camelCase2(prop);
+    return (/^[A-Za-z_$][\w$]*$/.test(key) ? key : literal(key)) + ": " + literal(val);
+  });
+  const custom = parsed.some(({ prop }) => prop.startsWith("--"));
+  return "{{ " + entries.join(", ") + " }" + (custom ? " as CSSProperties" : "") + "}";
 }
-function attrsToJsx(rawAttrs) {
+function attrsToJsx(node) {
   const parts = [];
-  const attrRe = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
-  for (const match of rawAttrs.matchAll(attrRe)) {
-    const rawName = match[1];
-    const value = match[2] ?? match[3] ?? match[4];
-    const lower = rawName.toLowerCase();
-    if (lower.startsWith("on") && value !== void 0) continue;
-    const name = ATTR_MAP[lower] ?? SVG_ATTRS[lower] ?? (rawName.includes("-") || rawName.includes(":") ? rawName : camelCase2(rawName));
-    if (value === void 0) {
-      if (BOOLEAN_ATTRS.has(lower)) parts.push(name);
-      else parts.push(`${name}={true}`);
-      continue;
-    }
+  const used = /* @__PURE__ */ new Set();
+  for (const attr of node.attrs) {
+    const lower = attr.name;
+    if (used.has(lower)) continue;
+    used.add(lower);
+    if (lower.startsWith("on") || lower === "srcdoc") continue;
+    if (["href", "src", "action", "formaction", "xlink:href"].includes(lower) && /^[\s\u0000-\u0020]*(?:javascript|vbscript):/i.test(attr.value.replace(/[\t\r\n]/g, ""))) continue;
+    const name = ATTR_MAP[lower] ?? SVG_ATTRS[lower] ?? lower;
     if (lower === "style") {
-      parts.push(`style=${styleToObject(value)}`);
+      parts.push("style=" + styleToObject(attr.value));
       continue;
     }
-    if (lower === "class") {
-      parts.push(`${name}="${value}"`);
+    if (BOOLEAN_ATTRS.has(lower)) {
+      parts.push(name);
       continue;
     }
-    if (/[{}]/.test(value)) parts.push(`${name}={${value}}`);
-    else parts.push(`${name}="${value.replace(/"/g, "&quot;")}"`);
+    if (NUMERIC_ATTRS.has(lower) && /^-?\d+$/.test(attr.value)) {
+      parts.push(name + "={" + Number(attr.value) + "}");
+      continue;
+    }
+    parts.push(name + '="' + attributeText(attr.value) + '"');
   }
   return parts.length ? " " + parts.join(" ") : "";
 }
+function renderNode3(node) {
+  if (node.type === "text") return text2(node.text);
+  if (["script", "style", "head", "title", "meta", "link", "base"].includes(node.tag)) return "";
+  if (node.tag === "html" || node.tag === "body") return node.children.map(renderNode3).join("");
+  const tag = SVG_TAGS[node.tag] ?? node.tag;
+  const attrs = attrsToJsx(node);
+  return "<" + tag + attrs + (VOID_TAGS2.has(node.tag) ? " />" : ">" + node.children.map(renderNode3).join("") + "</" + tag + ">");
+}
 function htmlToJsx(html) {
-  let body = html;
-  const bodyMatch = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html);
-  if (bodyMatch) body = bodyMatch[1];
-  else body = html.replace(/<!doctype[^>]*>/gi, "").replace(/<\/?(?:html|head)\b[^>]*>/gi, "");
-  let out = "";
-  let i = 0;
-  const tokens = /<!--[\s\S]*?-->|<\/([a-zA-Z][-a-zA-Z0-9]*)\s*>|<([a-zA-Z][-a-zA-Z0-9]*)((?:\s+[^>]*?)?)\/?>/g;
-  let match;
-  while ((match = tokens.exec(body)) !== null) {
-    const text = body.slice(i, match.index);
-    if (text) out += text.replace(/\{/g, "&#123;").replace(/\}/g, "&#125;");
-    i = match.index + match[0].length;
-    if (match[0].startsWith("<!--")) {
-      out += `{/* ${match[0].slice(4, -3).trim()} */}`;
-      continue;
-    }
-    if (match[1]) {
-      out += `</${match[1]}>`;
-      continue;
-    }
-    const tag = match[2];
-    const attrs = match[3] ?? "";
-    const lower = tag.toLowerCase();
-    const selfClosed = /\/>$/.test(match[0]) || VOID_TAGS2.has(lower);
-    out += `<${tag}${attrsToJsx(attrs)}${selfClosed ? " />" : ">"}`;
-  }
-  const rest = body.slice(i);
-  if (rest) out += rest.replace(/\{/g, "&#123;").replace(/\}/g, "&#125;");
-  return out.replace(/\n{3,}/g, "\n\n").trim();
+  const parsed = parseHtml(html);
+  const body = findElement(parsed, (node) => node.tag === "body");
+  return (body ? body.children : parsed).map(renderNode3).join("").replace(/\n{3,}/g, "\n\n").trim();
+}
+function pageCss(html) {
+  const styles2 = [];
+  walkElements(parseHtml(html), (node) => {
+    if (node.tag === "style") styles2.push(node.children.map((child) => child.text).join(""));
+  });
+  return styles2.join("\n\n").replace(/\r\n/g, "\n");
 }
 function toReactComponent(pageHtml, componentName = "CanvasPage") {
+  if (!/^[A-Z][A-Za-z0-9_]*$/.test(componentName)) throw new Error("React component name must be an uppercase identifier.");
   const jsx = htmlToJsx(pageHtml);
-  const component = `/**
- * \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002\u6837\u5F0F\u4F9D\u8D56\u540C\u76EE\u5F55\u7684 components.css \u4E0E tokens.css\uFF08--ts-* \u53D8\u91CF\uFF09\u3002
- * \u6CE8\u610F\uFF1A\u539F\u578B\u7684 <style> / \u5185\u8054\u6837\u5F0F\u65E0\u6CD5 1:1 \u6620\u5C04\u5230 JSX\uFF0C\u5FC5\u8981\u5904\u8BF7\u4EBA\u5DE5\u6821\u5BF9\u3002
- */
-import './tokens.css'
-import './components.css'
-
-export default function ${componentName}() {
-  return (
-    ${jsx}
-  )
-}
-`;
-  return [{ name: `${componentName}.tsx`, content: component, language: "tsx" }];
+  const css = pageCss(pageHtml);
+  const component = "/**\n * \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\u3002tokens.css / components.css \u63D0\u4F9B\u8BBE\u8BA1\u7CFB\u7EDF\uFF1Blayout.css \u4FDD\u7559\u9875\u9762\u5E03\u5C40\u3002\n * \u9759\u6001\u7ED3\u6784\u5BFC\u51FA\uFF1A\u539F\u578B\u811A\u672C\u548C\u5185\u8054\u4E8B\u4EF6\u672A\u8FC1\u79FB\uFF1BTab\u3001\u7B5B\u9009\u3001\u5206\u9875\u7B49\u9700\u63A5\u5165 React \u72B6\u6001\u548C\u4E8B\u4EF6\u3002\n */\nimport type { CSSProperties } from 'react'\nimport './tokens.css'\nimport './components.css'\nimport './layout.css'\n\nexport default function " + componentName + "() {\n  return (\n    <>\n      " + jsx + "\n    </>\n  )\n}\n";
+  return [{ name: componentName + ".tsx", content: component, language: "tsx" }, { name: "layout.css", content: css, language: "css" }];
 }
 function toFrameworklessHtml(pageHtml, bundle) {
   const linked = pageHtml.replace(
@@ -67657,12 +68232,12 @@ ${pageHtml}
   ];
 }
 function toTailwindConfig(input2) {
-  const colors = Object.entries(input2.colors).map(([k, v2]) => `        '${k}': '${v2}',`).join("\n");
-  const families = Object.entries(input2.fontFamilies).map(([k, v2]) => `        ${k}: [${v2.split(",").map((f) => `'${f.trim().replace(/^['"]|['"]$/g, "")}'`).join(", ")}],`).join("\n");
-  const fontSizes = Object.entries(input2.fontSizes).map(([k, v2]) => `        '${k}': '${v2}px',`).join("\n");
-  const spacing = input2.spacing.map((v2) => `        '${v2}': '${v2}px',`).join("\n");
-  const radius = input2.radius.filter((v2) => v2 < 9999).map((v2) => `        'ts-${v2}': '${v2}px',`).join("\n");
-  const shadows = Object.entries(input2.shadows).map(([k, v2]) => `        '${k}': '${v2}',`).join("\n");
+  const colors = Object.entries(input2.colors).map(([k, v2]) => `        ${literal(k)}: ${literal(v2)},`).join("\n");
+  const families = Object.entries(input2.fontFamilies).map(([k, v2]) => `        ${literal(k)}: [${v2.split(",").map((f) => literal(f.trim().replace(/^['"]|['"]$/g, ""))).join(", ")}],`).join("\n");
+  const fontSizes = Object.entries(input2.fontSizes).map(([k, v2]) => `        ${literal(k)}: ${literal(String(v2) + "px")},`).join("\n");
+  const spacing = input2.spacing.map((v2) => `        ${literal(String(v2))}: ${literal(String(v2) + "px")},`).join("\n");
+  const radius = input2.radius.filter((v2) => v2 < 9999).map((v2) => `        ${literal("ts-" + v2)}: ${literal(String(v2) + "px")},`).join("\n");
+  const shadows = Object.entries(input2.shadows).map(([k, v2]) => `        ${literal(k)}: ${literal(v2)},`).join("\n");
   return `/** \u7531\u5929\u67A2\u753B\u5E03\u751F\u6210\uFF1ATailwind \u4E3B\u9898\u6620\u5C04\uFF08\u503C\u6765\u81EA\u5F53\u524D\u8BBE\u8BA1\u7CFB\u7EDF tokens\uFF09\u3002 */
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -67740,8 +68315,8 @@ async function canvasOpen(call) {
     content: `\u753B\u5E03\u670D\u52A1\u5DF2\u5C31\u7EEA\u3002\u8BF7\u7ACB\u523B\u628A\u4E0B\u9762\u8FD9\u4E00\u884C\u539F\u6837\u53D1\u7ED9\u7528\u6237\uFF08\u5355\u72EC\u4E00\u884C\uFF0C\u4FBF\u4E8E\u70B9\u51FB\uFF09\uFF1A
 ${url}
 \u753B\u5E03\u94FE\u63A5\u542B\u8BBF\u95EE\u51ED\u8BC1\uFF0C\u8BF7\u53EA\u63D0\u4F9B\u7ED9\u672C\u673A\u7684\u6388\u6743\u4F7F\u7528\u8005\uFF1B\u4E0D\u8981\u516C\u5F00\u5206\u4EAB\u3002\u670D\u52A1\u5173\u95ED\u540E\u65E7\u94FE\u63A5\u5931\u6548\u3002
-\u5728\u7528\u6237\u62FF\u5230\u94FE\u63A5\u540E\uFF0C\u5148\u786E\u8BA4\u8BBE\u8BA1\u98CE\u683C\uFF08canvas_get_state \u770B\u300C\u8BBE\u8BA1\u98CE\u683C\u300D\u6BB5\uFF1B\u82E5\u4E3A\u300C\u81EA\u7531\u53D1\u6325\u300D\u4E14\u7528\u6237\u6CA1\u6307\u5B9A\u8FC7\u98CE\u683C\uFF0C
-\u7528 canvas_style\uFF08action=list\uFF09\u628A\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\u5E76\u7B49\u56DE\u7B54\uFF09\uFF0C\u518D\u5F00\u59CB\u5199\u539F\u578B\u3002
+\u5728\u7528\u6237\u62FF\u5230\u94FE\u63A5\u540E\uFF0C\u7528 canvas_get_state \u770B\u54C1\u724C\u3001\u9501\u5B9A\u98CE\u683C\u548C\u5DF2\u786E\u8BA4\u7B80\u62A5\uFF1B\u63D0\u70BC\u53D7\u4F17\u3001\u4E3B\u5F20\u3001\u8BC1\u636E\u4E0E\u4E3B\u884C\u52A8\u3002
+\u65B0\u8425\u9500\u9875\u9762\u9ED8\u8BA4\u540C\u4E00\u5185\u5BB9\u751F\u6210\u4E24\u4E2A\u7ED3\u6784\u4E0E\u6392\u7248\u4E0D\u540C\u7684\u9996\u5C4F\u4F9B\u9009\uFF0C\u7528\u6237\u660E\u786E\u9009\u62E9\u540E\u4FDD\u5B58 brief \u5E76\u539F\u4F4D\u6DF1\u5316\uFF1B\u5E94\u7528\u6309\u4EFB\u52A1\u9009 prototype\u3002\u5DF2\u6709\u54C1\u724C\u3001\u6307\u5B9A\u5E03\u5C40\u4E0E\u98CE\u683C\u4F18\u5148\u3002
 \u5DE5\u4F5C\u533A\uFF1A${call.cwd}
 \u9879\u76EE\u6587\u4EF6\uFF1A${projectFile(call.cwd)}
 \u64CD\u4F5C\u63D0\u793A\uFF1A\u7A7A\u683C+\u62D6\u62FD \u6216 \u4E2D\u952E\u62D6\u62FD \u5E73\u79FB\uFF1BCtrl+\u6EDA\u8F6E \u7F29\u653E\uFF1B\u666E\u901A\u6EDA\u8F6E \u5E73\u79FB\u3002`
@@ -67753,7 +68328,7 @@ function writeUrlHint(cwd, url) {
     const publicUrl = new URL(url);
     publicUrl.pathname = "/";
     publicUrl.hash = "";
-    writeFileInWorkspace(cwd, join17(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
+    writeFileInWorkspace(cwd, join19(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
   } catch {
   }
 }
@@ -67882,7 +68457,7 @@ ${detail}
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join17(call.cwd, rel)}
+` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join19(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + navNote + (backfilled.length ? `
@@ -67939,8 +68514,8 @@ function formatSelection(selection, project) {
     lines.push(`\u5143\u7D20\uFF1A<${el.tagName}> xpath=${el.xpath}`);
     if (el.textContent) lines.push(`\u6587\u672C\uFF1A${el.textContent}`);
     if (el.computedStyles) {
-      const keys = ["color", "background-color", "font-size", "font-weight", "padding", "margin", "border-radius"];
-      const picked = keys.filter((k) => el.computedStyles?.[k]).map((k) => `${k}: ${el.computedStyles?.[k]}`);
+      const keys2 = ["color", "background-color", "font-size", "font-weight", "padding", "margin", "border-radius"];
+      const picked = keys2.filter((k) => el.computedStyles?.[k]).map((k) => `${k}: ${el.computedStyles?.[k]}`);
       if (picked.length) lines.push(`\u5173\u952E\u6837\u5F0F\uFF1A${picked.join("\uFF1B")}`);
     }
   }
@@ -67955,7 +68530,7 @@ async function canvasGetState(call) {
   if (issue) sections.push(`\u8B66\u544A\uFF1A${issue}`);
   const styleId = project.design?.styleId ?? null;
   if (styleId === null) {
-    sections.push("\u8BBE\u8BA1\u98CE\u683C\uFF1A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\u3002\u751F\u6210\u539F\u578B\u524D\u5148\u4E0E\u7528\u6237\u786E\u8BA4\u98CE\u683C\uFF1B\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u7ED9\u51FA\u9009\u9879\u3002");
+    sections.push("\u8BBE\u8BA1\u98CE\u683C\uFF1A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\u3002\u4F18\u5148\u9075\u5B88\u54C1\u724C\u4E0E\u5185\u5BB9\u7B80\u62A5\uFF1B\u8425\u9500\u9875\u9762\u9ED8\u8BA4\u5148\u51FA\u4E24\u4E2A\u4E0D\u540C\u9996\u5C4F\u4F9B\u7528\u6237\u9009\u62E9\uFF0C\u518D\u539F\u4F4D\u6DF1\u5316\uFF1B\u5E94\u7528\u6309\u4EFB\u52A1\u9009\u539F\u578B\u3002\u53EF\u7528 canvas_style direction / prototype \u6309\u9700\u8BFB\u53D6\u3002");
   } else {
     const summary = designStyleSummary(call.cwd, styleId);
     sections.push(
@@ -67984,6 +68559,14 @@ ${lines.join("\n")}`);
     );
     sections.push(`\u9875\u9762\u8FDE\u7EBF\uFF08${project.edges.length} \u6761\uFF09\uFF1A
 ${lines.join("\n")}`);
+  }
+  if (project.pageBriefs && Object.keys(project.pageBriefs).length) {
+    const lines = project.nodes.filter((n) => project.pageBriefs?.[n.id]).map((n) => {
+      const brief = project.pageBriefs[n.id];
+      const decision = brief.confirmedDirection;
+      return `${n.title}\uFF08${n.id}\uFF09\uFF1A${decision ? "\u7528\u6237\u5DF2\u786E\u8BA4 " + decision.directionId + "\uFF1B\u7406\u7531\uFF1A" + decision.reason + "\uFF1B\u786E\u8BA4\u65F6\u95F4\uFF1A" + decision.confirmedAt : "\u672A\u786E\u8BA4\u8349\u7A3F" + (brief.directionId ? " " + brief.directionId : "")}${brief.prototypeId ? "\uFF1B\u539F\u578B\uFF1A" + brief.prototypeId : ""}\uFF1B\u5B8C\u6574\u7B80\u62A5\u7528 canvas_style action=brief,page_id=${n.id} \u8BFB\u53D6\u3002`;
+    });
+    sections.push("\u9875\u9762\u8BBE\u8BA1\u7B80\u62A5\uFF08\u9009\u4E2D\u8282\u70B9\u4E0D\u7B49\u4E8E\u786E\u8BA4\uFF09\uFF1A\n" + lines.join("\n"));
   }
   if (selection) {
     sections.push(`\u5F53\u524D\u9009\u4E2D\uFF1A
@@ -68075,7 +68658,7 @@ ${lines.join("\n")}
 
 \u5F53\u524D\uFF1A${current ? `\u5DF2\u9501\u5B9A ${designStyleSummary(cwd, current)?.name ?? current}\uFF08${current}\uFF09` : "\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\uFF09"}
 \u9501\u5B9A/\u5207\u6362\uFF1Acanvas_style\uFF08action=set, style_id=<id>\uFF09\uFF1B\u56DE\u5230\u81EA\u7531\u53D1\u6325\uFF1Astyle_id=free\u3002
-\u7528\u6237\u6CA1\u6709\u6307\u5B9A\u98CE\u683C\u65F6\uFF0C\u628A\u4E0A\u9762\u7684\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\uFF08\u542B\u300C\u81EA\u7531\u53D1\u6325\u300D\uFF09\u3002`;
+\u98CE\u683C\u63A7\u5236 token \u5916\u89C2\uFF1B\u65B0\u8425\u9500\u9875\u9762\u9ED8\u8BA4\u5148\u53CC\u9996\u5C4F\u9009\u7A3F\uFF0C\u7528 direction / prototype \u8BFB\u53D6\u5185\u5BB9\u5339\u914D\u7684\u6784\u56FE\u4E0E\u539F\u578B\uFF1B\u4E0D\u5FC5\u5148\u6309\u98CE\u683C\u540D\u63D0\u95EE\u3002`;
 }
 function formatStyleBrief(cwd, styleId) {
   const style = resolveDesignStyle(cwd, styleId);
@@ -68182,7 +68765,11 @@ function buildCodegenFiles(call, target, stack) {
   if (WEB_TARGETS.has(target)) {
     const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
     if (target === "react") {
-      return { files: toReactComponent(resolved.html).map((f) => ({ name: f.name, content: f.content })), label: resolved.label };
+      const themeId = styleId && styleId !== "free" ? styleId : readDesignMarker(resolved.html)?.styleId;
+      const theme = themeId ? resolveDesignStyle(call.cwd, themeId) : null;
+      const files = toReactComponent(resolved.html).map((f) => ({ name: f.name, content: f.content }));
+      files.push({ name: "tokens.css", content: theme?.tokensCss ?? "" }, { name: "components.css", content: theme?.componentsCss ?? "" });
+      return { files, label: resolved.label };
     }
     if (!styleId || styleId === "free") {
       return { files: [], label: "", error: `${target} \u9700\u8981\u5DF2\u9501\u5B9A\u98CE\u683C\uFF08\u6216\u4F20 style_id\uFF09\uFF1B\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\u3002` };
@@ -68266,16 +68853,16 @@ async function canvasCodegen(call) {
   }
   const writeFiles = call.args.write_files === true || typeof call.args.out_dir === "string";
   if (writeFiles) {
-    const raw = str(call.args.out_dir) ?? join17(PROJECT_DIR_NAME, "exports", `${target}`);
-    const base = isAbsolute4(raw) ? raw : join17(call.cwd, raw);
+    const raw = str(call.args.out_dir) ?? join19(PROJECT_DIR_NAME, "exports", `${target}`);
+    const base = isAbsolute4(raw) ? raw : join19(call.cwd, raw);
     for (const file of files) {
-      const abs = join17(base, file.name);
+      const abs = join19(base, file.name);
       mkdirSync5(dirname6(abs), { recursive: true });
       writeFileAtomic(call.cwd, abs, file.content);
     }
     return {
       content: `\u5DF2\u751F\u6210 ${files.length} \u4E2A\u6587\u4EF6\uFF08${label}\uFF0Ctarget=${target}${call.args.stack ? `\uFF0Cstack=${call.args.stack}` : ""}\uFF09\uFF1A
-` + files.map((f) => `  - ${join17(base, f.name)}`).join("\n") + `
+` + files.map((f) => `  - ${join19(base, f.name)}`).join("\n") + `
 
 ${codegenCaveat(target)}`
     };
@@ -68297,7 +68884,7 @@ ${codegenCaveat(target)}`
 }
 function codegenCaveat(target) {
   if (target === "react") {
-    return "\u6CE8\u610F\uFF1A\u4EA7\u7269\u4F9D\u8D56\u540C\u76EE\u5F55\u7684 components.css \u4E0E tokens.css\uFF08--ts-* \u53D8\u91CF\uFF09\uFF1B\u539F\u578B\u7684 <style>/\u5185\u8054\u6837\u5F0F\u65E0\u6CD5 1:1 \u6620\u5C04\uFF0C\u5FC5\u8981\u5904\u8BF7\u4EBA\u5DE5\u6821\u5BF9\u3002";
+    return "\u6CE8\u610F\uFF1A\u5DF2\u9644 tokens.css\u3001components.css \u4E0E layout.css\uFF1B\u539F\u578B\u811A\u672C\u4E0D\u4F1A\u8FC1\u79FB\u5230 React\uFF0C\u52A8\u6001\u884C\u4E3A\u9700\u7528 React \u72B6\u6001\u4E0E\u4E8B\u4EF6\u5B9E\u73B0\u5E76\u9A8C\u6536\u3002";
   }
   if (PLATFORM_TARGETS.has(target)) {
     return "\u6CE8\u610F\uFF1A\u591A\u7AEF\u4EA7\u7269\u53EA\u4FDD\u8BC1**\u4E3B\u9898/Token \u4E0E design-spec.md \u89C4\u683C**\u786E\u5B9A\u6027\u6B63\u786E\uFF1B**\u9875\u9762\u4EE3\u7801\u9700\u4F60\u6309\u89C4\u683C\u7F16\u5199**\uFF08HTML\u2192\u539F\u751F\u5FC5\u7136\u6709\u635F\uFF0Cflex/grid\u3001\u4F2A\u5143\u7D20\u3001\u81EA\u5B9A\u4E49\u6EDA\u52A8\u65E0\u6CD5 1:1\uFF09\u3002\u8BF7\u4E0D\u8981\u58F0\u79F0\u300C\u50CF\u7D20\u7EA7\u8FD8\u539F\u300D\u3002";
@@ -68307,12 +68894,34 @@ function codegenCaveat(target) {
 async function canvasStyle(call) {
   const action = str(call.args.action) ?? "list";
   try {
+    if (action === "prototype" || action === "direction") {
+      const rawId = call.args[action === "prototype" ? "prototype_id" : "direction_id"];
+      if (rawId !== void 0 && (typeof rawId !== "string" || !rawId.trim())) {
+        return { content: "\u539F\u578B\u6216\u65B9\u5411 ID \u5FC5\u987B\u662F\u975E\u7A7A\u5B57\u7B26\u4E32\u3002", isError: true };
+      }
+      const id = typeof rawId === "string" ? rawId : void 0;
+      if (!id) {
+        const entries = action === "prototype" ? listPrototypes() : listDirections();
+        return { content: JSON.stringify({ action, entries, next: action === "prototype" ? "\u6307\u5B9A prototype_id \u6309\u9700\u8BFB\u53D6\u5B8C\u6574 HTML \u4E0E\u9002\u7528\u6761\u4EF6\uFF1B\u6309\u5185\u5BB9\u91CD\u65B0\u8BBE\u8BA1\uFF0C\u4E0D\u628A\u793A\u4F8B\u6F14\u793A\u6570\u636E\u5F53\u4E8B\u5B9E\u3002" : "\u6307\u5B9A direction_id \u8BFB\u53D6\u6784\u56FE\u6307\u5BFC\u4E0E\u539F\u521B\u793A\u4F8B\u3002\u8425\u9500\u9875\u9762\u5148\u7528\u76F8\u540C\u5185\u5BB9\u751F\u6210\u4E24\u4E2A\u4E0D\u540C\u9996\u5C4F\uFF0C\u7528\u6237\u660E\u786E\u9009\u62E9\u540E\u4FDD\u5B58 brief.confirmation\u3002" }, null, 2) };
+      }
+      const override = str(call.args.style_id);
+      if (override && override !== "free" && !designStyleExists(call.cwd, override)) return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${override}`, isError: true };
+      const styleId = override === "free" ? "tianshu-original" : override ?? currentStyleId(call.cwd) ?? "tianshu-original";
+      const doc = action === "prototype" ? getPrototype(id, styleId, call.cwd) : getDirection(id, styleId, call.cwd);
+      return doc ? { content: JSON.stringify(doc, null, 2) } : { content: `\u672A\u77E5\u7684${action === "prototype" ? "\u539F\u578B" : "\u65B9\u5411"}\uFF1A${id}`, isError: true };
+    }
+    if (action === "brief") {
+      const pageId = str(call.args.page_id);
+      if (!pageId) return { content: "brief \u9700\u8981 page_id\uFF0C\u7B80\u62A5\u53EA\u5173\u8054\u6307\u5B9A\u9875\u9762\u3002", isError: true };
+      const brief = call.args.brief === void 0 ? readPageBrief(call.cwd, pageId) : savePageBrief(call.cwd, pageId, call.args.brief);
+      return { content: JSON.stringify({ pageId, brief, notice: "confirmedDirection \u53EA\u8868\u793A\u5DF2\u660E\u786E\u8BB0\u5F55\u7684\u7528\u6237\u9009\u62E9\uFF1B\u672A\u786E\u8BA4\u8349\u7A3F\u4E0D\u4EE3\u8868\u7528\u6237\u8BA4\u53EF\u3002" }, null, 2) };
+    }
     if (action === "list") return { content: formatStyleList(call.cwd) };
     if (action === "get") {
       const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd);
       if (!styleId || styleId === "free") {
         return {
-          content: "\u5F53\u524D\u672A\u9501\u5B9A\u98CE\u683C\uFF08\u81EA\u7531\u53D1\u6325\uFF09\u3002\u5148\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\uFF0C\u518D\u7528 action=set \u9501\u5B9A\u3002"
+          content: "\u5F53\u524D\u672A\u9501\u5B9A\u98CE\u683C\uFF08\u81EA\u7531\u53D1\u6325\uFF09\u3002direction / prototype \u53EF\u76F4\u63A5\u8BFB\u53D6\u539F\u521B\u8BBE\u8BA1\uFF1B\u5982\u7528\u6237\u9700\u8981\u7EDF\u4E00 token\uFF0C\u518D\u7528 list / set \u663E\u5F0F\u9501\u5B9A\u3002"
         };
       }
       if (!designStyleExists(call.cwd, styleId)) return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${styleId}`, isError: true };
@@ -68384,7 +68993,7 @@ ${doc.skeletonHtml}
 \u6CE8\u610F\uFF1A\u4E0D\u8981\u81EA\u5DF1\u5199\u8FD9\u5957\u4EA4\u4E92\u7684 JS\u2014\u2014\u5171\u4EAB\u8FD0\u884C\u65F6\u4F1A\u968F\u9875\u9762\u81EA\u52A8\u6CE8\u5165\uFF1B\u811A\u672C\u91CC\u4E0D\u8981\u7528 fetch / \u672C\u5730\u5B58\u50A8\uFF08\u6C99\u7BB1\u7981\u7528\uFF09\u3002`
       };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template / interaction / codegen\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Alist / get / set / template / interaction / prototype / direction / brief / codegen\u3002`, isError: true };
   } catch (err) {
     return { content: err.message, isError: true };
   }
@@ -68396,15 +69005,16 @@ async function canvasCheckStyle(call) {
     return { content: `\u672A\u77E5\u7684\u8BBE\u8BA1\u98CE\u683C\uFF1A${override}\u3002\u53EF\u7528 canvas_style\uFF08action=list\uFF09\u67E5\u770B\u53EF\u9009\u98CE\u683C\u3002`, isError: true };
   }
   const styleId = override === "free" ? null : override ?? currentStyleId(call.cwd);
+  const pageTheme = (html) => override !== void 0 ? styleId : styleId ?? readDesignMarker(html)?.styleId ?? null;
   if (inlineHtml !== void 0) {
-    const report = lintHtml(inlineHtml, styleId, call.cwd);
+    const report = lintHtml(inlineHtml, pageTheme(inlineHtml), call.cwd);
     return { content: formatLintReport(report, "\u76F4\u63A5\u68C0\u67E5\u4F20\u5165\u7684 HTML") };
   }
   const pageId = str(call.args.page_id);
   if (pageId) {
     const html = readPageHtml(call.cwd, pageId);
     if (html === null) return { content: `\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}`, isError: true };
-    const report = lintHtml(html, styleId, call.cwd);
+    const report = lintHtml(html, pageTheme(html), call.cwd);
     return { content: formatLintReport(report, `\u9875\u9762 id=${pageId}`) };
   }
   const project = readProject(call.cwd);
@@ -68414,7 +69024,7 @@ async function canvasCheckStyle(call) {
   for (const node of project.nodes) {
     const html = readPageHtml(call.cwd, node.id);
     if (html === null) continue;
-    const report = lintHtml(html, styleId, call.cwd);
+    const report = lintHtml(html, pageTheme(html), call.cwd);
     total += report.total;
     if (report.total > 0) reports.push(formatLintReport(report, `\u9875\u9762\u300C${node.title}\u300D(id=${node.id})`));
   }
@@ -68475,7 +69085,7 @@ ${memory}` : ""}
       const id = str(call.args.id);
       if (!id) return { content: "extract \u9700\u8981 id\uFF08\u65B0\u5EFA\u7684\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
       const rawPath = str(call.args.path);
-      const filePath = rawPath === void 0 ? void 0 : isAbsolute4(rawPath) ? rawPath : resolve9(call.cwd, rawPath);
+      const filePath = rawPath === void 0 ? void 0 : isAbsolute4(rawPath) ? rawPath : resolve10(call.cwd, rawPath);
       const url = str(call.args.url);
       const source2 = str(call.args.source);
       if (!source2 && !filePath && !url) {
@@ -68654,8 +69264,8 @@ ${lockLine}${warnLine}
         return { content: err.message, isError: true };
       }
       const rawOut = str(call.args.out_dir);
-      const dir = rawOut ? isAbsolute4(rawOut) ? rawOut : join17(call.cwd, rawOut) : join17(call.cwd, PROJECT_DIR_NAME, "exports");
-      const file = join17(dir, `${id}.json`);
+      const dir = rawOut ? isAbsolute4(rawOut) ? rawOut : join19(call.cwd, rawOut) : join19(call.cwd, PROJECT_DIR_NAME, "exports");
+      const file = join19(dir, `${id}.json`);
       try {
         exportBrandPack(call.cwd, pack, file);
       } catch (err) {
@@ -68671,7 +69281,7 @@ checksum\uFF1A${pack.checksum.slice(0, 16)}\u2026\uFF08\u5BFC\u5165\u65F6\u4F1A\
     if (action === "import_pack") {
       const rawPath = str(call.args.pack_path);
       if (!rawPath) return { content: "import_pack \u9700\u8981 pack_path\uFF08\u54C1\u724C\u5305 JSON \u7684\u8DEF\u5F84\uFF09\u3002", isError: true };
-      const file = isAbsolute4(rawPath) ? rawPath : join17(call.cwd, rawPath);
+      const file = isAbsolute4(rawPath) ? rawPath : join19(call.cwd, rawPath);
       if (!existsSync14(file)) return { content: `\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF1A${file}`, isError: true };
       let raw;
       try {
@@ -68754,6 +69364,12 @@ function auditPages(call) {
 async function canvasAudit(call) {
   const action = str(call.args.action) ?? "contract";
   try {
+    if (action === "review") {
+      const pageId = str(call.args.page_id);
+      if (!pageId) return { content: "review \u9700\u8981 page_id\uFF1B\u9010\u9875\u751F\u6210\u684C\u9762\u3001\u5E73\u677F\u548C\u624B\u673A\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\u3002", isError: true };
+      const result = await reviewPage(call.cwd, pageId, { outputDir: str(call.args.out_dir) });
+      return { content: formatReviewReport(result) };
+    }
     if (action === "contract") {
       const { pages, error } = auditPages(call);
       if (error) return { content: error, isError: true };
@@ -68766,13 +69382,13 @@ async function canvasAudit(call) {
       const outDir = str(call.args.out_dir);
       let writeLine = "";
       if (call.args.write_files === true || outDir) {
-        const base = outDir ? isAbsolute4(outDir) ? outDir : join17(call.cwd, outDir) : join17(call.cwd, PROJECT_DIR_NAME, "exports", "audit");
+        const base = outDir ? isAbsolute4(outDir) ? outDir : join19(call.cwd, outDir) : join19(call.cwd, PROJECT_DIR_NAME, "exports", "audit");
         mkdirSync5(base, { recursive: true });
         const written = [];
         for (const { page, result } of results) {
-          const htmlPath = join17(base, `${page.id}.html`);
+          const htmlPath = join19(base, `${page.id}.html`);
           writeFileAtomic(call.cwd, htmlPath, page.html);
-          const testPath = join17(base, `${page.id}.audit.test.mjs`);
+          const testPath = join19(base, `${page.id}.audit.test.mjs`);
           writeFileAtomic(call.cwd, testPath, result.testFile);
           written.push(testPath);
         }
@@ -68798,8 +69414,8 @@ async function canvasAudit(call) {
         componentsCss: style.componentsCss,
         icons: style.manifest.iconNames
       });
-      const dir = str(call.args.out_dir) ? isAbsolute4(str(call.args.out_dir)) ? str(call.args.out_dir) : join17(call.cwd, str(call.args.out_dir)) : snapshotDir(call.cwd);
-      const file = join17(dir, "snapshot.json");
+      const dir = str(call.args.out_dir) ? isAbsolute4(str(call.args.out_dir)) ? str(call.args.out_dir) : join19(call.cwd, str(call.args.out_dir)) : snapshotDir(call.cwd);
+      const file = join19(dir, "snapshot.json");
       const before = readSnapshot(call.cwd, file);
       writeSnapshot(call.cwd, file, snapshot);
       if (!before) {
@@ -68847,7 +69463,7 @@ async function canvasAudit(call) {
     if (action === "baseline" || action === "visual") {
       const { styleId } = resolveAuditStyle(call);
       const rawDir = str(call.args.baseline_dir);
-      const dir = rawDir ? isAbsolute4(rawDir) ? rawDir : join17(call.cwd, rawDir) : defaultBaselineDir(call.cwd);
+      const dir = rawDir ? isAbsolute4(rawDir) ? rawDir : join19(call.cwd, rawDir) : defaultBaselineDir(call.cwd);
       const threshold = num(call.args.threshold);
       if (action === "baseline") {
         const result2 = await writeBaselines(call.cwd, styleId ?? "free", dir);
@@ -68856,7 +69472,7 @@ async function canvasAudit(call) {
       const result = await compareWithBaselines(call.cwd, styleId ?? "free", dir, { threshold, updateMissing: call.args.update_missing === true });
       return { content: formatVisualReport(result, false) };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / visual / baseline / drift\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / visual / baseline / drift / review\u3002`, isError: true };
   } catch (err) {
     return { content: err.message, isError: true };
   }
@@ -68953,7 +69569,7 @@ var tools = [
   {
     definition: {
       name: "canvas_upsert_page",
-      description: "\u65B0\u589E\u6216\u66F4\u65B0\u753B\u5E03\u9875\u9762\u8282\u70B9\uFF08\u5199\u5165 HTML \u539F\u578B\uFF0C\u6216\u4EC5\u6539\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8\uFF1B\u53EF\u9009\u628A\u5916\u94FE\u8D44\u6E90\u5185\u8054\u4E3A data: URI\uFF09\u3002\u8C03\u7528\u524D\u5FC5\u987B\u5148 canvas_open\uFF0C\u5E76\u5DF2\u786E\u8BA4\u8BBE\u8BA1\u98CE\u683C",
+      description: "\u65B0\u589E\u6216\u66F4\u65B0\u753B\u5E03\u9875\u9762\u8282\u70B9\uFF08\u5199\u5165 HTML \u539F\u578B\uFF0C\u6216\u4EC5\u6539\u6807\u9898/\u4F4D\u7F6E/\u5C3A\u5BF8\uFF1B\u53EF\u9009\u5185\u8054\u8D44\u6E90\uFF09\u3002\u5148 canvas_open\uFF1B\u8425\u9500\u9875\u9762\u9ED8\u8BA4\u53CC\u9996\u5C4F\u9009\u7A3F\uFF0C\u5DF2\u6709\u54C1\u724C\u548C\u6307\u5B9A\u5E03\u5C40\u4F18\u5148\uFF0C\u7528\u6237\u9009\u62E9\u540E\u539F\u4F4D\u6DF1\u5316",
       input_schema: {
         type: "object",
         properties: {
@@ -69039,20 +69655,45 @@ var tools = [
   {
     definition: {
       name: "canvas_style",
-      description: "\u5217\u51FA/\u67E5\u770B/\u9501\u5B9A/\u5207\u6362\u9879\u76EE\u7EA7\u8BBE\u8BA1\u98CE\u683C\uFF0C\u53D6\u9875\u9762\u6A21\u677F HTML\uFF0C\u53D6\u4EA4\u4E92\u6A21\u5F0F\u9AA8\u67B6\uFF0C\u6216\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\u3002\u7528\u6237\u672A\u6307\u5B9A\u98CE\u683C\u65F6\u5148\u7528 action=list \u5217\u51FA\u5E76\u628A\u98CE\u683C\u540D\u4F5C\u4E3A\u9009\u9879\u95EE\u7528\u6237\u4E00\u6B21\uFF0C\u7B49\u56DE\u7B54\u540E\u518D\u7EE7\u7EED",
+      description: "\u7BA1\u7406\u8BBE\u8BA1\u98CE\u683C\uFF0C\u6309\u9700\u8BFB\u53D6\u539F\u521B\u539F\u578B\u548C\u89C6\u89C9\u65B9\u5411\uFF0C\u4FDD\u5B58\u9875\u9762\u7B80\u62A5\u53CA\u7528\u6237\u786E\u8BA4\uFF0C\u8BFB\u53D6\u6A21\u677F\u4E0E\u4EA4\u4E92\u6216\u5BFC\u51FA\u4EE3\u7801\u3002\u8425\u9500\u9875\u9762\u9ED8\u8BA4\u5148\u51FA\u4E24\u4E2A\u4E0D\u540C\u9996\u5C4F\uFF0C\u7528\u6237\u9009\u62E9\u540E\u6DF1\u5316\uFF1B\u5DF2\u6709\u54C1\u724C\u4E0E\u9501\u5B9A\u98CE\u683C\u4F18\u5148",
       input_schema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["list", "get", "set", "template", "interaction", "codegen"],
-            description: "list=\u5217\u51FA\u5168\u90E8\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF08\u7528\u6237\u6CA1\u6307\u5B9A\u98CE\u683C\u65F6\u636E\u6B64\u63D0\u95EE\uFF09\uFF1Bget=\u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D/\u4EA4\u4E92\u6E05\u5355\uFF1Bset=\u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF1Btemplate=\u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\uFF1Binteraction=\u53D6\u67D0\u4E2A\u4EA4\u4E92\u6A21\u5F0F\uFF08tabs/modal/drawer \u7B49\uFF09\u7684\u9AA8\u67B6 HTML \u4E0E\u7528\u6CD5\uFF0C\u53EF\u76F4\u63A5\u653E\u8FDB\u9875\u9762\uFF1Bcodegen=\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\uFF08**\u5FC5\u987B\u5148\u95EE\u7528\u6237\u8981\u54EA\u79CD\u76EE\u6807**\uFF0C\u4E0D\u8981\u81EA\u884C\u5047\u5B9A\uFF09"
+            enum: ["list", "get", "set", "template", "interaction", "prototype", "direction", "brief", "codegen"],
+            description: "list=\u5217\u51FA\u53EF\u9009\u98CE\u683C\u4E0E\u5F53\u524D\u72B6\u6001\uFF1Bget=\u67E5\u770B\u67D0\u98CE\u683C\u7684 token/\u7EC4\u4EF6\u7C7B/\u56FE\u6807\u540D/\u4EA4\u4E92\u6E05\u5355\uFF1Bprototype=\u5217\u51FA\u539F\u578B\u6216\u7528 prototype_id \u8BFB\u5B8C\u6574 HTML\uFF1Bdirection=\u5217\u51FA\u65B9\u5411\u6216\u7528 direction_id \u8BFB\u539F\u521B\u793A\u4F8B\uFF1Bbrief=\u8BFB\u53D6\u6216\u7528 brief \u5BF9\u8C61\u4FDD\u5B58 page_id \u7684\u7B80\u62A5\uFF1Bset=\u9501\u5B9A\u6216\u5207\u6362\u98CE\u683C\uFF1Btemplate=\u53D6 dashboard/landing \u6A21\u677F\u7684\u5B8C\u6574 HTML\uFF0C\u53EF\u76F4\u63A5\u4F20\u7ED9 canvas_upsert_page\uFF1Binteraction=\u53D6\u67D0\u4E2A\u4EA4\u4E92\u6A21\u5F0F\uFF08tabs/modal/drawer \u7B49\uFF09\u7684\u9AA8\u67B6 HTML \u4E0E\u7528\u6CD5\uFF0C\u53EF\u76F4\u63A5\u653E\u8FDB\u9875\u9762\uFF1Bcodegen=\u5BFC\u51FA\u751F\u4EA7\u4EE3\u7801\uFF08**\u5FC5\u987B\u5148\u95EE\u7528\u6237\u8981\u54EA\u79CD\u76EE\u6807**\uFF0C\u4E0D\u8981\u81EA\u884C\u5047\u5B9A\uFF09"
           },
           style_id: {
             type: "string",
             description: "\u98CE\u683C id\uFF08set/get/template/interaction/codegen \u4F7F\u7528\uFF09\uFF0C\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u5747\u53EF\uFF1Bfree \u8868\u793A\u89E3\u9664\u9501\u5B9A"
           },
           template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" },
+          prototype_id: { type: "string", description: "prototype\uFF1A\u4E2D\u6027\u539F\u578B ID\uFF0C\u7701\u7565\u5217\u51FA\u6240\u6709\u6458\u8981\uFF1B\u6307\u5B9A\u540E\u8FD4\u56DE\u5B8C\u6574 HTML\u3001\u5185\u5BB9\u8981\u6C42\u53CA\u54CD\u5E94\u5F0F\u8BF4\u660E" },
+          direction_id: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster"], description: "direction\uFF1A\u89C6\u89C9\u65B9\u5411 ID\uFF1B\u7701\u7565\u5217\u51FA\u6458\u8981\u3002\u65B9\u5411\u4E0E\u98CE\u683C\u3001\u539F\u578B\u5206\u522B\u9009\u62E9" },
+          brief: {
+            type: "object",
+            description: "brief\uFF1A\u6307\u5B9A\u9875\u9762\u7B80\u62A5\u7684\u90E8\u5206\u66F4\u65B0\uFF1B\u7701\u7565\u5219\u8BFB\u53D6\u3002\u4E0D\u5F97\u4EE3\u586B\u7528\u6237\u786E\u8BA4\u6216\u865A\u6784\u8BC1\u636E",
+            properties: {
+              audience: { type: "string", maxLength: 2e3 },
+              purpose: { type: "string", maxLength: 2e3 },
+              proposition: { type: "string", maxLength: 2e3 },
+              primaryAction: { type: "string", maxLength: 2e3 },
+              evidence: { type: "array", maxItems: 20, items: { type: "string", maxLength: 2e3 } },
+              assets: { type: "array", maxItems: 20, items: { type: "string", maxLength: 2e3 } },
+              brandConstraints: { type: "array", maxItems: 20, items: { type: "string", maxLength: 2e3 } },
+              prototypeId: { type: "string" },
+              directionId: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster"] },
+              confirmation: {
+                type: "object",
+                description: "\u4EC5\u7528\u6237\u5DF2\u660E\u786E\u9009\u62E9\u540E\u4F20\u5165\uFF1B\u4E0D\u80FD\u4ECE\u590D\u5236\u3001\u9009\u4E2D\u8282\u70B9\u6216\u4EE3\u7406\u504F\u597D\u63A8\u65AD\u8BA4\u53EF",
+                properties: { confirmed: { type: "boolean", enum: [true] }, directionId: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster"] }, reason: { type: "string", minLength: 1, maxLength: 2e3 } },
+                required: ["confirmed", "directionId", "reason"],
+                additionalProperties: false
+              }
+            },
+            additionalProperties: false
+          },
           interaction_id: {
             type: "string",
             description: "action=interaction \u65F6\u4F7F\u7528\uFF1A\u4EA4\u4E92\u6A21\u5F0F id\uFF08\u5982 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker / scroll-progress / sticky-header / scroll-reveal / tilt-card / mobile-nav / copy-code / toc-outline\uFF09"
@@ -69067,7 +69708,7 @@ var tools = [
             enum: ["swiftui", "uikit", "compose", "xml", "weapp", "uniapp", "taro"],
             description: "codegen \u591A\u7AEF\u4E13\u7528\uFF1A\u6280\u672F\u6808\u3002ios\u2192swiftui|uikit\uFF1Bandroid\u2192compose|xml\uFF1Bminiprogram\u2192weapp|uniapp|taro\u3002Web \u76EE\u6807\u5FFD\u7565\u3002**\u591A\u7AEF\u5BFC\u51FA\u524D\u5FC5\u987B\u5148\u95EE\u7528\u6237\u9009\u54EA\u79CD\u6280\u672F\u6808\u5E76\u7B49\u56DE\u7B54\uFF0C\u4E0D\u5F97\u66FF\u7528\u6237\u51B3\u5B9A**\uFF08\u4E5F\u53EF\u591A\u9009\u591A\u7AEF\uFF09\u3002\u591A\u7AEF\u4EA7\u7269\u662F\u300C\u4E3B\u9898/Token \u6587\u4EF6 + design-spec.md \u89C4\u683C\u6E05\u5355\u300D\uFF0C**\u9875\u9762\u4EE3\u7801\u7531\u4F60\u6309\u89C4\u683C\u7F16\u5199**\uFF08HTML\u2192\u539F\u751F\u5FC5\u7136\u6709\u635F\uFF0C\u4E0D\u5F97\u58F0\u79F0\u50CF\u7D20\u7EA7\u8FD8\u539F\uFF09"
           },
-          page_id: { type: "string", description: "codegen\uFF1A\u8981\u8F6C\u6362\u7684\u9875\u9762 id\uFF1B\u7701\u7565\u65F6\u82E5\u753B\u5E03\u53EA\u6709\u4E00\u4E2A\u9875\u9762\u5219\u7528\u5B83" },
+          page_id: { type: "string", description: "brief\uFF1A\u5FC5\u586B\u5173\u8054\u9875\u9762 ID\uFF1Bcodegen\uFF1A\u8981\u8F6C\u6362\u7684\u9875\u9762 id\uFF0C\u7701\u7565\u65F6\u82E5\u753B\u5E03\u53EA\u6709\u4E00\u4E2A\u9875\u9762\u5219\u7528\u5B83" },
           html: { type: "string", description: "codegen\uFF1A\u76F4\u63A5\u4F20\u5165\u6E90 HTML\uFF08\u4F18\u5148\u4E8E page_id\uFF09" },
           out_dir: { type: "string", description: "codegen\uFF1A\u843D\u76D8\u76EE\u5F55\uFF08\u9ED8\u8BA4 .tianshu-canvas/exports/<target>/\uFF09\u3002\u5BBF\u4E3B\u4F1A\u628A\u8BE5\u53C2\u6570\u89C4\u8303\u5316\u4E3A\u7EDD\u5BF9\u8DEF\u5F84" },
           write_files: { type: "boolean", description: "codegen\uFF1A\u662F\u5426\u5199\u5230\u78C1\u76D8\uFF08\u9ED8\u8BA4 false\uFF0C\u76F4\u63A5\u8FD4\u56DE\u6587\u4EF6\u5185\u5BB9\uFF09" }
@@ -69181,21 +69822,21 @@ var tools = [
   {
     definition: {
       name: "canvas_audit",
-      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u5951\u7EA6\uFF08token/\u88F8\u8272/\u95F4\u8DDD/\u56FE\u6807\uFF09\u3001\u53EF\u8BBF\u95EE\u6027\uFF08\u5BF9\u6BD4\u5EA6/\u53EF\u8BBF\u95EE\u540D/\u7126\u70B9/\u76EE\u6807\u5C3A\u5BF8\uFF09\u3001\u89C6\u89C9\u56DE\u5F52\uFF08\u622A\u56FE\u57FA\u7EBF diff\uFF09\u4E0E\u8BBE\u8BA1\u6F02\u79FB",
+      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u8BBE\u8BA1\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\u3001\u89C6\u89C9\u56DE\u5F52\u3001\u8BBE\u8BA1\u6F02\u79FB\uFF1Breview \u5BF9\u6307\u5B9A\u9875\u9762\u751F\u6210\u684C\u9762/\u5E73\u677F/\u624B\u673A\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8981\u771F\u5B9E\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
       input_schema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["contract", "a11y", "visual", "baseline", "drift"],
-            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83"
+            enum: ["contract", "a11y", "visual", "baseline", "drift", "review"],
+            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
           },
           page_id: { type: "string", description: "\u53EA\u5BA1\u8BA1\u6307\u5B9A\u9875\u9762\uFF1B\u7701\u7565\u5219\u5BA1\u8BA1\u5168\u90E8\u9875\u9762" },
           style_id: { type: "string", description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF1Bfree \u8868\u793A\u4E0D\u505A\u98CE\u683C\u76F8\u5173\u68C0\u67E5" },
           write_files: { type: "boolean", description: "contract\uFF1A\u628A\u53EF\u72EC\u7ACB\u8FD0\u884C\u7684 *.audit.test.mjs \u843D\u5230 out_dir\uFF08\u9ED8\u8BA4 false\uFF09" },
           out_dir: {
             type: "string",
-            description: "contract\uFF1A\u6D4B\u8BD5\u6587\u4EF6\u843D\u76D8\u76EE\u5F55\uFF08\u9ED8\u8BA4 .tianshu-canvas/exports/audit/\uFF09\uFF1Bdrift\uFF1A\u5FEB\u7167\u76EE\u5F55\uFF08\u9ED8\u8BA4 .tianshu-canvas/audit/\uFF09"
+            description: "contract\uFF1A\u6D4B\u8BD5\u6587\u4EF6\u843D\u76D8\u76EE\u5F55\uFF1Bdrift\uFF1A\u5FEB\u7167\u76EE\u5F55\uFF1Breview\uFF1A\u622A\u56FE\u4E0E\u62A5\u544A\u76EE\u5F55\uFF0C\u5FC5\u987B\u5728\u5DE5\u4F5C\u533A\u5185\uFF08\u9ED8\u8BA4 .tianshu-canvas/audit/review\uFF09"
           },
           baseline_dir: {
             type: "string",

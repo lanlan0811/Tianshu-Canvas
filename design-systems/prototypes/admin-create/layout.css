@@ -1,0 +1,15 @@
+:scope .tp-create-layout{display:grid;grid-template-columns:210px 1fr;gap:var(--ts-space-8)}
+
+:scope .tp-create-steps ol{padding-left:var(--ts-space-5);display:grid;gap:var(--ts-space-8);margin-top:var(--ts-space-6)}
+
+:scope .tp-create-steps li::marker{color:var(--ts-color-action-primary)}
+
+:scope .tp-create-steps p{font-size:var(--ts-fs-sm);color:var(--ts-color-text-secondary)}
+
+@media(max-width:780px){:scope .tp-create-layout{grid-template-columns:1fr}
+
+:scope .tp-create-steps ol{grid-template-columns:repeat(3,1fr);gap:var(--ts-space-5)}
+
+}
+:scope .tp-config-fieldset{border:1px solid var(--ts-color-border-strong);padding:var(--ts-space-5);margin:0}
+:scope .tp-config-fieldset legend{padding-inline:var(--ts-space-2);font-size:var(--ts-fs-sm)}

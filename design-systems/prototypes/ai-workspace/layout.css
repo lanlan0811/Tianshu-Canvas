@@ -1,0 +1,17 @@
+:scope .tp-ai-layout{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
+
+:scope .tp-app-title{font-size:clamp(2.75rem,5vw,5rem)}
+
+:scope .tp-chat-panel{margin-top:var(--ts-space-8);padding:var(--ts-space-8);background:var(--ts-color-bg-raised);border:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-chat-messages{display:grid;gap:var(--ts-space-4);min-height:120px}
+
+:scope .tp-chat-assistant{padding:var(--ts-space-4);background:var(--ts-color-bg-sunken);border-radius:var(--ts-radius-md)}
+
+:scope .tp-chat-form{display:grid;grid-template-columns:1fr auto;gap:var(--ts-space-4);align-items:end}
+
+@media(max-width:780px){:scope .tp-ai-layout{grid-template-columns:1fr}
+
+:scope .tp-chat-form{grid-template-columns:1fr}
+
+}

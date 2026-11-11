@@ -11,6 +11,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterDoctype } from './html.js'
+import { parseHtml } from './htmlTree.js'
 import {
   compileCustomStyle,
   customStyleExists,
@@ -113,6 +114,7 @@ export interface DesignInteraction {
 }
 
 export interface DesignInteractionLibrary {
+  bindings?: { id: string; rootAttr: string; attributes: string[]; behavior: string }[]
   /** 全部交互样式（全风格共享）。 */
   css: string
   /** 单一共享运行时（全风格共享）。 */
@@ -282,7 +284,7 @@ export function resetDesignCache(): void {
 function readInteractionLibrary(dir: string): DesignInteractionLibrary {
   const empty: DesignInteractionLibrary = { css: '', js: '', catalog: {}, rootAttrs: [] }
   try {
-    const doc = readJson<{ interactions?: DesignInteraction[] }>(join(dir, 'interactions.json'))
+    const doc = readJson<{ interactions?: DesignInteraction[]; bindings?: DesignInteractionLibrary['bindings'] }>(join(dir, 'interactions.json'))
     const catalog: Record<string, DesignInteraction> = {}
     const rootAttrs: string[] = []
     for (const entry of doc.interactions ?? []) {
@@ -294,6 +296,7 @@ function readInteractionLibrary(dir: string): DesignInteractionLibrary {
       js: readFileSync(join(dir, 'interactions.js'), 'utf8'),
       catalog,
       rootAttrs,
+      bindings: doc.bindings ?? [],
     }
   } catch {
     return empty
@@ -401,11 +404,30 @@ function expandIcons(
   return { html: expanded, usedIcons: [...used], missingIcons: [...missing], scriptIcons: [...inScripts] }
 }
 
+/** A real body root must be listed in the compiled original-resource catalog. */
+export function hasRegisteredPrototypeRoot(html: string): boolean {
+  const roots = parseHtml(html)
+  const documentRoot = roots.find(n => n.type === 'element' && n.tag === 'html')
+  const body = documentRoot?.children.find(n => n.type === 'element' && n.tag === 'body')
+  const candidates = (body?.children ?? roots).filter(n => n.type === 'element' && !['head','script','style'].includes(n.tag))
+  const id = candidates.find(n => n.attrs.some(a => a.name === 'data-ts-prototype'))?.attrs.find(a => a.name === 'data-ts-prototype')?.value
+  if (!id) return false
+  const prototypes = readJson<{ prototypes: { id: string }[] }>(join(DESIGN_DIR, 'prototypes', 'index.json')).prototypes
+  if (prototypes.some(p => p.id === id)) return true
+  const directions = readJson<{ directions: { id: string }[] }>(join(DESIGN_DIR, 'directions', 'index.json')).directions
+  return directions.some(d => readJson<{examples: {resourceId: string}[]}>(join(DESIGN_DIR, 'directions', d.id + '.json')).examples.some(e => e.resourceId === id))
+}
+
 /**
  * 注入（或移除）设计系统样式块。
  * styleId 为 null 表示自由发挥：只剥离旧块，不注入。
  */
 export function injectDesign(html: string, styleId: string | null, cwd?: string): InjectResult {
+  // Complete original compositions keep their declared theme without a project lock.
+  if (styleId === null && hasRegisteredPrototypeRoot(html)) {
+    const marker = readDesignMarker(html)
+    if (marker && designStyleExists(cwd, marker.styleId)) styleId = marker.styleId
+  }
   const stripped = stripDesign(html)
   if (styleId === null) {
     return { html: stripped, styleId: null, injected: false, usedIcons: [], missingIcons: [], scriptIcons: [], interactionsUsed: [] }
@@ -458,6 +480,9 @@ function detectInteractions(html: string, style: ResolvedStyle): string[] {
   const masked = maskSegments(html)
   const ownClasses = new Set(style.manifest.interactionClasses)
   const used: string[] = []
+  for (const binding of lib.bindings ?? []) {
+    if (new RegExp('\\b' + binding.rootAttr + '(?=[\\s=>])').test(masked)) used.push('binding:' + binding.id)
+  }
   for (const id of style.manifest.interactionIds) {
     const entry = lib.catalog[id]
     if (!entry) continue

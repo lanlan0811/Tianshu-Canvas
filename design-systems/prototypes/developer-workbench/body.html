@@ -1,0 +1,93 @@
+<main data-ts-prototype="developer-workbench">
+<div class="tp-ide">
+<header id="intro" class="tp-ide-titlebar">
+<strong>WORKBENCH / 原创演示</strong>
+<span>demo-project · 未连接真实文件</span>
+</header>
+<div class="tp-ide-body">
+<nav class="tp-ide-activity" aria-label="开发任务">
+<a href="#files" data-ts-rail-target="files" aria-current="true" aria-label="查看文件树">
+<svg data-icon="folder" class="tp-icon">
+</svg>
+</a>
+<a href="#editor" data-ts-rail-target="editor" aria-label="查看编辑内容">
+<svg data-icon="code" class="tp-icon">
+</svg>
+</a>
+<a href="#assistant" data-ts-rail-target="assistant" aria-label="查看助手面板">
+<svg data-icon="message-circle" class="tp-icon">
+</svg>
+</a>
+</nav>
+<aside id="files" class="tp-ide-files" tabindex="-1">
+<div class="tp-label">文件 / 演示</div>
+<div class="tp-file-tree">
+<details open>
+<summary>
+<svg data-icon="folder" class="tp-icon">
+</svg> demo-project</summary>
+<details open>
+<summary>src</summary>
+<a href="#editor" data-ts-tab-target="page">page.html</a>
+<a href="#styles" data-ts-tab-target="style">layout.css</a>
+</details>
+<a href="#readme" data-ts-tab-target="readme">README.md</a>
+</details>
+</div>
+<p>此树不读取本机文件。</p>
+</aside>
+<section class="tp-ide-editor" id="editor" tabindex="-1">
+<div class="ts-i-tabs " data-ts-tabs>
+<div class="ts-tabs" role="tablist" aria-label="应用视图">
+<button class="ts-tab ts-tab--active" role="tab" data-ts-tab="page">page.html</button>
+<button class="ts-tab " role="tab" data-ts-tab="style">layout.css</button>
+<button class="ts-tab " role="tab" data-ts-tab="readme">README</button>
+</div>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="page">
+<div class="tp-stack">
+<span class="tp-label">可编辑演示文本，不写入磁盘</span>
+<label class="tp-field">HTML示例<textarea rows="16" spellcheck="false">&lt;main&gt;
+  &lt;h1&gt;Give the work a clear shape.&lt;/h1&gt;
+  &lt;p&gt;Original demo content.&lt;/p&gt;
+&lt;/main&gt;</textarea>
+</label>
+</div>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="style" hidden>
+<div class="tp-stack" id="styles">
+<span class="tp-label">只读样式说明</span>
+<pre>.workspace {
+  display: grid;
+  gap: var(--ts-space-6);
+}</pre>
+<p>这段代码作为内容展示，不执行。</p>
+</div>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="readme" hidden>
+<article id="readme" class="tp-prose">
+<h2>演示工作台</h2>
+<p>文件树、编辑器和助手用于验证多栏信息组织。没有终端、真实文件修改或命令执行。</p>
+<details>
+<summary>布局差异</summary>
+<p>文件与助手可并列支持同一任务；窄屏按文件、编辑、助手顺序重排。</p>
+</details>
+</article>
+</section>
+</div>
+</section>
+<aside id="assistant" class="tp-ide-assistant tp-stack" tabindex="-1">
+<span class="tp-label">助手 / 本地演示</span>
+<h3>先确认这次要改什么。</h3>
+<p>选择一个文件，描述目标与约束。此面板不调用模型。</p>
+<label class="tp-field">任务草稿<textarea rows="6" placeholder="写下要解决的问题，暂不执行">
+</textarea>
+</label>
+<details>
+<summary>权限说明</summary>
+<p>本演示没有文件、网络、终端或账号权限。</p>
+</details>
+</aside>
+</div>
+<footer class="tp-ide-status">演示项目 · 无真实文件访问 · 所有输入仅当前DOM有效</footer>
+</div>
+</main>

@@ -1,0 +1,19 @@
+:scope .tp-plan-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:var(--ts-space-16);padding:var(--ts-space-12) 0}
+
+:scope .tp-plan-nav{display:grid;gap:var(--ts-space-4);align-self:start;position:sticky;top:var(--ts-space-6)}
+
+:scope .tp-plan-layout h1{font-size:clamp(2.75rem,5vw,5rem)}
+
+:scope .tp-plan-layout article{max-width:72ch}
+
+:scope .tp-flow-diagram{display:flex;gap:var(--ts-space-4);align-items:center;flex-wrap:wrap}
+
+:scope .tp-flow-diagram div{padding:var(--ts-space-5);border:1px solid var(--ts-color-border-strong);background:var(--ts-color-bg-raised)}
+
+:scope .tp-plan-code{font:var(--ts-fs-md)/1.8 var(--ts-font-mono);overflow:auto;max-width:100%;padding:var(--ts-space-5);background:var(--ts-color-bg-inverse);color:var(--ts-color-text-inverse)}
+
+@media(max-width:780px){:scope .tp-plan-layout{grid-template-columns:1fr;gap:var(--ts-space-8)}
+
+:scope .tp-plan-nav{position:static;display:flex;flex-wrap:wrap}
+
+}

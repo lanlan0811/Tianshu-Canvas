@@ -12,9 +12,15 @@
 
   var ACTIVE_MODAL = null;
   var lastFocus = null;
+  var tabSequence = 0;
+  var formActions = new WeakMap();
 
   function qsa(root, sel) {
     return Array.prototype.slice.call((root || document).querySelectorAll(sel));
+  }
+
+  function owned(root, sel, boundary) {
+    return qsa(root, sel).filter(function (element) { return element.closest(boundary) === root; });
   }
 
   function emit(el, name, detail) {
@@ -26,9 +32,22 @@
   /* ---------------- tabs ---------------- */
 
   function initTabs(root) {
-    var tabs = qsa(root, '[data-ts-tab]');
-    var panels = qsa(root, '[data-ts-panel]');
+    var tabs = qsa(root, '[data-ts-tab]').filter(function (tab) { return tab.closest('[data-ts-tabs]') === root; });
+    var panels = qsa(root, '[data-ts-panel]').filter(function (panel) { return panel.closest('[data-ts-tabs]') === root; });
     if (!tabs.length) return;
+    if (!root.id) {
+      do { root.id = 'ts-tabs-' + (++tabSequence); } while (document.querySelectorAll('[id="' + root.id + '"]').length > 1);
+    }
+    tabs.forEach(function (tab, index) {
+      var name = tab.getAttribute('data-ts-tab');
+      var panel = panels.find(function (item) { return item.getAttribute('data-ts-panel') === name; });
+      if (!tab.id) tab.id = root.id + '-tab-' + index;
+      if (panel) {
+        if (!panel.id) panel.id = root.id + '-panel-' + index;
+        tab.setAttribute('aria-controls', panel.id);
+        panel.setAttribute('aria-labelledby', tab.id);
+      }
+    });
 
     function activate(name, focus) {
       for (var i = 0; i < tabs.length; i++) {
@@ -37,16 +56,12 @@
         tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
         tabs[i].setAttribute('tabindex', on ? '0' : '-1');
         if (on) {
-          var pid = tabs[i].id || (root.id ? root.id + '-panel-' + name : '');
-          if (!tabs[i].id && pid) tabs[i].id = pid + '-tab';
-          if (pid) tabs[i].setAttribute('aria-controls', pid);
           if (focus) tabs[i].focus();
         }
       }
       for (var j = 0; j < panels.length; j++) {
         var show = panels[j].getAttribute('data-ts-panel') === name;
         panels[j].hidden = !show;
-        if (!panels[j].id) panels[j].id = (root.id ? root.id + '-panel-' + name : 'ts-panel-' + name);
       }
       emit(root, 'ts:change', { value: name });
     }
@@ -238,6 +253,31 @@
 
   /* ---------------- form-validation ---------------- */
 
+  // Sandboxed pages deliberately lack allow-forms. Handle user intent before
+  // the browser attempts submission; no network or navigation is enabled.
+  function bindFormAction(form, action) {
+    if (formActions.has(form)) { formActions.get(form).push(action); return; }
+    var actions = [action];
+    formActions.set(form, actions);
+    function run() { actions.forEach(function (callback) { callback(); }); }
+    form.addEventListener('submit', function (event) { event.preventDefault(); run(); });
+    form.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('button, input[type="submit"], input[type="image"]');
+      if (event.defaultPrevented || !button || button.form !== form || button.matches(':disabled') || button.type !== 'submit') return;
+      event.preventDefault();
+      run();
+    });
+    form.addEventListener('keydown', function (event) {
+      var input = event.target;
+      if (event.defaultPrevented || event.key !== 'Enter' || event.isComposing || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || input.tagName !== 'INPUT' || input.form !== form || input.matches(':disabled')) return;
+      if (!/^(?:text|search|url|tel|email|password|date|month|week|time|datetime-local|number)$/.test(input.type)) return;
+      var submitter = Array.prototype.find.call(form.elements, function (element) { return /^(?:submit|image)$/.test(element.type); });
+      if (submitter && submitter.matches(':disabled')) return;
+      event.preventDefault();
+      run();
+    });
+  }
+
   function initForms() {
     qsa(document, '[data-ts-form]').forEach(function (form) {
       var controls = qsa(form, 'input, select, textarea');
@@ -246,7 +286,7 @@
 
       function validateControl(control) {
         var field = fieldOf(control);
-        if (!field) return true;
+        if (!field) return control.checkValidity();
         var error = field.querySelector('.ts-i-form__error');
         var ok = control.checkValidity();
         if (ok) {
@@ -268,8 +308,7 @@
         });
       });
 
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
+      bindFormAction(form, function () {
         var firstBad = null;
         controls.forEach(function (control) {
           if (!validateControl(control) && !firstBad) firstBad = control;
@@ -361,12 +400,13 @@
   function initPagination(root) {
     var total = parseInt(root.getAttribute('data-ts-total') || '1', 10);
     var current = parseInt(root.getAttribute('data-ts-page') || '1', 10);
-    var prev = root.querySelector('[data-ts-page-prev]');
-    var next = root.querySelector('[data-ts-page-next]');
-    var nums = qsa(root, '.ts-i-pagination__item');
+    var prev = owned(root, '[data-ts-page-prev]', '[data-ts-pagination]')[0];
+    var next = owned(root, '[data-ts-page-next]', '[data-ts-pagination]')[0];
+    var nums = owned(root, '.ts-i-pagination__item', '[data-ts-pagination]');
 
     function render(page) {
-      current = Math.max(1, Math.min(total, page));
+      total = Math.max(1, parseInt(root.getAttribute('data-ts-total') || '1', 10) || 1);
+      current = Math.max(1, Math.min(total, Number.isFinite(page) ? page : 1));
       root.setAttribute('data-ts-page', String(current));
       nums.forEach(function (btn) {
         var on = parseInt(btn.textContent, 10) === current;
@@ -381,8 +421,8 @@
     nums.forEach(function (btn) {
       btn.addEventListener('click', function () { render(parseInt(btn.textContent, 10)); emit(root, 'ts:change', { page: current }); });
     });
-    if (prev) prev.addEventListener('click', function () { render(current - 1); emit(root, 'ts:change', { page: current }); });
-    if (next) next.addEventListener('click', function () { render(current + 1); emit(root, 'ts:change', { page: current }); });
+    if (prev) prev.addEventListener('click', function () { render((parseInt(root.getAttribute('data-ts-page') || '1', 10) || 1) - 1); emit(root, 'ts:change', { page: current }); });
+    if (next) next.addEventListener('click', function () { render((parseInt(root.getAttribute('data-ts-page') || '1', 10) || 1) + 1); emit(root, 'ts:change', { page: current }); });
     render(current);
   }
 
@@ -784,6 +824,193 @@
     });
   }
 
+  /* Supplemental, registered bindings. All state is scoped to its owning root. */
+  function initBindings() {
+    qsa(document, '[data-ts-config-demo]').forEach(function (form) {
+      var region = form.querySelector('[data-ts-config-region]');
+      var zone = form.querySelector('[data-ts-config-zone]');
+      var range = form.querySelector('[data-ts-config-range]');
+      var rangeValue = form.querySelector('[data-ts-config-range-value]');
+      var min = form.querySelector('[data-ts-config-min]');
+      var max = form.querySelector('[data-ts-config-max]');
+      var start = form.querySelector('[data-ts-config-start]');
+      var end = form.querySelector('[data-ts-config-end]');
+      var feedback = form.querySelector('[data-ts-config-feedback]');
+      function cascade() {
+        if (!region || !zone) return;
+        var valid = false;
+        qsa(zone, 'option').forEach(function (option) {
+          var group = option.getAttribute('data-ts-region');
+          var allowed = !group || group === region.value;
+          option.disabled = !allowed;
+          option.hidden = !allowed;
+          if (option.value === zone.value && allowed) valid = true;
+        });
+        if (!valid) zone.value = '';
+      }
+      function validate() {
+        if (range && rangeValue) rangeValue.textContent = range.value;
+        if (min) min.setCustomValidity('');
+        if (max) max.setCustomValidity('');
+        if (start) start.setCustomValidity('');
+        if (end) end.setCustomValidity('');
+        var message = '';
+        if (min && max && min.value !== '' && max.value !== '' && Number(min.value) > Number(max.value)) {
+          message = '数值区间下限不能大于上限。';
+          max.setCustomValidity(message);
+        }
+        if (start && end && start.value && end.value && end.value < start.value) {
+          message = '结束时间不能早于开始时间（同日）。';
+          end.setCustomValidity(message);
+        }
+        if (feedback) feedback.textContent = message || '区间已核对；仅本地演示，不保存到服务器。';
+      }
+      if (region) region.addEventListener('change', cascade);
+      form.addEventListener('input', validate);
+      form.addEventListener('change', validate);
+      cascade(); validate();
+    });
+    qsa(document, '[data-ts-tab-target]').forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        var root = link.closest('[data-ts-prototype]');
+        var name = link.getAttribute('data-ts-tab-target');
+        var tab = root && qsa(root, '[data-ts-tab]').find(function (candidate) { return candidate.getAttribute('data-ts-tab') === name; });
+        if (!tab) return;
+        event.preventDefault(); tab.click(); tab.focus();
+      });
+    });
+    qsa(document, '[data-ts-rail-target]').forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        var root = link.closest('[data-ts-prototype]');
+        var id = link.getAttribute('data-ts-rail-target');
+        var target = root && qsa(root, '[id]').find(function (candidate) { return candidate.id === id; });
+        if (!target) return;
+        event.preventDefault();
+        qsa(root, '[data-ts-rail-target]').forEach(function (item) { if (item === link) item.setAttribute('aria-current', 'true'); else item.removeAttribute('aria-current'); });
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus(); target.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      });
+    });
+    qsa(document, '[data-ts-filter], [data-ts-table-pages]').forEach(function (root) {
+      // A paginated filter is one controller, even if it carries both markers.
+      if (root.__tsBound) return;
+      root.__tsBound = true;
+      var boundary = '[data-ts-filter], [data-ts-table-pages]';
+      var input = owned(root, '[data-ts-filter-input]', boundary)[0];
+      var items = owned(root, '[data-ts-filter-item]', boundary);
+      if (!items.length && root.hasAttribute('data-ts-table-pages')) items = owned(root, 'tbody tr', boundary);
+      var pagination = root.matches('[data-ts-pagination]') ? root : owned(root, '[data-ts-pagination]', boundary)[0];
+      var size = root.hasAttribute('data-ts-table-pages') ? Math.max(1, Math.min(100, parseInt(root.getAttribute('data-ts-page-size') || '5', 10) || 5)) : 0;
+      var query = input ? input.value.trim().toLocaleLowerCase() : '';
+      function render(reset) {
+        var matches = items.filter(function (item) {
+          var value = item.getAttribute('data-ts-filter-item') || item.textContent || '';
+          return value.toLocaleLowerCase().includes(query);
+        });
+        var pages = size ? Math.max(1, Math.ceil(matches.length / size)) : 1;
+        var current = pagination && !reset ? parseInt(pagination.getAttribute('data-ts-page') || '1', 10) : 1;
+        current = Math.max(1, Math.min(pages, current || 1));
+        items.forEach(function (item) {
+          var index = matches.indexOf(item);
+          item.hidden = index < 0 || (size > 0 && (index < (current - 1) * size || index >= current * size));
+        });
+        owned(root, '[data-ts-filter-count]', boundary).forEach(function (el) { el.textContent = String(matches.length); });
+        owned(root, '[data-ts-filter-empty]', boundary).forEach(function (el) { el.hidden = matches.length !== 0; });
+        if (pagination) {
+          pagination.setAttribute('data-ts-total', String(pages));
+          pagination.setAttribute('data-ts-page', String(current));
+          owned(pagination, '.ts-i-pagination__item', '[data-ts-pagination]').forEach(function (button) {
+            var number = parseInt(button.textContent, 10);
+            button.hidden = number > pages;
+            button.classList.toggle('ts-i-pagination__item--active', number === current);
+            if (number === current) button.setAttribute('aria-current', 'page');
+            else button.removeAttribute('aria-current');
+          });
+          var prev = owned(pagination, '[data-ts-page-prev]', '[data-ts-pagination]')[0];
+          var next = owned(pagination, '[data-ts-page-next]', '[data-ts-pagination]')[0];
+          if (prev) prev.disabled = current === 1;
+          if (next) next.disabled = current === pages;
+        }
+      }
+      if (input) input.addEventListener('input', function () { query = input.value.trim().toLocaleLowerCase(); render(true); });
+      if (pagination) pagination.addEventListener('ts:change', function (event) { if (event.target === pagination) render(false); });
+      root.addEventListener('ts:items-change', function (event) { if (event.target === root) render(false); });
+      render(true);
+    });
+    qsa(document, '[data-ts-bulk-demo]').forEach(function (root) {
+      var boundary = '[data-ts-bulk-demo]';
+      var boxes = owned(root, 'input[type="checkbox"][data-ts-bulk-select]', boundary);
+      var button = owned(root, 'button[data-ts-bulk-archive]', boundary)[0];
+      var count = owned(root, '[data-ts-bulk-count]', boundary)[0];
+      var feedback = owned(root, '[data-ts-bulk-feedback]', boundary)[0];
+      if (!button) return;
+      function selected() { return boxes.filter(function (box) { return box.checked && !box.matches(':disabled'); }); }
+      function update() {
+        var total = selected().length;
+        if (count) count.textContent = String(total);
+        button.disabled = total === 0;
+      }
+      boxes.forEach(function (box) { box.addEventListener('change', update); });
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        var changed = 0;
+        selected().forEach(function (box) {
+          var row = box.closest('tr');
+          var status = row && row.querySelector('[data-ts-bulk-status]');
+          if (!row || row.closest(boundary) !== root || !status) return;
+          status.textContent = '已归档（本地演示）';
+          box.checked = false;
+          changed++;
+        });
+        if (feedback && changed) {
+          feedback.hidden = false;
+          feedback.textContent = '已在本地演示中归档 ' + changed + ' 条选中记录；未保存到服务器，刷新后恢复。';
+        }
+        update();
+        emit(root, 'ts:items-change', null);
+      });
+      update();
+    });
+    qsa(document, 'form[data-ts-chat-form]').forEach(function (form) {
+      var prototype = form.closest('[data-ts-prototype]');
+      var scope = form.parentElement;
+      var messages;
+      while (scope) {
+        var candidates = qsa(scope, '[data-ts-chat-messages]').filter(function (element) { return element.closest('[data-ts-prototype]') === prototype; });
+        var forms = qsa(scope, 'form[data-ts-chat-form]').filter(function (element) { return element.closest('[data-ts-prototype]') === prototype; });
+        if (candidates.length === 1 && forms.length === 1) { messages = candidates[0]; break; }
+        if (scope === prototype || !prototype) break;
+        scope = scope.parentElement;
+      }
+      var input = form.querySelector('textarea, input:not([type="hidden"])');
+      if (!messages || !input) return;
+      bindFormAction(form, function () {
+        var value = input.value.trim();
+        if (!value || !form.checkValidity()) { form.reportValidity(); return; }
+        var item = document.createElement('p');
+        item.textContent = value;
+        messages.appendChild(item);
+        var notice = document.createElement('p');
+        notice.textContent = '演示消息已加入；此原型未连接 AI 或服务器。';
+        notice.setAttribute('role', 'status');
+        messages.appendChild(notice);
+        input.value = '';
+        input.focus();
+      });
+    });
+    qsa(document, 'form[data-ts-demo-save]').forEach(function (form) {
+      bindFormAction(form, function () {
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        var feedback = form.querySelector('[data-ts-demo-feedback]');
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.setAttribute('role', 'status');
+          feedback.textContent = '演示校验通过；未向服务器提交或永久保存。';
+        }
+      });
+    });
+  }
+
   /* ---------------- init ---------------- */
 
   function init() {
@@ -807,6 +1034,7 @@
     initMobileNavs();
     initCopyBlocks();
     initTocOutlines();
+    initBindings();
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeActiveOverlay();

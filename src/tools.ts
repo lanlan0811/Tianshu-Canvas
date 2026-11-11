@@ -24,6 +24,9 @@ import {
   writeSnapshot,
 } from './audit/drift.js'
 import { compareWithBaselines, defaultBaselineDir, formatVisualReport, writeBaselines } from './audit/visual.js'
+import { reviewPage, formatReviewReport } from './audit/review.js'
+import { readPageBrief, savePageBrief } from './brief.js'
+import { listPrototypes, getPrototype, listDirections, getDirection } from './prototypes.js'
 import { buildBrandPack, exportBrandPack, forgetStyle, importBrandPack, memorySummary, recordUsage, verifyBrandPack } from './brand.js'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
 import { isWorkerSession, warnUser } from './host.js'
@@ -37,6 +40,7 @@ import {
   isBuiltinStyle,
   loadDesignCatalog,
   resolveDesignStyle,
+  readDesignMarker,
   stripDesign,
   type ResolvedStyle,
 } from './design.js'
@@ -172,8 +176,8 @@ async function canvasOpen(call: ToolCall): Promise<ToolResult> {
       `画布服务已就绪。请立刻把下面这一行原样发给用户（单独一行，便于点击）：\n` +
       `${url}\n` +
       `画布链接含访问凭证，请只提供给本机的授权使用者；不要公开分享。服务关闭后旧链接失效。\n` +
-      `在用户拿到链接后，先确认设计风格（canvas_get_state 看「设计风格」段；若为「自由发挥」且用户没指定过风格，\n` +
-      `用 canvas_style（action=list）把风格名作为选项问用户一次并等回答），再开始写原型。\n` +
+      `在用户拿到链接后，用 canvas_get_state 看品牌、锁定风格和已确认简报；提炼受众、主张、证据与主行动。\n` +
+      `新营销页面默认同一内容生成两个结构与排版不同的首屏供选，用户明确选择后保存 brief 并原位深化；应用按任务选 prototype。已有品牌、指定布局与风格优先。\n` +
       `工作区：${call.cwd}\n` +
       `项目文件：${projectFile(call.cwd)}\n` +
       `操作提示：空格+拖拽 或 中键拖拽 平移；Ctrl+滚轮 缩放；普通滚轮 平移。`,
@@ -451,7 +455,7 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
 
   const styleId = project.design?.styleId ?? null
   if (styleId === null) {
-    sections.push('设计风格：自由发挥（未锁定风格）。生成原型前先与用户确认风格；可用 canvas_style（action=list）给出选项。')
+    sections.push('设计风格：自由发挥（未锁定风格）。优先遵守品牌与内容简报；营销页面默认先出两个不同首屏供用户选择，再原位深化；应用按任务选原型。可用 canvas_style direction / prototype 按需读取。')
   } else {
     const summary = designStyleSummary(call.cwd, styleId)
     sections.push(
@@ -485,6 +489,15 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
       (e) => `- ${titleOf(e.source)}（${e.source}） → ${titleOf(e.target)}（${e.target}）${e.label ? `：${e.label}` : ''}`,
     )
     sections.push(`页面连线（${project.edges.length} 条）：\n${lines.join('\n')}`)
+  }
+
+  if (project.pageBriefs && Object.keys(project.pageBriefs).length) {
+    const lines = project.nodes.filter(n => project.pageBriefs?.[n.id]).map(n => {
+      const brief = project.pageBriefs![n.id]!
+      const decision = brief.confirmedDirection
+      return `${n.title}（${n.id}）：${decision ? '用户已确认 ' + decision.directionId + '；理由：' + decision.reason + '；确认时间：' + decision.confirmedAt : '未确认草稿' + (brief.directionId ? ' ' + brief.directionId : '')}${brief.prototypeId ? '；原型：' + brief.prototypeId : ''}；完整简报用 canvas_style action=brief,page_id=${n.id} 读取。`
+    })
+    sections.push('页面设计简报（选中节点不等于确认）：\n' + lines.join('\n'))
   }
 
   if (selection) {
@@ -588,7 +601,7 @@ function formatStyleList(cwd: string): string {
     `${catalog.notice}\n\n可选设计风格（项目级锁定）：\n${lines.join('\n')}\n\n` +
     `当前：${current ? `已锁定 ${designStyleSummary(cwd, current)?.name ?? current}（${current}）` : '自由发挥（未锁定）'}\n` +
     `锁定/切换：canvas_style（action=set, style_id=<id>）；回到自由发挥：style_id=free。\n` +
-    `用户没有指定风格时，把上面的风格名作为选项问用户一次（含「自由发挥」）。`
+    `风格控制 token 外观；新营销页面默认先双首屏选稿，用 direction / prototype 读取内容匹配的构图与原型；不必先按风格名提问。`
   )
 }
 
@@ -702,7 +715,11 @@ function buildCodegenFiles(call: ToolCall, target: string, stack: string | undef
   if (WEB_TARGETS.has(target)) {
     const styleId = str(call.args.style_id) ?? currentStyleId(call.cwd)
     if (target === 'react') {
-      return { files: toReactComponent(resolved.html).map((f) => ({ name: f.name, content: f.content })), label: resolved.label }
+      const themeId = styleId && styleId !== 'free' ? styleId : readDesignMarker(resolved.html)?.styleId
+      const theme = themeId ? resolveDesignStyle(call.cwd, themeId) : null
+      const files = toReactComponent(resolved.html).map((f) => ({ name: f.name, content: f.content }))
+      files.push({ name: 'tokens.css', content: theme?.tokensCss ?? '' }, { name: 'components.css', content: theme?.componentsCss ?? '' })
+      return { files, label: resolved.label }
     }
     if (!styleId || styleId === 'free') {
       return { files: [], label: '', error: `${target} 需要已锁定风格（或传 style_id）；当前为自由发挥。` }
@@ -826,7 +843,7 @@ async function canvasCodegen(call: ToolCall): Promise<ToolResult> {
 
 function codegenCaveat(target: string): string {
   if (target === 'react') {
-    return '注意：产物依赖同目录的 components.css 与 tokens.css（--ts-* 变量）；原型的 <style>/内联样式无法 1:1 映射，必要处请人工校对。'
+    return '注意：已附 tokens.css、components.css 与 layout.css；原型脚本不会迁移到 React，动态行为需用 React 状态与事件实现并验收。'
   }
   if (PLATFORM_TARGETS.has(target as PlatformTarget)) {
     return '注意：多端产物只保证**主题/Token 与 design-spec.md 规格**确定性正确；**页面代码需你按规格编写**（HTML→原生必然有损，flex/grid、伪元素、自定义滚动无法 1:1）。请不要声称「像素级还原」。'
@@ -837,6 +854,32 @@ function codegenCaveat(target: string): string {
 async function canvasStyle(call: ToolCall): Promise<ToolResult> {
   const action = str(call.args.action) ?? 'list'
   try {
+    if (action === 'prototype' || action === 'direction') {
+      const rawId = call.args[action === 'prototype' ? 'prototype_id' : 'direction_id']
+      if (rawId !== undefined && (typeof rawId !== 'string' || !rawId.trim())) {
+        return { content: '原型或方向 ID 必须是非空字符串。', isError: true }
+      }
+      const id = typeof rawId === 'string' ? rawId : undefined
+      if (!id) {
+        const entries = action === 'prototype' ? listPrototypes() : listDirections()
+        return { content: JSON.stringify({ action, entries, next: action === 'prototype'
+          ? '指定 prototype_id 按需读取完整 HTML 与适用条件；按内容重新设计，不把示例演示数据当事实。'
+          : '指定 direction_id 读取构图指导与原创示例。营销页面先用相同内容生成两个不同首屏，用户明确选择后保存 brief.confirmation。' }, null, 2) }
+      }
+      const override = str(call.args.style_id)
+      if (override && override !== 'free' && !designStyleExists(call.cwd, override)) return { content: `未知的设计风格：${override}`, isError: true }
+      const styleId = override === 'free' ? 'tianshu-original' : (override ?? currentStyleId(call.cwd) ?? 'tianshu-original')
+      const doc = action === 'prototype' ? getPrototype(id, styleId, call.cwd) : getDirection(id, styleId, call.cwd)
+      return doc ? { content: JSON.stringify(doc, null, 2) } : { content: `未知的${action === 'prototype' ? '原型' : '方向'}：${id}`, isError: true }
+    }
+
+    if (action === 'brief') {
+      const pageId = str(call.args.page_id)
+      if (!pageId) return { content: 'brief 需要 page_id，简报只关联指定页面。', isError: true }
+      const brief = call.args.brief === undefined ? readPageBrief(call.cwd, pageId) : savePageBrief(call.cwd, pageId, call.args.brief)
+      return { content: JSON.stringify({ pageId, brief, notice: 'confirmedDirection 只表示已明确记录的用户选择；未确认草稿不代表用户认可。' }, null, 2) }
+    }
+
     if (action === 'list') return { content: formatStyleList(call.cwd) }
 
     if (action === 'get') {
@@ -844,7 +887,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       if (!styleId || styleId === 'free') {
         return {
           content:
-            '当前未锁定风格（自由发挥）。先用 canvas_style（action=list）查看可选风格，再用 action=set 锁定。',
+            '当前未锁定风格（自由发挥）。direction / prototype 可直接读取原创设计；如用户需要统一 token，再用 list / set 显式锁定。',
         }
       }
       if (!designStyleExists(call.cwd, styleId)) return { content: `未知的设计风格：${styleId}`, isError: true }
@@ -915,7 +958,7 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
       }
     }
 
-    return { content: `未知的 action：${action}。可选：list / get / set / template / interaction / codegen。`, isError: true }
+    return { content: `未知的 action：${action}。可选：list / get / set / template / interaction / prototype / direction / brief / codegen。`, isError: true }
   } catch (err) {
     return { content: (err as Error).message, isError: true }
   }
@@ -932,9 +975,10 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
     return { content: `未知的设计风格：${override}。可用 canvas_style（action=list）查看可选风格。`, isError: true }
   }
   const styleId = override === 'free' ? null : (override ?? currentStyleId(call.cwd))
+  const pageTheme = (html: string): string | null => override !== undefined ? styleId : (styleId ?? readDesignMarker(html)?.styleId ?? null)
 
   if (inlineHtml !== undefined) {
-    const report = lintHtml(inlineHtml, styleId, call.cwd)
+    const report = lintHtml(inlineHtml, pageTheme(inlineHtml), call.cwd)
     return { content: formatLintReport(report, '直接检查传入的 HTML') }
   }
 
@@ -942,7 +986,7 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   if (pageId) {
     const html = readPageHtml(call.cwd, pageId)
     if (html === null) return { content: `页面不存在：${pageId}`, isError: true }
-    const report = lintHtml(html, styleId, call.cwd)
+    const report = lintHtml(html, pageTheme(html), call.cwd)
     return { content: formatLintReport(report, `页面 id=${pageId}`) }
   }
 
@@ -953,7 +997,7 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   for (const node of project.nodes) {
     const html = readPageHtml(call.cwd, node.id)
     if (html === null) continue
-    const report = lintHtml(html, styleId, call.cwd)
+    const report = lintHtml(html, pageTheme(html), call.cwd)
     total += report.total
     if (report.total > 0) reports.push(formatLintReport(report, `页面「${node.title}」(id=${node.id})`))
   }
@@ -1310,6 +1354,13 @@ function auditPages(call: ToolCall): { pages: { id: string; title: string; html:
 async function canvasAudit(call: ToolCall): Promise<ToolResult> {
   const action = str(call.args.action) ?? 'contract'
   try {
+    if (action === 'review') {
+      const pageId = str(call.args.page_id)
+      if (!pageId) return { content: 'review 需要 page_id；逐页生成桌面、平板和手机截图与客观报告。', isError: true }
+      const result = await reviewPage(call.cwd, pageId, { outputDir: str(call.args.out_dir) })
+      return { content: formatReviewReport(result) }
+    }
+
     if (action === 'contract') {
       const { pages, error } = auditPages(call)
       if (error) return { content: error, isError: true }
@@ -1408,7 +1459,7 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       return { content: formatVisualReport(result, false) }
     }
 
-    return { content: `未知的 action：${action}。可选：contract / a11y / visual / baseline / drift。`, isError: true }
+    return { content: `未知的 action：${action}。可选：contract / a11y / visual / baseline / drift / review。`, isError: true }
   } catch (err) {
     return { content: (err as Error).message, isError: true }
   }
@@ -1518,7 +1569,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_upsert_page',
-      description: '新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选把外链资源内联为 data: URI）。调用前必须先 canvas_open，并已确认设计风格',
+      description: '新增或更新画布页面节点（写入 HTML 原型，或仅改标题/位置/尺寸；可选内联资源）。先 canvas_open；营销页面默认双首屏选稿，已有品牌和指定布局优先，用户选择后原位深化',
       input_schema: {
         type: 'object',
         properties: {
@@ -1606,15 +1657,16 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_style',
-      description: '列出/查看/锁定/切换项目级设计风格，取页面模板 HTML，取交互模式骨架，或导出生产代码。用户未指定风格时先用 action=list 列出并把风格名作为选项问用户一次，等回答后再继续',
+      description: '管理设计风格，按需读取原创原型和视觉方向，保存页面简报及用户确认，读取模板与交互或导出代码。营销页面默认先出两个不同首屏，用户选择后深化；已有品牌与锁定风格优先',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['list', 'get', 'set', 'template', 'interaction', 'codegen'],
+            enum: ['list', 'get', 'set', 'template', 'interaction', 'prototype', 'direction', 'brief', 'codegen'],
             description:
-              'list=列出全部可选风格与当前状态（用户没指定风格时据此提问）；get=查看某风格的 token/组件类/图标名/交互清单；' +
+              'list=列出可选风格与当前状态；get=查看某风格的 token/组件类/图标名/交互清单；' +
+              'prototype=列出原型或用 prototype_id 读完整 HTML；direction=列出方向或用 direction_id 读原创示例；brief=读取或用 brief 对象保存 page_id 的简报；' +
               'set=锁定或切换风格；template=取 dashboard/landing 模板的完整 HTML，可直接传给 canvas_upsert_page；' +
               'interaction=取某个交互模式（tabs/modal/drawer 等）的骨架 HTML 与用法，可直接放进页面；' +
               'codegen=导出生产代码（**必须先问用户要哪种目标**，不要自行假定）',
@@ -1624,6 +1676,22 @@ export const tools: TpiTool[] = [
             description: '风格 id（set/get/template/interaction/codegen 使用），内置或自定义均可；free 表示解除锁定',
           },
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
+          prototype_id: { type: 'string', description: 'prototype：中性原型 ID，省略列出所有摘要；指定后返回完整 HTML、内容要求及响应式说明' },
+          direction_id: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster'], description: 'direction：视觉方向 ID；省略列出摘要。方向与风格、原型分别选择' },
+          brief: {
+            type: 'object', description: 'brief：指定页面简报的部分更新；省略则读取。不得代填用户确认或虚构证据',
+            properties: {
+              audience: { type: 'string', maxLength: 2000 }, purpose: { type: 'string', maxLength: 2000 },
+              proposition: { type: 'string', maxLength: 2000 }, primaryAction: { type: 'string', maxLength: 2000 },
+              evidence: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 2000 } },
+              assets: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 2000 } },
+              brandConstraints: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 2000 } },
+              prototypeId: { type: 'string' }, directionId: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster'] },
+              confirmation: { type: 'object', description: '仅用户已明确选择后传入；不能从复制、选中节点或代理偏好推断认可',
+                properties: { confirmed: { type: 'boolean', enum: [true] }, directionId: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster'] }, reason: { type: 'string', minLength: 1, maxLength: 2000 } },
+                required: ['confirmed', 'directionId', 'reason'], additionalProperties: false },
+            }, additionalProperties: false,
+          },
           interaction_id: {
             type: 'string',
             description: 'action=interaction 时使用：交互模式 id（如 tabs / modal / drawer / dropdown / accordion / toast / tooltip / loading-skeleton / progress / form-validation / segmented / switch / stepper / pagination / sortable-table / date-picker / scroll-progress / sticky-header / scroll-reveal / tilt-card / mobile-nav / copy-code / toc-outline）',
@@ -1641,7 +1709,7 @@ export const tools: TpiTool[] = [
               '**多端导出前必须先问用户选哪种技术栈并等回答，不得替用户决定**（也可多选多端）。' +
               '多端产物是「主题/Token 文件 + design-spec.md 规格清单」，**页面代码由你按规格编写**（HTML→原生必然有损，不得声称像素级还原）',
           },
-          page_id: { type: 'string', description: 'codegen：要转换的页面 id；省略时若画布只有一个页面则用它' },
+          page_id: { type: 'string', description: 'brief：必填关联页面 ID；codegen：要转换的页面 id，省略时若画布只有一个页面则用它' },
           html: { type: 'string', description: 'codegen：直接传入源 HTML（优先于 page_id）' },
           out_dir: { type: 'string', description: 'codegen：落盘目录（默认 .tianshu-canvas/exports/<target>/）。宿主会把该参数规范化为绝对路径' },
           write_files: { type: 'boolean', description: 'codegen：是否写到磁盘（默认 false，直接返回文件内容）' },
@@ -1763,23 +1831,23 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_audit',
-      description: '设计 CI 审计：契约（token/裸色/间距/图标）、可访问性（对比度/可访问名/焦点/目标尺寸）、视觉回归（截图基线 diff）与设计漂移',
+      description: '设计 CI 审计：设计契约、可访问性、视觉回归、设计漂移；review 对指定页面生成桌面/平板/手机截图与客观报告，审美判断需要真实读图和用户评审',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['contract', 'a11y', 'visual', 'baseline', 'drift'],
+            enum: ['contract', 'a11y', 'visual', 'baseline', 'drift', 'review'],
             description:
               'contract=源码级设计契约（确定性，无需浏览器）；a11y=渲染后可访问性审计（需要 Chrome/Edge）；' +
-              'baseline=写入视觉基线（覆盖式）；visual=与基线逐像素比较；drift=与上次设计快照比较',
+              'baseline=写入视觉基线（覆盖式）；visual=与基线逐像素比较；drift=与上次设计快照比较；review=指定 page_id 的多尺寸截图与客观报告，不自动评审审美',
           },
           page_id: { type: 'string', description: '只审计指定页面；省略则审计全部页面' },
           style_id: { type: 'string', description: '覆盖当前锁定的风格；free 表示不做风格相关检查' },
           write_files: { type: 'boolean', description: 'contract：把可独立运行的 *.audit.test.mjs 落到 out_dir（默认 false）' },
           out_dir: {
             type: 'string',
-            description: 'contract：测试文件落盘目录（默认 .tianshu-canvas/exports/audit/）；drift：快照目录（默认 .tianshu-canvas/audit/）',
+            description: 'contract：测试文件落盘目录；drift：快照目录；review：截图与报告目录，必须在工作区内（默认 .tianshu-canvas/audit/review）',
           },
           baseline_dir: {
             type: 'string',

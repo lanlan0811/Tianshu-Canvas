@@ -1,0 +1,97 @@
+<main data-ts-prototype="workspace-settings">
+<div class="tp-wrap">
+<header id="intro" class="tp-nav">
+<a class="tp-mark" href="#intro">WORKSPACE / 设置</a>
+<span class="tp-label">配置演示 / 演示</span>
+</header>
+<div class="tp-settings-layout">
+<aside class="tp-doc-nav">
+<a href="#intro">设置概览</a>
+<a href="#defaults">默认行为</a>
+<a href="#installed">已安装能力</a>
+<a href="#permissions">权限</a>
+</aside>
+<form class="ts-i-form tp-stack" data-ts-form data-ts-demo-save novalidate>
+<header class="tp-stack">
+<span class="tp-eyebrow">本地演示 / 非实际配置</span>
+<h1>明确每一次允许。</h1>
+<p>设置应解释改变什么、何时生效，以及仍需要哪些确认。</p>
+</header>
+<section id="defaults" class="tp-card tp-stack">
+<h2>默认行为</h2>
+<div class="ts-i-form__field tp-field">
+<label for="workspace-label">工作区显示名称</label>
+<input id="workspace-label" name="label" value="设计协作组（演示）" required>
+<p class="ts-i-form__error" aria-live="polite">
+</p>
+</div>
+<div class="tp-setting-row">
+<div>
+<strong>修改前显示确认</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch ts-switch--on" data-ts-switch role="switch" aria-checked="true" aria-label="修改前显示确认" id="setting-review">
+</button>
+</div>
+<div class="tp-setting-row">
+<div>
+<strong>保留演示编辑记录</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch " data-ts-switch role="switch" aria-checked="false" aria-label="保留演示编辑记录" id="setting-history">
+</button>
+</div>
+</section>
+<section id="installed" class="tp-card tp-stack">
+<h2>已安装能力</h2>
+<div class="tp-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>页面预览</td>
+<td>演示可见</td>
+<td>不代表实际安装状态</td>
+</tr>
+<tr>
+<td>本地检索</td>
+<td>未接入</td>
+<td>不读取本机文件</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="permissions" class="tp-card tp-stack">
+<h2>运行权限</h2>
+<p>真实权限变更需要正式授权流程。这里的开关仅展示状态，不获取或撤销系统权限。</p>
+<div class="tp-setting-row">
+<div>
+<strong>演示网络能力</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch " data-ts-switch role="switch" aria-checked="false" aria-label="演示网络能力" id="setting-network">
+</button>
+</div>
+<div class="tp-setting-row">
+<div>
+<strong>演示文件能力</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch " data-ts-switch role="switch" aria-checked="false" aria-label="演示文件能力" id="setting-files">
+</button>
+</div>
+</section>
+<button class="tp-button tp-button-primary" type="submit">核对演示设置</button>
+<p data-ts-demo-feedback aria-live="polite">未提交，仅当前页有效。</p>
+</form>
+</div>
+<p class="tp-demo-note">原创演示 · 本地交互，不连接AI、账号、文件系统或外部服务。</p>
+</div>
+</main>

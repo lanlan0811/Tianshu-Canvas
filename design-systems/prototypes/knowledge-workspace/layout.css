@@ -1,0 +1,17 @@
+:scope .tp-knowledge-layout{display:grid;grid-template-columns:220px minmax(0,1fr)}
+
+:scope .tp-reading-article{margin-inline:auto;padding:var(--ts-space-8) 0;max-width:62ch}
+
+:scope .tp-reading-article h2{font-family:var(--ts-font-display);font-size:clamp(2rem,4vw,4rem)}
+
+:scope .tp-reading-deck{font-size:var(--ts-fs-xl)}
+
+:scope .tp-reading-article blockquote{margin:0;padding:var(--ts-space-6);border-left:2px solid var(--ts-color-action-primary);font-family:var(--ts-font-display);font-size:var(--ts-fs-2xl)}
+
+:scope .tp-setting-row{display:flex;justify-content:space-between;gap:var(--ts-space-6);padding:var(--ts-space-5) 0;border-bottom:1px solid var(--ts-color-border-default)}
+
+:scope .ts-tabs{flex-wrap:wrap}
+
+@media(max-width:780px){:scope .tp-knowledge-layout{grid-template-columns:1fr}
+
+}

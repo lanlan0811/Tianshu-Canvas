@@ -1,0 +1,95 @@
+<main data-ts-prototype="implementation-brief">
+<div class="tp-wrap">
+<header id="intro" class="tp-nav">
+<a class="tp-mark" href="#intro">PLAN / 实施笔记</a>
+<span class="tp-label">原创方案示例 / 演示</span>
+</header>
+<div class="tp-plan-layout">
+<aside class="tp-plan-nav">
+<span class="tp-label">方案目录</span>
+<a href="#intro">目标与范围</a>
+<a href="#milestones">里程碑</a>
+<a href="#flow">数据流</a>
+<a href="#mockup">界面示意</a>
+<a href="#code">接口示例</a>
+<a href="#risks">风险与待决项</a>
+</aside>
+<article class="tp-prose">
+<header id="intro" class="tp-stack">
+<span class="tp-eyebrow">DRAFT 01 / 仅为演示内容</span>
+<h1>让每次选择，<br>都有可继续的上下文。</h1>
+<p>一份围绕“保存设计选择”的原创技术方案示例。代码只作为文档展示，不在此页面执行。</p>
+<div class="tp-card">
+<strong>目标</strong>
+<p>把简报、用户明确选择的方向及理由放在页面上下文中。</p>
+<strong>边界</strong>
+<p>不保存完整对话，不自动推断认可，不涉及真实生产实施。</p>
+</div>
+</header>
+<section id="milestones" class="tp-stack tp-section">
+<h2>01 / 里程碑</h2>
+<ol class="tp-activity">
+<li>
+<strong>建立数据契约</strong>
+<p>定义字段、限制与旧项目兼容。</p>
+</li>
+<li>
+<strong>连接保存与读取</strong>
+<p>确认页面存在，写入必须原子化。</p>
+</li>
+<li>
+<strong>验证重复与跨时间操作</strong>
+<p>复制、删除、再次进入与失败反馈。</p>
+</li>
+</ol>
+</section>
+<section id="flow" class="tp-stack">
+<h2>02 / 数据流</h2>
+<div class="tp-flow-diagram" aria-label="需求输入到简报再到用户确认的流程">
+<div>需求输入</div>
+<span>1 → 2</span>
+<div>内容简报</div>
+<span>2 → 3</span>
+<div>用户确认</div>
+</div>
+<p>只有明确的确认动作可以记录认可；复制既有数据不等于新选择。</p>
+</section>
+<section id="mockup" class="tp-stack tp-section">
+<h2>03 / 界面示意</h2>
+<div class="tp-card tp-stack">
+<span class="tp-label">原创mockup / 非真实截图</span>
+<h3>这次选择的理由</h3>
+<p>方向：编辑叙事</p>
+<p>理由：内容以观点为主，需要读者先理解论点。</p>
+</div>
+</section>
+<section id="code" class="tp-stack">
+<h2>04 / 接口示例</h2>
+<pre class="tp-plan-code">type DemoChoice = {
+  pageId: string
+  directionId: string
+  confirmed: boolean
+  reason: string
+}</pre>
+<p>这是用于排版说明的示例类型，不是项目当前API保证。</p>
+</section>
+<section id="risks" class="tp-stack tp-section">
+<h2>05 / 风险与待决项</h2>
+<details open>
+<summary>状态会不会被误认为已确认？</summary>
+<p>必须区分建议、选择与明确认可，不由代理代填用户偏好。</p>
+</details>
+<details>
+<summary>旧数据怎么办？</summary>
+<p>新增信息应为可选字段，不强迫旧项目迁移。</p>
+</details>
+<details>
+<summary>仍待决定</summary>
+<p>确认交互、存储上限与用户可见反馈，需要在实际任务里验证。</p>
+</details>
+</section>
+</article>
+</div>
+<p class="tp-demo-note">原创演示 · 本地交互，不连接AI、账号、文件系统或外部服务。</p>
+</div>
+</main>

@@ -1,0 +1,19 @@
+:scope .tp-saas-hero{display:grid;grid-template-columns:1.5fr 1fr;gap:var(--ts-space-12);padding:clamp(3rem,7vw,6rem) 0;align-items:center}
+
+:scope .tp-saas-hero h1{font-size:clamp(3rem,6.8vw,6.5rem)}
+
+:scope .tp-saas-timeline{padding:var(--ts-space-8);background:var(--ts-color-bg-sunken);border-top:4px solid var(--ts-color-action-primary)}
+
+:scope .tp-saas-timeline h3{font-size:var(--ts-fs-3xl);margin:var(--ts-space-6) 0}
+
+:scope .tp-saas-timeline ol{display:grid;gap:var(--ts-space-8);padding-left:var(--ts-space-5)}
+
+:scope .tp-saas-timeline li span{display:block;font-size:var(--ts-fs-sm);margin-top:var(--ts-space-2)}
+
+:scope .tp-saas-tabs .ts-i-tabs__panel{min-height:200px}
+
+:scope .tp-saas-tabs .ts-tabs{flex-wrap:wrap}
+
+@media(max-width:780px){:scope .tp-saas-hero{grid-template-columns:1fr}
+
+}

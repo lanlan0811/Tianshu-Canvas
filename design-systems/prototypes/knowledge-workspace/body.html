@@ -1,0 +1,92 @@
+<main data-ts-prototype="knowledge-workspace">
+<div class="tp-knowledge-layout">
+<aside class="tp-sidebar">
+<a class="tp-mark" href="#intro">阅间 / COMMON</a>
+<span class="tp-label">私人阅读工作区 / 演示</span>
+<nav aria-label="内容目录">
+<a href="#intro">阅读台</a>
+<a href="#reading">当前文章</a>
+<a href="#notes">数据边界</a>
+</nav>
+<div class="tp-card">
+<span class="tp-label">本周阅读 / 演示</span>
+<div class="tp-metric">03</div>
+<p>篇虚构示例</p>
+</div>
+</aside>
+<div class="tp-app-main">
+<header id="intro" class="tp-nav">
+<a class="tp-mark" href="#intro">留一点时间，完整地读。</a>
+<span class="tp-label">知识工作区 / 演示</span>
+</header>
+<div id="reading">
+<div class="ts-i-tabs " data-ts-tabs>
+<div class="ts-tabs" role="tablist" aria-label="应用视图">
+<button class="ts-tab ts-tab--active" role="tab" data-ts-tab="read">继续阅读</button>
+<button class="ts-tab " role="tab" data-ts-tab="threads">思考线程</button>
+<button class="ts-tab " role="tab" data-ts-tab="saved">收藏</button>
+<button class="ts-tab " role="tab" data-ts-tab="settings">偏好</button>
+</div>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="read">
+<article class="tp-reading-article tp-prose">
+<span class="tp-eyebrow">阅读中 / 虚构文章</span>
+<h2>把注意力留给值得的事。</h2>
+<p class="tp-reading-deck">在不断增加的输入中，为一段完整的思考留出位置。</p>
+<p>一份好的阅读记录不只是摘录。它还应该留下当时的问题，以及这段文字为什么值得再看。</p>
+<blockquote>先理解，再收藏。</blockquote>
+<p>这是一篇原创演示短文，没有冒充外部作者或真实出版物。替换时请记录实际作者、来源和使用权限。</p>
+<details>
+<summary>查看阅读问题</summary>
+<p>这段内容改变了什么判断？还有什么需要去确认？</p>
+</details>
+<label class="tp-field">阅读笔记<textarea rows="4" placeholder="在当前页面记下一个问题，切换标签后仍保留">
+</textarea>
+</label>
+</article>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="threads" hidden>
+<article class="tp-card tp-stack">
+<h2>一个问题，一条线索。</h2>
+<p>线程示例：如何区分信息与判断？</p>
+<details>
+<summary>展开思考记录</summary>
+<p>先保留来源，再标记推测。当前文本为演示。</p>
+</details>
+</article>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="saved" hidden>
+<article class="tp-card tp-stack">
+<h2>准备重读</h2>
+<p>把注意力留给值得的事 / 原创演示文章</p>
+<p>收藏只是一份示例列表，并未保存到真实账号。</p>
+</article>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="settings" hidden>
+<div class="tp-card tp-stack">
+<h2>阅读偏好</h2>
+<div class="tp-setting-row">
+<div>
+<strong>专注模式</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch ts-switch--on" data-ts-switch role="switch" aria-checked="true" aria-label="专注模式" id="reading-focus">
+</button>
+</div>
+<div class="tp-setting-row">
+<div>
+<strong>显示阅读提示</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch " data-ts-switch role="switch" aria-checked="false" aria-label="显示阅读提示" id="reading-notes">
+</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+<div id="notes">
+<p class="tp-demo-note">原创演示 · 本地交互，不连接AI、账号、文件系统或外部服务。</p>
+</div>
+</div>
+</div>
+</main>

@@ -1,0 +1,76 @@
+<main data-ts-prototype="admin-create">
+<div class="tp-app">
+<aside class="tp-sidebar">
+<a class="tp-mark" href="#intro">创建 / SETUP</a>
+<nav aria-label="工作区目录">
+<a href="#intro" aria-current="page">当前任务</a>
+<a href="#details">详细信息</a>
+<a href="#notes">操作说明</a>
+</nav>
+<p class="tp-demo-note">原创演示工作台<br>数据与操作均为本地示例。</p>
+</aside>
+<div class="tp-app-main">
+<header id="intro" class="tp-app-header">
+<div class="tp-stack">
+<div class="tp-eyebrow">工作区 / 创建演示</div>
+<h1>建立一个工作区</h1>
+</div>
+<span class="tp-badge">演示工作区</span>
+</header>
+<div class="tp-create-layout">
+<aside class="tp-create-steps">
+<div class="tp-label">创建流程</div>
+<ol>
+<li>
+<strong>01 基础信息</strong>
+<p>名称与负责人</p>
+</li>
+<li>
+<strong>02 使用边界</strong>
+<p>默认行为与权限</p>
+</li>
+<li>
+<strong>03 确认配置</strong>
+<p>仅本地演示反馈</p>
+</li>
+</ol>
+</aside>
+<form id="details" class="ts-i-form tp-card tp-stack" data-ts-form data-ts-demo-save data-ts-config-demo novalidate>
+<h2>基础信息</h2>
+<div class="tp-form-grid">
+<div class="ts-i-form__field tp-field">
+<label for="workspace-name">工作区名称</label>
+<input id="workspace-name" name="workspace" required minlength="2" placeholder="例如：设计协作组">
+<p class="ts-i-form__error" aria-live="polite">
+</p>
+</div>
+<div class="ts-i-form__field tp-field">
+<label for="workspace-email">负责人邮箱</label>
+<input id="workspace-email" name="email" type="email" required placeholder="name@example.test">
+<p class="ts-i-form__error" aria-live="polite">
+</p>
+</div>
+</div>
+<h3>使用边界</h3>
+<fieldset class="tp-config-fieldset tp-stack"><legend>部署范围 / 演示级联配置</legend>
+<div class="tp-form-grid"><label class="tp-field">区域<select data-ts-config-region name="region"><option value="east">东区</option><option value="south">南区</option></select></label><label class="tp-field">分区<select data-ts-config-zone name="zone"><option value="">请选择分区</option><option value="east-a" data-ts-region="east">东区 A</option><option value="east-b" data-ts-region="east">东区 B</option><option value="south-a" data-ts-region="south">南区 A</option><option value="south-b" data-ts-region="south">南区 B</option></select></label></div>
+<label class="tp-field">启用功能（可多选；按住 Ctrl 或 Command 配合选择）<select id="config-features" name="features" multiple size="3"><option value="preview" selected>页面预览</option><option value="review">人工审阅</option><option value="archive">交付归档</option></select></label>
+<label class="tp-field">示例并发上限<input data-ts-config-range name="concurrency" type="range" min="1" max="10" value="3"><output data-ts-config-range-value>3</output></label>
+<div class="tp-form-grid"><label class="tp-field">预算区间下限（演示单位）<input data-ts-config-min name="minimum" type="number" min="0" max="100" value="10"></label><label class="tp-field">预算区间上限（演示单位）<input data-ts-config-max name="maximum" type="number" min="0" max="100" value="30"></label></div>
+<div class="tp-form-grid"><label class="tp-field">提醒时间<input id="config-time" name="reminder" type="time" value="09:00"></label><p>单时间与时间区间独立输入。此示例不触发通知。</p><label class="tp-field">工作时段开始<input data-ts-config-start name="starts" type="time" value="09:00"></label><label class="tp-field">工作时段结束<input data-ts-config-end name="ends" type="time" value="18:00"></label></div>
+<output data-ts-config-feedback aria-live="polite">请核对区间，结束不能早于开始。</output>
+</fieldset>
+<label class="tp-field">用途说明<textarea rows="3" name="purpose" placeholder="描述这个工作区要完成什么">
+</textarea>
+</label>
+<label class="tp-actions">
+<input type="checkbox" name="review" checked>保存前由负责人确认</label>
+<p>本演示不创建账号、不发送邀请，也不保存到服务器。</p>
+<button class="tp-button tp-button-primary" type="submit">验证配置示例</button>
+<p data-ts-demo-feedback aria-live="polite">等待输入。</p>
+</form>
+</div>
+<p id="notes" class="tp-demo-note">演示数据 · 无真实后端连接。表单、筛选和视图切换仅用于验证界面任务。</p>
+</div>
+</div>
+</main>

@@ -9,6 +9,7 @@
  */
 import { findBlockedResources } from './resources.js'
 import { resolveDesignStyle, type DesignManifest } from './design.js'
+import { prototypeClasses } from './prototypes.js'
 import {
   CLASS_ATTR_RE as CLASS_ATTR,
   COLOR_PROP,
@@ -107,6 +108,7 @@ export function lintHtml(html: string, styleId: string | null, cwd?: string): Li
   const iconSet = new Set(manifest.iconNames)
   // 交互库独有类也是合法 ts-* 类，与组件类合并，避免误报「组件目录无此类」。
   const classSet = new Set([...manifest.componentClasses, ...(manifest.interactionClasses ?? [])])
+  const compositionClasses = new Set(prototypeClasses())
   const interactionClassSet = new Set(manifest.interactionClasses ?? [])
   const familySet = new Set(manifest.fontFamilies.map((f) => f.split(',')[0]!.trim().replace(/^['"]|['"]$/g, '').toLowerCase()))
   const spacing = new Set(manifest.spacing)
@@ -190,13 +192,16 @@ export function lintHtml(html: string, styleId: string | null, cwd?: string): Li
       if (cls.startsWith('ts-') && !classSet.has(cls)) {
         add('component', match.index ?? 0, `组件目录无此类：${cls}`)
       }
+      if (cls.startsWith('tp-') && !compositionClasses.has(cls)) {
+        add('component', match.index ?? 0, `原型目录未登记此类：${cls}`)
+      }
     }
   }
 
   // 6) 交互：用到交互标记/类，但注入块里没有交互运行时 → 交互不会生效。
   //    注入的运行时在被掩码的 ds 块里，所以「是否已注入」要用原始 html 判断。
   if (!hasRuntimeInjection(html)) {
-    const used = usedInteractions(masked, interactionClassSet)
+    const used = usedInteractions(masked, interactionClassSet, [...style.interactions.rootAttrs, ...(style.interactions.bindings ?? []).map(b => b.rootAttr)])
     if (used.length) {
       add('interaction', 0, `用到交互（${used.slice(0, 6).join('、')}${used.length > 6 ? ' 等' : ''}）但缺少交互运行时；请用 canvas_upsert_page 重新写入以自动注入`)
     }
@@ -213,9 +218,9 @@ function hasRuntimeInjection(html: string): boolean {
 }
 
 /** 掩码后的页面正文里用到了哪些交互（命中 data-ts-* 根属性或交互独有类）。 */
-function usedInteractions(masked: string, interactionClasses: Set<string>): string[] {
+function usedInteractions(masked: string, interactionClasses: Set<string>, roots: string[]): string[] {
   const out = new Set<string>()
-  for (const match of masked.matchAll(/\bdata-ts-([a-z0-9-]+)\b/g)) out.add('data-ts-' + match[1]!)
+  for (const root of roots) if (new RegExp('\\b' + root + '(?=[\\s=>])').test(masked)) out.add(root)
   for (const match of masked.matchAll(CLASS_ATTR)) {
     const value = match[1] ?? match[2] ?? ''
     for (const cls of value.split(/\s+/).filter(Boolean)) {

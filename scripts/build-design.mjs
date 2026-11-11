@@ -7,6 +7,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { buildManifest, tokensToCss } from './design/design-tokens.mjs'
+import { buildPrototypeLibrary } from './build-prototypes.mjs'
 import {
   auditForbidden,
   validateComponents,
@@ -96,6 +97,17 @@ export function buildDesignSystems({ root, dist }) {
   const componentsCss = readFileSync(join(sourceDir, 'components', 'components.css'), 'utf8').replace(/\r\n/g, '\n')
   const iconsDoc = readJson(join(sourceDir, 'icons', 'core.json'), 'icons/core.json')
   const interactionsDoc = readJson(join(sourceDir, 'interactions', 'interactions.json'), 'interactions.json')
+  const bindingsDoc = readJson(join(sourceDir, 'interactions', 'bindings.json'), 'bindings.json')
+  const bindingAttrs = new Set()
+  if (bindingsDoc.schemaVersion !== 1 || !Array.isArray(bindingsDoc.bindings)) throw new Error('bindings.json 契约无效')
+  for (const binding of bindingsDoc.bindings) {
+    if (!/^[a-z][a-z0-9-]*$/.test(binding.id) || typeof binding.behavior !== 'string' || !binding.behavior) throw new Error('绑定元数据无效')
+    for (const attr of [binding.rootAttr, ...(binding.attributes ?? [])]) {
+      if (!/^data-ts-[a-z][a-z0-9-]*$/.test(attr) || bindingAttrs.has(attr)) throw new Error('绑定属性无效或重复：' + attr)
+      bindingAttrs.add(attr)
+    }
+  }
+  interactionsDoc.bindings = bindingsDoc.bindings
   const interactionsCss = readFileSync(join(sourceDir, 'interactions', 'interactions.css'), 'utf8').replace(/\r\n/g, '\n')
   const interactionsJs = readFileSync(join(sourceDir, 'interactions', 'interactions.js'), 'utf8').replace(/\r\n/g, '\n')
   const templatesDoc = readJson(join(sourceDir, 'templates', 'templates.json'), 'templates.json')
@@ -278,5 +290,6 @@ export function buildDesignSystems({ root, dist }) {
     styles: catalogStyles,
   })
 
-  return { styles: catalogStyles.length }
+  const originalLibrary = buildPrototypeLibrary(root, dist)
+  return { styles: catalogStyles.length, ...originalLibrary }
 }

@@ -72,6 +72,19 @@ jobs:
       - name: Plugin release self-check
         run: npm run check:plugin
 
+      - name: Verify all original compositions
+        run: npm run verify:prototypes -- --out .tmp/release-prototypes
+
+      - name: Retain composition review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prototype-review-${{ github.ref_name }}
+          path: .tmp/release-prototypes
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
+
       - name: Collect release notes
         run: |
           # 门禁已校验稳定标签、版本一致性和非空发布说明，禁止回退。

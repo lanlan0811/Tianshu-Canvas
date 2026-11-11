@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 import { releaseContext, validateReleaseFiles, verifyReleaseRevision, successfulMainCi, requireSuccessfulMainCi } from '../scripts/check-release-ci.mjs'
+import { PACKAGE_ENTRIES } from '../scripts/check-plugin.mjs'
 
 const sha = 'a'.repeat(40)
 const otherSha = 'b'.repeat(40)
@@ -182,7 +183,7 @@ test('Release 工作流在创建 Release 前复核 main CI 并执行完整门禁
   const required = [
     'node scripts/check-release-ci.mjs', 'npm ci', 'npm run typecheck', 'npm run build',
     'git diff --exit-code -- dist', 'npm run notices', 'git diff --exit-code -- THIRD-PARTY-NOTICES.md',
-    'TIANSHU_CANVAS_REQUIRE_BROWSER=1', 'npm test', 'npm run verify:codegen', 'npm run check:plugin',
+    'TIANSHU_CANVAS_REQUIRE_BROWSER=1', 'npm test', 'npm run verify:codegen', 'npm run check:plugin', 'npm run verify:prototypes',
     'test -s', 'gh release create',
   ]
   let previous = -1
@@ -192,7 +193,24 @@ test('Release 工作流在创建 Release 前复核 main CI 并执行完整门禁
     previous = position
   }
   assert.doesNotMatch(workflow, /extract-release-notes/)
+  assert.ok(workflow.includes('actions/upload-artifact@v4'))
+  assert.ok(workflow.includes('path: .tmp/release-prototypes'))
+  assert.ok(workflow.includes('include-hidden-files: true'))
   assert.ok(workflow.includes('--verify-tag --repo'))
   assert.equal(workflow.match(/node scripts.check-release-ci.mjs/g)?.length, 2, '发布创建前必须再次复核 CI，不能只检查验收开始时的状态')
   assert.equal(workflow.match(/git fetch --no-tags origin refs.heads.main:refs.remotes.origin.main/g)?.length, 2, '创建 Release 前必须重新确认当前 main 历史')
+})
+
+test('main CI requires full original-composition evidence before release eligibility', () => {
+  const workflow = readFileSync(join(resolve(import.meta.dirname, '..'), '.github/workflows/ci.yml'), 'utf8')
+  assert.ok(workflow.includes('npm run verify:prototypes -- --out .tmp/ci-prototypes'))
+  assert.ok(workflow.includes('actions/upload-artifact@v4'))
+  assert.match(workflow, /if-no-files-found: error/)
+  assert.ok(workflow.includes('path: .tmp/ci-prototypes'))
+  assert.ok(workflow.includes('include-hidden-files: true'))
+})
+
+test('release package ships only the current acceptance document', () => {
+  const documents = PACKAGE_ENTRIES.filter(entry => entry.startsWith('docs/'))
+  assert.deepEqual(documents, ['docs/aesthetic-upgrade-acceptance.md'])
 })

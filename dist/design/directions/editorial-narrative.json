@@ -1,0 +1,49 @@
+{
+  "id": "editorial-narrative",
+  "name": "编辑叙事",
+  "description": "围绕明确论点、章节与阅读节奏组织页面，适合专题、专业服务和观点型品牌。",
+  "suitableFor": [
+    "内容有清楚观点、需要逐步建立理解",
+    "专题文章、专业实践、文化内容、个人品牌"
+  ],
+  "composition": [
+    "先确定论点，再安排大标题、偏置导语、章节和边注",
+    "首屏变体可比较大标题纵向阅读与分栏论证，至少改变构图和叙事顺序"
+  ],
+  "typography": [
+    "展示字承担观点，正文字体负责阅读",
+    "中文按语义断行，英文按词组断行；正文稳定行宽"
+  ],
+  "rhythm": [
+    "章节间留白大于段内间距",
+    "目录与边注让读者决定深入程度"
+  ],
+  "mobile": [
+    "编号、正文、边注按阅读顺序线性排列",
+    "不将桌面巨标题压成无法读懂的小字"
+  ],
+  "assets": [
+    "优先原创图表、引文结构和本地合法图片",
+    "没有证据时明确写为观点或演示"
+  ],
+  "misuses": [
+    "没有论点只放大一个形容词",
+    "装成杂志却没有足够内容",
+    "用假客户故事补齐版面"
+  ],
+  "examples": [
+    {
+      "id": "editorial-cn",
+      "name": "把地方写进日常",
+      "language": "zh-CN",
+      "resourceId": "editorial-cn"
+    },
+    {
+      "id": "editorial-casebook",
+      "name": "Good work leaves room for thinking",
+      "language": "en",
+      "prototypeId": "editorial-casebook",
+      "resourceId": "editorial-casebook"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+<main data-ts-prototype="mobile-reading">
+<div class="tp-phone">
+<header id="intro" class="tp-mobile-head">
+<a class="tp-mark" href="#intro">页间 / READER</a>
+<span class="tp-label">阅读演示</span>
+</header>
+<div class="ts-i-tabs tp-mobile-tabs" data-ts-tabs>
+<div class="ts-tabs" role="tablist" aria-label="应用视图">
+<button class="ts-tab ts-tab--active" role="tab" data-ts-tab="read">阅读</button>
+<button class="ts-tab " role="tab" data-ts-tab="recommend">推荐</button>
+<button class="ts-tab " role="tab" data-ts-tab="threads">线程</button>
+<button class="ts-tab " role="tab" data-ts-tab="preferences">偏好</button>
+</div>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="read">
+<article class="tp-mobile-reading tp-stack">
+<span class="tp-eyebrow">今日一篇 / 原创演示</span>
+<h1>把慢一点，<br>留给理解。</h1>
+<p class="tp-reading-deck">当输入越来越多，阅读需要的不只是更快。</p>
+<p>先问自己想理解什么，再决定哪些文字值得留下。这个短文用于展示移动端长文字的层次和留白。</p>
+<p>保持舒适行距，给段落一个完整的意思。不要为了在首屏塞下更多内容而牺牲阅读。</p>
+<details>
+<summary>一个阅读问题</summary>
+<p>这段文字支持什么判断？哪些部分仍只是观点？</p>
+</details>
+</article>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="recommend" hidden>
+<section class="tp-stack">
+<h2>下一篇，围绕问题。</h2>
+<article class="tp-card">
+<span class="tp-label">原创演示 / 4分钟</span>
+<h3>怎样留下有用的笔记</h3>
+<p>记下问题，保留来源。</p>
+</article>
+<article class="tp-card">
+<span class="tp-label">原创演示 / 6分钟</span>
+<h3>给复杂事情一个次序</h3>
+<p>先理解关系，再整理清单。</p>
+</article>
+</section>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="threads" hidden>
+<section class="tp-stack">
+<h2>继续想一想。</h2>
+<details open>
+<summary>阅读如何改变判断？</summary>
+<p>示例线程：把证据、观点和待验证假设分开。</p>
+</details>
+<label class="tp-field">留一个问题<textarea rows="5" placeholder="笔记只在当前页面，切换视图仍保留">
+</textarea>
+</label>
+</section>
+</section>
+<section class="ts-i-tabs__panel tp-stack" role="tabpanel" data-ts-panel="preferences" hidden>
+<section class="tp-stack">
+<h2>阅读节奏</h2>
+<p>本周示例阅读 3 篇，不代表真实使用统计。</p>
+<div class="tp-setting-row">
+<div>
+<strong>显示阅读问题</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch ts-switch--on" data-ts-switch role="switch" aria-checked="true" aria-label="显示阅读问题" id="reader-hints">
+</button>
+</div>
+<div class="tp-setting-row">
+<div>
+<strong>显示相关推荐</strong>
+<p>当前演示页有效，不保存到系统。</p>
+</div>
+<button class="ts-switch " data-ts-switch role="switch" aria-checked="false" aria-label="显示相关推荐" id="reader-follow">
+</button>
+</div>
+<p>偏好只切换本地演示状态。</p>
+</section>
+</section>
+</div>
+<p class="tp-demo-note">原创演示 · 本地交互，不连接AI、账号、文件系统或外部服务。</p>
+</div>
+</main>
