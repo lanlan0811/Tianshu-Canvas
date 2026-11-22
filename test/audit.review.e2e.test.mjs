@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { build } from 'esbuild'
@@ -90,7 +90,10 @@ test('review renders authenticated opaque iframe at all widths, captures full co
       }
       assert.ok(red > 100, '应捕获视口之外的页尾红色证据')
     }
-    assert.match(api.formatReviewReport(result), /待宿主读图|项目所有者/)
+    const rendered = api.formatReviewReport(result)
+    assert.match(rendered, /待宿主读图|项目所有者/)
+    assert.match(rendered, /直接 Read/, '报告要告诉宿主可以直接读取截图绝对路径')
+    for (const capture of result.captures) assert.ok(isAbsolute(capture.path), capture.path)
     assert.equal(readFileSync(projectFile, 'utf8'), projectBefore)
     assert.equal(readFileSync(pageFile, 'utf8'), pageBefore)
     assert.equal(existsSync(join(cwd, '.tianshu-canvas', 'selection.json')), false)
@@ -108,6 +111,20 @@ test('review reports real responsive overflow and blocked resources without allo
     assert.ok(result.captures.every((c) => c.issues.some((i) => i.rule === 'control-name')))
     assert.ok(result.captures.every((c) => c.issues.some((i) => i.rule === 'keyboard-unreachable-candidate')))
     assert.ok(result.captures.every((c) => c.issues.some((i) => ['csp-blocked-resource','external-resource','broken-image'].includes(i.rule))))
+  } finally { await api.shutdownForTests(); rmSync(cwd, { recursive: true, force: true }) }
+})
+
+test('review flags placeholder copy as a warning without failing the run', { skip: !browserPath && '未找到浏览器', timeout: 120000 }, async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'tsc-review-placeholder-'))
+  try {
+    addPage(cwd, 'placeholder', '<!doctype html><html><head><style>body{margin:0}</style></head><body><h1>占位示例</h1><p>Lorem ipsum dolor sit amet.</p><p>价格说明：待补充</p><button type="button">继续</button></body></html>')
+    const result = await api.reviewPage(cwd, 'placeholder')
+    for (const capture of result.captures) {
+      const issue = capture.issues.find((i) => i.rule === 'placeholder-copy')
+      assert.ok(issue, '应报告占位文案')
+      assert.equal(issue.severity, 'warning')
+    }
+    assert.match(api.formatReviewReport(result), /placeholder-copy/)
   } finally { await api.shutdownForTests(); rmSync(cwd, { recursive: true, force: true }) }
 })
 

@@ -247,6 +247,14 @@ async function collectEvidence(frame: Frame): Promise<{ metrics: ReviewMetrics; 
     })
     if (unlabelled.length) issues.push({ rule: 'control-name', severity: 'error', message: '可操作元素缺少可访问名称。', selectors: unlabelled.slice(0, 15).map(path) })
     if (!elements.some((e: any) => e.tagName === 'H1')) issues.push({ rule: 'heading-h1', severity: 'warning', message: '未发现可见一级标题；应用界面可按任务核实。' })
+    // 占位文案只警告：真实示例内容（明确标注的演示数据）是合法的，由读者判断。
+    const placeholder = elements.filter((e: any) => {
+      if (e.children.length) return false
+      const text = (e.textContent ?? '').trim()
+      if (!text || text.length > 400) return false
+      return /lorem ipsum/i.test(text) || /\bTODO\b/.test(text) || /待补充|待填写|此处填写|占位文案|示例文本/.test(text)
+    })
+    if (placeholder.length) issues.push({ rule: 'placeholder-copy', severity: 'warning', message: '发现疑似占位文案（lorem ipsum / TODO / 待补充等）；若为有意展示的示例内容可忽略，否则请换成真实内容。', selectors: placeholder.slice(0, 10).map(path) })
     const internalScrollRegions = elements.filter((e: any) => {
       const s = w.getComputedStyle(e)
       return ['auto','scroll'].includes(s.overflowY) && e.scrollHeight > e.clientHeight + 2
@@ -337,7 +345,11 @@ function encodeRgb(width: number, height: number, pixels: Buffer): Buffer {
 }
 
 export function formatReviewReport(result: PageReviewResult): string {
-  const lines = ['页面审阅：' + result.title + '（' + result.pageId + '）', '审美判断：待宿主读图或项目所有者评审；没有自动审美评分。']
+  const lines = [
+    '页面审阅：' + result.title + '（' + result.pageId + '）',
+    '审美判断：待宿主读图或项目所有者评审；没有自动审美评分。',
+    '截图与报告均为工作区内绝对路径，宿主有本地读图能力时直接 Read（不要只看本段文字下结论）：',
+  ]
   for (const capture of result.captures) {
     lines.push('\n' + capture.width + '×' + capture.height + '；内容 ' + capture.metrics.contentWidth + '×' + capture.metrics.contentHeight + '：' + capture.path)
     if (!capture.issues.length) lines.push('未发现本轮可测问题；不代表视觉或交互全面通过。')

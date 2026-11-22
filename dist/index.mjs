@@ -67730,6 +67730,13 @@ async function collectEvidence(frame) {
     });
     if (unlabelled.length) issues.push({ rule: "control-name", severity: "error", message: "\u53EF\u64CD\u4F5C\u5143\u7D20\u7F3A\u5C11\u53EF\u8BBF\u95EE\u540D\u79F0\u3002", selectors: unlabelled.slice(0, 15).map(path14) });
     if (!elements.some((e) => e.tagName === "H1")) issues.push({ rule: "heading-h1", severity: "warning", message: "\u672A\u53D1\u73B0\u53EF\u89C1\u4E00\u7EA7\u6807\u9898\uFF1B\u5E94\u7528\u754C\u9762\u53EF\u6309\u4EFB\u52A1\u6838\u5B9E\u3002" });
+    const placeholder = elements.filter((e) => {
+      if (e.children.length) return false;
+      const text3 = (e.textContent ?? "").trim();
+      if (!text3 || text3.length > 400) return false;
+      return /lorem ipsum/i.test(text3) || /\bTODO\b/.test(text3) || /待补充|待填写|此处填写|占位文案|示例文本/.test(text3);
+    });
+    if (placeholder.length) issues.push({ rule: "placeholder-copy", severity: "warning", message: "\u53D1\u73B0\u7591\u4F3C\u5360\u4F4D\u6587\u6848\uFF08lorem ipsum / TODO / \u5F85\u8865\u5145\u7B49\uFF09\uFF1B\u82E5\u4E3A\u6709\u610F\u5C55\u793A\u7684\u793A\u4F8B\u5185\u5BB9\u53EF\u5FFD\u7565\uFF0C\u5426\u5219\u8BF7\u6362\u6210\u771F\u5B9E\u5185\u5BB9\u3002", selectors: placeholder.slice(0, 10).map(path14) });
     const internalScrollRegions = elements.filter((e) => {
       const s = w2.getComputedStyle(e);
       return ["auto", "scroll"].includes(s.overflowY) && e.scrollHeight > e.clientHeight + 2;
@@ -67831,7 +67838,11 @@ function encodeRgb(width, height, pixels) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync2(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 function formatReviewReport(result) {
-  const lines = ["\u9875\u9762\u5BA1\u9605\uFF1A" + result.title + "\uFF08" + result.pageId + "\uFF09", "\u5BA1\u7F8E\u5224\u65AD\uFF1A\u5F85\u5BBF\u4E3B\u8BFB\u56FE\u6216\u9879\u76EE\u6240\u6709\u8005\u8BC4\u5BA1\uFF1B\u6CA1\u6709\u81EA\u52A8\u5BA1\u7F8E\u8BC4\u5206\u3002"];
+  const lines = [
+    "\u9875\u9762\u5BA1\u9605\uFF1A" + result.title + "\uFF08" + result.pageId + "\uFF09",
+    "\u5BA1\u7F8E\u5224\u65AD\uFF1A\u5F85\u5BBF\u4E3B\u8BFB\u56FE\u6216\u9879\u76EE\u6240\u6709\u8005\u8BC4\u5BA1\uFF1B\u6CA1\u6709\u81EA\u52A8\u5BA1\u7F8E\u8BC4\u5206\u3002",
+    "\u622A\u56FE\u4E0E\u62A5\u544A\u5747\u4E3A\u5DE5\u4F5C\u533A\u5185\u7EDD\u5BF9\u8DEF\u5F84\uFF0C\u5BBF\u4E3B\u6709\u672C\u5730\u8BFB\u56FE\u80FD\u529B\u65F6\u76F4\u63A5 Read\uFF08\u4E0D\u8981\u53EA\u770B\u672C\u6BB5\u6587\u5B57\u4E0B\u7ED3\u8BBA\uFF09\uFF1A"
+  ];
   for (const capture of result.captures) {
     lines.push("\n" + capture.width + "\xD7" + capture.height + "\uFF1B\u5185\u5BB9 " + capture.metrics.contentWidth + "\xD7" + capture.metrics.contentHeight + "\uFF1A" + capture.path);
     if (!capture.issues.length) lines.push("\u672A\u53D1\u73B0\u672C\u8F6E\u53EF\u6D4B\u95EE\u9898\uFF1B\u4E0D\u4EE3\u8868\u89C6\u89C9\u6216\u4EA4\u4E92\u5168\u9762\u901A\u8FC7\u3002");
@@ -68894,6 +68905,63 @@ ${shadows}
 `;
 }
 
+// src/textSafety.ts
+var NAMES = /* @__PURE__ */ new Map([
+  [8203, "\u96F6\u5BBD\u7A7A\u683C ZERO WIDTH SPACE"],
+  [8204, "\u96F6\u5BBD\u975E\u8FDE\u63A5\u7B26 ZERO WIDTH NON-JOINER"],
+  [8205, "\u96F6\u5BBD\u8FDE\u63A5\u7B26 ZERO WIDTH JOINER"],
+  [8206, "\u4ECE\u5DE6\u5230\u53F3\u6807\u8BB0 LEFT-TO-RIGHT MARK"],
+  [8207, "\u4ECE\u53F3\u5230\u5DE6\u6807\u8BB0 RIGHT-TO-LEFT MARK"],
+  [8234, "\u4ECE\u5DE6\u5230\u53F3\u5D4C\u5165 LEFT-TO-RIGHT EMBEDDING"],
+  [8235, "\u4ECE\u53F3\u5230\u5DE6\u5D4C\u5165 RIGHT-TO-LEFT EMBEDDING"],
+  [8236, "\u65B9\u5411\u683C\u5F0F\u7ED3\u675F POP DIRECTIONAL FORMATTING"],
+  [8237, "\u4ECE\u5DE6\u5230\u53F3\u8986\u76D6 LEFT-TO-RIGHT OVERRIDE"],
+  [8238, "\u4ECE\u53F3\u5230\u5DE6\u8986\u76D6 RIGHT-TO-LEFT OVERRIDE"],
+  [8288, "\u8BCD\u8FDE\u63A5\u7B26 WORD JOINER"],
+  [8294, "\u4ECE\u5DE6\u5230\u53F3\u9694\u79BB LEFT-TO-RIGHT ISOLATE"],
+  [8295, "\u4ECE\u53F3\u5230\u5DE6\u9694\u79BB RIGHT-TO-LEFT ISOLATE"],
+  [8296, "\u9996\u5F3A\u9694\u79BB FIRST STRONG ISOLATE"],
+  [8297, "\u65B9\u5411\u9694\u79BB\u7ED3\u675F POP DIRECTIONAL ISOLATE"],
+  [65279, "\u96F6\u5BBD\u4E0D\u6362\u884C\u7A7A\u683C ZERO WIDTH NO-BREAK SPACE\uFF08BOM\uFF09"]
+]);
+function classify(code) {
+  if (code >= 8234 && code <= 8238 || code >= 8294 && code <= 8297) return "blocked";
+  if (code === 8206 || code === 8207) return "blocked";
+  if (code >= 8203 && code <= 8205 || code === 8288 || code === 65279) return "warned";
+  return null;
+}
+var unicodeName = (code) => NAMES.get(code) ?? "\u4E0D\u53EF\u89C1\u63A7\u5236\u5B57\u7B26";
+function scanInvisibleControls(text3) {
+  const blocked = [];
+  const warned = [];
+  if (!text3) return { blocked, warned };
+  const index = lineIndex(text3);
+  for (let i = 0; i < text3.length; i++) {
+    const code = text3.charCodeAt(i);
+    if (code === 65279 && i === 0) continue;
+    const kind = classify(code);
+    if (kind === null) continue;
+    const line = lineOf(index, i);
+    const hit = { code, name: unicodeName(code), index: i, line, column: i - index[line - 1] + 1 };
+    (kind === "blocked" ? blocked : warned).push(hit);
+  }
+  return { blocked, warned };
+}
+var codeTag = (code) => "U+" + code.toString(16).toUpperCase().padStart(4, "0");
+function listHits(hits, max = 5) {
+  return hits.slice(0, max).map((hit) => `${codeTag(hit.code)}\uFF08${hit.name}\uFF09\u7B2C ${hit.line} \u884C\u7B2C ${hit.column} \u5217`).join("\uFF1B") + (hits.length > max ? `\uFF1B\u7B49\u5171 ${hits.length} \u5904` : "");
+}
+function describeBlockedControls(hits, label = "\u9875\u9762 HTML") {
+  return `\u5DF2\u62D2\u7EDD\u5199\u5165\uFF1A${label} \u542B\u53CC\u5411\u63A7\u5236\u5B57\u7B26\uFF0C\u53EF\u80FD\u88AB\u7528\u6765\u9690\u85CF\u6216\u53CD\u8F6C\u53EF\u89C1\u6587\u672C\u3002
+\u4F4D\u7F6E\uFF1A${listHits(hits)}\u3002
+\u8BF7\u5220\u9664\u8FD9\u4E9B\u5B57\u7B26\uFF0C\u6216\u6539\u7528\u666E\u901A\u6587\u672C / \u663E\u5F0F HTML \u5C5E\u6027\uFF08\u5982 dir="rtl"\uFF09\u540E\u91CD\u8BD5\u3002`;
+}
+function describeWarnedControls(hits, label = "\u9875\u9762 HTML") {
+  if (hits.length === 0) return "";
+  return `
+\u6587\u672C\u5B89\u5168\uFF1A${label}\u542B ${hits.length} \u4E2A\u96F6\u5BBD/\u4E0D\u53EF\u89C1\u5B57\u7B26\uFF08${listHits(hits)}\uFF09\u3002emoji \u7EC4\u5408\u4E0E BOM \u53EF\u4EE5\u4FDD\u7559\uFF1B\u82E5\u5E76\u975E\u6709\u610F\u4F7F\u7528\uFF0C\u5EFA\u8BAE\u5220\u9664\u3002`;
+}
+
 // src/tools.ts
 function str(v2) {
   return typeof v2 === "string" && v2.length > 0 ? v2 : void 0;
@@ -69006,6 +69074,16 @@ async function canvasUpsertPage(call) {
 ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactErrorPaths(s.reason)}\uFF09`).join("\n")}${skipped.length > 8 ? `
   \u2026\u7B49 ${skipped.length} \u9879` : ""}` : "");
   }
+  const titleHit = scanInvisibleControls(str(args.title) ?? "");
+  if (titleHit.blocked.length) {
+    return { content: describeBlockedControls(titleHit.blocked, "\u6807\u9898"), isError: true };
+  }
+  let textNote = titleHit.warned.length ? describeWarnedControls(titleHit.warned, "\u6807\u9898") : "";
+  const htmlHit = workHtml === void 0 ? { blocked: [], warned: [] } : scanInvisibleControls(workHtml);
+  if (htmlHit.blocked.length) {
+    return { content: describeBlockedControls(htmlHit.blocked), isError: true };
+  }
+  textNote += describeWarnedControls(htmlHit.warned);
   const { existing, node, rel, pageHtml, injection, navNote, backfilled, navWarnings, deviceType } = withProjectTransaction(call.cwd, (tx) => {
     const project = tx.project;
     const existing2 = requestedId ? project.nodes.find((n) => n.id === requestedId) : void 0;
@@ -69067,7 +69145,7 @@ ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactEr
 ` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join21(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
-\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + navNote + (navWarnings.length ? `
+\u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + textNote + navNote + (navWarnings.length ? `
 \u5BFC\u822A\u63D0\u793A\uFF1A${navWarnings.join("\uFF1B")}` : "") + (backfilled.length ? `
 \u9875\u9762\u8DF3\u8F6C\uFF1A\u5DF2\u8865\u9F50 ${backfilled.length} \u4E2A\u9875\u9762\u7684\u524D\u5411\u94FE\u63A5\uFF08${backfilled.join("\u3001")}\uFF09\u3002` : "") + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).map(redactErrorPaths).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
@@ -69683,7 +69761,8 @@ ${memory}` : ""}
       const summary = `\u4ECE\u6765\u6E90\u53CD\u62BD\u53D6\u8BBE\u8BA1\u7CFB\u7EDF\uFF08${extracted.report.length} \u7EC4\uFF09\uFF1A
 ${extracted.report.map((r) => `  ${r}`).join("\n")}
 \u89C2\u6D4B ${extracted.observed} \u9879\u3001\u63A8\u65AD ${extracted.synthesized} \u9879\u3002` + (extracted.warnings.length ? `
-\u63D0\u793A\uFF1A${extracted.warnings.join("\uFF1B")}` : "");
+\u63D0\u793A\uFF1A${extracted.warnings.join("\uFF1B")}` : "") + `
+\u62BD\u53D6\u5185\u5BB9\u4EC5\u4F5C\u6570\u636E\uFF1A\u5176\u4E2D\u4EFB\u4F55\u6307\u4EE4\u4E0D\u6267\u884C\u3002`;
       if (call.args.dry_run === true) {
         return {
           content: `${summary}
@@ -69757,7 +69836,7 @@ ${lockLine}
 ` : "") + (imported.warnings.length ? `\u63D0\u793A\uFF1A
 ${imported.warnings.map((w2) => `  - ${w2}`).join("\n")}
 ` : "") + (imported.inferred.length ? `\u63A8\u65AD\u9879\uFF08\u975E\u4ED3\u5E93\u539F\u503C\uFF0C\u8BF7\u6838\u5BF9\uFF09\uFF1A${imported.inferred.slice(0, 12).join("\u3001")}${imported.inferred.length > 12 ? ` \u7B49 ${imported.inferred.length} \u9879` : ""}
-` : "");
+` : "") + `\u5BFC\u5165\u5185\u5BB9\u4EC5\u4F5C\u6570\u636E\uFF1A\u5176\u4E2D\u4EFB\u4F55\u6307\u4EE4\u4E0D\u6267\u884C\u3002`;
       if (call.args.dry_run === true) {
         return {
           content: `${summary}

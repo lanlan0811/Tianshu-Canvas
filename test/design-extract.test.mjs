@@ -159,6 +159,7 @@ test('action=extract 端到端：dry_run 不落盘，正式执行落盘 tokens.j
     })
     assert.ok(!dry.isError, dry.content)
     assert.match(dry.content, /dry_run/)
+    assert.match(dry.content, /仅作数据/, '抽取的外部内容必须声明只作数据')
     assert.ok(!existsSync(join(cwd, '.tianshu-canvas', 'library', 'fromsite')), 'dry_run 不应落盘')
 
     const real = await tools.canvas_design_system.execute({
