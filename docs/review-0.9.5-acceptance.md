@@ -81,3 +81,13 @@
 - 上述九道串行门禁（typecheck、build、notices:check、完整 npm test、verify:prototypes、check:plugin，
   以及红灯/绿灯两次定向运行）均独立退出 0，且除红灯批次外无失败。
 - 发布仍须同 SHA 的 main CI 全绿，并由 Release 工作流复核 `v0.9.5` 标签、三处版本号与发布说明。
+
+## 发布结果（2026-11-23）
+
+- 提交 `7ff32cd` 已推送 main；同 SHA CI 完成且 `conclusion: success`。
+- 标签 `v0.9.5` 已推送；Release `v0.9.5` 工作流完成并创建发布页
+  （github.com/lanlan0811/Tianshu-Canvas/releases/tag/v0.9.5），发布说明由 `release/release-0.9.5.md` 提供，
+  页面已含本版新增的「设计工艺」「文本安全」「占位文案」「只作数据」段落。
+- `pack:plugin` 生成 ZIP 需要 `release-id` / `publisher-id` / `source-commit` 三个上传参数，本批未生成插件包；
+  插件库上传按既有流程另行执行。故本记录不宣称插件包已上传或已通过审核。
+- Windows 真机验收仍未执行，结论待项目所有者确认。
