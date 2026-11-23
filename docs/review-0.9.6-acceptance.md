@@ -149,4 +149,19 @@
 - 上述门禁（typecheck、build、notices:check、完整 npm test、verify:prototypes、check:plugin）除已说明的
   两处浏览器启动抖动（首轮完整测试的单点用例、首轮原型截图的画布外壳）外均独立退出 0；两者原样重跑后
   分别 313/313 与 38/38 通过，未修改测试、未放宽断言。
-- 发布仍须同 SHA 的 main CI 全绿，并由 Release 工作流复核 `v0.9.6` 标签、三处版本号与发布说明。
+
+## 发布结果（2026-11-23）
+
+- 提交 `c807889` 推送后，同 SHA CI **失败**：`Test` 步骤在 Linux 上退出 1。定位为新增测试的真实缺陷——
+  `test/design.assets.test.mjs` 的越界用例使用 `C:\Windows\win.ini`，而 POSIX 上该值不是绝对路径，
+  会被当作普通相对路径放行。修复方式是在 `src/designAssets.ts` 显式拒绝盘符前缀（`/^[A-Za-z]:[\\/]/`）
+  并简化一处无意义的平台判断，提交 `9c504df`。
+- `9c504df` 同 SHA CI **completed success**，Release `v0.9.6` 工作流 **completed success**，
+  发布页 github.com/lanlan0811/Tianshu-Canvas/releases/tag/v0.9.6 已创建。
+- 插件包 `.claude/upload-0.9.6/tianshu-canvas-0.9.6.zip`：112 个文件、4,563,147 字节、
+  SHA-256 `f99b572c95aef72aeb751b46a8868a7ba23546dee5f32a7f5861f3ee4fa39e48`；
+  官方开发套件 `validate --lane official_reviewed` 返回 `valid: true`，
+  `manifest_sha256 = b7b39e28670a956ce0572edeb75ce42b42c9661cb8ef6d06049eb70a5133e7e6`。
+- 本地完整测试与原型截图结果对应提交 `c807889`（差异仅为 `designAssets.ts` 的盘符判断与测试简化），
+  `9c504df` 的 Linux CI 已从头重跑全部门禁并通过。
+- Windows 真机验收仍未执行，结论待项目所有者确认；本记录不宣称已通过真机验收，也不宣称插件已上传。
