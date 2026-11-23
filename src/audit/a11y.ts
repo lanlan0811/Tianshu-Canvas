@@ -24,8 +24,10 @@ export interface A11yIssue {
 }
 
 export interface A11yReport {
-  /** 扫描的元素数（用于判断页面是否为空扫描）。 */
+  /** 扫描的元素数（交互/标题/图片等主要元素，用于判断页面是否为空扫描）。 */
   elements: number
+  /** 额外采集的普通文字元素数（用于对比度判定）。 */
+  textElements: number
   issues: A11yIssue[]
   counts: Record<Severity, number>
   /** 按规则计数，便于基线 diff。 */
@@ -45,7 +47,7 @@ export interface A11yOptions {
 
 /** 在页面上下文执行：返回原始证据，判定逻辑放在 Node 侧（易测）。 */
 const COLLECT_SCRIPT = `(() => {
-  const out = { elements: 0, items: [], skipped: [] }
+  const out = { elements: 0, textElements: 0, items: [], skipped: [] }
   const css = (el, prop) => getComputedStyle(el).getPropertyValue(prop).trim()
   const isHidden = (el) => {
     let n = el
@@ -102,7 +104,57 @@ const COLLECT_SCRIPT = `(() => {
   }
   const selectors = 'a[href], button, input, select, textarea, [tabindex], [role=button], [role=link], [role=checkbox], [role=tab], h1, h2, h3, h4, h5, h6, img'
   const all = Array.from(document.querySelectorAll(selectors))
+  const seen = new Set(all)
   out.elements = all.length
+  // 正文与普通文字元素（p/span/div/li/td…）不在上面的选择器内，单独采集一次，
+  // 否则 1.6:1 的正文对比度永远不会被判定。
+  const textLimit = 800
+  const candidates = Array.from(document.body ? document.body.querySelectorAll('*') : [])
+  for (const el of candidates) {
+    if (out.textElements >= textLimit) {
+      out.skipped.push('文字元素超过 ' + textLimit + ' 个，其余未做对比度判定')
+      break
+    }
+    if (seen.has(el)) continue
+    let direct = ''
+    for (const node of el.childNodes) {
+      if (node.nodeType === 3) direct += node.nodeValue || ''
+    }
+    if (!direct.trim()) continue
+    if (isHidden(el)) continue
+    const tag = el.tagName.toLowerCase()
+    if (tag === 'script' || tag === 'style' || tag === 'svg' || tag === 'path') continue
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+    out.textElements++
+    out.items.push({
+      textOnly: true,
+      tag,
+      selector: path(el),
+      snippet: (el.outerHTML || '').slice(0, 160),
+      name: direct.replace(/\\s+/g, ' ').trim().slice(0, 120),
+      ariaLabel: el.getAttribute('aria-label') || '',
+      ariaHidden: el.getAttribute('aria-hidden'),
+      tabindex: el.getAttribute('tabindex'),
+      role: el.getAttribute('role') || '',
+      type: el.getAttribute('type') || '',
+      alt: el.getAttribute('alt'),
+      id: el.id || '',
+      htmlFor: el.getAttribute('for') || '',
+      rect: { width: rect.width, height: rect.height },
+      color: css(el, 'color'),
+      fontSize: parseFloat(css(el, 'font-size')) || 16,
+      fontWeight: Number(css(el, 'font-weight')) || 400,
+      background: bg(el),
+      outlineStyle: css(el, 'outline-style'),
+      outlineWidth: css(el, 'outline-width'),
+      boxShadow: css(el, 'box-shadow'),
+      level: 0,
+      disabled: false,
+      contentEditable: el.getAttribute('contenteditable'),
+      hasLabel: true,
+    })
+  }
   for (const el of all) {
     if (isHidden(el)) continue
     const tag = el.tagName.toLowerCase()
@@ -143,6 +195,8 @@ const COLLECT_SCRIPT = `(() => {
 })()`
 
 interface RawItem {
+  /** 仅采集来判定对比度的普通文字元素；不参与可访问名/焦点类规则。 */
+  textOnly?: boolean
   tag: string
   selector: string
   snippet: string
@@ -171,6 +225,7 @@ interface RawItem {
 
 interface RawScan {
   elements: number
+  textElements?: number
   items: RawItem[]
   skipped: string[]
   htmlLang: string
@@ -217,58 +272,61 @@ export function analyze(raw: RawScan, options: A11yOptions = {}): A11yReport {
 
   for (const item of raw.items) {
     const focusable = ['a', 'button', 'input', 'select', 'textarea'].includes(item.tag) || item.tabindex !== null || /^(button|link|checkbox|tab)$/.test(item.role)
-    if (focusable && item.ariaHidden === 'true') {
-      push('aria-hidden-focus', 'error', item, '可聚焦元素被 aria-hidden="true" 隐藏，屏幕阅读器用户无法感知')
-    }
+    // textOnly 条目只用于对比度，不参与可访问名、焦点、标题、点击目标等规则。
+    if (!item.textOnly) {
+      if (focusable && item.ariaHidden === 'true') {
+        push('aria-hidden-focus', 'error', item, '可聚焦元素被 aria-hidden="true" 隐藏，屏幕阅读器用户无法感知')
+      }
 
-    if (item.tag === 'img' && item.alt === null) {
-      push('img-alt', 'error', item, '图片缺少 alt（装饰性图片请写 alt=""）')
-    }
+      if (item.tag === 'img' && item.alt === null) {
+        push('img-alt', 'error', item, '图片缺少 alt（装饰性图片请写 alt=""）')
+      }
 
-    if ((item.tag === 'button' || item.role === 'button') && !item.disabled && !item.name && !item.contentEditable) {
-      push('button-name', 'error', item, '按钮没有可访问名称（补文本、aria-label 或 aria-labelledby）')
-    }
+      if ((item.tag === 'button' || item.role === 'button') && !item.disabled && !item.name && !item.contentEditable) {
+        push('button-name', 'error', item, '按钮没有可访问名称（补文本、aria-label 或 aria-labelledby）')
+      }
 
-    if (item.tag === 'a' && !item.name && !item.ariaLabel) {
-      push('link-name', 'error', item, '链接没有可访问名称')
-    }
+      if (item.tag === 'a' && !item.name && !item.ariaLabel) {
+        push('link-name', 'error', item, '链接没有可访问名称')
+      }
 
-    if (['input', 'select', 'textarea'].includes(item.tag) && !['hidden', 'submit', 'button', 'reset', 'image'].includes(item.type)) {
-      if (!item.hasLabel && !item.name && !item.ariaLabel) {
-        push('label', 'error', item, '表单控件没有关联标签（label / aria-label / aria-labelledby）')
+      if (['input', 'select', 'textarea'].includes(item.tag) && !['hidden', 'submit', 'button', 'reset', 'image'].includes(item.type)) {
+        if (!item.hasLabel && !item.name && !item.ariaLabel) {
+          push('label', 'error', item, '表单控件没有关联标签（label / aria-label / aria-labelledby）')
+        }
+      }
+
+      if (item.tabindex !== null && Number(item.tabindex) > 0) {
+        push('tabindex-positive', 'warning', item, `tabindex="${item.tabindex}" 会打乱键盘顺序，建议改为 0 并调整 DOM 顺序`)
+      }
+
+      if (item.level > 0) {
+        if (item.level === 1 && raw.items.filter((i) => i.level === 1).length > 1 && item === raw.items.find((i) => i.level === 1)) {
+          push('heading-h1', 'warning', item, '页面有多个 h1，建议只保留一个')
+        }
+        if (lastLevel > 0 && item.level > lastLevel + 1) {
+          push('heading-order', 'warning', item, `标题层级跳跃：h${lastLevel} → h${item.level}`)
+        }
+        lastLevel = item.level
+      }
+
+      const targetable = ['a', 'button', 'input', 'select', 'textarea'].includes(item.tag) && !item.disabled
+      if (targetable && (item.rect.width > 0 || item.rect.height > 0)) {
+        if (item.rect.width < minTarget || item.rect.height < minTarget) {
+          push('target-size', 'warning', item, `点击目标 ${Math.round(item.rect.width)}×${Math.round(item.rect.height)}px 小于 ${minTarget}px`)
+        }
+      }
+
+      if (targetable) {
+        const hasFocusStyle = (item.outlineStyle !== 'none' && parseFloat(item.outlineWidth) > 0) || (item.boxShadow && item.boxShadow !== 'none')
+        const skip = item.ariaLabel || item.role === 'tab'
+        if (!hasFocusStyle && !skip) {
+          push('focus-visible', 'info', item, '未检测到可见焦点样式（outline 或 box-shadow）；如由 :focus-visible 规则提供可忽略')
+        }
       }
     }
 
-    if (item.tabindex !== null && Number(item.tabindex) > 0) {
-      push('tabindex-positive', 'warning', item, `tabindex="${item.tabindex}" 会打乱键盘顺序，建议改为 0 并调整 DOM 顺序`)
-    }
-
-    if (item.level > 0) {
-      if (item.level === 1 && raw.items.filter((i) => i.level === 1).length > 1 && item === raw.items.find((i) => i.level === 1)) {
-        push('heading-h1', 'warning', item, '页面有多个 h1，建议只保留一个')
-      }
-      if (lastLevel > 0 && item.level > lastLevel + 1) {
-        push('heading-order', 'warning', item, `标题层级跳跃：h${lastLevel} → h${item.level}`)
-      }
-      lastLevel = item.level
-    }
-
-    const targetable = ['a', 'button', 'input', 'select', 'textarea'].includes(item.tag) && !item.disabled
-    if (targetable && (item.rect.width > 0 || item.rect.height > 0)) {
-      if (item.rect.width < minTarget || item.rect.height < minTarget) {
-        push('target-size', 'warning', item, `点击目标 ${Math.round(item.rect.width)}×${Math.round(item.rect.height)}px 小于 ${minTarget}px`)
-      }
-    }
-
-    if (targetable) {
-      const hasFocusStyle = (item.outlineStyle !== 'none' && parseFloat(item.outlineWidth) > 0) || (item.boxShadow && item.boxShadow !== 'none')
-      const skip = item.ariaLabel || item.role === 'tab'
-      if (!hasFocusStyle && !skip) {
-        push('focus-visible', 'info', item, '未检测到可见焦点样式（outline 或 box-shadow）；如由 :focus-visible 规则提供可忽略')
-      }
-    }
-
-    if (item.name || item.tag === 'img') {
+    if (item.textOnly || item.name || item.tag === 'img') {
       if (item.background.kind !== 'color') {
         skipped.push(`${item.selector}: 背景为${item.background.kind === 'image' ? '图片/渐变' : '半透明层'}，跳过对比度判定`)
         continue
@@ -295,7 +353,7 @@ export function analyze(raw: RawScan, options: A11yOptions = {}): A11yReport {
     counts[issue.severity]++
     byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1
   }
-  return { elements: raw.elements, issues, counts, byRule, skipped: [...new Set(skipped)] }
+  return { elements: raw.elements, textElements: raw.textElements ?? 0, issues, counts, byRule, skipped: [...new Set(skipped)] }
 }
 
 /** 在真实页面上跑审计（puppeteer 注入，绕过 iframe CSP）。 */
@@ -317,7 +375,7 @@ export async function auditPage(browser: Browser, url: string, options: A11yOpti
 export function formatA11yReport(report: A11yReport, label: string): string {
   const lines = [
     `可访问性审计：${label}`,
-    `扫描 ${report.elements} 个元素 · error ${report.counts.error} / warning ${report.counts.warning} / info ${report.counts.info}`,
+    `扫描 ${report.elements} 个元素 + ${report.textElements} 个文字元素 · error ${report.counts.error} / warning ${report.counts.warning} / info ${report.counts.info}`,
   ]
   if (report.issues.length === 0) lines.push('未发现问题。')
   for (const issue of report.issues) {

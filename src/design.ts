@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterDoctype } from './html.js'
 import { parseHtml } from './htmlTree.js'
+import { resolveStyleAsset } from './designAssets.js'
 import {
   compileCustomStyle,
   customStyleExists,
@@ -255,10 +256,10 @@ export function resolveDesignStyle(cwd: string | undefined, id: string): Resolve
       resolved = {
         summary,
         tokensCss: readFileSync(join(dir, 'tokens.css'), 'utf8'),
-        componentsCss: readFileSync(join(dir, 'components.css'), 'utf8'),
+        componentsCss: readFileSync(resolveStyleAsset(dir, DESIGN_DIR, 'components'), 'utf8'),
         manifest: readJson<DesignManifest>(join(dir, 'tokens.manifest.json')),
         icons: readJson<DesignIconSet>(join(dir, 'icons.json')),
-        templates: readJson<Record<string, DesignTemplate>>(join(dir, 'templates.json')),
+        templates: readJson<Record<string, DesignTemplate>>(resolveStyleAsset(dir, DESIGN_DIR, 'templates')),
         interactions: readInteractionLibrary(dir),
       }
     } catch (err) {
@@ -284,7 +285,7 @@ export function resetDesignCache(): void {
 function readInteractionLibrary(dir: string): DesignInteractionLibrary {
   const empty: DesignInteractionLibrary = { css: '', js: '', catalog: {}, rootAttrs: [] }
   try {
-    const doc = readJson<{ interactions?: DesignInteraction[]; bindings?: DesignInteractionLibrary['bindings'] }>(join(dir, 'interactions.json'))
+    const doc = readJson<{ interactions?: DesignInteraction[]; bindings?: DesignInteractionLibrary['bindings'] }>(resolveStyleAsset(dir, DESIGN_DIR, 'interactions'))
     const catalog: Record<string, DesignInteraction> = {}
     const rootAttrs: string[] = []
     for (const entry of doc.interactions ?? []) {
@@ -292,8 +293,8 @@ function readInteractionLibrary(dir: string): DesignInteractionLibrary {
       if (entry.rootAttr) rootAttrs.push(entry.rootAttr)
     }
     return {
-      css: readFileSync(join(dir, 'interactions.css'), 'utf8'),
-      js: readFileSync(join(dir, 'interactions.js'), 'utf8'),
+      css: readFileSync(resolveStyleAsset(dir, DESIGN_DIR, 'interactionsCss'), 'utf8'),
+      js: readFileSync(resolveStyleAsset(dir, DESIGN_DIR, 'interactionsJs'), 'utf8'),
       catalog,
       rootAttrs,
       bindings: doc.bindings ?? [],

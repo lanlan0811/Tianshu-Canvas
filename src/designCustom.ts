@@ -16,6 +16,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertSafeId, InvalidInputError, isSafeId } from './ids.js'
 import { assertInsideWorkspace, readTextInWorkspace } from './paths.js'
+import { resolveStyleAsset } from './designAssets.js'
 import { projectDir, withProjectTransaction, type ProjectTransaction } from './project.js'
 import { buildManifest, tokensToCss, type DesignManifest } from '../scripts/design/design-tokens.mjs'
 import { auditForbidden, validateTokens } from '../scripts/design/design-validate.mjs'
@@ -85,18 +86,18 @@ function sharedAssets(builtinDir: string, builtinId: string, iconStyle: DesignIc
   interactions: DesignInteractionLibrary
 } {
   const dir = join(builtinDir, 'styles', builtinId)
-  const componentsCss = readFileSync(join(dir, 'components.css'), 'utf8')
-  const templates = readJson(join(dir, 'templates.json'), 'templates.json') as Record<string, DesignTemplate>
+  const componentsCss = readFileSync(resolveStyleAsset(dir, builtinDir, 'components'), 'utf8')
+  const templates = readJson(resolveStyleAsset(dir, builtinDir, 'templates'), 'templates.json') as Record<string, DesignTemplate>
   const raw = readJson(join(dir, 'icons.json'), 'icons.json') as { viewBox: string; icons: Record<string, string> }
-  const interactions = readInteractionLibrary(dir)
+  const interactions = readInteractionLibrary(dir, builtinDir)
   return { componentsCss, templates, icons: { viewBox: raw.viewBox, stroke: iconStyle, icons: raw.icons }, interactions }
 }
 
 /** 读取内置风格的交互库产物（与 design.ts 的同名逻辑一致，避免循环依赖而各自实现）。 */
-function readInteractionLibrary(dir: string): DesignInteractionLibrary {
+function readInteractionLibrary(dir: string, builtinDir: string): DesignInteractionLibrary {
   const empty: DesignInteractionLibrary = { css: '', js: '', catalog: {}, rootAttrs: [] }
   try {
-    const doc = readJson(join(dir, 'interactions.json'), 'interactions.json') as { interactions?: DesignInteraction[]; bindings?: DesignInteractionLibrary['bindings'] }
+    const doc = readJson(resolveStyleAsset(dir, builtinDir, 'interactions'), 'interactions.json') as { interactions?: DesignInteraction[]; bindings?: DesignInteractionLibrary['bindings'] }
     const catalog: Record<string, DesignInteraction> = {}
     const rootAttrs: string[] = []
     for (const entry of doc.interactions ?? []) {
@@ -104,8 +105,8 @@ function readInteractionLibrary(dir: string): DesignInteractionLibrary {
       if (entry.rootAttr) rootAttrs.push(entry.rootAttr)
     }
     return {
-      css: readFileSync(join(dir, 'interactions.css'), 'utf8'),
-      js: readFileSync(join(dir, 'interactions.js'), 'utf8'),
+      css: readFileSync(resolveStyleAsset(dir, builtinDir, 'interactionsCss'), 'utf8'),
+      js: readFileSync(resolveStyleAsset(dir, builtinDir, 'interactionsJs'), 'utf8'),
       catalog,
       rootAttrs,
       bindings: doc.bindings ?? [],
@@ -309,8 +310,19 @@ export function createCustomStyle(
 
   const iconStyle = metaInObj.iconStyle as { strokeWidth?: unknown } | undefined
   if (!iconStyle || typeof iconStyle !== 'object' || typeof iconStyle.strokeWidth !== 'number') {
-    throw new InvalidInputError('缺少 meta.iconStyle.strokeWidth（数字，如 1.5 / 1.75）。')
+    throw new InvalidInputError(
+      '缺少图标描边宽度：请在工具参数传 iconStyle.strokeWidth（数字，如 1.5 / 1.75）。' +
+      '该参数会写入风格 meta.json 的 meta.iconStyle；也可用 meta.iconStyle 嵌套传入。',
+    )
   }
+
+  // 尺度键必须与内置风格同名（camelCase → --ts-size-* 由构建期 kebab 规则生成）；
+  // 未知键不会生成变量，只提示，不阻断创建。
+  const SIZE_KEYS = ['controlSm', 'controlMd', 'controlLg', 'iconSm', 'iconMd', 'iconLg', 'containerSm', 'containerMd', 'containerLg', 'sidebar']
+  const unknownSizes = Object.keys((tokens.size ?? {}) as Record<string, unknown>).filter((key) => !SIZE_KEYS.includes(key))
+  const sizeWarnings = unknownSizes.length
+    ? [`tokens.size 含未知键：${unknownSizes.slice(0, 8).join('、')}${unknownSizes.length > 8 ? ` 等 ${unknownSizes.length} 个` : ''}；这些键不会生成 --ts-* 变量。内置键名：${SIZE_KEYS.join('、')}`]
+    : []
 
   const meta = {
     id,
@@ -328,7 +340,7 @@ export function createCustomStyle(
   }
 
   const errors: string[] = []
-  const warnings: string[] = []
+  const warnings: string[] = [...sizeWarnings]
   validateTokens(tokens, id, errors, warnings)
   auditForbidden('meta.json', JSON.stringify(meta), errors)
 

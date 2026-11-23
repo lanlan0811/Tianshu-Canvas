@@ -217,19 +217,18 @@ test('两个独立进程屏障竞争：立即409类拒绝，释放后重试保�
   } finally { await Promise.all([holder.stop(), contender.stop()]); ws.cleanup() }
 })
 
-test('强杀独立持锁进程保留遗留锁，不按时间或PID抢占，人工清理后恢复', { timeout: 30000 }, async () => {
+test('强杀独立持锁进程后，下一次写入自动回收遗留锁', { timeout: 30000 }, async () => {
   const ws = fixture()
   const holder = worker(ws.cwd, 'page-killed', 'hold')
   try {
     await holder.next('ready'); holder.write(); await holder.next('locked')
+    const held = JSON.parse(fs.readFileSync(ws.lock, 'utf8'))
     await holder.stop()
-    const abandoned = fs.readFileSync(ws.lock)
-    assert.throws(() => api.upsertNode(ws.cwd, node('page-denied')), error => error.code === 'WORKSPACE_BUSY')
-    assert.deepEqual(fs.readFileSync(ws.lock), abandoned)
-    assert.equal(api.readProject(ws.cwd).nodes.length, 0)
-    fs.rmSync(ws.lock)
-    api.upsertNode(ws.cwd, node('page-retried'))
-    assert.equal(api.readProject(ws.cwd).nodes[0].id, 'page-retried')
+    assert.equal(fs.existsSync(ws.lock), true, 'precondition: the killed holder must leave its lock behind')
+    api.upsertNode(ws.cwd, node('page-reclaimed'))
+    assert.equal(api.readProject(ws.cwd).nodes[0].id, 'page-reclaimed')
+    assert.equal(fs.existsSync(ws.lock), false, 'the reclaimer must release the lock after committing')
+    assert.equal(typeof held.pid, 'number')
   } finally { await holder.stop(); ws.cleanup() }
 })
 
@@ -240,9 +239,20 @@ test('畸形、目录链接、被替换的锁不自动删除；其他工作区�
     fs.writeFileSync(ws.lock, '{malformed')
     assert.throws(() => api.upsertNode(ws.cwd, node('page-denied')), error => error.code === 'WORKSPACE_BUSY')
     assert.equal(fs.readFileSync(ws.lock, 'utf8'), '{malformed')
+    // A syntactically valid record pointing at a pid that cannot be probed
+    // safely must never be reclaimed either (kill(0) would hit our own group).
+    for (const pid of [0, -1, -4242, 'dead', null, 1.5]) {
+      fs.writeFileSync(ws.lock, JSON.stringify({ version: 1, pid, startedAt: Date.now(), token: 'a'.repeat(48) }) + '\n')
+      const before = fs.readFileSync(ws.lock)
+      assert.throws(() => api.upsertNode(ws.cwd, node('page-denied')), error => error.code === 'WORKSPACE_BUSY', `pid=${String(pid)} must not be reclaimed`)
+      assert.deepEqual(fs.readFileSync(ws.lock), before, `pid=${String(pid)} lock bytes must stay untouched`)
+    }
+    // A dead pid without the random ownership token is not a lock this code wrote.
+    fs.writeFileSync(ws.lock, JSON.stringify({ version: 1, pid: 2147483646, startedAt: Date.now() }) + '\n')
+    assert.throws(() => api.upsertNode(ws.cwd, node('page-denied')), error => error.code === 'WORKSPACE_BUSY')
+    fs.rmSync(ws.lock)
     api.upsertNode(other.cwd, node('page-independent'))
     assert.equal(api.readProject(other.cwd).nodes.length, 1)
-    fs.rmSync(ws.lock)
     fs.symlinkSync(other.dir, ws.lock, process.platform === 'win32' ? 'junction' : 'dir')
     assert.throws(() => api.upsertNode(ws.cwd, node('page-denied')))
     assert.equal(fs.lstatSync(ws.lock).isSymbolicLink(), true)

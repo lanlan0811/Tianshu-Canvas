@@ -5,7 +5,8 @@
  * `git diff --exit-code -- dist` 在任意平台上结果一致。
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
+import { join, relative, resolve, sep } from 'node:path'
 import { buildManifest, tokensToCss } from './design/design-tokens.mjs'
 import { buildPrototypeLibrary } from './build-prototypes.mjs'
 import {
@@ -45,6 +46,23 @@ function writeJson(file, value) {
 function writeText(file, text) {
   mkdirSync(resolve(file, '..'), { recursive: true })
   writeFileSync(file, text.replace(/\r\n/g, '\n'), 'utf8')
+}
+
+/**
+ * 内容寻址共享资产：跨风格逐字节相同的文件只写一份 dist/design/shared/<sha16>/<name>。
+ * 返回相对风格目录的引用（统一 `/` 分隔），运行时由 src/designAssets.ts 解析。
+ */
+const sharedIndexMemo = new Map()
+
+function publishShared(outRoot, name, text) {
+  const normalized = text.replace(/\r\n/g, '\n')
+  const digest = createHash('sha256').update(normalized, 'utf8').digest('hex').slice(0, 16)
+  const key = digest + '/' + name
+  if (!sharedIndexMemo.has(key)) {
+    writeText(join(outRoot, 'shared', digest, name), normalized)
+    sharedIndexMemo.set(key, true)
+  }
+  return '../../shared/' + key
 }
 
 /** 校验 index.json 与各 meta.json 的一致性。 */
@@ -234,11 +252,7 @@ export function buildDesignSystems({ root, dist }) {
     writeJson(join(outDir, 'meta.json'), style.meta)
     writeText(join(outDir, 'tokens.css'), style.tokensCss)
     writeJson(join(outDir, 'tokens.manifest.json'), style.manifest)
-    writeText(join(outDir, 'components.css'), componentsCss)
-    // 交互库与风格无关（差异全在 token），每个风格复制同一份。
-    writeText(join(outDir, 'interactions.css'), interactionsCss)
-    writeText(join(outDir, 'interactions.js'), interactionsJs)
-    writeJson(join(outDir, 'interactions.json'), interactionsDoc)
+    // 跨风格逐字节相同的资产按内容寻址只存一份，assets.json 记录相对引用。
     writeJson(join(outDir, 'icons.json'), {
       viewBox: style.iconsDoc.viewBox,
       stroke: style.meta.iconStyle,
@@ -257,7 +271,17 @@ export function buildDesignSystems({ root, dist }) {
         html: body,
       }
     }
-    writeJson(join(outDir, 'templates.json'), templates)
+    const assets = {
+      components: publishShared(outRoot, 'components.css', componentsCss),
+      interactionsCss: publishShared(outRoot, 'interactions.css', interactionsCss),
+      interactionsJs: publishShared(outRoot, 'interactions.js', interactionsJs),
+      interactions: publishShared(outRoot, 'interactions.json', JSON.stringify(interactionsDoc, null, 2).replace(/\r\n/g, '\n') + '\n'),
+      templates: publishShared(outRoot, 'templates.json', JSON.stringify(templates, null, 2).replace(/\r\n/g, '\n') + '\n'),
+      icons: 'icons.json',
+      tokens: 'tokens.css',
+      manifest: 'tokens.manifest.json',
+    }
+    writeJson(join(outDir, 'assets.json'), assets)
 
     catalogStyles.push({
       id: style.meta.id,

@@ -3,6 +3,35 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v0.9.6] - 2026-11-23
+
+修复版：逐项处置审核清单——僵尸锁自动回收、对比度覆盖正文、create 参数契约、风格资产内容寻址去重，
+并新增本地操作审计日志。
+详细说明见 [release-0.9.6.md](release/release-0.9.6.md)，验证与已知边界见 [验收记录](docs/review-0.9.6-acceptance.md)。
+
+- **P1 锁回收**：`project.lock` 写入的 pid 现在会被读取。遇 `EEXIST` 时校验锁为普通文件、文件身份与字节
+  稳定、记录含正整数 pid 与随机 token，再用 `process.kill(pid, 0)` 探活；仅当返回 `ESRCH`（进程确已退出）
+  才回收并重试创建。畸形、链接、被替换、字节被篡改、pid 非法（0/负数/非整数）或进程仍存活（含 Windows
+  上的 `EPERM`）一律保守失败且不改动锁。PID 复用只会更保守，不按时间回收。报错仍保持路径脱敏，
+  绝对路径只进宿主日志。
+- **P2 对比度**：可访问性审计此前只扫描按钮/链接/标题/图片，普通 `<p>/<span>/<div>` 正文完全不参与判定，
+  1.6:1 的正文不会报错。现在额外采集含直接文本的可见元素（上限 800 个，超出在报告中注明），
+  仅用于对比度判定，不参与可访问名/焦点等规则；背景为图片/渐变或半透明层时照旧跳过并给出原因。
+- **P3 create 契约**：新增可选 `meta` 参数，`name/tagline/description/tags/swatches/iconStyle/license/notice`
+  既可按顶层传，也可嵌套在 `meta` 下（顶层优先）；缺 `strokeWidth` 的报错不再写有歧义的 `meta.` 前缀。
+  `tokens.size` 含未知键时返回警告并列出内置键名（未知键不会生成 `--ts-*` 变量）。
+- **P3 资产去重**：`dist/design/styles/<id>/` 中跨风格逐字节相同的 5 个文件（components.css、
+  interactions.css/js/json、templates.json）改为按内容寻址存到 `dist/design/shared/<sha256前16位>/`，
+  各风格以 `assets.json` 引用。dist/design 由 1.70 MB 降至 1.16 MB，打包文件数 151 → 101。
+  新增 `src/designAssets.ts` 统一解析，引用越出 `dist/design` 直接拒绝；`assets.json` 缺失或损坏时
+  回退旧路径布局，兼容 0.9.5 安装与测试夹具。
+- **P4 操作日志**：新增 `.tianshu-canvas/history.jsonl`（追加式，每行一个 JSON 事件），在事务提交点由
+  前后模型差异自动推导：页面增删/改名/移动/正文更新、连线增删、换风格、批注增删与解决、简报更新。
+  只记录时间、pid、操作名、id/标题/字段名/字节数，不含 HTML 正文；上限 1 MiB，超出裁剪最旧记录并写
+  `trimmed` 标记；日志与业务同一批原子提交，写入失败只警告不阻断；`canvas_get_state` 展示最近 5 条。
+  无登录体系，只能记录「何时、哪个进程、改了什么」，不记录「谁」。
+- 工具名、描述与 schema 仅新增可选 `meta`；项目格式 v1 无迁移；权限、平台与宿主兼容范围不变。
+
 ## [v0.9.5] - 2026-11-23
 
 增强版：把设计工艺与安全检查补进技能和工具。反 AI 套路清单、标题/文案规则、检查预算、

@@ -30,6 +30,7 @@ import { listPrototypes, getPrototype, listDirections, getDirection } from './pr
 import { buildBrandPack, exportBrandPack, forgetStyle, importBrandPack, memorySummary, recordUsage, verifyBrandPack } from './brand.js'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
 import { isWorkerSession, warnUser } from './host.js'
+import { formatHistoryEntry, recentHistory } from './history.js'
 import {
   designStyleExists,
   designStyleIds,
@@ -446,8 +447,7 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
 
   if (selection) {
     sections.push(`当前选中：\n${formatSelection(selection, project).join('\n')}`)
-  } else {
-    sections.push(
+  } else {    sections.push(
       '当前画布没有选中项。\n' +
         '请在浏览器打开画布，点击某个页面节点（或按住 Ctrl 点击页面内的元素）后再试。',
     )
@@ -456,6 +456,15 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
   const pending = (project.comments ?? []).filter((c) => !c.resolved).length
   if (pending > 0) {
     sections.push(`待处理批注：${pending} 条。用 canvas_comments（action=list）查看全部批注并逐条修改。`)
+  }
+
+  try {
+    const recent = recentHistory(call.cwd, 5)
+    if (recent.length) {
+      sections.push(`最近操作（本地日志 .tianshu-canvas/history.jsonl）：\n${recent.map((entry) => '- ' + formatHistoryEntry(entry)).join('\n')}`)
+    }
+  } catch {
+    /* 日志不是权威数据，读取失败不影响状态展示 */
   }
 
   sections.push(url ? `画布 URL：${url}` : '提示：先调用 canvas_open 获取画布 URL。')
@@ -1158,15 +1167,20 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       const id = str(call.args.id)
       if (!id) return { content: 'create 需要 id（风格 id：字母数字/_/-，1–64 位）。', isError: true }
       const { result, applied } = withProjectTransaction(call.cwd, (tx) => {
+        // 兼容两种写法：顶层参数与 meta 对象；顶层优先。
+        const metaIn = (call.args.meta && typeof call.args.meta === 'object' && !Array.isArray(call.args.meta))
+          ? call.args.meta as Record<string, unknown>
+          : {}
+        const pick = (key: string): unknown => call.args[key] !== undefined ? call.args[key] : metaIn[key]
         const result = createCustomStyle(call.cwd, id, call.args.tokens, {
-          name: call.args.name,
-          tagline: call.args.tagline,
-          description: call.args.description,
-          tags: call.args.tags,
-          swatches: call.args.swatches,
-          iconStyle: call.args.iconStyle,
-          license: call.args.license,
-          notice: call.args.notice,
+          name: pick('name'),
+          tagline: pick('tagline'),
+          description: pick('description'),
+          tags: pick('tags'),
+          swatches: pick('swatches'),
+          iconStyle: pick('iconStyle'),
+          license: pick('license'),
+          notice: pick('notice'),
         }, designDir(), { overwrite: call.args.overwrite === true, builtinIds: builtinIds() }, tx)
 
         const preparedStyle = compileCustomStyle(call.cwd, id, designDir(), tx)
@@ -1758,13 +1772,18 @@ export const tools: TpiTool[] = [
           swatches: { type: 'array', items: { type: 'string' }, description: 'create：色卡（4 个 hex，用于画布顶栏展示）' },
           iconStyle: {
             type: 'object',
-            description: 'create：图标描边风格；strokeWidth 必填（数字，如 1.5 / 1.75），linecap/linejoin 可选',
+            description: 'create：图标描边风格；strokeWidth 必填（数字，如 1.5 / 1.75），linecap/linejoin 可选。该参数会写入风格 meta.json 的 meta.iconStyle；也可用 meta.iconStyle 嵌套传入',
             properties: {
               strokeWidth: { type: 'number' },
               linecap: { type: 'string' },
               linejoin: { type: 'string' },
             },
             required: ['strokeWidth'],
+          },
+          meta: {
+            type: 'object',
+            description: 'create：可选的嵌套式风格元信息（name/tagline/description/tags/swatches/iconStyle/license/notice）。与同名顶层参数等价，顶层优先',
+            additionalProperties: true,
           },
           tokens: {
             type: 'object',

@@ -192,6 +192,30 @@ test('自定义设计系统：与内置重名、缺 strokeWidth、覆盖语义',
     })
     assert.equal(noStroke.isError, true)
     assert.match(noStroke.content, /iconStyle\.strokeWidth/)
+    assert.match(noStroke.content, /meta\.iconStyle/, noStroke.content)
+
+    // 审核反馈：也接受 meta.iconStyle 嵌套写法；顶层同名参数优先。
+    const nested = await tools.canvas_design_system.execute({
+      input: { action: 'create', id: 'nested-style', tokens: makeTokens(), meta: { name: '嵌套名', iconStyle: { strokeWidth: 1.75 } } },
+      cwd,
+    })
+    assert.ok(!nested.isError, nested.content)
+    const nestedMeta = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'library', 'nested-style', 'meta.json'), 'utf8'))
+    assert.equal(nestedMeta.name, '嵌套名')
+    assert.equal(nestedMeta.iconStyle.strokeWidth, 1.75)
+
+    const topWins = await create(cwd, 'top-wins', makeTokens(), meta({ iconStyle: { strokeWidth: 9 } }), { iconStyle: { strokeWidth: 1.5 } })
+    assert.ok(!topWins.isError, topWins.content)
+    const winsMeta = JSON.parse(readFileSync(join(cwd, '.tianshu-canvas', 'library', 'top-wins', 'meta.json'), 'utf8'))
+    assert.equal(winsMeta.iconStyle.strokeWidth, 1.5)
+
+    // 未知尺度键只提示，不阻断创建。
+    const unknownSize = makeTokens((t) => { t.size.iconXL = 40 })
+    const warned = await create(cwd, 'size-warn', unknownSize)
+    assert.ok(!warned.isError, warned.content)
+    assert.match(warned.content, /未知键.*iconXL/, warned.content)
+    const tokensCss = readFileSync(join(cwd, '.tianshu-canvas', 'library', 'size-warn', 'tokens.json'), 'utf8')
+    assert.ok(!tokensCss.includes('icon-xl'), '未知键不得生成 --ts-size-icon-xl')
 
     const ok = await create(cwd, 'mybrand', makeTokens())
     assert.ok(!ok.isError, ok.content)

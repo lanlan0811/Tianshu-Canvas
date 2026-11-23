@@ -45,6 +45,18 @@ function scan(items, htmlLang = 'zh-CN') {
 
 const rules = (report) => report.issues.map((i) => i.rule)
 
+test('正文采集条目只参与对比度，不产生可访问名/焦点类误报', () => {
+  const report = analyze(scan([
+    item({ textOnly: true, tag: 'p', name: '正文', color: 'rgb(200, 200, 200)', selector: 'body > p' }),
+  ]))
+  assert.deepEqual(rules(report), ['contrast'])
+})
+
+test('textElements 未提供时报告回落为 0', () => {
+  const report = analyze(scan([item({ tag: 'p', name: '正文' })]))
+  assert.equal(report.textElements, 0)
+})
+
 test('合规页面：0 error（真阴）', () => {
   const report = analyze(
     scan([

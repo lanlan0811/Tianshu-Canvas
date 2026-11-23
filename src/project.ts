@@ -15,7 +15,8 @@ import { assertSafeId, InvalidInputError, isSafeId, newCommentId, newPageId } fr
 import { assertInsideWorkspace, assertReadableFile, prepareFileAtomic, readBytesInWorkspace, readTextInWorkspace, writeFileAtomic, type PreparedFileWrite } from './paths.js'
 import { assertHtmlSize, assertPageCount } from './limits.js'
 import { withWorkspaceLock } from './transaction.js'
-import { warnUser } from './host.js'
+import { isWorkerSession, warnUser } from './host.js'
+import { appendHistory, diffProjects, historyPath, readHistory, warnHistoryFailure, type HistoryEntry } from './history.js'
 import type { DeviceType } from './device.js'
 import { normalizeStoredPageBrief, type PageBrief } from './brief.js'
 
@@ -252,6 +253,8 @@ export class ProjectTransaction {
   private readonly deleted = new Map<string, { path: string; recursive: boolean }>()
   private readonly pageIds = new Set<string>()
   private readonly callbacks: Array<() => void> = []
+  private readonly pageBytes = new Map<string, number>()
+  private action = 'project.update'
   private dirty = false
   private notify = false
   private active = true
@@ -299,6 +302,7 @@ export class ProjectTransaction {
       assertSafeId(pageId)
       assertHtmlSize(data)
       this.pageIds.add(pageId)
+      this.pageBytes.set(pageId, typeof data === 'string' ? Buffer.byteLength(data, 'utf8') : data.byteLength)
     }
     this.deleted.delete(this.key(path))
     this.staged.set(this.key(path), { path, data: typeof data === 'string' ? data : Buffer.from(data) })
@@ -349,6 +353,12 @@ export class ProjectTransaction {
     this.callbacks.push(callback)
   }
 
+  /** 标记本次事务的操作名（写入 history.jsonl 的 action 字段）；默认 project.update。 */
+  setAction(action: string): void {
+    this.assertActive()
+    if (/^[a-z][a-z0-9_.-]{0,63}$/.test(action)) this.action = action
+  }
+
   /** Called only by withProjectTransaction, while its exclusive lock is held. */
   commit(): void {
     this.assertActive()
@@ -370,6 +380,21 @@ export class ProjectTransaction {
       if (item) assertHtmlSize(item.data)
     }
     const targets = [...this.staged.values(), ...(projectData === undefined ? [] : [{ path: projectFile(this.cwd), data: projectData }])]
+    // 操作日志与本次事务一起提交（同一锁内、同一批原子 rename）。日志失败只警告，不改变业务结果。
+    if (projectData !== undefined || this.staged.size > 0 || this.deleted.size > 0) {
+      try {
+        const changes = diffProjects(this.originalProject, this.project, this.pageBytes)
+        if (changes.length) {
+          const entry: HistoryEntry = { ts: Date.now(), pid: process.pid, actor: 'local', action: this.action, changes }
+          const existing = readHistory(this.cwd)
+          const target = historyPath(this.cwd)
+          assertInsideWorkspace(this.cwd, target, '操作日志')
+          targets.push({ path: target, data: appendHistory(existing, entry) })
+        }
+      } catch (error) {
+        warnHistoryFailure(error)
+      }
+    }
     if (this.dirty) assertInsideWorkspace(this.cwd, pagesDir(this.cwd), '页面目录')
     for (const item of targets) {
       assertInsideWorkspace(this.cwd, item.path, '事务写入目标')
