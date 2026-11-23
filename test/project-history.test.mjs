@@ -132,7 +132,7 @@ test('history.jsonl 被预置为目录链接时拒绝写入且不越界', () => 
   try {
     const outsideFile = join(outside, 'victim.jsonl')
     fs.writeFileSync(outsideFile, 'keep\n')
-    fs.symlinkSync(outsideFile, ws.history, process.platform === 'win32' ? 'file' : 'file')
+    fs.symlinkSync(outsideFile, ws.history, 'file')
     api.withProjectTransaction(ws.cwd, (tx) => {
       tx.stagePageHtml('page-a', '<p>a</p>')
       api.upsertNode(ws.cwd, node('page-a'), tx)

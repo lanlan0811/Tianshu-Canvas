@@ -50,10 +50,11 @@ export function styleAssets(styleDir: string): StyleAssets {
   }
 }
 
-/** 把资产引用解析成绝对路径；越出 designRoot 或绝对路径直接拒绝。 */
+/** 把资产引用解析成绝对路径；越出 designRoot、绝对路径或盘符路径直接拒绝。 */
 export function resolveStyleAsset(styleDir: string, designRoot: string, key: keyof StyleAssets): string {
   const rel = styleAssets(styleDir)[key]
-  if (isAbsolute(rel)) throw new Error(`设计系统资产引用不能是绝对路径：${rel}`)
+  // 盘符路径在 POSIX 上不是 isAbsolute，但同样是非法引用；构建产物永不会写出这类值。
+  if (isAbsolute(rel) || /^[A-Za-z]:[\\/]/.test(rel)) throw new Error(`设计系统资产引用不能是绝对路径：${rel}`)
   const absolute = resolve(styleDir, rel)
   const root = resolve(designRoot)
   const normalizedRoot = root.endsWith(sep) ? root : root + sep

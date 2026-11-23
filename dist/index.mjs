@@ -60762,7 +60762,7 @@ function styleAssets(styleDir) {
 }
 function resolveStyleAsset(styleDir, designRoot, key) {
   const rel = styleAssets(styleDir)[key];
-  if (isAbsolute(rel)) throw new Error(`\u8BBE\u8BA1\u7CFB\u7EDF\u8D44\u4EA7\u5F15\u7528\u4E0D\u80FD\u662F\u7EDD\u5BF9\u8DEF\u5F84\uFF1A${rel}`);
+  if (isAbsolute(rel) || /^[A-Za-z]:[\\/]/.test(rel)) throw new Error(`\u8BBE\u8BA1\u7CFB\u7EDF\u8D44\u4EA7\u5F15\u7528\u4E0D\u80FD\u662F\u7EDD\u5BF9\u8DEF\u5F84\uFF1A${rel}`);
   const absolute = resolve(styleDir, rel);
   const root = resolve(designRoot);
   const normalizedRoot = root.endsWith(sep) ? root : root + sep;
