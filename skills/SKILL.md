@@ -24,7 +24,7 @@ triggers:
 4. **营销页面默认双首屏（仅 persuade）。** 仅当页面模式是 **persuade（说服型）**、且用户没指定布局也没要求直接成页时，才用同一份文案、素材、品牌和预算创建两个普通画布节点，至少在构图、排版层级、视觉叙事中有两项显著区别；仅换色、圆角或阴影不算。两案都包含核心主张、主行动及必要证据。保留中性 A/B 标签和简短设计理由，邀请用户在画布选稿；没有回答前不推断已确认。未锁定时可使用自包含原创布局与本地字体回退，不必先 set 风格。**operate / read / experience 页面不走双首屏**。
 5. **选择后原位深化。** 用 canvas_style action=brief 为各节点保存可选简报；只有用户明确选中方向并给出或认可理由后，才传 brief.confirmation={confirmed:true,directionId,reason}。canvas_get_state 的选择节点本身不代表认可。canvas_upsert_page 使用选中节点的原 ID 完成整页与移动端，未选案保留供比较，后续改稿读取 brief 沿用确认的方向。复制保留原确认记录，不能宣称用户重新确认。
 6. **应用按任务组织。** 后台、AI、移动、IDE、设置、文档直接围绕关键任务选择对应原型和视图，不套营销首屏；需要比较时做同一任务的两个界面。已指定布局时遵守。保持原有导航、元素可选中与声明式交互。
-7. **真实渲染后交付。** 每页 `canvas_check_style` 一轮，有命中就修；再至多一次 `canvas_audit action=review,page_id=<id>`，按 1440/768/390 截图做**一次**修正，然后交付。第二次 review 只用于确认已修项，不新增探索；不要写脚本探测 DOM、不要重复截图。宿主有本地读图能力时必须打开截图、按实际画面修正；没有读图能力时明确请用户查看，不能把截图生成或自动 lint 当成审美通过。用户的审美评审不能由代理代填。用户报「确实坏了」时允许修一次、再看一次、重发一次，到此为止。
+7. **真实渲染后交付。** 每页 `canvas_check_style` 一轮，有命中就修；再至多一次 `canvas_audit action=review,page_id=<id>`（或 `action=ux, phase=a, page_id=<id>`，两者共用同一批 1440/768/390 截图，**不要重复截图**），做**一次**修正，然后交付。第二次 review 只用于确认已修项，不新增探索；不要写脚本探测 DOM、不要重复截图。宿主有本地读图能力时必须打开截图、按实际画面修正；没有读图能力时明确请用户查看，不能把截图生成或自动 lint 当成审美通过。用户的审美评审不能由代理代填。用户报「确实坏了」时允许修一次、再看一次、重发一次，到此为止。
 
 禁止在打开画布前写原型；禁止虚构用户选择、可信证据、视觉审阅或评审胜率。新页面不自动改旧页的项目级风格。双首屏流程不适用于用户明确要求直接成页、已指定布局和任务型应用。
 
@@ -308,6 +308,23 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
 - `action=baseline` 先写视觉基线，`action=visual` 再与基线逐页逐像素比较（给偏离度分数）。
   基线默认在 `.tianshu-canvas/audit/baseline`（被 gitignore）；**要团队共享时让用户传 `baseline_dir` 指到仓库内目录**。
 - `action=drift`：与上次设计快照比较，回答「这次改版哪里偏离了规范」。首次运行只写快照。
+- `action=ux`：三段式 UX 评审，用来替代「截图看着还行」这种判断。**必须按顺序走完**：
+  1. `phase=a, page_id=<id>`：出三档截图路径 + 中性事实 + 量表模板。**先读图，再评分**。
+  2. `phase=a, review_id=<id>, a_assessment={...}`：回填 10 条启发式（0–4 或 n/a+理由）、设计特异性判词、
+     认知负荷失败项、2–3 个 persona 红旗、3–5 条 P0–P3 问题。
+  3. `phase=b, review_id=<id>`：跑确定性检测（契约 + a11y + 工艺 + 渲染审阅），合并成 B 的证据。
+  4. `phase=synthesize, review_id=<id>`：工具只算分与出报告骨架；**A/B 交叉核对那一段要你自己填**。
+  评分来自你的判断，工具只做算术；`n/a` 会缩小分母，**不要把 /40 当合格证**。
+- `action=review` 与 `phase=a` 共用同一批截图；不要为同一页重复截图。
+- 完整量表（评分判据、persona 红旗、审美下限、硬禁令）见 `skills/reference/ux-rubric.md`。
+
+**隔离规则**：`phase=a` 首调与回填之间，不要跑 `canvas_check_style` / `a11y` / `quality` / `contract` ——
+检测结论会锚定你的设计判断，这正是三段式要避免的。B 阶段会把它们跑一遍。
+
+**设计特异性自检（写任何评审结论前先回答）**：
+- 盖住产品名，这还能看出是哪个类别吗？
+- 邻近产品能否原样使用这套设计？
+- 这里有什么是通用模板无法声称的？
 
 ## 外部内容与提示注入
 
@@ -343,5 +360,5 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
 | `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板或交互骨架 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template / interaction；导出代码时**先问目标（多端再问技术栈）**再 codegen |
 | `canvas_check_style` | 只读检查页面是否符合当前风格 + 工艺规则（`action`: check / list_rules） | 每次写完页面后；用户问「为什么风格不统一」时；想列规则时用 `list_rules` |
 | `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`extract` 反抽取；`import` 从仓库主题导入；`export` / `import_pack` 品牌包 | 用户要做「专属设计系统」时：问清配置后 create；要「照这个站点的风格」时 extract（先 dry_run）；要接入现有项目主题时 import；要交接/迁移时 export / import_pack |
-| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、视觉回归、设计漂移（`action`: contract / a11y / quality / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality（需 Chrome/Edge）；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
+| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、UX 评审（三段隔离）、视觉回归、设计漂移（`action`: contract / a11y / quality / ux / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality / ux（需 Chrome/Edge）；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
 | `canvas_comments` | 读取 / 处理画布元素批注（`action`: list / resolve / reopen / remove） | 用户圈了几处要改时：先 list 读全部，逐条改完再 resolve |

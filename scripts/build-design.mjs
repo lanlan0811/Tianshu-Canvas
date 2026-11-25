@@ -16,6 +16,7 @@ import {
   validateConsistency,
   validateIcons,
   validateInteractions,
+  validateRubric,
   validateTemplateHtml,
   validateTemplates,
   validateTokens,
@@ -129,6 +130,8 @@ export function buildDesignSystems({ root, dist }) {
   interactionsDoc.bindings = bindingsDoc.bindings
   const interactionsCss = readFileSync(join(sourceDir, 'interactions', 'interactions.css'), 'utf8').replace(/\r\n/g, '\n')
   const interactionsJs = readFileSync(join(sourceDir, 'interactions', 'interactions.js'), 'utf8').replace(/\r\n/g, '\n')
+  const rubricDoc = readJson(join(sourceDir, 'rubrics', 'ux-review.json'), 'rubrics/ux-review.json')
+  validateRubric(rubricDoc, errors)
   const templatesDoc = readJson(join(sourceDir, 'templates', 'templates.json'), 'templates.json')
   const templateBodies = new Map()
   for (const template of templatesDoc.templates ?? []) {
@@ -309,6 +312,9 @@ export function buildDesignSystems({ root, dist }) {
       })),
     })
   }
+
+  // 评审量表与设计系统同生命周期：运行时只读 dist/design/rubrics/。
+  writeJson(join(outRoot, 'rubrics', 'ux-review.json'), rubricDoc)
 
   writeJson(join(outRoot, 'index.json'), {
     schemaVersion: 1,

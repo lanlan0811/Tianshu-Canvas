@@ -155,11 +155,11 @@ function __extends(d, b2) {
 }
 function __awaiter(thisArg, _arguments, P2, generator) {
   function adopt(value) {
-    return value instanceof P2 ? value : new P2(function(resolve14) {
-      resolve14(value);
+    return value instanceof P2 ? value : new P2(function(resolve15) {
+      resolve15(value);
     });
   }
-  return new (P2 || (P2 = Promise))(function(resolve14, reject) {
+  return new (P2 || (P2 = Promise))(function(resolve15, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -175,7 +175,7 @@ function __awaiter(thisArg, _arguments, P2, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve14(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve15(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -338,14 +338,14 @@ function __asyncValues(o) {
   }, i);
   function verb(n) {
     i[n] = o[n] && function(v2) {
-      return new Promise(function(resolve14, reject) {
-        v2 = o[n](v2), settle(resolve14, reject, v2.done, v2.value);
+      return new Promise(function(resolve15, reject) {
+        v2 = o[n](v2), settle(resolve15, reject, v2.done, v2.value);
       });
     };
   }
-  function settle(resolve14, reject, d, v2) {
+  function settle(resolve15, reject, d, v2) {
     Promise.resolve(v2).then(function(v22) {
-      resolve14({ value: v22, done: d });
+      resolve15({ value: v22, done: d });
     }, reject);
   }
 }
@@ -870,7 +870,7 @@ function of() {
 }
 function lastValueFrom(source2, config2) {
   var hasConfig = typeof config2 === "object";
-  return new Promise(function(resolve14, reject) {
+  return new Promise(function(resolve15, reject) {
     var _hasValue = false;
     var _value;
     source2.subscribe({
@@ -881,9 +881,9 @@ function lastValueFrom(source2, config2) {
       error: reject,
       complete: function() {
         if (_hasValue) {
-          resolve14(_value);
+          resolve15(_value);
         } else if (hasConfig) {
-          resolve14(config2.defaultValue);
+          resolve15(config2.defaultValue);
         } else {
           reject(new EmptyError());
         }
@@ -893,16 +893,16 @@ function lastValueFrom(source2, config2) {
 }
 function firstValueFrom(source2, config2) {
   var hasConfig = typeof config2 === "object";
-  return new Promise(function(resolve14, reject) {
+  return new Promise(function(resolve15, reject) {
     var subscriber = new SafeSubscriber({
       next: function(value) {
-        resolve14(value);
+        resolve15(value);
         subscriber.unsubscribe();
       },
       error: reject,
       complete: function() {
         if (hasConfig) {
-          resolve14(config2.defaultValue);
+          resolve15(config2.defaultValue);
         } else {
           reject(new EmptyError());
         }
@@ -1941,7 +1941,7 @@ var init_rxjs = __esm({
       Observable2.prototype.forEach = function(next, promiseCtor) {
         var _this = this;
         promiseCtor = getPromiseCtor(promiseCtor);
-        return new promiseCtor(function(resolve14, reject) {
+        return new promiseCtor(function(resolve15, reject) {
           var subscriber = new SafeSubscriber({
             next: function(value) {
               try {
@@ -1952,7 +1952,7 @@ var init_rxjs = __esm({
               }
             },
             error: reject,
-            complete: resolve14
+            complete: resolve15
           });
           _this.subscribe(subscriber);
         });
@@ -1974,14 +1974,14 @@ var init_rxjs = __esm({
       Observable2.prototype.toPromise = function(promiseCtor) {
         var _this = this;
         promiseCtor = getPromiseCtor(promiseCtor);
-        return new promiseCtor(function(resolve14, reject) {
+        return new promiseCtor(function(resolve15, reject) {
           var value;
           _this.subscribe(function(x2) {
             return value = x2;
           }, function(err) {
             return reject(err);
           }, function() {
-            return resolve14(value);
+            return resolve15(value);
           });
         });
       };
@@ -3828,8 +3828,8 @@ function typedArrayToBase64(typedArray) {
   const chunkSize = 65534;
   const chunks = [];
   for (let i = 0; i < typedArray.length; i += chunkSize) {
-    const chunk = typedArray.subarray(i, i + chunkSize);
-    chunks.push(String.fromCodePoint.apply(null, chunk));
+    const chunk2 = typedArray.subarray(i, i + chunkSize);
+    chunks.push(String.fromCodePoint.apply(null, chunk2));
   }
   const binaryString = chunks.join("");
   return btoa(binaryString);
@@ -4443,8 +4443,8 @@ var init_Deferred = __esm({
       // SAFETY: This is ensured by #taskPromise.
       #resolve;
       // TODO: Switch to Promise.withResolvers with Node 22
-      #taskPromise = new Promise((resolve14) => {
-        this.#resolve = resolve14;
+      #taskPromise = new Promise((resolve15) => {
+        this.#resolve = resolve15;
       });
       #timeoutId;
       #timeoutError;
@@ -4535,12 +4535,12 @@ var init_Mutex = __esm({
         return new _Mutex.Guard(this, onRelease);
       }
       release() {
-        const resolve14 = this.#acquirers.shift();
-        if (!resolve14) {
+        const resolve15 = this.#acquirers.shift();
+        if (!resolve15) {
           this.#locked = false;
           return;
         }
-        resolve14();
+        resolve15();
       }
     };
   }
@@ -6588,12 +6588,12 @@ var init_locators = __esm({
         }
         return defer(() => {
           return from(handle.evaluate((element) => {
-            return new Promise((resolve14) => {
+            return new Promise((resolve15) => {
               window.requestAnimationFrame(() => {
                 const rect1 = element.getBoundingClientRect();
                 window.requestAnimationFrame(() => {
                   const rect2 = element.getBoundingClientRect();
-                  resolve14([
+                  resolve15([
                     {
                       x: rect1.x,
                       y: rect1.y,
@@ -8413,9 +8413,9 @@ var init_ElementHandle = __esm({
             const handle = await this.#asSVGElementHandle();
             const target = __addDisposableResource6(env_5, handle && await handle.#getOwnerSVGElement(), false);
             return await (target ?? this).evaluate(async (element, threshold) => {
-              const visibleRatio = await new Promise((resolve14) => {
+              const visibleRatio = await new Promise((resolve15) => {
                 const observer = new IntersectionObserver((entries) => {
-                  resolve14(entries[0].intersectionRatio);
+                  resolve15(entries[0].intersectionRatio);
                   observer.disconnect();
                 });
                 observer.observe(element);
@@ -9133,7 +9133,7 @@ var init_Frame = __esm({
           }
           type = type ?? "text/javascript";
           return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, id, type: type2, content: content3 }) => {
-            return await new Promise((resolve14, reject) => {
+            return await new Promise((resolve15, reject) => {
               const script = document.createElement("script");
               script.type = type2;
               script.text = content3;
@@ -9146,12 +9146,12 @@ var init_Frame = __esm({
               if (url) {
                 script.src = url;
                 script.addEventListener("load", () => {
-                  resolve14(script);
+                  resolve15(script);
                 }, { once: true });
                 document.head.appendChild(script);
               } else {
                 document.head.appendChild(script);
-                resolve14(script);
+                resolve15(script);
               }
             });
           }, { ...options, type, content: content2 }));
@@ -9171,7 +9171,7 @@ var init_Frame = __esm({
             options.content = content2;
           }
           return await this.mainRealm().transferHandle(await this.isolatedRealm().evaluateHandle(async ({ url, content: content3 }) => {
-            return await new Promise((resolve14, reject) => {
+            return await new Promise((resolve15, reject) => {
               let element;
               if (!url) {
                 element = document.createElement("style");
@@ -9183,7 +9183,7 @@ var init_Frame = __esm({
                 element = link2;
               }
               element.addEventListener("load", () => {
-                resolve14(element);
+                resolve15(element);
               }, { once: true });
               element.addEventListener("error", (event) => {
                 reject(new Error(event.message ?? "Could not load style"));
@@ -11102,9 +11102,9 @@ var init_Page = __esm({
           ++this.#screencastSessionCount;
           if (!this.#startScreencastPromise) {
             const client = this.mainFrame().client;
-            const firstFrame = new Promise((resolve14) => {
+            const firstFrame = new Promise((resolve15) => {
               return client.once("Page.screencastFrame", () => {
-                return resolve14();
+                return resolve15();
               });
             });
             this.#startScreencastPromise = client.send("Page.startScreencast", { format: "png" }).then(() => {
@@ -11963,13 +11963,13 @@ var init_ScreenRecording = __esm({
           dest.end();
         }
         const destinationPromises = Array.from(this.destinations).map((dest) => {
-          return new Promise((resolve14) => {
+          return new Promise((resolve15) => {
             if (dest.writableFinished || dest.closed || dest.destroyed) {
-              resolve14(void 0);
+              resolve15(void 0);
             } else {
-              dest.once?.("finish", resolve14);
-              dest.once?.("close", resolve14);
-              dest.once?.("error", resolve14);
+              dest.once?.("finish", resolve15);
+              dest.once?.("close", resolve15);
+              dest.once?.("error", resolve15);
             }
           });
         });
@@ -14583,11 +14583,11 @@ function addPageBinding(type, name, prefix) {
           return value instanceof Node;
         })
       }));
-      return new Promise((resolve14, reject) => {
+      return new Promise((resolve15, reject) => {
         callPuppeteer.callbacks.set(seq, {
           resolve(value) {
             callPuppeteer.args.delete(seq);
-            resolve14(value);
+            resolve15(value);
           },
           reject(value) {
             callPuppeteer.args.delete(seq);
@@ -18923,8 +18923,8 @@ var init_Input2 = __esm({
         if (typeof delay === "number") {
           await Promise.all(actions);
           actions.length = 0;
-          await new Promise((resolve14) => {
-            setTimeout(resolve14, delay);
+          await new Promise((resolve15) => {
+            setTimeout(resolve15, delay);
           });
         }
         actions.push(this.up({ ...options, clickCount: count }));
@@ -18944,9 +18944,9 @@ var init_Input2 = __esm({
         });
       }
       async drag(start, target) {
-        const promise = new Promise((resolve14) => {
+        const promise = new Promise((resolve15) => {
           this.#client.once("Input.dragIntercepted", (event) => {
-            return resolve14(event.data);
+            return resolve15(event.data);
           });
         });
         await this.move(start.x, start.y);
@@ -18987,8 +18987,8 @@ var init_Input2 = __esm({
         await this.dragEnter(target, data);
         await this.dragOver(target, data);
         if (delay) {
-          await new Promise((resolve14) => {
-            return setTimeout(resolve14, delay);
+          await new Promise((resolve15) => {
+            return setTimeout(resolve15, delay);
           });
         }
         await this.drop(target, data);
@@ -19380,7 +19380,7 @@ var init_WebMCP = __esm({
        */
       async execute(input2 = {}, options = {}) {
         const { invocationId } = await this.#webmcp.invokeTool(this, input2);
-        return await new Promise((resolve14) => {
+        return await new Promise((resolve15) => {
           const onAbort = () => {
             void this.#webmcp.cancelInvocation(invocationId);
           };
@@ -19388,7 +19388,7 @@ var init_WebMCP = __esm({
             if (event.id === invocationId) {
               options.signal?.removeEventListener("abort", onAbort);
               this.#webmcp.off("toolresponded", handler);
-              resolve14(event);
+              resolve15(event);
             }
           };
           this.#webmcp.on("toolresponded", handler);
@@ -20258,9 +20258,9 @@ var init_Page2 = __esm({
         const env_2 = { stack: [], error: void 0, hasError: false };
         try {
           const stream = environment.value.createWriteStream(options.path);
-          const streamPromise = new Promise((resolve14, reject) => {
+          const streamPromise = new Promise((resolve15, reject) => {
             stream.on("error", reject);
-            stream.on("finish", resolve14);
+            stream.on("finish", resolve15);
           });
           const client = this.#primaryTargetClient;
           await client.send("HeapProfiler.enable");
@@ -21879,12 +21879,12 @@ var init_Browser2 = __esm({
         for (const [targetId, targetInfo] of this._targetManager().getDiscoveredTargetInfos().entries()) {
           if ((!existingTargetIds || existingTargetIds.has(targetId)) && targetInfo.url.includes(id) && targetInfo.type === "service_worker") {
             this._targetManager().addToIgnoreTarget(targetId);
-            targetDestroyedPromises.push(new Promise((resolve14) => {
+            targetDestroyedPromises.push(new Promise((resolve15) => {
               return setTimeout(() => {
                 this.#connection.emit("Target.targetDestroyed", {
                   targetId
                 });
-                resolve14(null);
+                resolve15(null);
               }, 0);
             }));
           }
@@ -22363,10 +22363,10 @@ var init_BrowserWebSocketTransport = __esm({
     init_Debug();
     BrowserWebSocketTransport = class _BrowserWebSocketTransport {
       static create(url, _headers, logger, _options) {
-        return new Promise((resolve14, reject) => {
+        return new Promise((resolve15, reject) => {
           const ws = new WebSocket(url);
           ws.addEventListener("open", () => {
-            return resolve14(new _BrowserWebSocketTransport(ws, logger));
+            return resolve15(new _BrowserWebSocketTransport(ws, logger));
           });
           ws.addEventListener("error", reject);
         });
@@ -25610,11 +25610,11 @@ var init_BrowsingContextProcessor = __esm({
         }
         const parentCdpClient = context2.cdpTarget.parentCdpClient;
         try {
-          const detachedFromTargetPromise = new Promise((resolve14) => {
+          const detachedFromTargetPromise = new Promise((resolve15) => {
             const onContextDestroyed = (event) => {
               if (event.targetId === params.context) {
                 parentCdpClient.off("Target.detachedFromTarget", onContextDestroyed);
-                resolve14();
+                resolve15();
               }
             };
             parentCdpClient.on("Target.detachedFromTarget", onContextDestroyed);
@@ -27102,7 +27102,7 @@ var init_ActionDispatcher = __esm({
           }
         }
         const promises = [
-          new Promise((resolve14) => setTimeout(resolve14, this.#tickDuration))
+          new Promise((resolve15) => setTimeout(resolve15, this.#tickDuration))
         ];
         for (const option of options) {
           promises.push(this.#dispatchAction(option));
@@ -27632,8 +27632,8 @@ var init_Mutex2 = __esm({
       acquire() {
         const state2 = { resolved: false };
         if (this.#locked) {
-          return new Promise((resolve14) => {
-            this.#acquirers.push(() => resolve14(this.#release.bind(this, state2)));
+          return new Promise((resolve15) => {
+            this.#acquirers.push(() => resolve15(this.#release.bind(this, state2)));
           });
         }
         this.#locked = true;
@@ -27644,12 +27644,12 @@ var init_Mutex2 = __esm({
           throw new Error("Cannot release more than once.");
         }
         state2.resolved = true;
-        const resolve14 = this.#acquirers.shift();
-        if (!resolve14) {
+        const resolve15 = this.#acquirers.shift();
+        if (!resolve15) {
           this.#locked = false;
           return;
         }
-        resolve14();
+        resolve15();
       }
       async run(action) {
         const release = await this.acquire();
@@ -27958,8 +27958,8 @@ function typedArrayToBase642(typedArray) {
   const chunkSize = 65534;
   const chunks = [];
   for (let i = 0; i < typedArray.length; i += chunkSize) {
-    const chunk = typedArray.subarray(i, i + chunkSize);
-    chunks.push(String.fromCodePoint.apply(null, chunk));
+    const chunk2 = typedArray.subarray(i, i + chunkSize);
+    chunks.push(String.fromCodePoint.apply(null, chunk2));
   }
   const binaryString = chunks.join("");
   return btoa(binaryString);
@@ -28755,8 +28755,8 @@ var init_ChannelProxy = __esm({
              * in the queue.
              */
             async getMessage() {
-              const onMessage = queue2.length > 0 ? Promise.resolve() : new Promise((resolve14) => {
-                queueNonEmptyResolver = resolve14;
+              const onMessage = queue2.length > 0 ? Promise.resolve() : new Promise((resolve15) => {
+                queueNonEmptyResolver = resolve15;
               });
               await onMessage;
               return queue2.shift();
@@ -28857,7 +28857,7 @@ var init_ChannelProxy = __esm({
           functionDeclaration: String((id) => {
             const w2 = window;
             if (w2[id] === void 0) {
-              return new Promise((resolve14) => w2[id] = resolve14);
+              return new Promise((resolve15) => w2[id] = resolve15);
             }
             const channelProxy = w2[id];
             delete w2[id];
@@ -30361,8 +30361,8 @@ var init_Deferred2 = __esm({
         return this.#result;
       }
       constructor() {
-        this.#promise = new Promise((resolve14, reject) => {
-          this.#resolve = resolve14;
+        this.#promise = new Promise((resolve15, reject) => {
+          this.#resolve = resolve15;
           this.#reject = reject;
         });
         this.#promise.catch((_error) => {
@@ -35372,11 +35372,11 @@ var init_BrowsingContextStorage = __esm({
         if (this.#contexts.has(browsingContextId)) {
           return Promise.resolve(this.getContext(browsingContextId));
         }
-        return new Promise((resolve14) => {
+        return new Promise((resolve15) => {
           const listener = (event) => {
             if (event.browsingContext.id === browsingContextId) {
               this.#eventEmitter.off("added", listener);
-              resolve14(event.browsingContext);
+              resolve15(event.browsingContext);
             }
           };
           this.#eventEmitter.on("added", listener);
@@ -39310,8 +39310,8 @@ var init_ExposedFunction = __esm({
         const functionDeclaration = stringifyFunction(interpolateFunction((callback) => {
           Object.assign(globalThis, {
             [PLACEHOLDER("name")]: function(...args) {
-              return new Promise((resolve14, reject) => {
-                callback([resolve14, reject, args]);
+              return new Promise((resolve15, reject) => {
+                callback([resolve15, reject, args]);
               });
             }
           });
@@ -39399,8 +39399,8 @@ var init_ExposedFunction = __esm({
             return;
           }
           try {
-            await dataHandle.evaluate(([resolve14], result2) => {
-              resolve14(result2);
+            await dataHandle.evaluate(([resolve15], result2) => {
+              resolve15(result2);
             }, result);
           } catch (error) {
             this.#logger?.(DEBUG_PREFIXES.error)?.(error);
@@ -44620,14 +44620,14 @@ var require_permessage_deflate = __commonJS({
       }
     };
     module.exports = PerMessageDeflate2;
-    function deflateOnData(chunk) {
-      this[kBuffers].push(chunk);
-      this[kTotalLength] += chunk.length;
+    function deflateOnData(chunk2) {
+      this[kBuffers].push(chunk2);
+      this[kTotalLength] += chunk2.length;
     }
-    function inflateOnData(chunk) {
-      this[kTotalLength] += chunk.length;
+    function inflateOnData(chunk2) {
+      this[kTotalLength] += chunk2.length;
       if (this[kPerMessageDeflate]._maxPayload < 1 || this[kTotalLength] <= this[kPerMessageDeflate]._maxPayload) {
-        this[kBuffers].push(chunk);
+        this[kBuffers].push(chunk2);
         return;
       }
       this[kError] = new RangeError("Max payload size exceeded");
@@ -44928,7 +44928,7 @@ var require_receiver = __commonJS({
        * @param {Function} cb Callback
        * @private
        */
-      _write(chunk, encoding, cb) {
+      _write(chunk2, encoding, cb) {
         if (this._opcode === 8 && this._state == GET_INFO) return cb();
         if (this._maxBufferedChunks > 0 && this._buffers.length >= this._maxBufferedChunks) {
           cb(
@@ -44942,8 +44942,8 @@ var require_receiver = __commonJS({
           );
           return;
         }
-        this._bufferedBytes += chunk.length;
-        this._buffers.push(chunk);
+        this._bufferedBytes += chunk2.length;
+        this._buffers.push(chunk2);
         this.startLoop(cb);
       }
       /**
@@ -46359,7 +46359,7 @@ var require_websocket = __commonJS({
     var http4 = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes5, createHash: createHash6 } = __require("crypto");
+    var { randomBytes: randomBytes7, createHash: createHash6 } = __require("crypto");
     var { Duplex, Readable: Readable2 } = __require("stream");
     var { URL: URL3 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -46910,7 +46910,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes5(16).toString("base64");
+      const key = randomBytes7(16).toString("base64");
       const request3 = isSecure ? https3.request : http4.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -47228,8 +47228,8 @@ var require_websocket = __commonJS({
       this.removeListener("end", socketOnEnd);
       websocket._readyState = WebSocket3.CLOSING;
       if (!this._readableState.endEmitted && !websocket._closeFrameReceived && !websocket._receiver._writableState.errorEmitted && this._readableState.length !== 0) {
-        const chunk = this.read(this._readableState.length);
-        websocket._receiver.write(chunk);
+        const chunk2 = this.read(this._readableState.length);
+        websocket._receiver.write(chunk2);
       }
       websocket._receiver.end();
       this[kWebSocket] = void 0;
@@ -47241,8 +47241,8 @@ var require_websocket = __commonJS({
         websocket._receiver.on("finish", receiverOnFinish);
       }
     }
-    function socketOnData(chunk) {
-      if (!this[kWebSocket]._receiver.write(chunk)) {
+    function socketOnData(chunk2) {
+      if (!this[kWebSocket]._receiver.write(chunk2)) {
         this.pause();
       }
     }
@@ -47345,14 +47345,14 @@ var require_stream = __commonJS({
       duplex._read = function() {
         if (ws.isPaused) ws.resume();
       };
-      duplex._write = function(chunk, encoding, callback) {
+      duplex._write = function(chunk2, encoding, callback) {
         if (ws.readyState === ws.CONNECTING) {
           ws.once("open", function open3() {
-            duplex._write(chunk, encoding, callback);
+            duplex._write(chunk2, encoding, callback);
           });
           return;
         }
-        ws.send(chunk, callback);
+        ws.send(chunk2, callback);
       };
       duplex.on("end", duplexOnEnd);
       duplex.on("error", duplexOnError);
@@ -47841,7 +47841,7 @@ var init_NodeWebSocketTransport = __esm({
     DEFAULT_MAX_PAYLOAD_BYTES = 256 * 1024 * 1024;
     NodeWebSocketTransport = class _NodeWebSocketTransport {
       static create(url, headers, logger, options = {}) {
-        return new Promise((resolve14, reject) => {
+        return new Promise((resolve15, reject) => {
           const ws = new wrapper_default(url, [], {
             followRedirects: true,
             perMessageDeflate: false,
@@ -47854,7 +47854,7 @@ var init_NodeWebSocketTransport = __esm({
             }
           });
           ws.addEventListener("open", () => {
-            return resolve14(new _NodeWebSocketTransport(ws, logger, options));
+            return resolve15(new _NodeWebSocketTransport(ws, logger, options));
           });
           ws.addEventListener("error", reject);
         });
@@ -47932,16 +47932,16 @@ import * as http3 from "node:http";
 import * as https2 from "node:https";
 import { URL as URL2, urlToHttpOptions } from "node:url";
 async function headHttpRequest(url) {
-  return await new Promise((resolve14) => {
+  return await new Promise((resolve15) => {
     httpRequest(url, "HEAD", (response) => {
       response.resume();
-      resolve14(response.statusCode === 200);
+      resolve15(response.statusCode === 200);
     }, false).then((request3) => {
       request3.on("error", () => {
-        resolve14(false);
+        resolve15(false);
       });
     }).catch(() => {
-      resolve14(false);
+      resolve15(false);
     });
   });
 }
@@ -47975,7 +47975,7 @@ async function httpRequest(url, method, response, keepAlive = true) {
   return request3;
 }
 function downloadFile(url, destinationPath, progressCallback, expectedHash) {
-  return new Promise(async (resolve14, reject) => {
+  return new Promise(async (resolve15, reject) => {
     let downloadedBytes = 0;
     let totalBytes;
     const verifier = expectedHash ? new HashVerifier() : null;
@@ -48021,7 +48021,7 @@ function downloadFile(url, destinationPath, progressCallback, expectedHash) {
               return;
             }
           }
-          return resolve14();
+          return resolve15();
         });
         file.on("error", failDownload);
         const contentLength = Number.parseInt(response.headers["content-length"] ?? "", 10);
@@ -48034,9 +48034,9 @@ function downloadFile(url, destinationPath, progressCallback, expectedHash) {
         response.on("error", (responseError) => {
           failDownload(response.complete ? responseError : downloadError(responseError));
         });
-        response.on("data", (chunk) => {
-          downloadedBytes += chunk.length;
-          verifier?.update(chunk);
+        response.on("data", (chunk2) => {
+          downloadedBytes += chunk2.length;
+          verifier?.update(chunk2);
           if (progressCallback) {
             progressCallback(downloadedBytes, totalBytes ?? 0);
           }
@@ -48060,19 +48060,19 @@ async function getJSON(url) {
   }
 }
 function getText(url) {
-  return new Promise(async (resolve14, reject) => {
+  return new Promise(async (resolve15, reject) => {
     try {
       const request3 = await httpRequest(url, "GET", (response) => {
         let data = "";
         if (response.statusCode && response.statusCode >= 400) {
           return reject(new Error(`Got status code ${response.statusCode}`));
         }
-        response.on("data", (chunk) => {
-          data += chunk;
+        response.on("data", (chunk2) => {
+          data += chunk2;
         });
         response.on("end", () => {
           try {
-            return resolve14(String(data));
+            return resolve15(String(data));
           } catch {
             return reject(new Error(`Failed to read text response from ${url}`));
           }
@@ -48091,8 +48091,8 @@ var init_httpUtil = __esm({
   "node_modules/@puppeteer/browsers/lib/httpUtil.js"() {
     HashVerifier = class {
       #hash = createHash3("sha256");
-      update(chunk) {
-        this.#hash.update(chunk);
+      update(chunk2) {
+        this.#hash.update(chunk2);
       }
       verify(url, destinationPath, expectedHash) {
         const actualHash = this.#hash.digest("hex");
@@ -49591,7 +49591,7 @@ var init_launch = __esm({
         if (opts.onExit) {
           this.#onExitHook = opts.onExit;
         }
-        this.#browserProcessExiting = new Promise((resolve14, reject) => {
+        this.#browserProcessExiting = new Promise((resolve15, reject) => {
           this.#browserProcess.once("exit", async () => {
             this.#logger?.(`Browser process ${this.#browserProcess.pid} onExit`);
             this.#clearListeners();
@@ -49602,7 +49602,7 @@ var init_launch = __esm({
               reject(err);
               return;
             }
-            resolve14();
+            resolve15();
           });
         });
       }
@@ -49717,7 +49717,7 @@ Error cause: ${isErrorLike2(error) ? error.stack : error}`);
         return [...this.#logs];
       }
       waitForLineOutput(regex2, timeout2 = 0) {
-        return new Promise((resolve14, reject) => {
+        return new Promise((resolve15, reject) => {
           const onClose = (errorOrCode) => {
             cleanup();
             reject(new Error([
@@ -49753,7 +49753,7 @@ Error cause: ${isErrorLike2(error) ? error.stack : error}`);
               return;
             }
             cleanup();
-            resolve14(match[1]);
+            resolve15(match[1]);
           }
         });
       }
@@ -49890,11 +49890,11 @@ function createChunkQueue() {
   let tail = 0;
   let totalAvailable = 0;
   const consumeFromHead = (count) => {
-    const chunk = chunks[head];
-    if (count === chunk.length) {
+    const chunk2 = chunks[head];
+    if (count === chunk2.length) {
       chunks[head] = EMPTY2;
       head = head + 1 & capacityMask;
-    } else chunks[head] = chunk.subarray(count);
+    } else chunks[head] = chunk2.subarray(count);
     totalAvailable -= count;
     if (totalAvailable === 0 && chunks.length > INITIAL_CAPACITY) {
       chunks = new Array(INITIAL_CAPACITY);
@@ -49908,9 +49908,9 @@ function createChunkQueue() {
       let fed = 0;
       let remaining2 = Math.min(bytes, totalAvailable);
       while (remaining2 > 0) {
-        const chunk = chunks[head];
-        const toFeed = Math.min(remaining2, chunk.length);
-        const segment = toFeed === chunk.length ? chunk : chunk.subarray(0, toFeed);
+        const chunk2 = chunks[head];
+        const toFeed = Math.min(remaining2, chunk2.length);
+        const segment = toFeed === chunk2.length ? chunk2 : chunk2.subarray(0, toFeed);
         consumeFromHead(toFeed);
         remaining2 -= toFeed;
         fed += toFeed;
@@ -49930,9 +49930,9 @@ function createChunkQueue() {
     let copied = 0;
     let remaining = bytes;
     while (remaining > 0) {
-      const chunk = chunks[head];
-      const toCopy = Math.min(remaining, chunk.length);
-      result.set(toCopy === chunk.length ? chunk : chunk.subarray(0, toCopy), copied);
+      const chunk2 = chunks[head];
+      const toCopy = Math.min(remaining, chunk2.length);
+      result.set(toCopy === chunk2.length ? chunk2 : chunk2.subarray(0, toCopy), copied);
       copied += toCopy;
       remaining -= toCopy;
       consumeFromHead(toCopy);
@@ -49940,8 +49940,8 @@ function createChunkQueue() {
     return result;
   }
   return {
-    push: (chunk) => {
-      if (chunk.length === 0) return;
+    push: (chunk2) => {
+      if (chunk2.length === 0) return;
       let nextTail = tail + 1 & capacityMask;
       if (nextTail === head) {
         const oldLen = chunks.length;
@@ -49960,9 +49960,9 @@ function createChunkQueue() {
         tail = count;
         nextTail = tail + 1 & capacityMask;
       }
-      chunks[tail] = chunk;
+      chunks[tail] = chunk2;
       tail = nextTail;
-      totalAvailable += chunk.length;
+      totalAvailable += chunk2.length;
     },
     available: () => totalAvailable,
     peek: (bytes) => {
@@ -49974,10 +49974,10 @@ function createChunkQueue() {
       let copied = 0;
       let index = head;
       while (copied < bytes) {
-        const chunk = chunks[index];
-        const toCopy = Math.min(bytes - copied, chunk.length);
-        if (toCopy === chunk.length) result.set(chunk, copied);
-        else result.set(chunk.subarray(0, toCopy), copied);
+        const chunk2 = chunks[index];
+        const toCopy = Math.min(bytes - copied, chunk2.length);
+        if (toCopy === chunk2.length) result.set(chunk2, copied);
+        else result.set(chunk2.subarray(0, toCopy), copied);
         copied += toCopy;
         index = index + 1 & capacityMask;
       }
@@ -49988,8 +49988,8 @@ function createChunkQueue() {
       if (bytes === 0) return;
       let remaining = bytes;
       while (remaining > 0) {
-        const chunk = chunks[head];
-        const toConsume = Math.min(remaining, chunk.length);
+        const chunk2 = chunks[head];
+        const toConsume = Math.min(remaining, chunk2.length);
         consumeFromHead(toConsume);
         remaining -= toConsume;
       }
@@ -50201,13 +50201,13 @@ function createUnpacker(options = {}) {
     canFinish: () => !currentEntry || available() >= currentEntry.remaining + currentEntry.padding,
     bodyBytes: () => currentEntry && currentEntry.remaining > 0 ? Math.min(currentEntry.remaining, available()) : 0,
     available,
-    write(chunk) {
+    write(chunk2) {
       if (ended) throw new Error("Archive already ended.");
       if (eof) {
-        if (strict) checkPadding(chunk);
+        if (strict) checkPadding(chunk2);
         return;
       }
-      push(chunk);
+      push(chunk2);
     },
     end() {
       ended = true;
@@ -50337,8 +50337,8 @@ function isZeroBlock(block) {
   for (let i = 0; i < block.length; i++) if (block[i] !== 0) return false;
   return true;
 }
-function checkPadding(chunk) {
-  if (!isZeroBlock(chunk)) throw new Error("Invalid EOF.");
+function checkPadding(chunk2) {
+  if (!isZeroBlock(chunk2)) throw new Error("Invalid EOF.");
   return true;
 }
 function createTarPacker(onData) {
@@ -50365,13 +50365,13 @@ function createTarPacker(onData) {
       };
       bytesWritten = 0;
     },
-    write(chunk) {
+    write(chunk2) {
       if (!currentHeader) fail("No active tar entry.");
       if (finalized) fail("Cannot write data after finalize.");
-      const newTotal = bytesWritten + chunk.length;
+      const newTotal = bytesWritten + chunk2.length;
       if (newTotal > currentHeader.size) fail(`"${currentHeader.name}" exceeds given size of ${currentHeader.size} bytes.`);
       bytesWritten = newTotal;
-      onData(chunk);
+      onData(chunk2);
     },
     endEntry() {
       if (!currentHeader) fail("No active entry to end.");
@@ -50491,10 +50491,10 @@ function packTar(sources, options = {}) {
   let resumeWriter = null;
   let cancelError;
   const unblock = () => {
-    const resolve14 = resume;
+    const resolve15 = resume;
     resume = null;
     drain = null;
-    resolve14?.();
+    resolve15?.();
   };
   const wakeWriter = () => {
     resumeWriter?.();
@@ -50528,10 +50528,10 @@ function packTar(sources, options = {}) {
     }
   });
   const onError = (error) => stream.destroy(error);
-  const packer = createTarPacker((chunk) => {
+  const packer = createTarPacker((chunk2) => {
     if (stream.destroyed) throw cancelError;
-    if (!stream.push(Buffer.from(chunk)) && !drain) drain = new Promise((resolve14) => {
-      resume = resolve14;
+    if (!stream.push(Buffer.from(chunk2)) && !drain) drain = new Promise((resolve15) => {
+      resume = resolve15;
     });
   });
   (async () => {
@@ -50561,9 +50561,9 @@ function packTar(sources, options = {}) {
     let allJobsQueued = false;
     const writeStreamBody = async (body) => {
       try {
-        for await (const chunk of body) {
+        for await (const chunk2 of body) {
           if (stream.destroyed) return;
-          packer.write(chunk instanceof Uint8Array ? chunk : Buffer.from(chunk));
+          packer.write(chunk2 instanceof Uint8Array ? chunk2 : Buffer.from(chunk2));
           if (drain) await drain;
         }
       } finally {
@@ -50578,8 +50578,8 @@ function packTar(sources, options = {}) {
         if (stream.destroyed) return;
         if (allJobsQueued && writeIndex >= jobs.length) break;
         if (!results.has(writeIndex)) {
-          await new Promise((resolve14) => {
-            resumeWriter = resolve14;
+          await new Promise((resolve15) => {
+            resumeWriter = resolve15;
           });
           continue;
         }
@@ -50863,13 +50863,13 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
   let drainReject = null;
   const settleDrain = (error) => {
     if (!drainPromise) return;
-    const resolve14 = drainResolve;
+    const resolve15 = drainResolve;
     const reject = drainReject;
     drainPromise = null;
     drainResolve = null;
     drainReject = null;
     if (error) reject?.(error);
-    else resolve14?.();
+    else resolve15?.();
   };
   const resetBuffers = () => {
     bytes = 0;
@@ -50990,17 +50990,17 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
     else if (bytes >= BATCH_BYTES || queue2.length >= MAX_WRITE_VECTORS) flush();
     else settleDrain();
   };
-  const write2 = (chunk) => {
+  const write2 = (chunk2) => {
     if (state2 >= STATE_CLOSED || endResolve) return false;
-    queue2.push(chunk);
-    bytes += chunk.length;
+    queue2.push(chunk2);
+    bytes += chunk2.length;
     if (state2 === STATE_OPEN && !flushing && (bytes >= BATCH_BYTES || queue2.length >= MAX_WRITE_VECTORS)) flush();
     return bytes < BUFFER_LIMIT && queue2.length < MAX_WRITE_VECTORS;
   };
   const waitDrain = () => {
     if (storedError) return Promise.reject(storedError);
-    if (state2 === STATE_OPENING || state2 === STATE_OPEN && (bytes >= BUFFER_LIMIT || queue2.length >= MAX_WRITE_VECTORS)) return drainPromise ??= new Promise((resolve14, reject) => {
-      drainResolve = resolve14;
+    if (state2 === STATE_OPENING || state2 === STATE_OPEN && (bytes >= BUFFER_LIMIT || queue2.length >= MAX_WRITE_VECTORS)) return drainPromise ??= new Promise((resolve15, reject) => {
+      drainResolve = resolve15;
       drainReject = reject;
     });
     return DRAINED_PROMISE;
@@ -51009,8 +51009,8 @@ function createFileSink(path14, { mode = 438, mtime } = {}, onError) {
     if (storedError) return Promise.reject(storedError);
     if (state2 >= STATE_CLOSED) return DRAINED_PROMISE;
     if (endPromise) return endPromise;
-    endPromise = new Promise((resolve14, reject) => {
-      endResolve = resolve14;
+    endPromise = new Promise((resolve15, reject) => {
+      endResolve = resolve15;
       endReject = reject;
       if (state2 === STATE_OPEN && !flushing) if (queue2.length > 0) flush();
       else close2();
@@ -51057,8 +51057,8 @@ function unpackTar(directoryPath, options = {}) {
   let currentFileStream = null;
   const fileStreams = /* @__PURE__ */ new Set();
   let needsDrain = false;
-  const writeCurrent = (chunk) => {
-    const writeOk = currentFileStream.write(chunk);
+  const writeCurrent = (chunk2) => {
+    const writeOk = currentFileStream.write(chunk2);
     if (!writeOk) needsDrain = true;
     return writeOk;
   };
@@ -51074,11 +51074,11 @@ function unpackTar(directoryPath, options = {}) {
     });
   };
   const writable = new Writable({
-    async write(chunk, _2, cb) {
+    async write(chunk2, _2, cb) {
       let pendingFileOpens;
       let writeError;
       try {
-        unpacker.write(chunk);
+        unpacker.write(chunk2);
         if (unpacker.isEntryActive()) {
           if (currentFileStream) {
             while (!unpacker.isBodyComplete()) {
@@ -51183,7 +51183,7 @@ var init_fs = __esm({
       let head = 0;
       let idle = null;
       let resolveIdle = null;
-      const ensureIdle = () => idle ??= new Promise((resolve14) => resolveIdle = resolve14);
+      const ensureIdle = () => idle ??= new Promise((resolve15) => resolveIdle = resolve15);
       const flush = () => {
         while (active < concurrency && head < tasks.length) {
           const task = tasks[head++];
@@ -51206,8 +51206,8 @@ var init_fs = __esm({
       return {
         add(op) {
           const wasIdle = active === 0 && head === tasks.length;
-          return new Promise((resolve14, reject) => {
-            tasks.push(() => Promise.resolve().then(op).then(resolve14, reject));
+          return new Promise((resolve15, reject) => {
+            tasks.push(() => Promise.resolve().then(op).then(resolve15, reject));
             if (wasIdle) ensureIdle();
             flush();
           });
@@ -51544,8 +51544,8 @@ async function unpackArchive(archivePath, folderPath, logger) {
 }
 function createTransformStream(child) {
   const stream = new Stream.Transform({
-    transform(chunk, encoding, callback) {
-      if (!child.stdin.write(chunk, encoding)) {
+    transform(chunk2, encoding, callback) {
+      if (!child.stdin.write(chunk2, encoding)) {
         child.stdin.once("drain", callback);
       } else {
         callback();
@@ -51650,8 +51650,8 @@ async function extractZipWithYauzl(archivePath, folderPath, _logger) {
   const open3 = promisify(yauzl.open);
   try {
     const zipFile = await open3(archivePath, { lazyEntries: true });
-    await new Promise((resolve14, reject) => {
-      zipFile.on("error", reject).on("end", resolve14).on("entry", (entry) => {
+    await new Promise((resolve15, reject) => {
+      zipFile.on("error", reject).on("end", resolve15).on("entry", (entry) => {
         extractZipEntry(zipFile, entry, folderPath).then(() => {
           zipFile.readEntry();
         }, reject);
@@ -51759,9 +51759,9 @@ async function extractZipEntry(zipFile, entry, folderPath) {
   if (isSymlink) {
     const chunks = [];
     await pipeline(readStream, new Writable2({
-      write(chunk, _encoding, callback) {
-        if (chunk instanceof Buffer) {
-          chunks.push(chunk);
+      write(chunk2, _encoding, callback) {
+        if (chunk2 instanceof Buffer) {
+          chunks.push(chunk2);
         }
         callback();
       }
@@ -56963,12 +56963,12 @@ var init_yargs_factory = __esm({
       async getCompletion(args, done) {
         argsert("<array> [function]", [args, done], arguments.length);
         if (!done) {
-          return new Promise((resolve14, reject) => {
+          return new Promise((resolve15, reject) => {
             __classPrivateFieldGet(this, _YargsInstance_completion, "f").getCompletion(args, (err, completions) => {
               if (err)
                 reject(err);
               else
-                resolve14(completions);
+                resolve15(completions);
             });
           });
         } else {
@@ -58316,7 +58316,7 @@ var init_CLI = __esm({
             "-c",
             testCommand
           ];
-          await new Promise((resolve14, reject) => {
+          await new Promise((resolve15, reject) => {
             const createProcess = spawn2(pythonExecutable, bisectArgs, {
               stdio: "inherit"
             });
@@ -58327,7 +58327,7 @@ var init_CLI = __esm({
               if (code !== 0) {
                 reject(new Error(`Process exited with code ${code}`));
               } else {
-                resolve14();
+                resolve15();
               }
             });
           });
@@ -58508,9 +58508,9 @@ async function getConnectionTransport(options) {
       throw new Error("Could not detect required browser platform");
     }
     const { convertPuppeteerChannelToBrowsersChannel: convertPuppeteerChannelToBrowsersChannel2 } = await Promise.resolve().then(() => (init_LaunchOptions(), LaunchOptions_exports));
-    const { join: join23 } = await import("node:path");
+    const { join: join25 } = await import("node:path");
     const userDataDir = resolveDefaultUserDataDir3(Browser4.CHROME, platform, convertPuppeteerChannelToBrowsersChannel2(options.channel));
-    const portPath = join23(userDataDir, "DevToolsActivePort");
+    const portPath = join25(userDataDir, "DevToolsActivePort");
     try {
       const fileContent = await environment.value.readFile(portPath, "ascii");
       const [rawPort, rawPath] = fileContent.split("\n").map((line) => {
@@ -59980,8 +59980,8 @@ var init_ScreenRecorder = __esm({
         static {
           const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
           __esDecorate24(this, _private_writeFrame_descriptor = { value: __setFunctionName5(async function(buffer) {
-            const error = await new Promise((resolve14) => {
-              this.#process.stdin.write(buffer, resolve14);
+            const error = await new Promise((resolve15) => {
+              this.#process.stdin.write(buffer, resolve15);
             });
             if (error) {
               console.log(`ffmpeg failed to write: ${error.message}.`);
@@ -60175,8 +60175,8 @@ var init_ScreenRecorder = __esm({
           const [buffer, timestamp] = await this.#lastFrame;
           await Promise.all(Array(Math.max(1, Math.round(this.#fps * (performance.now() - timestamp) / 1e3))).fill(buffer).map(this.#writeFrame.bind(this)));
           this.#process.stdin.end();
-          await new Promise((resolve14) => {
-            this.#process.once("close", resolve14);
+          await new Promise((resolve15) => {
+            this.#process.once("close", resolve15);
           });
         }
         async [(_private_writeFrame_decorators = [guarded()], _stop_decorators = [guarded()], asyncDisposeSymbol)]() {
@@ -60485,8 +60485,9 @@ function warnUser(message) {
 
 // src/tools.ts
 import { spawn as spawn5 } from "node:child_process";
-import { existsSync as existsSync16, mkdirSync as mkdirSync6 } from "node:fs";
-import { dirname as dirname8, isAbsolute as isAbsolute5, join as join22, resolve as resolve13 } from "node:path";
+import { existsSync as existsSync17, mkdirSync as mkdirSync6 } from "node:fs";
+import { randomBytes as randomBytes6 } from "node:crypto";
+import { dirname as dirname8, isAbsolute as isAbsolute5, join as join24, resolve as resolve14 } from "node:path";
 
 // src/design.ts
 import { readFileSync as readFileSync6, existsSync as existsSync6 } from "node:fs";
@@ -63889,7 +63890,7 @@ function materializeTokens(theme, ctx) {
   tokens.modes = { light: true, dark: template.modes?.dark === true };
   const fixContrast = (fgPath, bgPath) => {
     const semantic = tokens.color.semantic;
-    const resolve14 = (path14) => {
+    const resolve15 = (path14) => {
       const [g2, n2] = path14.split(".");
       const raw = semantic[g2]?.[n2];
       if (typeof raw !== "string") return null;
@@ -63899,8 +63900,8 @@ function materializeTokens(theme, ctx) {
       }
       return raw;
     };
-    const fg = resolve14(fgPath);
-    const bg = resolve14(bgPath);
+    const fg = resolve15(fgPath);
+    const bg = resolve15(bgPath);
     if (!fg || !bg) return;
     if (contrastOf(fg, bg) >= 4.5) return;
     const replacement = bestForeground(bg, ["#ffffff", "#000000"]);
@@ -68253,15 +68254,15 @@ async function assertUrlAllowed(rawUrl) {
   return { url, address: addresses[0].address, family: addresses[0].family };
 }
 function resolveAll(host) {
-  return new Promise((resolve14, reject) => {
+  return new Promise((resolve15, reject) => {
     dnsLookup(host, { all: true }, (err, addresses) => {
       if (err) reject(new FetchError(`DNS \u89E3\u6790\u5931\u8D25\uFF1A${host}\uFF08${err.message}\uFF09`));
-      else resolve14(addresses);
+      else resolve15(addresses);
     });
   });
 }
 function requestOnce(target, options, maxBytes, signal) {
-  return new Promise((resolve14, reject) => {
+  return new Promise((resolve15, reject) => {
     const isHttps = target.url.protocol === "https:";
     const mod = isHttps ? https : http;
     const pinnedLookup = (_hostname, opts, callback) => {
@@ -68287,17 +68288,17 @@ function requestOnce(target, options, maxBytes, signal) {
       (res) => {
         const chunks = [];
         let size = 0;
-        res.on("data", (chunk) => {
-          size += chunk.length;
+        res.on("data", (chunk2) => {
+          size += chunk2.length;
           if (size > maxBytes) {
             res.destroy(new FetchError(`\u54CD\u5E94\u8D85\u8FC7\u4F53\u79EF\u4E0A\u9650\uFF08${maxBytes} \u5B57\u8282\uFF09`));
             return;
           }
-          chunks.push(chunk);
+          chunks.push(chunk2);
         });
         res.on(
           "end",
-          () => resolve14({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
+          () => resolve15({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
         );
         res.on("error", reject);
       }
@@ -68414,7 +68415,7 @@ function tokenFor(cwd) {
   return [...state?.tokens ?? []].find(([, workspace]) => workspace.cwd === cwd)?.[0];
 }
 function listen(server, port) {
-  return new Promise((resolve14, reject) => {
+  return new Promise((resolve15, reject) => {
     const onError = (err) => {
       server.off("listening", onListening);
       reject(err);
@@ -68422,7 +68423,7 @@ function listen(server, port) {
     const onListening = () => {
       server.off("error", onError);
       const addr = server.address();
-      resolve14(typeof addr === "object" && addr ? addr.port : port);
+      resolve15(typeof addr === "object" && addr ? addr.port : port);
     };
     server.once("error", onError);
     server.once("listening", onListening);
@@ -68506,8 +68507,8 @@ async function shutdownForTests() {
       }
     }
   }
-  stopping = new Promise((resolve14) => {
-    s.server.close(() => resolve14());
+  stopping = new Promise((resolve15) => {
+    s.server.close(() => resolve15());
     s.server.closeAllConnections();
   });
   try {
@@ -68670,9 +68671,9 @@ function readJsonBody(req, res, onBody, maxBytes = MAX_BODY, bootstrap = false) 
   req.setEncoding("utf8");
   req.on("error", () => {
   });
-  req.on("data", (chunk) => {
+  req.on("data", (chunk2) => {
     if (rejected) return;
-    raw += chunk;
+    raw += chunk2;
     if (raw.length > maxBytes) {
       rejected = true;
       raw = "";
@@ -69129,8 +69130,8 @@ async function readDevToolsEndpoint(userDataDir, proc, timeoutMs) {
   const portFile = join17(userDataDir, "DevToolsActivePort");
   const deadline = Date.now() + timeoutMs;
   let stderr = "";
-  proc.stderr?.on("data", (chunk) => {
-    stderr += chunk.toString();
+  proc.stderr?.on("data", (chunk2) => {
+    stderr += chunk2.toString();
   });
   let exitCode = null;
   proc.once("exit", (code) => {
@@ -69497,6 +69498,11 @@ var CRC_TABLE2 = (() => {
   }
   return table;
 })();
+function crc322(buf) {
+  let c = 4294967295;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE2[(c ^ buf[i]) & 255] ^ c >>> 8;
+  return (c ^ 4294967295) >>> 0;
+}
 function paeth(a2, b2, c) {
   const p = a2 + b2 - c;
   const pa = Math.abs(p - a2);
@@ -69556,6 +69562,102 @@ function decodePng(input2) {
     pos += stride;
   }
   return { width, height, channels, data: out };
+}
+function chunk(type, body) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(body.length);
+  const name = Buffer.from(type, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc322(Buffer.concat([name, body])));
+  return Buffer.concat([len, name, body, crc]);
+}
+function encodeImage(image) {
+  const { width, height, channels, data } = image;
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const stride = width * 4 + 1;
+  const raw = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    raw[y * stride] = 0;
+    for (let x2 = 0; x2 < width; x2++) {
+      const src = (y * width + x2) * channels;
+      const dst = y * stride + 1 + x2 * 4;
+      if (channels === 1 || channels === 2) {
+        raw[dst] = data[src];
+        raw[dst + 1] = data[src];
+        raw[dst + 2] = data[src];
+        raw[dst + 3] = channels === 2 ? data[src + 1] : 255;
+      } else {
+        raw[dst] = data[src];
+        raw[dst + 1] = data[src + 1];
+        raw[dst + 2] = data[src + 2];
+        raw[dst + 3] = channels === 4 ? data[src + 3] : 255;
+      }
+    }
+  }
+  return Buffer.concat([SIGNATURE, chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+function scaleImage(image, width, height) {
+  const out = Buffer.alloc(width * height * 4);
+  const sx = image.width / width;
+  const sy = image.height / height;
+  for (let y = 0; y < height; y++) {
+    const srcY = Math.min(image.height - 1, Math.floor(y * sy));
+    for (let x2 = 0; x2 < width; x2++) {
+      const srcX = Math.min(image.width - 1, Math.floor(x2 * sx));
+      const src = (srcY * image.width + srcX) * image.channels;
+      const dst = (y * width + x2) * 4;
+      if (image.channels === 1 || image.channels === 2) {
+        out[dst] = image.data[src];
+        out[dst + 1] = image.data[src];
+        out[dst + 2] = image.data[src];
+        out[dst + 3] = image.channels === 2 ? image.data[src + 1] : 255;
+      } else {
+        out[dst] = image.data[src];
+        out[dst + 1] = image.data[src + 1];
+        out[dst + 2] = image.data[src + 2];
+        out[dst + 3] = image.channels === 4 ? image.data[src + 3] : 255;
+      }
+    }
+  }
+  return { width, height, channels: 4, data: out };
+}
+function tileImages(images, columns, gap = 4, background = [24, 24, 27]) {
+  if (images.length === 0) return { width: 1, height: 1, channels: 4, data: Buffer.from([0, 0, 0, 255]) };
+  const cellW = images[0].width;
+  const cellH = images[0].height;
+  const cols = Math.max(1, Math.min(columns, images.length));
+  const rows = Math.ceil(images.length / cols);
+  const width = cols * cellW + (cols - 1) * gap;
+  const height = rows * cellH + (rows - 1) * gap;
+  const out = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    out[i * 4] = background[0];
+    out[i * 4 + 1] = background[1];
+    out[i * 4 + 2] = background[2];
+    out[i * 4 + 3] = 255;
+  }
+  images.forEach((image, index) => {
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    const offsetX = col * (cellW + gap);
+    const offsetY = row * (cellH + gap);
+    for (let y = 0; y < Math.min(image.height, cellH); y++) {
+      for (let x2 = 0; x2 < Math.min(image.width, cellW); x2++) {
+        const src = (y * image.width + x2) * image.channels;
+        const dst = ((offsetY + y) * width + offsetX + x2) * 4;
+        const read2 = (channel2) => image.channels === 1 || image.channels === 2 ? image.data[src] : image.data[src + Math.min(channel2, image.channels - 1)];
+        out[dst] = read2(0);
+        out[dst + 1] = read2(1);
+        out[dst + 2] = read2(2);
+        out[dst + 3] = image.channels === 4 ? image.data[src + 3] : 255;
+      }
+    }
+  });
+  return { width, height, channels: 4, data: out };
 }
 function pixelAt(img, x2, y) {
   const i = (y * img.width + x2) * img.channels;
@@ -69620,10 +69722,10 @@ async function capturePage(page, canvasUrl, pageId) {
     const frames = Array.from(doc.querySelectorAll("iframe"));
     await Promise.all(
       frames.map(
-        (f) => new Promise((resolve14) => {
-          if (f.contentDocument?.readyState === "complete") return resolve14();
-          f.addEventListener("load", () => resolve14(), { once: true });
-          setTimeout(resolve14, 5e3);
+        (f) => new Promise((resolve15) => {
+          if (f.contentDocument?.readyState === "complete") return resolve15();
+          f.addEventListener("load", () => resolve15(), { once: true });
+          setTimeout(resolve15, 5e3);
         })
       )
     );
@@ -70033,7 +70135,7 @@ function encodeRgb(width, height, pixels) {
     for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
     table[n] = c >>> 0;
   }
-  const chunk = (kind, data) => {
+  const chunk2 = (kind, data) => {
     const type = Buffer.from(kind);
     const checksum = Buffer.concat([type, data]);
     let crc = 4294967295;
@@ -70052,7 +70154,7 @@ function encodeRgb(width, height, pixels) {
   const stride = width * 3;
   const raw = Buffer.alloc((stride + 1) * height);
   for (let row = 0; row < height; row++) pixels.copy(raw, row * (stride + 1) + 1, row * stride, (row + 1) * stride);
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync2(raw)), chunk("IEND", Buffer.alloc(0))]);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk2("IHDR", ihdr), chunk2("IDAT", deflateSync2(raw)), chunk2("IEND", Buffer.alloc(0))]);
 }
 function formatReviewReport(result) {
   const lines = [
@@ -70069,14 +70171,662 @@ function formatReviewReport(result) {
   return lines.join("\n");
 }
 
+// src/audit/ux.ts
+import { existsSync as existsSync14, readFileSync as readFileSync16 } from "node:fs";
+import { join as join21, resolve as resolve12 } from "node:path";
+import { randomBytes as randomBytes5 } from "node:crypto";
+var cachedRubric = null;
+function loadRubric() {
+  if (cachedRubric) return cachedRubric;
+  const file = join21(designDir(), "rubrics", "ux-review.json");
+  if (!existsSync14(file)) {
+    throw new Error("\u8BC4\u5BA1\u91CF\u8868\u7F3A\u5931\uFF08dist/design/rubrics/ux-review.json\uFF09\uFF0C\u8BF7\u5148\u8FD0\u884C npm run build\u3002");
+  }
+  cachedRubric = JSON.parse(readFileSync16(file, "utf8"));
+  return cachedRubric;
+}
+function uxRoot(cwd) {
+  return join21(projectDir(cwd), "audit", "ux");
+}
+function sessionDir(cwd, reviewId) {
+  const dir = join21(uxRoot(cwd), reviewId);
+  assertInsideWorkspace(cwd, dir, "\u8BC4\u5BA1\u76EE\u5F55");
+  return dir;
+}
+function sessionFile(cwd, reviewId) {
+  return join21(sessionDir(cwd, reviewId), "session.json");
+}
+function assessmentFile(cwd, reviewId) {
+  return join21(sessionDir(cwd, reviewId), "a.json");
+}
+function findingsFile(cwd, reviewId) {
+  return join21(sessionDir(cwd, reviewId), "b.json");
+}
+function evidenceFile(cwd, reviewId) {
+  return join21(sessionDir(cwd, reviewId), "evidence.json");
+}
+function readSession(cwd, reviewId) {
+  assertSafeId(reviewId);
+  const file = sessionFile(cwd, reviewId);
+  if (!existsSync14(file)) throw new InvalidInputError(`\u8BC4\u5BA1\u4F1A\u8BDD\u4E0D\u5B58\u5728\uFF1A${reviewId}\u3002\u5148\u7528 canvas_audit\uFF08action=ux, phase=a, page_id=<id>\uFF09\u5F00\u59CB\u4E00\u8F6E\u8BC4\u5BA1\u3002`);
+  return JSON.parse(readFileSync16(file, "utf8"));
+}
+function factsOf(result) {
+  const first2 = result.captures[0];
+  if (!first2) {
+    return { viewport: "\u2014", content: "\u2014", elements: 0, headings: 0, controls: 0, fontStatus: "\u672A\u77E5", reducedMotion: false, internalScrollRegions: 0 };
+  }
+  const m = first2.metrics;
+  return {
+    viewport: `${m.viewportWidth}\xD7${m.viewportHeight}`,
+    content: `${m.contentWidth}\xD7${m.contentHeight}`,
+    elements: m.elements,
+    headings: m.headings,
+    controls: m.controls,
+    fontStatus: m.fontStatus,
+    reducedMotion: m.reducedMotion,
+    internalScrollRegions: m.internalScrollRegions
+  };
+}
+function renderTemplate(session, rubric) {
+  const lines = [];
+  lines.push(`UX \u8BC4\u5BA1 A \u9636\u6BB5\uFF1A\u9875\u9762\u300C${session.title}\u300D\uFF08${session.pageId}\uFF09`);
+  lines.push(`\u8BC4\u5BA1 ID\uFF1A${session.reviewId}`);
+  lines.push("");
+  lines.push("\u65B9\u6CD5\uFF1A\u4E09\u6BB5\u5F0F\u9694\u79BB\u3002\u4F60\u73B0\u5728\u505A\u7684\u662F A\uFF08\u8BBE\u8BA1\u8BC4\u5BA1\uFF09\uFF0C**\u4E0D\u8981**\u5728\u6B64\u4E4B\u524D\u8FD0\u884C canvas_check_style / a11y / quality \u2014\u2014 \u90A3\u4E9B\u5C5E\u4E8E B\uFF0C\u5148\u8DD1\u4F1A\u951A\u5B9A\u5224\u65AD\u3002");
+  lines.push("");
+  lines.push("## \u622A\u56FE\uFF08\u5148\u8BFB\u56FE\uFF0C\u518D\u8BC4\u5206\uFF09");
+  for (const shot of session.shots) lines.push(`- ${shot.width}\xD7${shot.height}\uFF1A${shot.path}`);
+  if (!session.shots.length) lines.push("- \uFF08\u672C\u8F6E\u6CA1\u6709\u622A\u56FE\uFF1B\u53EA\u80FD\u57FA\u4E8E\u6E90\u7801\u5224\u65AD\uFF0C\u5E76\u5728 keyIssue \u91CC\u8BF4\u660E\u8BC1\u636E\u53D7\u9650\uFF09");
+  lines.push("");
+  lines.push("## \u4E2D\u6027\u4E8B\u5B9E\uFF08\u4E0D\u542B\u4EFB\u4F55\u68C0\u6D4B\u7ED3\u8BBA\uFF09");
+  const f = session.facts;
+  lines.push(`- \u89C6\u53E3 ${f.viewport}\uFF1B\u5185\u5BB9 ${f.content}\uFF1B\u5143\u7D20 ${f.elements}\u3001\u6807\u9898 ${f.headings}\u3001\u63A7\u4EF6 ${f.controls}`);
+  lines.push(`- \u5B57\u4F53 ${f.fontStatus}\uFF1B\u51CF\u5C11\u52A8\u6548 ${f.reducedMotion ? "\u5DF2\u6A21\u62DF" : "\u672A\u6A21\u62DF"}\uFF1B\u5185\u90E8\u6EDA\u52A8\u533A ${f.internalScrollRegions}`);
+  lines.push("");
+  lines.push("## \u7B2C\u4E00\u6B65\uFF1A\u8BBE\u8BA1\u7279\u5F02\u6027\uFF08\u5148\u4E8E\u4E00\u5207\u5176\u4ED6\u5224\u65AD\uFF09");
+  for (const q2 of rubric.specificityQuestions) lines.push(`- ${q2}`);
+  lines.push("");
+  lines.push("## \u8BC4\u5206\u8868\uFF08\u6BCF\u6761 0\u20134\uFF0C\u6216\u7528 n/a \u5E76\u5199\u7406\u7531\uFF09");
+  lines.push(`\u6821\u51C6\u57FA\u51C6\uFF1A${rubric.benchmark}`);
+  lines.push("");
+  lines.push("| # | \u542F\u53D1\u5F0F | \u5224\u636E | 0\u20134 \u5206\u6863 |");
+  lines.push("|---|---|---|---|");
+  rubric.heuristics.forEach((h, i) => {
+    const na = rubric.interpretive.includes(i + 1) ? "\uFF08\u53EF n/a\uFF09" : "";
+    lines.push(`| ${i + 1} | ${h.name}${na} | ${h.ask} | ${h.levels.join(" / ")} |`);
+  });
+  lines.push("");
+  lines.push("## \u8BA4\u77E5\u8D1F\u8377\uFF088 \u9879\u6E05\u5355\uFF0C\u8BB0\u5F55\u5931\u8D25\u9879\uFF09");
+  for (const item of rubric.cognitiveLoad.items) lines.push(`- ${item.name}\uFF1A${item.ask}\uFF08\u5931\u8D25\u8868\u73B0\u4E3A\uFF1A${item.failure}\uFF09`);
+  lines.push(`- \u5DE5\u4F5C\u8BB0\u5FC6\u6CD5\u5219\uFF1A${rubric.cognitiveLoad.workingMemoryRule}`);
+  lines.push("");
+  lines.push("## persona \u8D70\u67E5\uFF08\u9009 2\u20133 \u4E2A\uFF0C\u9010\u4E2A\u8D70\u4E3B\u64CD\u4F5C\uFF09");
+  lines.push("");
+  lines.push("| \u754C\u9762\u7C7B\u578B | \u5EFA\u8BAE persona | \u539F\u56E0 |");
+  lines.push("|---|---|---|");
+  for (const row of rubric.personaMap) lines.push(`| ${row.type} | ${row.personas.join("\u3001")} | ${row.why} |`);
+  lines.push("");
+  for (const persona of rubric.personas) {
+    lines.push(`**${persona.name}\uFF08${persona.id}\uFF09** ${persona.profile}`);
+    lines.push(`- \u7EA2\u65D7\uFF1A${persona.redFlags.join("\uFF1B")}`);
+    lines.push("");
+  }
+  lines.push("## \u4E25\u91CD\u5EA6\uFF08\u6BCF\u4E2A\u4F18\u5148\u7EA7\u95EE\u9898\u5FC5\u987B\u6302\u4E00\u4E2A\uFF09");
+  for (const item of rubric.severity) lines.push(`- ${item.id} ${item.name}\uFF1A${item.desc} \u2192 ${item.action}`);
+  lines.push(`- \u63D0\u793A\uFF1A${rubric.severityTip}`);
+  lines.push("");
+  lines.push("## \u5BA1\u7F8E\u4E0B\u9650\uFF08\u5224\u65AD\u65F6\u5BF9\u7167\uFF0C\u4E0D\u8981\u9010\u6761\u586B\u8868\uFF09");
+  for (const item of rubric.craftFloor) lines.push(`- ${item.check}`);
+  lines.push("");
+  lines.push("## \u786C\u7981\u4EE4 vs \u9ED8\u8BA4\u503C");
+  for (const ban of rubric.refuse.hardBans) lines.push(`- **\u786C\u7981\u4EE4**\uFF1A${ban.text}`);
+  lines.push("- \u4EE5\u4E0A\u4E4B\u5916\u7684\u90FD\u662F\u300C\u9ED8\u8BA4\u503C\u300D\uFF0C\u7B80\u62A5\u7684\u660E\u786E\u6587\u5B57\u53EF\u4EE5\u6362\u56DE\u6765\u3002");
+  lines.push("");
+  lines.push("## \u56DE\u586B\u65B9\u5F0F");
+  lines.push("\u628A\u7ED3\u8BBA\u6309\u4E0B\u9762\u7684 JSON \u7ED3\u6784\u5199\u8FDB `canvas_audit`\uFF08action=ux, phase=a, review_id=" + session.reviewId + ", a_assessment={...}\uFF09\uFF1A");
+  lines.push("");
+  lines.push("```json");
+  lines.push(
+    JSON.stringify(
+      {
+        specificity: { verdict: "\u4E00\u53E5\u8BDD\u5224\u8BCD", evidence: ["\u8BC1\u636E 1", "\u8BC1\u636E 2"] },
+        heuristics: rubric.heuristics.map((h) => ({ id: h.id, score: 2, keyIssue: "\u8FD9\u4E00\u9879\u7684\u4E3B\u8981\u95EE\u9898" })),
+        cognitiveLoad: { failed: ["chunking"] },
+        personas: [{ id: "jordan", redFlags: ["\u5177\u4F53\u54EA\u4E00\u5904\u5BF9\u8FD9\u4E2A\u4EBA\u5931\u6548"] }],
+        priorityIssues: [{ severity: "P1", what: "\u95EE\u9898", why: "\u4E3A\u4EC0\u4E48\u4F24\u5BB3\u7528\u6237", fix: "\u600E\u4E48\u6539" }],
+        strengths: ["\u505A\u5F97\u597D\u7684\u5730\u65B9"]
+      },
+      null,
+      2
+    )
+  );
+  lines.push("```");
+  lines.push("");
+  lines.push("\u89C4\u5219\uFF1A10 \u6761\u542F\u53D1\u5F0F\u5FC5\u987B\u5168\u8986\u76D6\uFF080\u20134 \u6216 n/a+\u7406\u7531\uFF09\uFF1Bn/a \u53EA\u5141\u8BB8\u7B2C " + rubric.interpretive.join(" / ") + " \u6761\uFF1Bpersona 2\u20133 \u4E2A\uFF1BpriorityIssues 3\u20135 \u6761\u3002");
+  return lines.join("\n");
+}
+async function uxStart(cwd, pageId, options = {}) {
+  assertSafeId(pageId);
+  const node = readProject(cwd).nodes.find((item) => item.id === pageId);
+  if (!node) throw new InvalidInputError(`\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}`);
+  const reviewId = `${pageId}-${Date.now()}-${randomBytes5(3).toString("hex")}`;
+  const base = options.outputDir ? resolve12(cwd, options.outputDir) : uxRoot(cwd);
+  assertInsideWorkspace(cwd, base, "\u8BC4\u5BA1\u8F93\u51FA\u76EE\u5F55");
+  const result = await reviewPage(cwd, pageId, { outputDir: base });
+  const dir = sessionDir(cwd, reviewId);
+  const session = {
+    schema: 1,
+    reviewId,
+    pageId,
+    title: node.title,
+    mode: node.mode ?? null,
+    outputDir: dir,
+    shots: result.captures.map((c) => ({ width: c.width, height: c.height, path: c.path, bytes: c.bytes })),
+    facts: factsOf(result),
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  writeFileInWorkspace(cwd, sessionFile(cwd, reviewId), JSON.stringify(session, null, 2) + "\n");
+  const evidence = {
+    pageId,
+    issues: result.captures.flatMap((c) => c.issues.map((issue) => ({ ...issue, width: c.width }))),
+    limitations: result.limitations
+  };
+  writeFileInWorkspace(cwd, evidenceFile(cwd, reviewId), JSON.stringify(evidence, null, 2) + "\n");
+  return { session, template: renderTemplate(session, loadRubric()) };
+}
+function validateAssessment(assessment, rubric) {
+  const errors = [];
+  const heuristicIds = rubric.heuristics.map((h) => h.id);
+  const seen = /* @__PURE__ */ new Map();
+  for (const item of assessment.heuristics ?? []) {
+    if (!heuristicIds.includes(item.id)) {
+      errors.push(`\u672A\u77E5\u542F\u53D1\u5F0F id\uFF1A${item.id}\uFF1B\u53EF\u9009\uFF1A${heuristicIds.join("\u3001")}`);
+      continue;
+    }
+    if (seen.has(item.id)) errors.push(`\u542F\u53D1\u5F0F\u91CD\u590D\u6253\u5206\uFF1A${item.id}`);
+    seen.set(item.id, item);
+  }
+  for (const id of heuristicIds) if (!seen.has(id)) errors.push(`\u7F3A\u5C11\u542F\u53D1\u5F0F\u8BC4\u5206\uFF1A${id}`);
+  rubric.heuristics.forEach((h, index) => {
+    const item = seen.get(h.id);
+    if (!item) return;
+    if (item.score === "n/a") {
+      const position = index + 1;
+      if (!rubric.interpretive.includes(position)) {
+        errors.push(`${h.name}\uFF08\u7B2C ${position} \u6761\uFF09\u4E0D\u5141\u8BB8\u6807\u8BB0 n/a\uFF0C\u8BF7\u7ED9 0\u20134 \u5206`);
+      }
+      if (typeof item.reason !== "string" || !item.reason.trim()) errors.push(`${h.name} \u6807\u8BB0 n/a \u65F6\u5FC5\u987B\u5199\u660E\u7406\u7531`);
+    } else if (!Number.isInteger(item.score) || item.score < 0 || item.score > 4) {
+      errors.push(`${h.name} \u7684\u5206\u6570\u5FC5\u987B\u662F 0\u20134 \u7684\u6574\u6570\u6216 'n/a'\uFF0C\u5F53\u524D ${String(item.score)}`);
+    }
+    if (typeof item.keyIssue !== "string") errors.push(`${h.name} \u7F3A\u5C11 keyIssue`);
+  });
+  if (!assessment.specificity || typeof assessment.specificity.verdict !== "string" || !assessment.specificity.verdict.trim()) {
+    errors.push("\u7F3A\u5C11\u8BBE\u8BA1\u7279\u5F02\u6027\u5224\u8BCD\uFF08specificity.verdict\uFF09\uFF0C\u5B83\u5FC5\u987B\u662F\u7B2C\u4E00\u8F93\u51FA\u9879");
+  }
+  if (!Array.isArray(assessment.specificity?.evidence) || assessment.specificity.evidence.length === 0) {
+    errors.push("\u8BBE\u8BA1\u7279\u5F02\u6027\u5FC5\u987B\u6709\u81F3\u5C11\u4E00\u6761\u8BC1\u636E\uFF08specificity.evidence\uFF09");
+  }
+  const loadIds = new Set(rubric.cognitiveLoad.items.map((i) => i.id));
+  for (const id of assessment.cognitiveLoad?.failed ?? []) {
+    if (!loadIds.has(id)) errors.push(`\u672A\u77E5\u8BA4\u77E5\u8D1F\u8377\u9879\uFF1A${id}\uFF1B\u53EF\u9009\uFF1A${[...loadIds].join("\u3001")}`);
+  }
+  const personaIds = new Set(rubric.personas.map((p) => p.id));
+  const personas = assessment.personas ?? [];
+  if (personas.length < 2 || personas.length > 3) errors.push(`persona \u5FC5\u987B\u9009 2\u20133 \u4E2A\uFF0C\u5F53\u524D ${personas.length}`);
+  for (const persona of personas) {
+    if (!personaIds.has(persona.id)) errors.push(`\u672A\u77E5 persona\uFF1A${persona.id}\uFF1B\u53EF\u9009\uFF1A${[...personaIds].join("\u3001")}`);
+    if (!Array.isArray(persona.redFlags) || persona.redFlags.length === 0) errors.push(`persona ${persona.id} \u5FC5\u987B\u5199\u51FA\u5177\u4F53\u7EA2\u65D7`);
+  }
+  const severityIds = new Set(rubric.severity.map((s) => s.id));
+  const issues = assessment.priorityIssues ?? [];
+  if (issues.length < 3 || issues.length > 5) errors.push(`priorityIssues \u5FC5\u987B 3\u20135 \u6761\uFF0C\u5F53\u524D ${issues.length}`);
+  for (const issue of issues) {
+    if (!severityIds.has(issue.severity)) errors.push(`\u672A\u77E5\u4E25\u91CD\u5EA6\uFF1A${issue.severity}`);
+    for (const key of ["what", "why", "fix"]) {
+      if (typeof issue[key] !== "string" || !issue[key].trim()) errors.push(`\u4F18\u5148\u7EA7\u95EE\u9898\u7F3A\u5C11 ${key}\uFF1A${issue.what ?? "(\u65E0\u6807\u9898)"}`);
+    }
+  }
+  if (!Array.isArray(assessment.strengths) || assessment.strengths.length < 1) errors.push("\u81F3\u5C11\u5199 1 \u6761\u505A\u5F97\u597D\u7684\u5730\u65B9\uFF08strengths\uFF09");
+  return errors;
+}
+function uxRecordA(cwd, reviewId, assessment) {
+  const session = readSession(cwd, reviewId);
+  const rubric = loadRubric();
+  const errors = validateAssessment(assessment, rubric);
+  if (errors.length) throw new InvalidInputError(`A \u9636\u6BB5\u7ED3\u8BBA\u4E0D\u5408\u683C\uFF1A
+- ${errors.join("\n- ")}`);
+  const file = assessmentFile(cwd, reviewId);
+  writeFileInWorkspace(cwd, file, JSON.stringify({ ...assessment, recordedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
+  const naCount = assessment.heuristics.filter((h) => h.score === "n/a").length;
+  return { file, naCount };
+}
+function readAssessment(cwd, reviewId) {
+  const file = assessmentFile(cwd, reviewId);
+  if (!existsSync14(file)) {
+    throw new InvalidInputError(
+      `\u8FDB\u884C B \u9636\u6BB5\u4E4B\u524D\u5FC5\u987B\u5148\u5B8C\u6210 A\uFF1A${reviewId} \u8FD8\u6CA1\u6709 a.json\u3002\u5148 phase=a \u62FF\u6A21\u677F\u4E0E\u622A\u56FE\uFF0C\u8BFB\u56FE\u540E\u518D\u7528 phase=a \u56DE\u586B a_assessment\u3002`
+    );
+  }
+  return JSON.parse(readFileSync16(file, "utf8"));
+}
+async function uxRunB(cwd, reviewId, deps) {
+  const session = readSession(cwd, reviewId);
+  readAssessment(cwd, reviewId);
+  const html = readPageHtml(cwd, session.pageId);
+  if (html === null) throw new InvalidInputError(`\u9875\u9762 HTML \u4E0D\u5B58\u5728\uFF1A${session.pageId}`);
+  const styleId = readProject(cwd).design?.styleId ?? null;
+  const contract = computeContract(html, styleId, cwd, null);
+  const url = deps.urlFor(session.pageId);
+  const [a11y, quality] = await Promise.all([
+    auditPage(deps.browser, url, {}),
+    auditQuality(deps.browser, url, { mode: session.mode ?? null })
+  ]);
+  const evidenceFileAbs = evidenceFile(cwd, reviewId);
+  const evidence = existsSync14(evidenceFileAbs) ? JSON.parse(readFileSync16(evidenceFileAbs, "utf8")) : { issues: [], limitations: [] };
+  const findings = {
+    contract: {
+      score: contract.score,
+      total: contract.total,
+      byRule: contract.byRule,
+      unknownVars: contract.usage.unknownVars,
+      unknownClasses: contract.usage.unknownClasses,
+      missingInteractionRuntime: contract.usage.missingInteractionRuntime
+    },
+    a11y: { counts: a11y.counts, byRule: a11y.byRule, skipped: a11y.skipped },
+    quality: { counts: quality.counts, byRule: quality.byRule, skipped: quality.skipped },
+    review: { issues: evidence.issues, limitations: evidence.limitations },
+    ranAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  writeFileInWorkspace(cwd, findingsFile(cwd, reviewId), JSON.stringify(findings, null, 2) + "\n");
+  return findings;
+}
+function scoreAssessment(assessment, rubric) {
+  let total = 0;
+  let scored = 0;
+  const naHeuristics = [];
+  for (const item of assessment.heuristics) {
+    if (item.score === "n/a") naHeuristics.push(item.id);
+    else {
+      total += item.score;
+      scored++;
+    }
+  }
+  const max = scored * 4;
+  const percent = max > 0 ? Math.round(total / max * 1e3) / 10 : 0;
+  const band = rubric.bands.find((b2) => percent >= b2.min) ?? rubric.bands[rubric.bands.length - 1];
+  const count = (id) => assessment.priorityIssues.filter((i) => i.severity === id).length;
+  return {
+    total,
+    max,
+    percent,
+    band: band.label,
+    bandMeaning: band.meaning,
+    naHeuristics,
+    scored,
+    p0: count("P0"),
+    p1: count("P1"),
+    p2: count("P2"),
+    p3: count("P3")
+  };
+}
+function formatByRule(byRule) {
+  const entries = Object.entries(byRule).sort((a2, b2) => b2[1] - a2[1]);
+  return entries.length ? entries.map(([rule, n]) => `${rule}\xD7${n}`).join("\u3001") : "\u65E0";
+}
+function uxSynthesize(cwd, reviewId) {
+  const session = readSession(cwd, reviewId);
+  const rubric = loadRubric();
+  const assessment = readAssessment(cwd, reviewId);
+  const bFile = findingsFile(cwd, reviewId);
+  if (!existsSync14(bFile)) throw new InvalidInputError(`\u7F3A\u5C11 b.json\uFF1A\u5148\u8FD0\u884C phase=b\uFF08${reviewId}\uFF09\u3002`);
+  const findings = JSON.parse(readFileSync16(bFile, "utf8"));
+  const score = scoreAssessment(assessment, rubric);
+  const warnings = [];
+  if (score.max < 24) warnings.push(`\u6709\u6548\u5206\u6BCD\u53EA\u6709 ${score.max} \u5206\uFF08n/a \u8FC7\u591A\uFF09\uFF0C\u8BC4\u5206\u4EE3\u8868\u6027\u4E0D\u8DB3\uFF0C\u8BF7\u5728\u62A5\u544A\u4E2D\u8BF4\u660E\u4E3A\u4EC0\u4E48\u8FD9\u4E9B\u9879\u4E0D\u9002\u7528\u3002`);
+  if (score.naHeuristics.length > 0) warnings.push(`\u6807\u8BB0 n/a \u7684\u542F\u53D1\u5F0F\uFF1A${score.naHeuristics.join("\u3001")}\uFF1B\u5206\u6BCD\u6309\u5B9E\u9645\u8BA1\u5206\u9879\u8BA1\u7B97\u3002`);
+  const lines = [];
+  lines.push(`\u65B9\u6CD5\uFF1A\u4E09\u6BB5\u5F0F\u9694\u79BB\uFF08A \u8BBE\u8BA1\u8BC4\u5BA1\u5148\u884C\u5B8C\u6210\uFF0C${assessment.recordedAt ?? "\u65F6\u95F4\u672A\u77E5"}\uFF1BB \u786E\u5B9A\u6027\u68C0\u6D4B ${findings.ranAt}\uFF09`);
+  lines.push(`UX \u8BC4\u5BA1\uFF1A\u9875\u9762\u300C${session.title}\u300D\uFF08${session.pageId}\uFF09\xB7 \u8BC4\u5BA1 ID ${reviewId}`);
+  lines.push("");
+  lines.push("## \u8BBE\u8BA1\u5065\u5EB7\u5EA6");
+  lines.push("");
+  lines.push("| # | \u542F\u53D1\u5F0F | \u5206\u6570 | \u4E3B\u8981\u95EE\u9898 |");
+  lines.push("|---|---|---|---|");
+  rubric.heuristics.forEach((h, index) => {
+    const item = assessment.heuristics.find((s) => s.id === h.id);
+    const value = item?.score === "n/a" ? "n/a" : String(item?.score ?? "?");
+    lines.push(`| ${index + 1} | ${h.name} | ${value} | ${item?.keyIssue ?? "\u2014"} |`);
+  });
+  const naNote = score.naHeuristics.length ? `\uFF08n/a\uFF1A${score.naHeuristics.join("\u3001")}\uFF09` : "";
+  lines.push(`| **\u5408\u8BA1** |  | **${score.total}/${score.max}** \xB7 ${score.percent}% | **${score.band}**\uFF1A${score.bandMeaning} ${naNote}|`);
+  lines.push("");
+  lines.push("## \u8BBE\u8BA1\u7279\u5F02\u6027\uFF08A \u7684\u7B2C\u4E00\u8F93\u51FA\u9879\uFF09");
+  lines.push(`\u5224\u8BCD\uFF1A${assessment.specificity.verdict}`);
+  for (const item of assessment.specificity.evidence) lines.push(`- \u8BC1\u636E\uFF1A${item}`);
+  lines.push("");
+  lines.push("## \u8BA4\u77E5\u8D1F\u8377");
+  const failedLoad = assessment.cognitiveLoad.failed;
+  const loadBand = rubric.cognitiveLoad.bands.find((b2) => failedLoad.length <= b2.max) ?? rubric.cognitiveLoad.bands[rubric.cognitiveLoad.bands.length - 1];
+  lines.push(`\u5931\u8D25 ${failedLoad.length} \u9879 \u2192 ${loadBand.label}\uFF1A${loadBand.advice}`);
+  if (failedLoad.length) lines.push(`- \u5931\u8D25\u9879\uFF1A${failedLoad.join("\u3001")}`);
+  lines.push("");
+  lines.push("## A \u4E0E B \u7684\u4EA4\u53C9\u6838\u5BF9\uFF08\u8FD9\u4E00\u6BB5\u7531\u4F60\u586B\uFF09");
+  lines.push("- A \u4E0E B \u90FD\u6307\u51FA\u7684\u95EE\u9898\uFF1A");
+  lines.push("- B \u6293\u5230\u3001A \u6F0F\u6389\u7684\uFF1A");
+  lines.push("- B \u7684\u8BEF\u62A5\uFF08\u5199\u660E\u4E3A\u4EC0\u4E48\uFF09\uFF1A");
+  lines.push("");
+  lines.push("## \u786E\u5B9A\u6027\u68C0\u6D4B\uFF08B\uFF09");
+  lines.push(`- \u8BBE\u8BA1\u5951\u7EA6\uFF1A\u7B26\u5408\u5EA6 ${(findings.contract.score * 100).toFixed(1)}% \xB7 lint ${findings.contract.total} \u5904 \xB7 ${formatByRule(findings.contract.byRule)}`);
+  if (findings.contract.unknownVars.length) lines.push(`  - \u5951\u7EA6\u5916\u53D8\u91CF\uFF1A${findings.contract.unknownVars.join("\u3001")}`);
+  if (findings.contract.unknownClasses.length) lines.push(`  - \u5951\u7EA6\u5916\u7C7B\uFF1A${findings.contract.unknownClasses.join("\u3001")}`);
+  if (findings.contract.missingInteractionRuntime) lines.push("  - \u7528\u4E86\u4EA4\u4E92\u6807\u8BB0\u4F46\u7F3A\u5C11\u8FD0\u884C\u65F6");
+  lines.push(`- \u53EF\u8BBF\u95EE\u6027\uFF1Aerror ${findings.a11y.counts.error} / warning ${findings.a11y.counts.warning} \xB7 ${formatByRule(findings.a11y.byRule)}`);
+  lines.push(`- \u6E32\u67D3\u5DE5\u827A\uFF1Awarning ${findings.quality.counts.warning} / advisory ${findings.quality.counts.advisory} \xB7 ${formatByRule(findings.quality.byRule)}`);
+  lines.push(`- \u6E32\u67D3\u5BA1\u9605\uFF1A${findings.review.issues.length} \u6761\u5BA2\u89C2\u53D1\u73B0 \xB7 ${formatByRule(
+    findings.review.issues.reduce((acc, issue) => {
+      acc[issue.rule] = (acc[issue.rule] ?? 0) + 1;
+      return acc;
+    }, {})
+  )}`);
+  if (findings.a11y.skipped.length) lines.push(`- a11y \u8DF3\u8FC7\uFF1A${findings.a11y.skipped.slice(0, 4).join("\uFF1B")}`);
+  if (findings.quality.skipped.length) lines.push(`- \u5DE5\u827A\u8DF3\u8FC7\uFF1A${findings.quality.skipped.slice(0, 4).join("\uFF1B")}`);
+  lines.push("");
+  lines.push("## \u4F18\u5148\u7EA7\u95EE\u9898\uFF08\u6309 P0\u2013P3 \u6392\u5E8F\uFF0C\u5DF2\u8BA1\u5206\uFF09");
+  for (const issue of [...assessment.priorityIssues].sort((a2, b2) => a2.severity.localeCompare(b2.severity))) {
+    lines.push(`- **[${issue.severity}] ${issue.what}**`);
+    lines.push(`  - \u4E3A\u4EC0\u4E48\u91CD\u8981\uFF1A${issue.why}`);
+    lines.push(`  - \u600E\u4E48\u6539\uFF1A${issue.fix}`);
+  }
+  lines.push(`\u4E25\u91CD\u5EA6\u8BA1\u6570\uFF1AP0 ${score.p0} / P1 ${score.p1} / P2 ${score.p2} / P3 ${score.p3}`);
+  lines.push("");
+  lines.push("## persona \u7EA2\u65D7");
+  for (const entry of assessment.personas) {
+    const persona = rubric.personas.find((p) => p.id === entry.id);
+    lines.push(`**${persona?.name ?? entry.id}**\uFF1A`);
+    for (const flag of entry.redFlags) lines.push(`- ${flag}`);
+  }
+  lines.push("");
+  if (assessment.strengths.length) {
+    lines.push("## \u505A\u5F97\u597D\u7684\u5730\u65B9");
+    for (const item of assessment.strengths) lines.push(`- ${item}`);
+  }
+  if (assessment.minorObservations?.length) {
+    lines.push("");
+    lines.push("## \u6B21\u8981\u89C2\u5BDF");
+    for (const item of assessment.minorObservations) lines.push(`- ${item}`);
+  }
+  lines.push("");
+  lines.push("## \u672A\u6D4B\u9879\u4E0E\u9650\u5236");
+  lines.push("- \u8BC4\u5206\u6765\u81EA\u4EE3\u7406\u7684\u8BBE\u8BA1\u5224\u65AD\uFF1B\u5DE5\u5177\u53EA\u505A\u7B97\u672F\u4E0E\u7ED3\u6784\u6821\u9A8C\uFF0C\u4E0D\u80FD\u66FF\u4EE3\u9879\u76EE\u6240\u6709\u8005\u7684\u8BC4\u5BA1\u3002");
+  lines.push("- A/B \u9694\u79BB\u7531\u8C03\u7528\u534F\u8BAE\u4FDD\u8BC1\u65F6\u5E8F\uFF0C\u5DE5\u5177\u65E0\u6CD5\u9A8C\u8BC1\u4EE3\u7406\u662F\u5426\u5728\u6B64\u4E4B\u524D\u79C1\u81EA\u8FD0\u884C\u8FC7\u68C0\u6D4B\u5668\u3002");
+  lines.push(`- \u622A\u56FE\u4E0E\u5BA2\u89C2\u6307\u6807\u8986\u76D6 ${session.shots.length} \u4E2A\u89C6\u53E3\uFF1B\u4EA4\u4E92\u72B6\u6001\u3001\u952E\u76D8\u8DEF\u5F84\u3001\u771F\u5B9E\u8BBE\u5907\u672A\u8986\u76D6\u3002`);
+  for (const item of findings.review.limitations) lines.push(`- ${item}`);
+  lines.push("");
+  const report = lines.join("\n");
+  const file = join21(sessionDir(cwd, reviewId), "ux.json");
+  const payload = {
+    schema: 1,
+    reviewId,
+    pageId: session.pageId,
+    mode: session.mode,
+    a: assessment,
+    b: findings,
+    score,
+    warnings,
+    limitations: [
+      "\u8BC4\u5206\u6765\u81EA\u4EE3\u7406\u5224\u65AD\uFF0C\u5DE5\u5177\u53EA\u505A\u7B97\u672F\u4E0E\u7ED3\u6784\u6821\u9A8C\u3002",
+      "A/B \u9694\u79BB\u53EA\u4FDD\u8BC1\u8C03\u7528\u65F6\u5E8F\uFF0C\u4E0D\u4FDD\u8BC1\u4EE3\u7406\u672A\u79C1\u81EA\u8FD0\u884C\u68C0\u6D4B\u5668\u3002",
+      "\u672A\u505A\u4EBA\u5DE5\u8BC4\u5BA1\uFF0C\u4E0D\u80FD\u66FF\u4EE3\u9879\u76EE\u6240\u6709\u8005\u3002"
+    ],
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  writeFileInWorkspace(cwd, file, JSON.stringify(payload, null, 2) + "\n");
+  const header = warnings.length ? `\u26A0\uFE0F ${warnings.join("\n\u26A0\uFE0F ")}
+
+` : "";
+  return { score, report: `${header}${report}
+
+\u5DF2\u843D\u76D8\uFF1A${file}`, file, warnings };
+}
+
+// src/audit/motion.ts
+import { join as join22 } from "node:path";
+var DEFAULT_FRAMES = 7;
+var MIN_FRAMES = 3;
+var MAX_FRAMES = 15;
+var VIEWPORT = { width: 1e3, height: 760 };
+var MOTION_THRESHOLDS = {
+  /** 首帧/末帧跳变：变化比例超过它就算没有过渡。 */
+  jump: 0.02,
+  /** 中间跳帧：单帧变化超过它，且超过相邻帧的倍数。 */
+  midStep: 0.08,
+  midStepRatio: 4,
+  /** 中间被裁切：中间帧超过它而首末帧低于 clippedEdge。 */
+  clippedMid: 0.02,
+  clippedEdge: 0.01,
+  /** reduced-motion 判定：位移跨度 ≥ 基线跨度的这个比例即视为没减少。 */
+  reducedSpanShare: 0.9,
+  /** 基线跨度太小（px）时不做 reduced 比较。 */
+  minSpanPx: 4,
+  /** 基线时长低于此值时不做 reduced 比较。 */
+  minDurationMs: 100
+};
+function analyzeMotion(normal, reduced) {
+  const findings = [];
+  const frames = normal.frames;
+  if (frames.length < 3) return findings;
+  const ratios = frames.map((f) => f.changeRatio);
+  const last2 = ratios[ratios.length - 1] ?? 0;
+  const first2 = ratios[1] ?? 0;
+  const deltas = ratios.slice(1).map((value, index) => value - (ratios[index] ?? 0));
+  if (first2 >= MOTION_THRESHOLDS.jump && deltas.slice(1).every((d) => d < MOTION_THRESHOLDS.jump)) {
+    findings.push({
+      kind: "start-jump",
+      severity: "warning",
+      message: `\u9996\u5E27\u5C31\u5B8C\u6210 ${(first2 * 100).toFixed(1)}% \u7684\u53D8\u5316\u4E14\u540E\u7EED\u51E0\u4E4E\u4E0D\u52A8\uFF1A\u52A8\u753B\u5F88\u53EF\u80FD\u4ECE\u5DF2\u53D8\u5316\u7684\u72B6\u6001\u5F00\u59CB\uFF0C\u6CA1\u6709\u5165\u573A\u8FC7\u7A0B`
+    });
+  }
+  const lastDelta = deltas[deltas.length - 1] ?? 0;
+  const prevDelta = deltas[deltas.length - 2] ?? 0;
+  if (lastDelta >= MOTION_THRESHOLDS.jump && lastDelta >= prevDelta * 2) {
+    findings.push({
+      kind: "end-jump",
+      severity: "warning",
+      message: `\u672B\u5E27\u589E\u91CF ${(lastDelta * 100).toFixed(1)}%\uFF08\u524D\u4E00\u5E27 ${(prevDelta * 100).toFixed(1)}%\uFF09\uFF1A\u52A8\u753B\u7ED3\u675F\u65F6\u8DF3\u53D8\uFF0C\u6CA1\u6709\u6536\u655B`
+    });
+  }
+  for (let i = 1; i < deltas.length - 1; i++) {
+    const current = deltas[i] ?? 0;
+    const prev = deltas[i - 1] ?? 0;
+    const next = deltas[i + 1] ?? 0;
+    const neighbour = Math.max(prev, next) || 1e-6;
+    if (current >= MOTION_THRESHOLDS.midStep && current >= neighbour * MOTION_THRESHOLDS.midStepRatio) {
+      findings.push({
+        kind: "mid-step",
+        severity: "warning",
+        message: `\u7B2C ${i + 1} \u5E27\u5355\u5E27\u53D8\u5316 ${(current * 100).toFixed(1)}%\uFF08\u76F8\u90BB\u5E27 ${(prev * 100).toFixed(1)}% / ${(next * 100).toFixed(1)}%\uFF09\uFF1A\u4E2D\u95F4\u5B58\u5728\u8DF3\u5E27`
+      });
+      break;
+    }
+  }
+  const mids = ratios.slice(1, -1);
+  const maxMid = mids.length ? Math.max(...mids) : 0;
+  if (maxMid >= MOTION_THRESHOLDS.clippedMid && first2 < MOTION_THRESHOLDS.clippedEdge && last2 < MOTION_THRESHOLDS.clippedEdge) {
+    findings.push({
+      kind: "clipped-midway",
+      severity: "warning",
+      message: `\u4E2D\u95F4\u5E27\u53D8\u5316 ${(maxMid * 100).toFixed(1)}% \u800C\u9996\u672B\u5E27\u90FD\u4F4E\u4E8E ${(MOTION_THRESHOLDS.clippedEdge * 100).toFixed(0)}%\uFF1A\u8FC7\u6E21\u4E2D\u5185\u5BB9\u88AB\u88C1\u5207\u6216\u4E34\u65F6\u6D88\u5931`
+    });
+  }
+  if (reduced && reduced.frames.length >= 3) {
+    const spanOf = (list) => Math.max(0, ...list.map((f) => f.span));
+    const normalSpan = spanOf(normal.frames);
+    const reducedSpan = spanOf(reduced.frames);
+    if (normal.durationMs >= MOTION_THRESHOLDS.minDurationMs && normalSpan >= MOTION_THRESHOLDS.minSpanPx) {
+      if (reducedSpan >= normalSpan * MOTION_THRESHOLDS.reducedSpanShare) {
+        findings.push({
+          kind: "reduced-motion-ignored",
+          severity: "warning",
+          message: `\u51CF\u5C11\u52A8\u6548\u4E0B\u4F4D\u79FB\u8DE8\u5EA6\u4ECD\u6709 ${reducedSpan.toFixed(0)}px\uFF08\u57FA\u7EBF ${normalSpan.toFixed(0)}px\uFF0C${(reducedSpan / Math.max(1, normalSpan) * 100).toFixed(0)}%\uFF09\uFF1A\u5E94\u51CF\u5C11\u7A7A\u95F4\u4F4D\u79FB\uFF0C\u800C\u4E0D\u662F\u53EA\u7F29\u77ED\u65F6\u957F`
+        });
+      }
+    }
+  }
+  return findings;
+}
+var LIMITATIONS = [
+  "\u91C7\u6837\u5E27\u6570\u56FA\u5B9A\uFF0C\u53EA\u8BC1\u660E\u8FD9\u4E9B\u5E27\u4E0A\u7684\u53D8\u5316\uFF0C\u4E0D\u8BC1\u660E\u52A8\u753B\u5E73\u6ED1\u3002",
+  "\u622A\u56FE\u672C\u8EAB\u6709 30\u201380ms \u5F00\u9500\uFF0CelapsedMs \u662F\u5B9E\u6D4B\u503C\u4E0D\u662F\u6807\u79F0\u65F6\u957F\u3002",
+  "\u53EA\u6D4B\u4E86\u4E00\u4E2A\u9009\u62E9\u5668\u7684\u4E00\u6B21\u70B9\u51FB\uFF1B\u952E\u76D8\u6B65\u9AA4\u3001\u591A\u6B65\u4EA4\u4E92\u3001\u8FDE\u7EED\u624B\u52BF\u672A\u8986\u76D6\u3002",
+  "prefers-reduced-motion \u53EA\u5728 Chromium \u4E0A\u6A21\u62DF\uFF0CSafari / Firefox \u7684\u5DEE\u5F02\u672A\u6D4B\u3002",
+  "\u5BA2\u89C2\u50CF\u7D20\u5DEE\u4E0D\u80FD\u5224\u65AD\u52A8\u6548\u662F\u5426\u6070\u5F53\uFF0C\u53EA\u5224\u65AD\u5B83\u300C\u6709\u6CA1\u6709\u8DD1\u6210\u8FD9\u4E2A\u6837\u5B50\u300D\u3002"
+];
+function viewerHtml(label, selector, frameFiles) {
+  const images = frameFiles.map((file) => `'${file}'`).join(",");
+  return `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>\u52A8\u6548\u6293\u5E27 \xB7 ${label}</title>
+<style>
+body{margin:0;background:#18181b;color:#e4e4e7;font:13px/1.6 ui-sans-serif,system-ui}
+header{padding:12px 16px;border-bottom:1px solid #3f3f46;display:flex;gap:16px;align-items:center}
+code{background:#27272a;padding:2px 6px;border-radius:4px}
+main{padding:16px;display:flex;flex-direction:column;gap:12px}
+img{max-width:100%;border:1px solid #3f3f46;border-radius:6px;background:#000}
+input[type=range]{width:100%}
+</style></head><body>
+<header><strong>\u52A8\u6548\u6293\u5E27</strong><span>${label}</span><code>${selector}</code><span id="pos">0 / ${frameFiles.length - 1}</span></header>
+<main><img id="frame" src="${frameFiles[0]}" alt="frame"><input id="slider" type="range" min="0" max="${frameFiles.length - 1}" value="0"></main>
+<script>
+const files=[${images}];const img=document.getElementById('frame');const slider=document.getElementById('slider');const pos=document.getElementById('pos');
+slider.addEventListener('input',()=>{const i=Number(slider.value);img.src=files[i];pos.textContent=i+' / '+(files.length-1)});
+</script></body></html>
+`;
+}
+async function captureMotion(browser, url, opts, write2, label) {
+  const frames = Math.max(MIN_FRAMES, Math.min(MAX_FRAMES, opts.frames ?? DEFAULT_FRAMES));
+  const windowMs = Math.max(200, opts.windowMs ?? 700);
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ ...VIEWPORT, deviceScaleFactor: 1 });
+    if (opts.reducedMotion) {
+      await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+    } else {
+      await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }]);
+    }
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    await page.waitForSelector("body", { timeout: 1e4 });
+    await new Promise((r) => setTimeout(r, 300));
+    const clip = opts.region ? await page.evaluate(
+      `(() => {
+             const el = document.querySelector(${JSON.stringify(opts.region)})
+             if (!el) return null
+             const r = el.getBoundingClientRect()
+             return { x: Math.max(0, Math.floor(r.x)), y: Math.max(0, Math.floor(r.y)), width: Math.max(1, Math.floor(r.width)), height: Math.max(1, Math.floor(r.height)) }
+           })()`
+    ) : { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height };
+    if (!clip) throw new InvalidInputError(`\u627E\u4E0D\u5230\u52A8\u6548\u533A\u57DF\u9009\u62E9\u5668\uFF1A${opts.region}`);
+    const shots = [];
+    const started = Date.now();
+    const first2 = await page.screenshot({ clip, encoding: "binary" });
+    shots.push({ buffer: Buffer.from(first2), elapsedMs: 0 });
+    const triggered = await page.evaluate(
+      `(() => {
+         const el = document.querySelector(${JSON.stringify(opts.selector)})
+         if (!el) return false
+         if (typeof el.click === 'function') el.click()
+         else el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+         return true
+       })()`
+    );
+    if (!triggered) throw new InvalidInputError(`\u627E\u4E0D\u5230\u52A8\u6548\u89E6\u53D1\u9009\u62E9\u5668\uFF1A${opts.selector}`);
+    const step = windowMs / (frames - 1);
+    for (let i = 1; i < frames; i++) {
+      const target = i * step;
+      const now2 = Date.now() - started;
+      if (target > now2) await new Promise((r) => setTimeout(r, target - now2));
+      if (opts.settleMs) await new Promise((r) => setTimeout(r, opts.settleMs));
+      const buffer = await page.screenshot({ clip, encoding: "binary" });
+      shots.push({ buffer: Buffer.from(buffer), elapsedMs: Date.now() - started });
+    }
+    const images = shots.map((shot) => decodePng(shot.buffer));
+    const base = images[0];
+    const frameFiles = [];
+    const frameResults = [];
+    images.forEach((image, index) => {
+      const name = `frame-${String(index).padStart(2, "0")}.png`;
+      const path14 = join22(write2.dir, name);
+      write2.save(path14, index === 0 ? shots[index].buffer : encodeImage(image));
+      frameFiles.push(name);
+      const diff = index === 0 ? { ratio: 0, bbox: null } : diffPng(base, image, { threshold: 8 });
+      const bbox = diff.bbox ?? null;
+      const span = bbox ? Math.max(bbox.width, bbox.height) : 0;
+      frameResults.push({ index, elapsedMs: shots[index].elapsedMs, changeRatio: diff.ratio, bbox, span, path: path14 });
+    });
+    const thumbs = images.map((image) => scaleImage(image, Math.max(1, Math.floor(image.width / 3)), Math.max(1, Math.floor(image.height / 3))));
+    const strip = tileImages(thumbs, 3, 6);
+    const filmstripPath = join22(write2.dir, "filmstrip.png");
+    write2.save(filmstripPath, encodeImage(strip));
+    const viewerPath = join22(write2.dir, "index.html");
+    write2.save(viewerPath, viewerHtml(label, opts.selector, frameFiles));
+    const durationMs = shots[shots.length - 1].elapsedMs;
+    const totalSpan = Math.max(0, ...frameResults.map((f) => f.span));
+    const capture = {
+      label,
+      dir: write2.dir,
+      frames: frameResults,
+      filmstrip: filmstripPath,
+      viewer: viewerPath,
+      report: join22(write2.dir, "report.json"),
+      durationMs,
+      totalSpan
+    };
+    write2.save(capture.report, JSON.stringify({ label, selector: opts.selector, region: opts.region ?? null, viewport: VIEWPORT, durationMs, totalSpan, frames: frameResults, limitations: LIMITATIONS }, null, 2) + "\n");
+    return capture;
+  } finally {
+    await page.close().catch(() => {
+    });
+  }
+}
+function formatMotionReport(report) {
+  const lines = [];
+  lines.push(`\u52A8\u6548\u6293\u5E27\u5BA1\u8BA1\uFF1A${report.pageId} \xB7 \u9009\u62E9\u5668 ${report.selector}${report.region ? ` \xB7 \u533A\u57DF ${report.region}` : ""}`);
+  lines.push(`\u89C6\u53E3 ${report.viewport.width}\xD7${report.viewport.height} \xB7 \u6B63\u5E38 ${report.normal.frames.length} \u5E27 / ${report.normal.durationMs}ms` + (report.reduced ? ` \xB7 \u51CF\u5C11\u52A8\u6548 ${report.reduced.frames.length} \u5E27 / ${report.reduced.durationMs}ms` : ""));
+  if (report.findings.length === 0) {
+    lines.push("\u672A\u53D1\u73B0\u53EF\u6D4B\u7684\u52A8\u6548\u5F02\u5E38\uFF08\u8FD9\u4E0D\u7B49\u4E8E\u52A8\u6548\u6070\u5F53\uFF1A\u50CF\u7D20\u5DEE\u53EA\u8BC1\u660E\u5B83\u8DD1\u6210\u4E86\u8FD9\u4E2A\u6837\u5B50\uFF09\u3002");
+  } else {
+    for (const finding of report.findings) lines.push(`- [${finding.severity}] ${finding.kind}\uFF1A${finding.message}`);
+  }
+  lines.push("");
+  lines.push("\u5E27\u5E8F\u5217\uFF08\u53D8\u5316\u6BD4\u4F8B / \u4F4D\u79FB\u8DE8\u5EA6\uFF09\uFF1A");
+  for (const frame of report.normal.frames) {
+    lines.push(`- #${frame.index} ${frame.elapsedMs}ms \xB7 ${(frame.changeRatio * 100).toFixed(1)}% \xB7 \u8DE8\u5EA6 ${frame.span}px`);
+  }
+  if (report.reduced) {
+    lines.push("");
+    lines.push("\u51CF\u5C11\u52A8\u6548\u4E0B\u7684\u5E27\uFF1A");
+    for (const frame of report.reduced.frames) {
+      lines.push(`- #${frame.index} ${frame.elapsedMs}ms \xB7 ${(frame.changeRatio * 100).toFixed(1)}% \xB7 \u8DE8\u5EA6 ${frame.span}px`);
+    }
+  }
+  lines.push("");
+  lines.push(`filmstrip\uFF1A${report.normal.filmstrip}`);
+  lines.push(`\u62D6\u5E27\u67E5\u770B\uFF1A${report.normal.viewer}`);
+  if (report.reduced) lines.push(`\u51CF\u5C11\u52A8\u6548\uFF1A${report.reduced.filmstrip}`);
+  lines.push("");
+  lines.push("\u672A\u6D4B\u9879\uFF1A");
+  for (const item of report.limitations) lines.push(`- ${item}`);
+  return lines.join("\n");
+}
+
 // src/brand.ts
-import { existsSync as existsSync14, mkdirSync as mkdirSync5 } from "node:fs";
-import { dirname as dirname7, join as join21, resolve as resolve12 } from "node:path";
+import { existsSync as existsSync15, mkdirSync as mkdirSync5 } from "node:fs";
+import { dirname as dirname7, join as join23, resolve as resolve13 } from "node:path";
 function memoryDir(cwd) {
-  return join21(projectDir(cwd), "memory");
+  return join23(projectDir(cwd), "memory");
 }
 function memoryFile(cwd) {
-  return join21(memoryDir(cwd), "brand.json");
+  return join23(memoryDir(cwd), "brand.json");
 }
 var EMPTY3 = { schemaVersion: 1, updatedAt: null, styles: {} };
 function emptyStyleMemory() {
@@ -70084,7 +70834,7 @@ function emptyStyleMemory() {
 }
 function readMemory(cwd, tx) {
   const file = memoryFile(cwd);
-  if (!tx && !existsSync14(file)) return { ...EMPTY3, styles: {} };
+  if (!tx && !existsSync15(file)) return { ...EMPTY3, styles: {} };
   try {
     const parsed = JSON.parse(tx ? tx.readFile(file) ?? "{}" : readTextInWorkspace(cwd, file, "\u54C1\u724C\u8BB0\u5FC6"));
     if (parsed.schemaVersion !== 1 || typeof parsed.styles !== "object" || parsed.styles === null) {
@@ -70164,9 +70914,9 @@ function memorySummary(cwd, styleId) {
 function buildBrandPack(cwd, styleId, builtinDir) {
   void builtinDir;
   const dir = customStyleDir(cwd, styleId);
-  const tokensFile = join21(dir, "tokens.json");
-  const metaFile = join21(dir, "meta.json");
-  if (!existsSync14(tokensFile) || !existsSync14(metaFile)) {
+  const tokensFile = join23(dir, "tokens.json");
+  const metaFile = join23(dir, "meta.json");
+  if (!existsSync15(tokensFile) || !existsSync15(metaFile)) {
     throw new Error(`\u300C${styleId}\u300D\u4E0D\u662F\u81EA\u5B9A\u4E49\u8BBE\u8BA1\u7CFB\u7EDF\uFF08\u5185\u7F6E\u98CE\u683C\u4E0D\u80FD\u5BFC\u51FA\u4E3A\u54C1\u724C\u5305\uFF09\u3002`);
   }
   const tokens = JSON.parse(readTextInWorkspace(cwd, tokensFile, "\u81EA\u5B9A\u4E49\u98CE\u683C tokens"));
@@ -70210,15 +70960,15 @@ function exportBrandPack(cwd, pack, file) {
     checksum: pack.checksum
   };
   const data = JSON.stringify(ordered, null, 2).replace(/\r\n/g, "\n") + "\n";
-  mkdirSync5(dirname7(resolve12(file)), { recursive: true });
+  mkdirSync5(dirname7(resolve13(file)), { recursive: true });
   if (file.startsWith(projectDir(cwd))) writeFileInWorkspace(cwd, file, data, "\u54C1\u724C\u5305");
   else writeFileAtomic(cwd, file, data);
 }
 function importBrandPack(cwd, pack, tx) {
   if (!tx) return withProjectTransaction(cwd, (transaction) => importBrandPack(cwd, pack, transaction));
-  const dir = join21(libraryDir(cwd), pack.id);
+  const dir = join23(libraryDir(cwd), pack.id);
   const write2 = (name, value) => {
-    tx.stageFile(join21(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
+    tx.stageFile(join23(dir, name), JSON.stringify(value, null, 2).replace(/\r\n/g, "\n") + "\n");
   };
   write2("tokens.json", pack.tokens);
   write2("meta.json", pack.meta);
@@ -70253,7 +71003,7 @@ function positiveOr(value, fallback) {
 }
 
 // src/extract.ts
-import { existsSync as existsSync15, readFileSync as readFileSync16 } from "node:fs";
+import { existsSync as existsSync16, readFileSync as readFileSync17 } from "node:fs";
 var NEUTRAL_KEYS = ["0", "50", "100", "200", "300", "500", "700", "900"];
 var BRAND_KEYS = ["100", "300", "500", "600", "700"];
 var STATUS_KEYS = ["50", "500"];
@@ -70427,8 +71177,8 @@ async function gather(input2, warnings) {
     if (/<[a-z!/]/i.test(input2.source)) htmlText = input2.source;
     else cssText = input2.source;
   } else if (input2.file) {
-    if (!existsSync15(input2.file)) throw new Error(`\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${input2.file}`);
-    const text3 = input2.cwd ? readTextInWorkspace(input2.cwd, input2.file, "\u6765\u6E90\u6587\u4EF6") : readFileSync16(input2.file, "utf8");
+    if (!existsSync16(input2.file)) throw new Error(`\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${input2.file}`);
+    const text3 = input2.cwd ? readTextInWorkspace(input2.cwd, input2.file, "\u6765\u6E90\u6587\u4EF6") : readFileSync17(input2.file, "utf8");
     if (/\.css$/i.test(input2.file) || !/<[a-z!/]/i.test(text3)) cssText = text3;
     else htmlText = text3;
   } else if (input2.url) {
@@ -71240,7 +71990,7 @@ function writeUrlHint(cwd, url) {
     const publicUrl = new URL(url);
     publicUrl.pathname = "/";
     publicUrl.hash = "";
-    writeFileInWorkspace(cwd, join22(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
+    writeFileInWorkspace(cwd, join24(cwd, PROJECT_DIR_NAME, "url.txt"), publicUrl.toString() + "\n", "\u753B\u5E03\u5730\u5740\u6587\u4EF6");
   } catch {
   }
 }
@@ -71261,7 +72011,7 @@ async function canvasUpsertPage(call) {
   const htmlPath = str(args.html_path);
   let html;
   if (htmlPath) {
-    if (!existsSync16(htmlPath)) {
+    if (!existsSync17(htmlPath)) {
       return { content: "\u8BFB\u53D6\u5931\u8D25\uFF1A\u539F\u578B\u6587\u4EF6\u4E0D\u5B58\u5728\uFF0C\u8BF7\u6838\u5BF9 html_path \u540E\u91CD\u8BD5\u3002", isError: true };
     }
     try {
@@ -71368,7 +72118,7 @@ ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactEr
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
-` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join22(call.cwd, rel)}
+` + (pageHtml !== void 0 ? `\u539F\u578B\u6587\u4EF6\uFF1A${join24(call.cwd, rel)}
 ` : `\u539F\u578B HTML \u672A\u6539\u52A8\uFF08\u4EC5\u66F4\u65B0\u4E86\u8282\u70B9\u4FE1\u606F\uFF09\u3002
 `) + `\u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + textNote + navNote + (navWarnings.length ? `
@@ -71762,16 +72512,16 @@ async function canvasCodegen(call) {
   }
   const writeFiles = call.args.write_files === true || typeof call.args.out_dir === "string";
   if (writeFiles) {
-    const raw = str(call.args.out_dir) ?? join22(PROJECT_DIR_NAME, "exports", `${target}`);
-    const base = isAbsolute5(raw) ? raw : join22(call.cwd, raw);
+    const raw = str(call.args.out_dir) ?? join24(PROJECT_DIR_NAME, "exports", `${target}`);
+    const base = isAbsolute5(raw) ? raw : join24(call.cwd, raw);
     for (const file of files) {
-      const abs = join22(base, file.name);
+      const abs = join24(base, file.name);
       mkdirSync6(dirname8(abs), { recursive: true });
       writeFileAtomic(call.cwd, abs, file.content);
     }
     return {
       content: `\u5DF2\u751F\u6210 ${files.length} \u4E2A\u6587\u4EF6\uFF08${label}\uFF0Ctarget=${target}${call.args.stack ? `\uFF0Cstack=${call.args.stack}` : ""}\uFF09\uFF1A
-` + files.map((f) => `  - ${join22(base, f.name)}`).join("\n") + `
+` + files.map((f) => `  - ${join24(base, f.name)}`).join("\n") + `
 
 ${codegenCaveat(target)}`
     };
@@ -72048,7 +72798,7 @@ ${memory}` : ""}
       const id = str(call.args.id);
       if (!id) return { content: "extract \u9700\u8981 id\uFF08\u65B0\u5EFA\u7684\u98CE\u683C id\uFF1A\u5B57\u6BCD\u6570\u5B57/_/-\uFF0C1\u201364 \u4F4D\uFF09\u3002", isError: true };
       const rawPath = str(call.args.path);
-      const filePath = rawPath === void 0 ? void 0 : isAbsolute5(rawPath) ? rawPath : resolve13(call.cwd, rawPath);
+      const filePath = rawPath === void 0 ? void 0 : isAbsolute5(rawPath) ? rawPath : resolve14(call.cwd, rawPath);
       const url = str(call.args.url);
       const source2 = str(call.args.source);
       if (!source2 && !filePath && !url) {
@@ -72243,8 +72993,8 @@ ${lockLine}${warnLine}
         return { content: reportError(err), isError: true };
       }
       const rawOut = str(call.args.out_dir);
-      const dir = rawOut ? isAbsolute5(rawOut) ? rawOut : join22(call.cwd, rawOut) : join22(call.cwd, PROJECT_DIR_NAME, "exports");
-      const file = join22(dir, `${id}.json`);
+      const dir = rawOut ? isAbsolute5(rawOut) ? rawOut : join24(call.cwd, rawOut) : join24(call.cwd, PROJECT_DIR_NAME, "exports");
+      const file = join24(dir, `${id}.json`);
       try {
         exportBrandPack(call.cwd, pack, file);
       } catch (err) {
@@ -72260,8 +73010,8 @@ checksum\uFF1A${pack.checksum.slice(0, 16)}\u2026\uFF08\u5BFC\u5165\u65F6\u4F1A\
     if (action === "import_pack") {
       const rawPath = str(call.args.pack_path);
       if (!rawPath) return { content: "import_pack \u9700\u8981 pack_path\uFF08\u54C1\u724C\u5305 JSON \u7684\u8DEF\u5F84\uFF09\u3002", isError: true };
-      const file = isAbsolute5(rawPath) ? rawPath : join22(call.cwd, rawPath);
-      if (!existsSync16(file)) return { content: "\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF0C\u8BF7\u6838\u5BF9 pack_path \u540E\u91CD\u8BD5\u3002", isError: true };
+      const file = isAbsolute5(rawPath) ? rawPath : join24(call.cwd, rawPath);
+      if (!existsSync17(file)) return { content: "\u54C1\u724C\u5305\u4E0D\u5B58\u5728\uFF0C\u8BF7\u6838\u5BF9 pack_path \u540E\u91CD\u8BD5\u3002", isError: true };
       let raw;
       try {
         raw = readTextInWorkspace(call.cwd, file, "\u54C1\u724C\u5305");
@@ -72361,13 +73111,13 @@ async function canvasAudit(call) {
       const outDir = str(call.args.out_dir);
       let writeLine = "";
       if (call.args.write_files === true || outDir) {
-        const base = outDir ? isAbsolute5(outDir) ? outDir : join22(call.cwd, outDir) : join22(call.cwd, PROJECT_DIR_NAME, "exports", "audit");
+        const base = outDir ? isAbsolute5(outDir) ? outDir : join24(call.cwd, outDir) : join24(call.cwd, PROJECT_DIR_NAME, "exports", "audit");
         mkdirSync6(base, { recursive: true });
         const written = [];
         for (const { page, result } of results) {
-          const htmlPath = join22(base, `${page.id}.html`);
+          const htmlPath = join24(base, `${page.id}.html`);
           writeFileAtomic(call.cwd, htmlPath, page.html);
-          const testPath = join22(base, `${page.id}.audit.test.mjs`);
+          const testPath = join24(base, `${page.id}.audit.test.mjs`);
           writeFileAtomic(call.cwd, testPath, result.testFile);
           written.push(testPath);
         }
@@ -72393,8 +73143,8 @@ async function canvasAudit(call) {
         componentsCss: style.componentsCss,
         icons: style.manifest.iconNames
       });
-      const dir = str(call.args.out_dir) ? isAbsolute5(str(call.args.out_dir)) ? str(call.args.out_dir) : join22(call.cwd, str(call.args.out_dir)) : snapshotDir(call.cwd);
-      const file = join22(dir, "snapshot.json");
+      const dir = str(call.args.out_dir) ? isAbsolute5(str(call.args.out_dir)) ? str(call.args.out_dir) : join24(call.cwd, str(call.args.out_dir)) : snapshotDir(call.cwd);
+      const file = join24(dir, "snapshot.json");
       const before = readSnapshot(call.cwd, file);
       writeSnapshot(call.cwd, file, snapshot);
       if (!before) {
@@ -72482,10 +73232,140 @@ async function canvasAudit(call) {
         await dispose();
       }
     }
+    if (action === "ux") {
+      const phase = str(call.args.phase) ?? "a";
+      if (phase !== "a" && phase !== "b" && phase !== "synthesize") {
+        return { content: `\u975E\u6CD5 phase\uFF1A${phase}\uFF1B\u53EF\u9009 a / b / synthesize\u3002`, isError: true };
+      }
+      if (phase === "a") {
+        const assessment = call.args.a_assessment;
+        if (assessment !== void 0 && assessment !== null) {
+          const reviewId2 = str(call.args.review_id);
+          if (!reviewId2) return { content: "\u56DE\u586B A \u9636\u6BB5\u7ED3\u8BBA\u9700\u8981 review_id\uFF08phase=a \u9996\u6B21\u8FD4\u56DE\u7684\u90A3\u4E2A\uFF09\u3002", isError: true };
+          const recorded = uxRecordA(call.cwd, reviewId2, assessment);
+          return {
+            content: `A \u9636\u6BB5\u7ED3\u8BBA\u5DF2\u8BB0\u5F55\uFF08${recorded.file}\uFF09\xB7 n/a ${recorded.naCount} \u9879\u3002
+\u4E0B\u4E00\u6B65\uFF1Acanvas_audit\uFF08action=ux, phase=b, review_id=` + reviewId2 + "\uFF09\u3002" + (recorded.naCount ? "\nn/a \u4F1A\u7F29\u5C0F\u5206\u6BCD\uFF0C\u8BC4\u5206\u6309\u5B9E\u9645\u8BA1\u5206\u9879\u8BA1\u7B97\u3002" : "")
+          };
+        }
+        const pageId = str(call.args.page_id);
+        if (!pageId) return { content: "phase=a \u9700\u8981 page_id\uFF08\u9996\u6B21\u8C03\u7528\uFF09\u6216 review_id + a_assessment\uFF08\u56DE\u586B\uFF09\u3002", isError: true };
+        const started = await uxStart(call.cwd, pageId, { outputDir: str(call.args.out_dir) });
+        return { content: started.template };
+      }
+      const reviewId = str(call.args.review_id);
+      if (!reviewId) return { content: `phase=${phase} \u9700\u8981 review_id\u3002`, isError: true };
+      if (phase === "b") {
+        readSession(call.cwd, reviewId);
+        readAssessment(call.cwd, reviewId);
+        const { url } = await ensureServer(call.cwd);
+        const exe = resolveBrowser();
+        if (!exe) {
+          return {
+            content: "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u8FD0\u884C B \u9636\u6BB5\u7684\u6E32\u67D3\u68C0\u6D4B\uFF08a11y / quality\uFF09\u3002\u53EF\u7528 TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u8DEF\u5F84\uFF1BA \u9636\u6BB5\u7ED3\u8BBA\u5DF2\u5B89\u5168\u843D\u76D8\uFF0C\u5B89\u88C5\u6D4F\u89C8\u5668\u540E\u91CD\u8DD1 phase=b \u5373\u53EF\u3002",
+            isError: true
+          };
+        }
+        const { browser, dispose } = await launchBrowser(exe);
+        try {
+          const authPage = await browser.newPage();
+          await authPage.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+          await authPage.waitForFunction("!location.hash", { timeout: 15e3 });
+          await authPage.close();
+          const findings = await uxRunB(call.cwd, reviewId, {
+            browser,
+            urlFor: (pageId) => {
+              const pageUrl = new URL(url);
+              pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(pageId)}`;
+              pageUrl.hash = "";
+              return pageUrl.toString();
+            }
+          });
+          const total = findings.contract.total + findings.a11y.counts.error + findings.a11y.counts.warning + findings.quality.counts.warning + findings.review.issues.length;
+          return {
+            content: `B \u9636\u6BB5\u5B8C\u6210\uFF08\u786E\u5B9A\u6027\u68C0\u6D4B\uFF09\uFF1A
+- \u8BBE\u8BA1\u5951\u7EA6\uFF1A\u7B26\u5408\u5EA6 ${(findings.contract.score * 100).toFixed(1)}% \xB7 lint ${findings.contract.total} \u5904
+- \u53EF\u8BBF\u95EE\u6027\uFF1Aerror ${findings.a11y.counts.error} / warning ${findings.a11y.counts.warning}
+- \u6E32\u67D3\u5DE5\u827A\uFF1Awarning ${findings.quality.counts.warning} / advisory ${findings.quality.counts.advisory}
+- \u6E32\u67D3\u5BA1\u9605\uFF1A${findings.review.issues.length} \u6761\u5BA2\u89C2\u53D1\u73B0
+
+\u5408\u8BA1 ${total} \u5904\u786E\u5B9A\u6027\u53D1\u73B0\u3002\u4E0B\u4E00\u6B65\uFF1Aphase=synthesize, review_id=${reviewId}\u3002`
+          };
+        } finally {
+          await dispose();
+        }
+      }
+      const result = uxSynthesize(call.cwd, reviewId);
+      return { content: result.report };
+    }
+    if (action === "motion") {
+      const pageId = str(call.args.page_id);
+      const selector = str(call.args.motion_selector);
+      if (!pageId) return { content: "motion \u9700\u8981 page_id\uFF08\u6BCF\u6B21\u53EA\u6D4B\u4E00\u9875\u4E00\u4E2A\u9009\u62E9\u5668\uFF09\u3002", isError: true };
+      if (!selector) return { content: 'motion \u9700\u8981 motion_selector\uFF1A\u6307\u5B9A\u89E6\u53D1\u52A8\u753B\u7684\u5143\u7D20\uFF08\u5982 "#open" \u6216 ".js-drawer-toggle"\uFF09\u3002', isError: true };
+      const html = readPageHtml(call.cwd, pageId);
+      if (html === null) return { content: `\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}`, isError: true };
+      const exe = resolveBrowser();
+      if (!exe) {
+        return { content: "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u6293\u5E27\u3002\u53EF\u7528 TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u8DEF\u5F84\u3002", isError: true };
+      }
+      const { url } = await ensureServer(call.cwd);
+      const base = str(call.args.out_dir) ? isAbsolute5(str(call.args.out_dir)) ? str(call.args.out_dir) : join24(call.cwd, str(call.args.out_dir)) : join24(call.cwd, PROJECT_DIR_NAME, "audit", "motion");
+      const runDir = join24(base, `${pageId}-${Date.now()}-${randomBytes6(3).toString("hex")}`);
+      assertInsideWorkspace(call.cwd, runDir, "\u52A8\u6548\u6293\u5E27\u76EE\u5F55");
+      mkdirSync6(runDir, { recursive: true });
+      const options = {
+        selector,
+        region: str(call.args.motion_region),
+        frames: num(call.args.motion_frames),
+        windowMs: num(call.args.motion_window_ms)
+      };
+      const { browser, dispose } = await launchBrowser(exe);
+      try {
+        const authPage = await browser.newPage();
+        await authPage.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+        await authPage.waitForFunction("!location.hash", { timeout: 15e3 });
+        await authPage.close();
+        const pageUrl = new URL(url);
+        pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(pageId)}`;
+        pageUrl.hash = "";
+        const target = pageUrl.toString();
+        const save = (path14, data) => {
+          writeFileInWorkspace(call.cwd, path14, data);
+        };
+        const normalDir = join24(runDir, "normal");
+        mkdirSync6(normalDir, { recursive: true });
+        const normal = await captureMotion(browser, target, options, { dir: normalDir, save }, "normal");
+        const reducedDir = join24(runDir, "reduced");
+        mkdirSync6(reducedDir, { recursive: true });
+        const reduced = await captureMotion(browser, target, { ...options, reducedMotion: true }, { dir: reducedDir, save }, "reduced");
+        const findings = analyzeMotion(normal, reduced);
+        const report = {
+          pageId,
+          selector,
+          region: options.region ?? null,
+          viewport: { width: 1e3, height: 760 },
+          normal,
+          reduced,
+          findings,
+          limitations: [
+            "\u91C7\u6837\u5E27\u6570\u56FA\u5B9A\uFF0C\u53EA\u8BC1\u660E\u8FD9\u4E9B\u5E27\u4E0A\u7684\u53D8\u5316\uFF0C\u4E0D\u8BC1\u660E\u52A8\u753B\u5E73\u6ED1\u3002",
+            "\u622A\u56FE\u672C\u8EAB\u6709 30\u201380ms \u5F00\u9500\uFF0CelapsedMs \u662F\u5B9E\u6D4B\u503C\u4E0D\u662F\u6807\u79F0\u65F6\u957F\u3002",
+            "\u53EA\u6D4B\u4E86\u4E00\u4E2A\u9009\u62E9\u5668\u7684\u4E00\u6B21\u70B9\u51FB\uFF1B\u952E\u76D8\u6B65\u9AA4\u3001\u591A\u6B65\u4EA4\u4E92\u3001\u8FDE\u7EED\u624B\u52BF\u672A\u8986\u76D6\u3002",
+            "prefers-reduced-motion \u53EA\u5728 Chromium \u4E0A\u6A21\u62DF\uFF0CSafari / Firefox \u7684\u5DEE\u5F02\u672A\u6D4B\u3002",
+            "\u5BA2\u89C2\u50CF\u7D20\u5DEE\u4E0D\u80FD\u5224\u65AD\u52A8\u6548\u662F\u5426\u6070\u5F53\uFF0C\u53EA\u5224\u65AD\u5B83\u300C\u6709\u6CA1\u6709\u8DD1\u6210\u8FD9\u4E2A\u6837\u5B50\u300D\u3002"
+          ]
+        };
+        writeFileInWorkspace(call.cwd, join24(runDir, "summary.json"), JSON.stringify(report, null, 2) + "\n");
+        return { content: formatMotionReport(report) };
+      } finally {
+        await dispose();
+      }
+    }
     if (action === "baseline" || action === "visual") {
       const { styleId } = resolveAuditStyle(call);
       const rawDir = str(call.args.baseline_dir);
-      const dir = rawDir ? isAbsolute5(rawDir) ? rawDir : join22(call.cwd, rawDir) : defaultBaselineDir(call.cwd);
+      const dir = rawDir ? isAbsolute5(rawDir) ? rawDir : join24(call.cwd, rawDir) : defaultBaselineDir(call.cwd);
       const threshold = num(call.args.threshold);
       if (action === "baseline") {
         const result2 = await writeBaselines(call.cwd, styleId ?? "free", dir);
@@ -72494,7 +73374,7 @@ async function canvasAudit(call) {
       const result = await compareWithBaselines(call.cwd, styleId ?? "free", dir, { threshold, updateMissing: call.args.update_missing === true });
       return { content: formatVisualReport(result, false) };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / quality / visual / baseline / drift / review\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / quality / ux / motion / visual / baseline / drift / review\u3002`, isError: true };
   } catch (err) {
     return { content: reportError(err), isError: true };
   }
@@ -72872,14 +73752,14 @@ var tools = [
   {
     definition: {
       name: "canvas_audit",
-      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u8BBE\u8BA1\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\u3001\u6E32\u67D3\u5DE5\u827A\u8D28\u91CF\u3001\u89C6\u89C9\u56DE\u5F52\u3001\u8BBE\u8BA1\u6F02\u79FB\uFF1Breview \u751F\u6210\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8981\u771F\u5B9E\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
+      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\u3001\u5DE5\u827A\u8D28\u91CF\u3001UX \u8BC4\u5BA1\uFF08\u4E09\u6BB5\u9694\u79BB\uFF09\u3001\u52A8\u6548\u6293\u5E27\u3001\u89C6\u89C9\u56DE\u5F52\u4E0E\u6F02\u79FB\uFF1B\u622A\u56FE\u4E0E\u6307\u6807\u662F\u8BC1\u636E\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
       input_schema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["contract", "a11y", "quality", "visual", "baseline", "drift", "review"],
-            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bquality=\u6E32\u67D3\u5DE5\u827A\u5BA1\u8BA1\uFF1A\u5B57\u53F7\u3001\u884C\u9AD8\u3001\u5B57\u8DDD\u3001\u884C\u5BBD\u3001\u5168\u5927\u5199\u3001\u5B57\u53F7\u5C42\u7EA7\u3001\u6807\u9898\u8282\u594F\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
+            enum: ["contract", "a11y", "quality", "ux", "motion", "visual", "baseline", "drift", "review"],
+            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bquality=\u6E32\u67D3\u5DE5\u827A\u5BA1\u8BA1\uFF1A\u5B57\u53F7\u3001\u884C\u9AD8\u3001\u5B57\u8DDD\u3001\u884C\u5BBD\u3001\u5168\u5927\u5199\u3001\u5B57\u53F7\u5C42\u7EA7\u3001\u6807\u9898\u8282\u594F\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bux=\u4E09\u6BB5\u5F0F UX \u8BC4\u5BA1\uFF1Aphase=a \u51FA\u622A\u56FE\u4E0E\u91CF\u8868\u6A21\u677F\uFF08\u4E0D\u542B\u68C0\u6D4B\u7ED3\u8BBA\uFF09\u2192 \u56DE\u586B a_assessment \u2192 phase=b \u8DD1\u786E\u5B9A\u6027\u68C0\u6D4B \u2192 phase=synthesize \u7B97\u5206\uFF1Bmotion=\u52A8\u6548\u6293\u5E27\u5BA1\u8BA1\uFF1A\u70B9\u51FB motion_selector \u540E\u6309\u56FA\u5B9A\u91C7\u6837\u70B9\u6293\u5E27\uFF0C\u51FA filmstrip \u4E0E\u76F8\u5BF9\u6307\u6807\uFF08\u9700 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
           },
           page_id: { type: "string", description: "\u53EA\u5BA1\u8BA1\u6307\u5B9A\u9875\u9762\uFF1B\u7701\u7565\u5219\u5BA1\u8BA1\u5168\u90E8\u9875\u9762" },
           style_id: { type: "string", description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF1Bfree \u8868\u793A\u4E0D\u505A\u98CE\u683C\u76F8\u5173\u68C0\u67E5" },
@@ -72904,6 +73784,36 @@ var tools = [
           min_body_px: { type: "number", description: "quality\uFF1A\u6B63\u6587\u6700\u5C0F\u5B57\u53F7\uFF08px\uFF0C\u9ED8\u8BA4 12\uFF09" },
           min_ui_px: { type: "number", description: "quality\uFF1A\u529F\u80FD\u6027 UI \u6587\u5B57\u6700\u5C0F\u5B57\u53F7\uFF08px\uFF0C\u9ED8\u8BA4 11\uFF09" },
           line_max: { type: "number", description: "quality\uFF1A\u5355\u884C\u5B57\u7B26\u4E0A\u9650\uFF08\u9ED8\u8BA4 80\uFF09" },
+          phase: { type: "string", enum: ["a", "b", "synthesize"], description: "ux\uFF1Aa=\u8BBE\u8BA1\u8BC4\u5BA1\uFF08\u9996\u8C03\u51FA\u6A21\u677F\uFF0C\u5E26 a_assessment \u5219\u56DE\u586B\uFF09\uFF1Bb=\u786E\u5B9A\u6027\u68C0\u6D4B\uFF08\u9700 A \u5DF2\u56DE\u586B\uFF09\uFF1Bsynthesize=\u7B97\u5206\u4E0E\u843D\u76D8" },
+          review_id: { type: "string", description: "ux\uFF1Aphase=a \u9996\u6B21\u8FD4\u56DE\u7684\u8BC4\u5BA1 ID\uFF1Bphase=b / synthesize \u5FC5\u586B" },
+          a_assessment: {
+            type: "object",
+            description: "ux phase=a\uFF1AA \u9636\u6BB5\u7ED3\u8BBA\uFF08specificity/heuristics/cognitiveLoad/personas/priorityIssues/strengths\uFF09",
+            properties: {
+              specificity: { type: "object", properties: { verdict: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["verdict", "evidence"] },
+              heuristics: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { id: { type: "string" }, score: { type: ["integer", "string"] }, reason: { type: "string" }, keyIssue: { type: "string" } },
+                  required: ["id", "score", "keyIssue"]
+                }
+              },
+              cognitiveLoad: { type: "object", properties: { failed: { type: "array", items: { type: "string" } } }, required: ["failed"] },
+              personas: { type: "array", items: { type: "object", properties: { id: { type: "string" }, redFlags: { type: "array", items: { type: "string" } } }, required: ["id", "redFlags"] } },
+              priorityIssues: {
+                type: "array",
+                items: { type: "object", properties: { severity: { type: "string" }, what: { type: "string" }, why: { type: "string" }, fix: { type: "string" } }, required: ["severity", "what", "why", "fix"] }
+              },
+              strengths: { type: "array", items: { type: "string" } },
+              minorObservations: { type: "array", items: { type: "string" } }
+            },
+            required: ["specificity", "heuristics", "cognitiveLoad", "personas", "priorityIssues", "strengths"]
+          },
+          motion_selector: { type: "string", description: 'motion\uFF1A\u89E6\u53D1\u52A8\u753B\u7684\u5143\u7D20\u9009\u62E9\u5668\uFF08\u5982 "#open"\uFF09' },
+          motion_region: { type: "string", description: "motion\uFF1A\u53EA\u622A\u8FD9\u4E2A\u5143\u7D20\u7684\u533A\u57DF\uFF1B\u7701\u7565\u5219\u622A\u6574\u4E2A\u89C6\u53E3" },
+          motion_frames: { type: "number", description: "motion\uFF1A\u5E27\u6570\uFF083\u201315\uFF0C\u9ED8\u8BA4 7\uFF09" },
+          motion_window_ms: { type: "number", description: "motion\uFF1A\u4ECE\u70B9\u51FB\u5230\u6700\u540E\u4E00\u4E2A\u91C7\u6837\u70B9\u7684\u7A97\u53E3\uFF08\u9ED8\u8BA4 700ms\uFF09" },
           ignore: { type: "array", items: { type: "string" }, description: 'a11y / quality\uFF1A\u5FFD\u7565\u7684\u9009\u62E9\u5668\u7247\u6BB5\uFF08\u5982 ["page-node__header"]\uFF09' }
         },
         required: ["action"],

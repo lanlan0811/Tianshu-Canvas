@@ -632,4 +632,127 @@ export function validateConsistency(styles, errors) {
   }
 }
 
+const KEBAB_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+/**
+ * UX 评审量表校验：结构完整性 + 判据齐全。
+ *
+ * 量表是评分的唯一真源，任何一条启发式缺分数档、persona 缺红旗，
+ * 都会让代理在评审时凭空发明判据，所以一律当错误处理。
+ */
+export function validateRubric(doc, errors) {
+  if (!doc || typeof doc !== 'object') {
+    errors.push('评级量表缺失或不是对象')
+    return
+  }
+  if (doc.schema !== 1) errors.push(`评级量表 schema 必须为 1，当前 ${doc.schema}`)
+
+  const heuristics = Array.isArray(doc.heuristics) ? doc.heuristics : []
+  if (heuristics.length !== 10) errors.push(`启发式必须为 10 条，当前 ${heuristics.length}`)
+  const ids = new Set()
+  for (const [index, item] of heuristics.entries()) {
+    const label = `启发式 #${index + 1}`
+    if (!item || typeof item !== 'object') {
+      errors.push(`${label} 不是对象`)
+      continue
+    }
+    if (typeof item.id !== 'string' || !KEBAB_ID.test(item.id)) errors.push(`${label} id 非法：${item.id}`)
+    else if (ids.has(item.id)) errors.push(`${label} id 重复：${item.id}`)
+    else ids.add(item.id)
+    for (const key of ['name', 'ask']) {
+      if (typeof item[key] !== 'string' || !item[key].trim()) errors.push(`${label} 缺少 ${key}`)
+    }
+    if (!Array.isArray(item.checkFor) || item.checkFor.length < 3) errors.push(`${label}（${item.id}）的 checkFor 至少 3 条`)
+    if (!Array.isArray(item.levels) || item.levels.length !== 5) {
+      errors.push(`${label}（${item.id}）必须有 5 个分数档（0–4），当前 ${Array.isArray(item.levels) ? item.levels.length : 0}`)
+    } else if (item.levels.some((level) => typeof level !== 'string' || !level.trim())) {
+      errors.push(`${label}（${item.id}）存在空的分数档`)
+    }
+  }
+
+  const interpretive = Array.isArray(doc.interpretive) ? doc.interpretive : []
+  for (const index of interpretive) {
+    if (!Number.isInteger(index) || index < 1 || index > 10) errors.push(`interpretive 里的序号必须落在 1–10：${index}`)
+  }
+  if (interpretive.length > 2) errors.push('最多允许两条启发式可标记 n/a（interpretive）')
+
+  const bands = Array.isArray(doc.bands) ? doc.bands : []
+  if (bands.length < 3) errors.push('评分档位至少 3 档')
+  let previous = Number.POSITIVE_INFINITY
+  for (const band of bands) {
+    if (!Number.isFinite(band?.min) || band.min < 0 || band.min > 100) errors.push(`评分档位 min 非法：${band?.min}`)
+    else if (band.min >= previous) errors.push(`评分档位必须按 min 严格递减：${band.min} 出现在 ${previous} 之后`)
+    else previous = band.min
+    if (typeof band?.label !== 'string' || !band.label.trim()) errors.push('评分档位缺少 label')
+  }
+  if (bands.length && bands[bands.length - 1]?.min !== 0) errors.push('评分档位的最后一档必须是 min: 0')
+  if (typeof doc.benchmark !== 'string' || !doc.benchmark.trim()) errors.push('缺少 benchmark 校准说明')
+
+  const load = doc.cognitiveLoad
+  const loadItems = Array.isArray(load?.items) ? load.items : []
+  if (loadItems.length !== 8) errors.push(`认知负荷清单必须为 8 项，当前 ${loadItems.length}`)
+  for (const item of loadItems) {
+    for (const key of ['id', 'name', 'ask', 'failure']) {
+      if (typeof item?.[key] !== 'string' || !item[key].trim()) errors.push(`认知负荷项缺少 ${key}：${item?.id ?? '(无 id)'}`)
+    }
+  }
+  const loadBands = Array.isArray(load?.bands) ? load.bands : []
+  if (loadBands.length < 2) errors.push('认知负荷至少 2 个档位')
+  for (const band of loadBands) {
+    if (!Number.isInteger(band?.max) || band.max < 0) errors.push(`认知负荷档位 max 非法：${band?.max}`)
+  }
+
+  const personas = Array.isArray(doc.personas) ? doc.personas : []
+  if (personas.length !== 5) errors.push(`persona 必须为 5 个，当前 ${personas.length}`)
+  const personaIds = new Set()
+  for (const persona of personas) {
+    if (typeof persona?.id !== 'string' || !KEBAB_ID.test(persona.id)) errors.push(`persona id 非法：${persona?.id}`)
+    else if (personaIds.has(persona.id)) errors.push(`persona id 重复：${persona.id}`)
+    else personaIds.add(persona.id)
+    if (typeof persona?.name !== 'string' || !persona.name.trim()) errors.push(`persona 缺少 name：${persona?.id}`)
+    if (typeof persona?.profile !== 'string' || !persona.profile.trim()) errors.push(`persona 缺少 profile：${persona?.id}`)
+    for (const key of ['questions', 'redFlags']) {
+      if (!Array.isArray(persona?.[key]) || persona[key].length < 3) errors.push(`persona ${persona?.id} 的 ${key} 至少 3 条`)
+    }
+  }
+
+  const personaMap = Array.isArray(doc.personaMap) ? doc.personaMap : []
+  if (personaMap.length < 4) errors.push('界面类型 → persona 映射至少 4 行')
+  for (const row of personaMap) {
+    if (typeof row?.type !== 'string' || !row.type.trim()) errors.push('persona 映射缺少 type')
+    const list = Array.isArray(row?.personas) ? row.personas : []
+    if (list.length < 1) errors.push(`persona 映射「${row?.type}」没有指派 persona`)
+    for (const id of list) {
+      if (!personaIds.has(id)) errors.push(`persona 映射「${row?.type}」引用了不存在的 persona：${id}`)
+    }
+  }
+
+  const severity = Array.isArray(doc.severity) ? doc.severity : []
+  const severityIds = severity.map((item) => item?.id)
+  for (const id of ['P0', 'P1', 'P2', 'P3']) {
+    if (!severityIds.includes(id)) errors.push(`严重度缺少 ${id}`)
+  }
+  for (const item of severity) {
+    for (const key of ['id', 'name', 'desc', 'action']) {
+      if (typeof item?.[key] !== 'string' || !item[key].trim()) errors.push(`严重度 ${item?.id ?? '(无 id)'} 缺少 ${key}`)
+    }
+  }
+
+  const questions = Array.isArray(doc.specificityQuestions) ? doc.specificityQuestions : []
+  if (questions.length < 2) errors.push('设计特异性自检问题至少 2 条')
+
+  const floor = Array.isArray(doc.craftFloor) ? doc.craftFloor : []
+  if (floor.length !== 9) errors.push(`审美下限必须为 9 项，当前 ${floor.length}`)
+  for (const item of floor) {
+    if (typeof item?.id !== 'string' || !item.id.trim()) errors.push('审美下限项缺少 id')
+    if (typeof item?.check !== 'string' || !item.check.trim()) errors.push(`审美下限项 ${item?.id ?? '(无 id)'} 缺少 check`)
+  }
+
+  const refuse = doc.refuse ?? {}
+  const hardBans = Array.isArray(refuse.hardBans) ? refuse.hardBans : []
+  const defaults = Array.isArray(refuse.defaults) ? refuse.defaults : []
+  if (hardBans.length < 1) errors.push('refuse.hardBans 至少 1 条（硬禁令必须显式存在）')
+  if (defaults.length < 5) errors.push('refuse.defaults 至少 5 条')
+}
+
 export { buildManifest }

@@ -114,7 +114,7 @@ await test('未知 action 返回可选清单', async () => {
   const cwd = await workspace()
   const res = await tool('canvas_audit').execute({ args: { action: 'nope' }, cwd, sessionId: 'test' })
   assert.equal(res.isError, true)
-  assert.match(res.content, /contract \/ a11y \/ quality \/ visual \/ baseline \/ drift \/ review/)
+  assert.match(res.content, /contract \/ a11y \/ quality \/ ux \/ visual \/ baseline \/ drift \/ review/)
 })
 
 console.log('OK Design CI：契约、独立测试文件、漂移四类差集与错误分支全部通过')

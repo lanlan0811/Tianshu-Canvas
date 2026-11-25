@@ -134,6 +134,106 @@ export function encodePng(width: number, height: number, rgba: [number, number, 
   return Buffer.concat([SIGNATURE, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
 }
 
+/** 把任意 PNG 图像重新编码成 PNG（RGBA 非隔行），用于拼图与裁剪。 */
+export function encodeImage(image: PngImage): Buffer {
+  const { width, height, channels, data } = image
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(width, 0)
+  ihdr.writeUInt32BE(height, 4)
+  ihdr[8] = 8
+  ihdr[9] = 6
+  const stride = width * 4 + 1
+  const raw = Buffer.alloc(stride * height)
+  for (let y = 0; y < height; y++) {
+    raw[y * stride] = 0
+    for (let x = 0; x < width; x++) {
+      const src = (y * width + x) * channels
+      const dst = y * stride + 1 + x * 4
+      if (channels === 1 || channels === 2) {
+        raw[dst] = data[src]!
+        raw[dst + 1] = data[src]!
+        raw[dst + 2] = data[src]!
+        raw[dst + 3] = channels === 2 ? data[src + 1]! : 255
+      } else {
+        raw[dst] = data[src]!
+        raw[dst + 1] = data[src + 1]!
+        raw[dst + 2] = data[src + 2]!
+        raw[dst + 3] = channels === 4 ? data[src + 3]! : 255
+      }
+    }
+  }
+  return Buffer.concat([SIGNATURE, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
+}
+
+/**
+ * 最近邻缩放到指定尺寸（只用于 filmstrip 缩略图，不追求画质）。
+ * 用于把多帧拼成一张总览图，让代理一次看完整段动效。
+ */
+export function scaleImage(image: PngImage, width: number, height: number): PngImage {
+  const out = Buffer.alloc(width * height * 4)
+  const sx = image.width / width
+  const sy = image.height / height
+  for (let y = 0; y < height; y++) {
+    const srcY = Math.min(image.height - 1, Math.floor(y * sy))
+    for (let x = 0; x < width; x++) {
+      const srcX = Math.min(image.width - 1, Math.floor(x * sx))
+      const src = (srcY * image.width + srcX) * image.channels
+      const dst = (y * width + x) * 4
+      if (image.channels === 1 || image.channels === 2) {
+        out[dst] = image.data[src]!
+        out[dst + 1] = image.data[src]!
+        out[dst + 2] = image.data[src]!
+        out[dst + 3] = image.channels === 2 ? image.data[src + 1]! : 255
+      } else {
+        out[dst] = image.data[src]!
+        out[dst + 1] = image.data[src + 1]!
+        out[dst + 2] = image.data[src + 2]!
+        out[dst + 3] = image.channels === 4 ? image.data[src + 3]! : 255
+      }
+    }
+  }
+  return { width, height, channels: 4, data: out }
+}
+
+/** 把若干张同尺寸图按列数拼成网格（filmstrip 用），间隙填背景色。 */
+export function tileImages(images: PngImage[], columns: number, gap = 4, background: [number, number, number] = [24, 24, 27]): PngImage {
+  if (images.length === 0) return { width: 1, height: 1, channels: 4, data: Buffer.from([0, 0, 0, 255]) }
+  const cellW = images[0]!.width
+  const cellH = images[0]!.height
+  const cols = Math.max(1, Math.min(columns, images.length))
+  const rows = Math.ceil(images.length / cols)
+  const width = cols * cellW + (cols - 1) * gap
+  const height = rows * cellH + (rows - 1) * gap
+  const out = Buffer.alloc(width * height * 4)
+  for (let i = 0; i < width * height; i++) {
+    out[i * 4] = background[0]
+    out[i * 4 + 1] = background[1]
+    out[i * 4 + 2] = background[2]
+    out[i * 4 + 3] = 255
+  }
+  images.forEach((image, index) => {
+    const col = index % cols
+    const row = Math.floor(index / cols)
+    const offsetX = col * (cellW + gap)
+    const offsetY = row * (cellH + gap)
+    for (let y = 0; y < Math.min(image.height, cellH); y++) {
+      for (let x = 0; x < Math.min(image.width, cellW); x++) {
+        const src = (y * image.width + x) * image.channels
+        const dst = ((offsetY + y) * width + offsetX + x) * 4
+        const read = (channel: number): number =>
+          image.channels === 1 || image.channels === 2
+            ? image.data[src]!
+            : image.data[src + Math.min(channel, image.channels - 1)]!
+        out[dst] = read(0)
+        out[dst + 1] = read(1)
+        out[dst + 2] = read(2)
+        out[dst + 3] = image.channels === 4 ? image.data[src + 3]! : 255
+      }
+    }
+  })
+  return { width, height, channels: 4, data: out }
+}
+
 export interface Rect {
   x: number
   y: number

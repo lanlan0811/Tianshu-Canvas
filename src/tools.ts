@@ -9,6 +9,7 @@
  */
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { adapterContext, detectAdapters, generateWithAdapter, getAdapter } from './adapters/registry.js'
 import type { AdapterId } from './adapters/types.js'
@@ -26,6 +27,8 @@ import {
 } from './audit/drift.js'
 import { compareWithBaselines, defaultBaselineDir, formatVisualReport, writeBaselines } from './audit/visual.js'
 import { reviewPage, formatReviewReport } from './audit/review.js'
+import { readAssessment, readSession, uxRecordA, uxRunB, uxStart, uxSynthesize, type UxAssessment } from './audit/ux.js'
+import { analyzeMotion, captureMotion, formatMotionReport, type MotionCapture, type MotionReport } from './audit/motion.js'
 import { readPageBrief, savePageBrief } from './brief.js'
 import { listPrototypes, getPrototype, listDirections, getDirection } from './prototypes.js'
 import { buildBrandPack, exportBrandPack, forgetStyle, importBrandPack, memorySummary, recordUsage, verifyBrandPack } from './brand.js'
@@ -60,7 +63,7 @@ import { inlineAssets } from './inlineAssets.js'
 import { InvalidInputError, isSafeId, newPageId } from './ids.js'
 import { normalizeSurfaceMode, surfaceModeChoices, surfaceModeLabel, type SurfaceMode } from './modes.js'
 import { RULES } from './rules/registry.js'
-import { readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
+import { assertInsideWorkspace, readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
 import { toReactComponent, toFrameworklessHtml, toTailwindConfig } from './codegen.js'
@@ -1562,6 +1565,144 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       }
     }
 
+    if (action === 'ux') {
+      const phase = str(call.args.phase) ?? 'a'
+      if (phase !== 'a' && phase !== 'b' && phase !== 'synthesize') {
+        return { content: `非法 phase：${phase}；可选 a / b / synthesize。`, isError: true }
+      }
+      if (phase === 'a') {
+        const assessment = call.args.a_assessment
+        if (assessment !== undefined && assessment !== null) {
+          const reviewId = str(call.args.review_id)
+          if (!reviewId) return { content: '回填 A 阶段结论需要 review_id（phase=a 首次返回的那个）。', isError: true }
+          const recorded = uxRecordA(call.cwd, reviewId, assessment as UxAssessment)
+          return {
+            content:
+              `A 阶段结论已记录（${recorded.file}）· n/a ${recorded.naCount} 项。\n` +
+              '下一步：canvas_audit（action=ux, phase=b, review_id=' + reviewId + '）。' +
+              (recorded.naCount ? '\nn/a 会缩小分母，评分按实际计分项计算。' : ''),
+          }
+        }
+        const pageId = str(call.args.page_id)
+        if (!pageId) return { content: 'phase=a 需要 page_id（首次调用）或 review_id + a_assessment（回填）。', isError: true }
+        const started = await uxStart(call.cwd, pageId, { outputDir: str(call.args.out_dir) })
+        return { content: started.template }
+      }
+      const reviewId = str(call.args.review_id)
+      if (!reviewId) return { content: `phase=${phase} 需要 review_id。`, isError: true }
+      if (phase === 'b') {
+        readSession(call.cwd, reviewId)
+        readAssessment(call.cwd, reviewId)
+        const { url } = await ensureServer(call.cwd)
+        const exe = resolveBrowser()
+        if (!exe) {
+          return {
+            content:
+              '未找到 Chrome/Edge，无法运行 B 阶段的渲染检测（a11y / quality）。可用 TIANSHU_CANVAS_BROWSER 指定路径；' +
+              'A 阶段结论已安全落盘，安装浏览器后重跑 phase=b 即可。',
+            isError: true,
+          }
+        }
+        const { browser, dispose } = await launchBrowser(exe)
+        try {
+          const authPage = await browser.newPage()
+          await authPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          await authPage.waitForFunction('!location.hash', { timeout: 15000 })
+          await authPage.close()
+          const findings = await uxRunB(call.cwd, reviewId, {
+            browser,
+            urlFor: (pageId) => {
+              const pageUrl = new URL(url)
+              pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(pageId)}`
+              pageUrl.hash = ''
+              return pageUrl.toString()
+            },
+          })
+          const total = findings.contract.total + findings.a11y.counts.error + findings.a11y.counts.warning + findings.quality.counts.warning + findings.review.issues.length
+          return {
+            content:
+              'B 阶段完成（确定性检测）：\n' +
+              `- 设计契约：符合度 ${(findings.contract.score * 100).toFixed(1)}% · lint ${findings.contract.total} 处\n` +
+              `- 可访问性：error ${findings.a11y.counts.error} / warning ${findings.a11y.counts.warning}\n` +
+              `- 渲染工艺：warning ${findings.quality.counts.warning} / advisory ${findings.quality.counts.advisory}\n` +
+              `- 渲染审阅：${findings.review.issues.length} 条客观发现\n\n` +
+              `合计 ${total} 处确定性发现。下一步：phase=synthesize, review_id=${reviewId}。`,
+          }
+        } finally {
+          await dispose()
+        }
+      }
+      const result = uxSynthesize(call.cwd, reviewId)
+      return { content: result.report }
+    }
+
+    if (action === 'motion') {
+      const pageId = str(call.args.page_id)
+      const selector = str(call.args.motion_selector)
+      if (!pageId) return { content: 'motion 需要 page_id（每次只测一页一个选择器）。', isError: true }
+      if (!selector) return { content: 'motion 需要 motion_selector：指定触发动画的元素（如 "#open" 或 ".js-drawer-toggle"）。', isError: true }
+      const html = readPageHtml(call.cwd, pageId)
+      if (html === null) return { content: `页面不存在：${pageId}`, isError: true }
+      const exe = resolveBrowser()
+      if (!exe) {
+        return { content: '未找到 Chrome/Edge，无法抓帧。可用 TIANSHU_CANVAS_BROWSER 指定路径。', isError: true }
+      }
+      const { url } = await ensureServer(call.cwd)
+      const base = str(call.args.out_dir)
+        ? (isAbsolute(str(call.args.out_dir)!) ? str(call.args.out_dir)! : join(call.cwd, str(call.args.out_dir)!))
+        : join(call.cwd, PROJECT_DIR_NAME, 'audit', 'motion')
+      const runDir = join(base, `${pageId}-${Date.now()}-${randomBytes(3).toString('hex')}`)
+      assertInsideWorkspace(call.cwd, runDir, '动效抓帧目录')
+      mkdirSync(runDir, { recursive: true })
+      const options = {
+        selector,
+        region: str(call.args.motion_region),
+        frames: num(call.args.motion_frames),
+        windowMs: num(call.args.motion_window_ms),
+      }
+      const { browser, dispose } = await launchBrowser(exe)
+      try {
+        const authPage = await browser.newPage()
+        await authPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await authPage.waitForFunction('!location.hash', { timeout: 15000 })
+        await authPage.close()
+        const pageUrl = new URL(url)
+        pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(pageId)}`
+        pageUrl.hash = ''
+        const target = pageUrl.toString()
+        const save = (path: string, data: Buffer | string): void => {
+          writeFileInWorkspace(call.cwd, path, data)
+        }
+        const normalDir = join(runDir, 'normal')
+        mkdirSync(normalDir, { recursive: true })
+        const normal: MotionCapture = await captureMotion(browser, target, options, { dir: normalDir, save }, 'normal')
+        const reducedDir = join(runDir, 'reduced')
+        mkdirSync(reducedDir, { recursive: true })
+        const reduced: MotionCapture = await captureMotion(browser, target, { ...options, reducedMotion: true }, { dir: reducedDir, save }, 'reduced')
+        const findings = analyzeMotion(normal, reduced)
+        const report: MotionReport = {
+          pageId,
+          selector,
+          region: options.region ?? null,
+          viewport: { width: 1000, height: 760 },
+          normal,
+          reduced,
+          findings,
+          limitations: [
+            '采样帧数固定，只证明这些帧上的变化，不证明动画平滑。',
+            '截图本身有 30–80ms 开销，elapsedMs 是实测值不是标称时长。',
+            '只测了一个选择器的一次点击；键盘步骤、多步交互、连续手势未覆盖。',
+            'prefers-reduced-motion 只在 Chromium 上模拟，Safari / Firefox 的差异未测。',
+            '客观像素差不能判断动效是否恰当，只判断它「有没有跑成这个样子」。',
+          ],
+        }
+        writeFileInWorkspace(call.cwd, join(runDir, 'summary.json'), JSON.stringify(report, null, 2) + '\n')
+        return { content: formatMotionReport(report) }
+      } finally {
+        await dispose()
+      }
+    }
+
     if (action === 'baseline' || action === 'visual') {
       const { styleId } = resolveAuditStyle(call)
       const rawDir = str(call.args.baseline_dir)
@@ -1575,7 +1716,7 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       return { content: formatVisualReport(result, false) }
     }
 
-    return { content: `未知的 action：${action}。可选：contract / a11y / quality / visual / baseline / drift / review。`, isError: true }
+    return { content: `未知的 action：${action}。可选：contract / a11y / quality / ux / motion / visual / baseline / drift / review。`, isError: true }
   } catch (err) {
     return { content: reportError(err), isError: true }
   }
@@ -1976,16 +2117,18 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_audit',
-      description: '设计 CI 审计：设计契约、可访问性、渲染工艺质量、视觉回归、设计漂移；review 生成多尺寸截图与客观报告，审美判断需要真实读图和用户评审',
+      description: '设计 CI 审计：契约、可访问性、工艺质量、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['contract', 'a11y', 'quality', 'visual', 'baseline', 'drift', 'review'],
+            enum: ['contract', 'a11y', 'quality', 'ux', 'motion', 'visual', 'baseline', 'drift', 'review'],
             description:
               'contract=源码级设计契约（确定性，无需浏览器）；a11y=渲染后可访问性审计（需要 Chrome/Edge）；' +
               'quality=渲染工艺审计：字号、行高、字距、行宽、全大写、字号层级、标题节奏（需要 Chrome/Edge）；' +
+              'ux=三段式 UX 评审：phase=a 出截图与量表模板（不含检测结论）→ 回填 a_assessment → phase=b 跑确定性检测 → phase=synthesize 算分；' +
+              'motion=动效抓帧审计：点击 motion_selector 后按固定采样点抓帧，出 filmstrip 与相对指标（需 Chrome/Edge）；' +
               'baseline=写入视觉基线（覆盖式）；visual=与基线逐像素比较；drift=与上次设计快照比较；review=指定 page_id 的多尺寸截图与客观报告，不自动评审审美',
           },
           page_id: { type: 'string', description: '只审计指定页面；省略则审计全部页面' },
@@ -2011,6 +2154,36 @@ export const tools: TpiTool[] = [
           min_body_px: { type: 'number', description: 'quality：正文最小字号（px，默认 12）' },
           min_ui_px: { type: 'number', description: 'quality：功能性 UI 文字最小字号（px，默认 11）' },
           line_max: { type: 'number', description: 'quality：单行字符上限（默认 80）' },
+          phase: { type: 'string', enum: ['a', 'b', 'synthesize'], description: 'ux：a=设计评审（首调出模板，带 a_assessment 则回填）；b=确定性检测（需 A 已回填）；synthesize=算分与落盘' },
+          review_id: { type: 'string', description: 'ux：phase=a 首次返回的评审 ID；phase=b / synthesize 必填' },
+          a_assessment: {
+            type: 'object',
+            description: 'ux phase=a：A 阶段结论（specificity/heuristics/cognitiveLoad/personas/priorityIssues/strengths）',
+            properties: {
+              specificity: { type: 'object', properties: { verdict: { type: 'string' }, evidence: { type: 'array', items: { type: 'string' } } }, required: ['verdict', 'evidence'] },
+              heuristics: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { id: { type: 'string' }, score: { type: ['integer', 'string'] }, reason: { type: 'string' }, keyIssue: { type: 'string' } },
+                  required: ['id', 'score', 'keyIssue'],
+                },
+              },
+              cognitiveLoad: { type: 'object', properties: { failed: { type: 'array', items: { type: 'string' } } }, required: ['failed'] },
+              personas: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, redFlags: { type: 'array', items: { type: 'string' } } }, required: ['id', 'redFlags'] } },
+              priorityIssues: {
+                type: 'array',
+                items: { type: 'object', properties: { severity: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' }, fix: { type: 'string' } }, required: ['severity', 'what', 'why', 'fix'] },
+              },
+              strengths: { type: 'array', items: { type: 'string' } },
+              minorObservations: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['specificity', 'heuristics', 'cognitiveLoad', 'personas', 'priorityIssues', 'strengths'],
+          },
+          motion_selector: { type: 'string', description: 'motion：触发动画的元素选择器（如 "#open"）' },
+          motion_region: { type: 'string', description: 'motion：只截这个元素的区域；省略则截整个视口' },
+          motion_frames: { type: 'number', description: 'motion：帧数（3–15，默认 7）' },
+          motion_window_ms: { type: 'number', description: 'motion：从点击到最后一个采样点的窗口（默认 700ms）' },
           ignore: { type: 'array', items: { type: 'string' }, description: 'a11y / quality：忽略的选择器片段（如 ["page-node__header"]）' },
         },
         required: ['action'],
