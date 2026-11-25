@@ -70,3 +70,38 @@
 参考先例：impeccable 曾把 `clipped-overflow-container` 从 warning 降为 advisory，
 理由是实拍复核后命中精度 0.08、伤害率 0.04（裁切几乎总是有意为之）。本项目的
 `hard-offset-shadow`、`bounce-easing`、`cream-palette` 等判断型规则同样默认 advisory。
+
+---
+
+## 阶段 2 · 评审体系（UX rubric）的溯源
+
+| 天枢落地 | 复刻来源 | 移植方式 |
+|---|---|---|
+| `design-systems/rubrics/ux-review.json` 的 10 条启发式 0–4 分判据 | `skill/reference/critique-rubric.md`（Heuristics Scoring Guide，每条 5 档原文判据） | 中文重写；保留分档语义与「4 分=真正优秀」的校准 |
+| `benchmark` 与档位百分比判法 | `skill/reference/critique.md`（"多数真实界面 20–32/40"、n/a 时分母重算、按百分比读档） | 保留判据；把 `/40` 硬编码换成由实际计分项推导 |
+| `interpretive: [7, 10]` | `critique.md` 的 mode applicability（第 7、10 条在 persuade/experience 可 n/a） | 保留条数与理由要求 |
+| `cognitiveLoad.items` 8 项与工作记忆法则 | `critique-rubric.md` Cognitive Load Checklist（≤4 项/组、≤4 个可见选项） | 保留全部阈值与「失败表现」措辞的语义 |
+| `personas` 5 个与 `personaMap` 6 行 | `critique-rubric.md` Persona-Based Design Testing | 保留红旗清单与界面映射；人物名改中文 |
+| `severity` P0–P3 与 `severityTip` | `critique.md` Issue Severity | 保留判据与"是否会联系客服"的提问法 |
+| `craftFloor` 9 项 | `skill/reference/craft-floor.md` Verify 列表 | 保留全部数值阈值（4.5:1、65–75ch、6rem、-0.04em 等） |
+| `refuse.hardBans` / `refuse.defaults` | `craft-floor.md` Refuse 列表 | **保留「硬禁令只有 eyebrow 一条、其余可被简报换回」的分类**；这是该文件最容易抄错的地方 |
+| `specificityQuestions` 3 问 | `critique.md` Assessment A 第一项 + `new-work.md` | 中文重写，语义等价 |
+| 三段式门禁（A → B → synthesize） | `critique.md` Hard Invariants（A/B 必须隔离、A 先完成、降级必须声明） | **近似而非等价**：插件工具无法 spawn 子代理，隔离只能靠调用协议 + 物理剥离检测结论实现；`ux.json` 的 limitations 明确写了这一限制 |
+
+## 阶段 3 · 交互与动效的溯源
+
+| 天枢落地 | 复刻来源 | 移植方式 |
+|---|---|---|
+| `interactions.json` 的 23 条 `a11y` 契约 | `skill/reference/audit.md` + `operate.md` 的逐交互清单 | 结构化字段为原创；具体属性/键位判据来自两文件 |
+| 焦点陷阱 + 背景 `inert` + 焦点归还 | `audit.md`（Missing ARIA / Keyboard navigation） | 自写实现 |
+| 外部点击关闭、`aria-activedescendant` | `operate.md`（浮层必须逃出容器、modal 通常是偷懒） | 自写实现 |
+| `aria-invalid` + `aria-describedby` + `role=alert` | `clarify.md`（错误三要素、校验不指责用户） | 自写实现 |
+| `bindPointerDrag` 的中断语义 | `harden.md` Interrupted gestures（第二指针、pointercancel、lostpointercapture、控件外释放、blur） | **逐条照搬判据**；实现为自写的单一歧管工具 |
+| `interactions.css` 的 reduced-motion 统一为 `0.01ms` | `animate.md`（减少空间位移、保留有意义的状态反馈）+ `audit.md`（全局 `0.01ms` 一刀切属于缺陷的例外说明） | 采用「缩短而非删除」策略，与 `components.css` 保持一致 |
+| `canvas_audit action=motion` 的 5 个指标 | `animate.md` 的验证要求 + `crates/browser/src/motion.rs` 的指标命名 | 判据重写为**相对比例**（帧间比），不用绝对时间；阈值见 `MOTION_THRESHOLDS` |
+| SKILL.md 动效三条反直觉规则 | `animate.md`（hover 不能移动自身 / 时长按距离与后果 / 材质按含义选） | 中文重写 + 补 operate 专属约束 |
+| Delight 克制条款 | `skill/reference/delight.md` Protect the experience | 逐条中文化 |
+
+**不移植的部分（诚实记录）**：impeccable 的 `motion-capture --steps` 多步/键盘序列、`Page.startScreencast` 录屏、
+多帧并行采集、以及需要真实多代理编排的 critique 全流程。天枢的 motion 只支持单选择器单次点击，
+UX 隔离只保证时序不保证诚实——两点都已写进对应验收文档的「未测项」。

@@ -11,9 +11,102 @@
   window.__tianshu_interactions__ = true;
 
   var ACTIVE_MODAL = null;
-  var lastFocus = null;
+  var overlayStack = [];
   var tabSequence = 0;
   var formActions = new WeakMap();
+
+  /* 焦点陷阱：Tab / Shift+Tab 在容器内循环；容器内无可聚焦项时保持焦点在容器上。
+     用 inert 优先（支持时浏览器自己阻止背景交互），否则回退到纯 Tab 循环。 */
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function focusables(root) {
+    return qsa(root, FOCUSABLE).filter(function (el) {
+      return !el.hasAttribute('inert') && el.getClientRects().length > 0;
+    });
+  }
+
+  function trapFocus(container, event) {
+    if (event.key !== 'Tab') return;
+    var items = focusables(container);
+    if (!items.length) { event.preventDefault(); return; }
+    var first = items[0];
+    var last = items[items.length - 1];
+    var active = document.activeElement;
+    if (event.shiftKey && (active === first || !container.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || !container.contains(active))) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  /* 打开浮层时把页面其余部分设为 inert（不支持时只做 Tab 循环）。 */
+  function setBackgroundInert(active) {
+    if (typeof document.body.setAttribute !== 'function') return;
+    var children = Array.prototype.slice.call(document.body.children);
+    children.forEach(function (el) {
+      if (el === active || el.contains(active) || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+      if (active) el.setAttribute('inert', '');
+      else el.removeAttribute('inert');
+    });
+  }
+
+  /* 共享无障碍播报区：状态变化写入 aria-live，不抢焦点。 */
+  function announce(text, assertive) {
+    var region = document.getElementById('ts-i-announcer');
+    if (!region) {
+      region = document.createElement('div');
+      region.id = 'ts-i-announcer';
+      region.setAttribute('role', 'status');
+      region.setAttribute('aria-live', 'polite');
+      region.setAttribute('aria-atomic', 'true');
+      region.className = 'ts-i-visually-hidden';
+      document.body.appendChild(region);
+    }
+    region.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+    region.textContent = '';
+    window.setTimeout(function () { region.textContent = text; }, 16);
+  }
+
+  /* 指针拖拽：单一 activePointer，第二个指针落下时忽略（第一个拖拽保持自己的 pointer）。
+     pointercancel / lostpointercapture / 控件外释放 / 窗口失焦 全部走 onCancel，
+     清掉 dragging 状态并释放 capture；此后下一次拖拽无需刷新即可工作。 */
+  function bindPointerDrag(el, handlers) {
+    var activeId = null;
+
+    function release(event) {
+      if (activeId === null) return;
+      if (event && event.pointerId !== undefined && event.pointerId !== activeId) return;
+      var id = activeId;
+      activeId = null;
+      try { if (el.releasePointerCapture) el.releasePointerCapture(id); } catch (e) { /* 已释放 */ }
+      if (handlers.onEnd) handlers.onEnd();
+    }
+
+    function cancel(event) {
+      if (activeId === null) return;
+      if (event && event.pointerId !== undefined && event.pointerId !== activeId) return;
+      release(event);
+      if (handlers.onCancel) handlers.onCancel();
+    }
+
+    el.addEventListener('pointerdown', function (event) {
+      if (activeId !== null) return; /* 第二个指针：不夺取 */
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      activeId = event.pointerId;
+      try { if (el.setPointerCapture) el.setPointerCapture(activeId); } catch (e) { /* 不支持捕获 */ }
+      if (handlers.onStart) handlers.onStart(event);
+    });
+    el.addEventListener('pointermove', function (event) {
+      if (activeId === null || event.pointerId !== activeId) return;
+      if (handlers.onMove) handlers.onMove(event);
+    });
+    el.addEventListener('pointerup', function (event) { release(event); });
+    el.addEventListener('pointercancel', function (event) { cancel(event); });
+    el.addEventListener('lostpointercapture', function (event) { cancel(event); });
+    window.addEventListener('blur', function () { cancel(null); });
+  }
 
   function qsa(root, sel) {
     return Array.prototype.slice.call((root || document).querySelectorAll(sel));
@@ -95,13 +188,21 @@
 
   function openOverlay(el, openClass) {
     if (!el) return;
-    lastFocus = document.activeElement;
+    var opener = document.activeElement;
     el.hidden = false;
     el.classList.add(openClass);
     el.setAttribute('aria-hidden', 'false');
+    /* 模态语义：dialog 角色 + aria-modal，读屏据此把背景当作不可用。 */
+    if (!el.hasAttribute('role')) el.setAttribute('role', 'dialog');
+    if (el.getAttribute('role') === 'dialog') el.setAttribute('aria-modal', 'true');
+    overlayStack.push({ el: el, opener: opener, openClass: openClass });
     ACTIVE_MODAL = el;
-    var focusable = qsa(el, 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (focusable.length) focusable[0].focus();
+    setBackgroundInert(el);
+    var items = focusables(el);
+    if (items.length) items[0].focus();
+    else { el.setAttribute('tabindex', '-1'); el.focus(); }
+    /* 焦点陷阱：只在最上层浮层内循环，Tab 不会跑到页面背景。 */
+    el.addEventListener('keydown', function (event) { trapFocus(el, event); });
     emit(el, 'ts:open', null);
   }
 
@@ -110,10 +211,24 @@
     el.classList.remove(openClass);
     el.setAttribute('aria-hidden', 'true');
     el.hidden = true;
-    if (ACTIVE_MODAL === el) ACTIVE_MODAL = null;
-    if (lastFocus && typeof lastFocus.focus === 'function') { try { lastFocus.focus(); } catch (e) {} }
-    lastFocus = null;
+    var entry = null;
+    for (var i = overlayStack.length - 1; i >= 0; i--) {
+      if (overlayStack[i].el === el) { entry = overlayStack[i]; overlayStack.splice(i, 1); break; }
+    }
+    if (ACTIVE_MODAL === el) ACTIVE_MODAL = overlayStack.length ? overlayStack[overlayStack.length - 1].el : null;
+    if (overlayStack.length === 0) setBackgroundInert(null);
+    var opener = entry ? entry.opener : null;
+    if (opener && typeof opener.focus === 'function' && document.contains(opener)) { try { opener.focus(); } catch (e) {} }
     emit(el, 'ts:close', null);
+  }
+
+  /* 外部点击关闭：点在浮层与其触发按钮之外的合成路径上才关。 */
+  function bindOutsideClick(el, openClass, shouldStay) {
+    document.addEventListener('click', function (event) {
+      if (el.hidden || el.contains(event.target)) return;
+      if (shouldStay && shouldStay(event.target)) return;
+      closeOverlay(el, openClass);
+    });
   }
 
   function initOverlays(selector, openClass) {
@@ -121,10 +236,19 @@
       el.setAttribute('aria-hidden', el.hidden ? 'true' : 'false');
     });
     qsa(document, '[data-ts-open]').forEach(function (trigger) {
+      /* aria-controls 让读屏知道这个按钮控制哪个浮层。 */
+      var controlsId = (trigger.getAttribute('data-ts-open') || '').replace(/^#/, '');
+      if (controlsId && document.getElementById(controlsId)) trigger.setAttribute('aria-controls', controlsId);
       trigger.addEventListener('click', function () {
         var id = (trigger.getAttribute('data-ts-open') || '').replace(/^#/, '');
         var target = id ? document.getElementById(id) : null;
         if (target) openOverlay(target, target.hasAttribute('data-ts-drawer') ? 'ts-i-drawer--open' : 'ts-i-modal--open');
+      });
+    });
+    qsa(document, selector).forEach(function (el) {
+      bindOutsideClick(el, el.hasAttribute('data-ts-drawer') ? 'ts-i-drawer--open' : 'ts-i-modal--open', function (node) {
+        /* 触发按钮自己会 toggle，不重复处理。 */
+        return !!(node.closest && node.closest('[data-ts-open]'));
       });
     });
     qsa(document, selector + ' [data-ts-close]').forEach(function (closer) {
@@ -148,12 +272,27 @@
     var menu = root.querySelector('.ts-i-dropdown__menu');
     if (!trigger || !menu) return;
     var items = qsa(menu, '.ts-i-dropdown__item');
+    if (!menu.id) menu.id = 'ts-i-dropdown-menu-' + (++tabSequence);
+    if (!menu.hasAttribute('role')) menu.setAttribute('role', 'menu');
+    trigger.setAttribute('aria-controls', menu.id);
+    if (!trigger.hasAttribute('aria-haspopup')) trigger.setAttribute('aria-haspopup', 'menu');
+    items.forEach(function (item, index) {
+      item.setAttribute('role', 'menuitem');
+      if (!item.id) item.id = menu.id + '-item-' + index;
+    });
 
     function setOpen(open, focusItem) {
       root.classList.toggle('ts-i-dropdown--open', open);
       menu.hidden = !open;
       trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open && items.length) (focusItem ? items[0] : null) && items[0].focus();
+      if (open && items.length) {
+        if (focusItem) {
+          items[0].focus();
+          trigger.setAttribute('aria-activedescendant', items[0].id);
+        }
+      } else {
+        trigger.removeAttribute('aria-activedescendant');
+      }
     }
 
     trigger.addEventListener('click', function (e) {
@@ -172,8 +311,13 @@
         else if (e.key === 'Home') next = 0;
         else if (e.key === 'End') next = items.length - 1;
         else if (e.key === 'Escape') { e.preventDefault(); setOpen(false, false); trigger.focus(); return; }
-        if (next >= 0) { e.preventDefault(); items[next].focus(); }
+        if (next >= 0) { e.preventDefault(); items[next].focus(); trigger.setAttribute('aria-activedescendant', items[next].id); }
       });
+    });
+    /* 外部点击关闭：点在下拉与其触发按钮之外才关。 */
+    document.addEventListener('click', function (event) {
+      if (menu.hidden || root.contains(event.target)) return;
+      setOpen(false, false);
     });
     setOpen(false, false);
   }
@@ -208,10 +352,34 @@
   }
 
   function initToasts() {
+    qsa(document, '[data-ts-toast-region]').forEach(function (region) {
+      /* 区域本身是 live region；单个 toast 不再重复声明，避免重复播报。 */
+      if (!region.hasAttribute('role')) region.setAttribute('role', 'status');
+      if (!region.hasAttribute('aria-live')) region.setAttribute('aria-live', 'polite');
+    });
     qsa(document, '[data-ts-toast-region] .ts-toast').forEach(function (el) {
       armToast(el);
       var closer = el.querySelector('[data-ts-toast-dismiss]');
       if (closer) closer.addEventListener('click', function () { dismissToast(el); });
+      /* 悬停或聚焦时暂停自动消失，让用户读完（也避免焦点落在即将被删的节点上）。 */
+      var paused = false;
+      el.addEventListener('mouseenter', function () { paused = true; });
+      el.addEventListener('mouseleave', function () { paused = false; });
+      el.addEventListener('focusin', function () { paused = true; });
+      el.addEventListener('focusout', function () { paused = false; });
+      var raw = el.getAttribute('data-ts-toast-duration');
+      var duration = raw === null ? 4000 : parseInt(raw, 10);
+      if (duration && duration > 0) {
+        var elapsed = 0;
+        var tick = window.setInterval(function () {
+          if (paused) return;
+          elapsed += 100;
+          if (elapsed >= duration) { window.clearInterval(tick); dismissToast(el); }
+        }, 100);
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { e.preventDefault(); window.clearInterval(tick); dismissToast(el); }
+        });
+      }
     });
   }
 
@@ -289,14 +457,27 @@
         if (!field) return control.checkValidity();
         var error = field.querySelector('.ts-i-form__error');
         var ok = control.checkValidity();
+        if (error) {
+          if (!error.id) error.id = 'ts-i-form-error-' + (++tabSequence);
+          error.setAttribute('role', 'alert');
+          error.setAttribute('aria-live', 'assertive');
+        }
         if (ok) {
           field.removeAttribute('data-ts-invalid');
+          control.removeAttribute('aria-invalid');
+          control.removeAttribute('aria-describedby');
           if (error) { error.textContent = ''; error.classList.remove('ts-i-form__error--show'); }
           return true;
         }
         var message = control.getAttribute('data-ts-error') || control.validationMessage || '此项无效';
         field.setAttribute('data-ts-invalid', '');
-        if (error) { error.textContent = message; error.classList.add('ts-i-form__error--show'); }
+        /* 同时写标准 ARIA：读屏据此播报错误，且与视觉错误一一对应。 */
+        control.setAttribute('aria-invalid', 'true');
+        if (error) {
+          error.textContent = message;
+          error.classList.add('ts-i-form__error--show');
+          control.setAttribute('aria-describedby', error.id);
+        }
         return false;
       }
 
@@ -344,6 +525,8 @@
         var next = -1;
         if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % items.length;
         else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (index - 1 + items.length) % items.length;
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = items.length - 1;
         if (next >= 0) { e.preventDefault(); select(next, true); }
       });
     });
@@ -378,7 +561,9 @@
       var n = parseInt(step.getAttribute('data-ts-step'), 10);
       step.classList.toggle('ts-i-stepper__step--done', n < current);
       step.classList.toggle('ts-i-stepper__step--active', n === current);
-      step.setAttribute('aria-current', n === current ? 'step' : 'false');
+      /* aria-current 只在当前步出现；写 "false" 虽合法但会污染读屏输出。 */
+      if (n === current) step.setAttribute('aria-current', 'step');
+      else step.removeAttribute('aria-current');
     });
   }
 
@@ -433,7 +618,11 @@
       var body = table.tBodies[0];
       if (!body) return;
       qsa(table, '.ts-i-table__th--sortable').forEach(function (th) {
-        th.addEventListener('click', function () {
+        /* th 本身不可聚焦：加 tabindex 与 Enter/Space，键盘用户才能排序。 */
+        if (!th.hasAttribute('tabindex')) th.setAttribute('tabindex', '0');
+        if (!th.hasAttribute('role')) th.setAttribute('role', 'columnheader');
+
+        function sortBy() {
           var col = Array.prototype.indexOf.call(th.parentNode.children, th);
           var mode = th.getAttribute('data-ts-sort') || 'text';
           var dir = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
@@ -448,6 +637,13 @@
             return 0;
           });
           rows.forEach(function (row) { body.appendChild(row); });
+          /* 重排是视觉变化，读屏需要被告知。 */
+          announce((th.textContent || '').trim() + '：' + (dir === 'ascending' ? '升序' : '降序') + '，共 ' + rows.length + ' 行');
+        }
+
+        th.addEventListener('click', sortBy);
+        th.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(); }
         });
       });
     });
@@ -471,6 +667,11 @@
       var input = root.querySelector('.ts-i-datepicker__input');
       var popup = root.querySelector('.ts-i-datepicker__popup');
       if (!input || !popup) return;
+      if (!popup.id) popup.id = 'ts-i-datepicker-popup-' + (++tabSequence);
+      input.setAttribute('aria-controls', popup.id);
+      input.setAttribute('aria-haspopup', 'dialog');
+      popup.setAttribute('role', 'dialog');
+      popup.setAttribute('aria-label', '选择日期');
       var selected = input.getAttribute('data-ts-value') || '';
       var view = selected ? new Date(selected + 'T00:00:00') : new Date();
       if (isNaN(view.getTime())) view = new Date();
@@ -494,7 +695,9 @@
           var cls = 'ts-i-datepicker__day';
           if (key === todayKey) cls += ' ts-i-datepicker__day--today';
           if (key === selected) cls += ' ts-i-datepicker__day--selected';
-          html += '<button type="button" class="' + cls + '" data-ts-date="' + key + '" aria-label="' + key + '">' + d + '</button>';
+          /* aria-current=date 让读屏区分"今天"；选中用 aria-pressed。 */
+          var aria = (key === todayKey ? ' aria-current="date"' : '') + (key === selected ? ' aria-pressed="true"' : ' aria-pressed="false"');
+          html += '<button type="button" class="' + cls + '" data-ts-date="' + key + '" aria-label="' + key + '"' + aria + '>' + d + '</button>';
         }
         html += '</div>';
         popup.innerHTML = html;
@@ -508,11 +711,15 @@
         emit(root, 'ts:change', key);
       }
 
+      function focusFirst() {
+        var firstDay = popup.querySelector('[data-ts-date]:not([disabled])');
+        if (firstDay) firstDay.focus();
+      }
+
       function open() {
         popup.hidden = false;
         render();
-        var firstDay = popup.querySelector('[data-ts-date]:not([disabled])');
-        if (firstDay) firstDay.focus();
+        focusFirst();
       }
       function close() { popup.hidden = true; }
       function closeAndFocus() { close(); input.focus(); }
@@ -529,7 +736,28 @@
         if (day) { setValue(day.getAttribute('data-ts-date')); closeAndFocus(); }
       });
       popup.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { e.preventDefault(); closeAndFocus(); }
+        if (e.key === 'Escape') { e.preventDefault(); closeAndFocus(); return; }
+        /* 网格方向键：日/周/月按 Date 计算，跨月时自动翻页。 */
+        var day = e.target.closest && e.target.closest('[data-ts-date]');
+        if (!day) return;
+        var delta = 0;
+        if (e.key === 'ArrowLeft') delta = -1;
+        else if (e.key === 'ArrowRight') delta = 1;
+        else if (e.key === 'ArrowUp') delta = -7;
+        else if (e.key === 'ArrowDown') delta = 7;
+        else if (e.key === 'Home') delta = -((new Date(day.getAttribute('data-ts-date') + 'T00:00:00').getDay()));
+        else if (e.key === 'End') delta = 6 - (new Date(day.getAttribute('data-ts-date') + 'T00:00:00').getDay());
+        else if (e.key === 'PageUp') { e.preventDefault(); view.setMonth(view.getMonth() - 1); render(); focusFirst(); return; }
+        else if (e.key === 'PageDown') { e.preventDefault(); view.setMonth(view.getMonth() + 1); render(); focusFirst(); return; }
+        else return;
+        e.preventDefault();
+        var current = new Date(day.getAttribute('data-ts-date') + 'T00:00:00');
+        current.setDate(current.getDate() + delta);
+        view = new Date(current.getFullYear(), current.getMonth(), 1);
+        render();
+        var key = fmt(current.getFullYear(), current.getMonth(), current.getDate());
+        var next = popup.querySelector('[data-ts-date="' + key + '"]');
+        if (next) next.focus();
       });
       document.addEventListener('click', function (e) {
         if (!popup.hidden && !root.contains(e.target)) close();
@@ -575,8 +803,17 @@
       var ratio = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0;
       if (value) value.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - ratio));
       if (label) label.textContent = Math.round(ratio * 100) + '%';
-      root.classList.toggle('ts-i-scroll-progress--visible', window.scrollY > threshold);
-      root.setAttribute('aria-hidden', window.scrollY > threshold ? 'false' : 'true');
+      var visible = window.scrollY > threshold;
+      root.classList.toggle('ts-i-scroll-progress--visible', visible);
+      /* 隐藏时不能只是 aria-hidden：它本身是 role=button tabindex=0，会留下不可聚焦的陷阱。
+         隐藏时同时移出 Tab 序，可见时恢复。 */
+      if (visible) {
+        root.removeAttribute('aria-hidden');
+        root.setAttribute('tabindex', '0');
+      } else {
+        root.setAttribute('aria-hidden', 'true');
+        root.setAttribute('tabindex', '-1');
+      }
     });
 
     function backToTop() {
@@ -670,17 +907,40 @@
       if (isNaN(max) || max <= 0) max = 12;
       root.classList.add('ts-i-tilt--armed');
 
-      root.addEventListener('mousemove', function (e) {
+      function reset() { inner.style.transform = ''; }
+      var activePointer = null;
+
+      function applyTilt(clientX, clientY) {
         var rect = root.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
-        var x = (e.clientX - rect.left) / rect.width;
-        var y = (e.clientY - rect.top) / rect.height;
+        var x = (clientX - rect.left) / rect.width;
+        var y = (clientY - rect.top) / rect.height;
         var rotateY = (x - 0.5) * 2 * max;
         var rotateX = (0.5 - y) * 2 * max;
         inner.style.transform = 'rotateX(' + rotateX.toFixed(2) + 'deg) rotateY(' + rotateY.toFixed(2) + 'deg)';
-      });
+      }
 
-      root.addEventListener('mouseleave', function () { inner.style.transform = ''; });
+      /* 倾斜是「悬停跟随」，不是拖拽；但同样要处理中断：
+         第二个指针出现时不夺取，pointercancel / 丢失捕获 / 窗口失焦 / 离开元素都复位。 */
+      root.addEventListener('pointermove', function (event) {
+        if (activePointer === null) activePointer = event.pointerId;
+        else if (event.pointerId !== activePointer) return; /* 第二个指针不夺取 */
+        applyTilt(event.clientX, event.clientY);
+      });
+      /* 兼容只派发 MouseEvent 的环境（旧浏览器与自动化测试）。 */
+      root.addEventListener('mousemove', function (event) { applyTilt(event.clientX, event.clientY); });
+      root.addEventListener('pointerleave', function () { activePointer = null; reset(); });
+      root.addEventListener('mouseleave', function () { activePointer = null; reset(); });
+      root.addEventListener('pointerup', function (event) {
+        /* 鼠标抬起仍保持悬停跟随；触摸/笔抬起才复位。 */
+        if (event.pointerType === 'mouse') return;
+        if (activePointer === null || event.pointerId === activePointer) { activePointer = null; reset(); }
+      });
+      root.addEventListener('pointercancel', function (event) {
+        if (activePointer === null || event.pointerId === activePointer) { activePointer = null; reset(); }
+      });
+      root.addEventListener('lostpointercapture', function () { activePointer = null; reset(); });
+      window.addEventListener('blur', function () { activePointer = null; reset(); });
     });
   }
 
@@ -745,6 +1005,7 @@
       function succeed() {
         root.classList.add('ts-i-copy--done');
         btn.textContent = doneLabel;
+        announce(doneLabel);
         emit(root, 'ts:copied', { text: code.textContent || '' });
         if (timer) window.clearTimeout(timer);
         timer = window.setTimeout(function () {

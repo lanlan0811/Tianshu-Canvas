@@ -15,7 +15,9 @@ import {
   validateStateContract,
   validateConsistency,
   validateIcons,
+  validateInteractionA11y,
   validateInteractions,
+  validateReducedMotionPolicy,
   validateRubric,
   validateTemplateHtml,
   validateTemplates,
@@ -175,6 +177,9 @@ export function buildDesignSystems({ root, dist }) {
     errors,
     warnings,
   )
+  // ARIA 契约必须与运行时一致；reduced-motion 策略必须统一。
+  validateInteractionA11y(interactionsDoc, interactionsJs, errors)
+  validateReducedMotionPolicy(interactionsCss, errors)
   const interactionClasses = interactionResult.ownClasses
   const interactionIds = interactionResult.ids
 

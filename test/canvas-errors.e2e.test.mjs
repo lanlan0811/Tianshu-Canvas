@@ -51,7 +51,14 @@ test('变更拒绝可见且不自动重试：节点、连线、批注与视口',
       } else void request.continue()
     })
     async function expectAlert(text) {
-      await page.waitForFunction(expected => document.querySelector('[role=alert]')?.textContent?.includes(expected), {}, text)
+      // 全量跑时浏览器要同时服务多个套件，等待窗口放宽到 60s；
+      // 失败时把当前提示条内容带出来，便于区分「没出现」与「出现的是别的内容」。
+      try {
+        await page.waitForFunction(expected => document.querySelector('[role=alert]')?.textContent?.includes(expected), { timeout: 60000 }, text)
+      } catch (err) {
+        const current = await page.evaluate(() => document.querySelector('[role=alert]')?.textContent ?? '(无提示条)')
+        throw new Error(`等待提示条「${text}」超时；当前内容：${current}`)
+      }
       const alert = await page.$eval('[role=alert]', element => element.textContent)
       assert.doesNotMatch(alert, /C:[/]Users|private[/]workspace/)
     }

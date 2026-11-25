@@ -108,7 +108,28 @@ triggers:
 `color-scheme`、`prefers-reduced-motion` 的降级策略都已按 token 写好。**不要每页重写**；
 需要覆盖时只用现有 `--ts-*` 变量，不要引入新变量或新类。
 reduced-motion 用「缩短到 0.01ms」而不是 `animation: none`，这样 `animationend` / `transitionend` 仍会触发，
-交互状态机不会被卡死。
+交互状态机不会被卡死。**减少的是空间位移，不是全部反馈**：颜色、透明度、状态文字必须保留。
+
+### 动效（三条反直觉规则）
+
+1. **hover 时被悬停的元素本身不能动。** 让子元素承载位移：
+   `.card:hover .card-surface { transform: translateY(-2px) }`。
+   元素自己移动会从靠近边缘的指针下方滑走，造成闪烁。
+   可选预览的 `transition-delay` **只写在 hover 态**，这样离开时不延迟。
+2. **时序按距离与后果给，不按感觉给**：100–150ms 即时反馈 / 150–300ms 常规状态变化 /
+   300–500ms 布局与浮层 / 500–800ms 刻意编排的焦点入场。
+   **出口比入口快**；默认自然减速（如 `cubic-bezier(0.16, 1, 0.3, 1)`），**禁止反射式 bounce / elastic**。
+   operate 页面再收紧到 150–250ms，且**禁止编排式页面加载序列**。
+3. **材质按含义选，不是只用 transform 与 opacity**：连续性与关系用共享元素 / FLIP / View Transitions；
+   焦点与深度用有界的 blur / shadow；揭示与构图用 mask / clip-path；材质与能量用颜色 / 纹理。
+   一个强材质概念贯穿焦点序列就够，不要为奇观堆叠技术。
+
+**Delight 克制条款**：不得延迟、阻塞或遮蔽主任务；无同意不播放声音、不忽略静音；
+不得强制不可跳过、重复时令人疲惫；**不得为了造花式效果伪造工作或延迟完成**；
+错误与恢复时先讲问题和恢复，玩笑不能轻视损失、金钱、隐私或被阻塞的工作。
+
+**验证方法**：`canvas_audit action=motion, page_id=<id>, motion_selector=<选择器>` 抓帧，
+读 `filmstrip.png` 与 `index.html` 拖帧查看。**禁止用单张截图判断动效**；一次采集 + 一次读图算一轮，两轮为上限。
 
 ### 标题与文案
 
@@ -360,5 +381,5 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
 | `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板或交互骨架 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template / interaction；导出代码时**先问目标（多端再问技术栈）**再 codegen |
 | `canvas_check_style` | 只读检查页面是否符合当前风格 + 工艺规则（`action`: check / list_rules） | 每次写完页面后；用户问「为什么风格不统一」时；想列规则时用 `list_rules` |
 | `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`extract` 反抽取；`import` 从仓库主题导入；`export` / `import_pack` 品牌包 | 用户要做「专属设计系统」时：问清配置后 create；要「照这个站点的风格」时 extract（先 dry_run）；要接入现有项目主题时 import；要交接/迁移时 export / import_pack |
-| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、UX 评审（三段隔离）、视觉回归、设计漂移（`action`: contract / a11y / quality / ux / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality / ux（需 Chrome/Edge）；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
+| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、UX 评审（三段隔离）、动效抓帧、视觉回归、设计漂移（`action`: contract / a11y / quality / ux / motion / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality / ux（需 Chrome/Edge）；验证动效用 motion；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
 | `canvas_comments` | 读取 / 处理画布元素批注（`action`: list / resolve / reopen / remove） | 用户圈了几处要改时：先 list 读全部，逐条改完再 resolve |

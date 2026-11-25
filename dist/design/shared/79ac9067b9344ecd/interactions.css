@@ -394,9 +394,11 @@
   }
 }
 
+/* 减少动效：缩短而不是删除，保证 animationend 仍触发（与 components.css 同一策略）。 */
 @media (prefers-reduced-motion: reduce) {
   .ts-i-skeleton::after {
-    animation: none;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
   }
 }
 
@@ -418,7 +420,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ts-progress--indeterminate .ts-progress__bar {
-    animation: none;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
     width: 100%;
   }
 }
@@ -809,11 +812,20 @@
   transform: none;
 }
 
+/* 减少动效：把空间位移直接归零（不是删掉过渡），状态变化与透明度仍保留。 */
 @media (prefers-reduced-motion: reduce) {
   .ts-i-reveal,
   .ts-i-sticky-header,
-  .ts-i-scroll-progress {
-    transition: none;
+  .ts-i-scroll-progress,
+  .ts-i-tooltip__bubble,
+  .ts-i-tooltip::after,
+  .ts-i-mobile-nav__bar,
+  .ts-i-mobile-nav .ts-nav__links,
+  .ts-i-toc__panel,
+  .ts-i-toc__link,
+  .ts-i-copy__btn,
+  .ts-i-tilt__inner {
+    transition-duration: 0.01ms;
   }
 
   .ts-i-reveal--armed,
@@ -822,6 +834,10 @@
   .ts-i-reveal--armed.ts-i-reveal--right {
     opacity: 1;
     transform: none;
+  }
+
+  .ts-i-tilt__inner {
+    transform: none !important;
   }
 }
 
@@ -838,7 +854,7 @@
 }
 
 .ts-i-tilt--armed:hover .ts-i-tilt__inner {
-  transition: none;
+  transition: none; /* ts-motion-allow-none: 指针跟随必须跟手，加过渡会拖尾 */
 }
 
 /* ---------- mobile-nav：汉堡 + 遮罩菜单 ---------- */
@@ -1097,4 +1113,23 @@
   .ts-i-toc--open .ts-i-toc__backdrop {
     display: block;
   }
+}
+
+/* ---------- 焦点可见性补全（属性/伪类驱动，不新增 ts- 类） ---------- */
+
+.ts-i-tooltip:focus-visible [class*='__bubble'],
+.ts-i-accordion__trigger:focus-visible,
+.ts-i-segmented__item:focus-visible,
+.ts-i-pagination__item:focus-visible,
+.ts-i-pagination__prev:focus-visible,
+.ts-i-pagination__next:focus-visible,
+.ts-i-table__th--sortable:focus-visible,
+.ts-i-datepicker__day:focus-visible,
+.ts-i-datepicker__nav button:focus-visible,
+.ts-i-toast-close:focus-visible,
+.ts-i-toc__toggle:focus-visible,
+.ts-i-toc__link:focus-visible,
+.ts-i-mobile-nav .ts-nav__links a:focus-visible {
+  outline: var(--ts-border-thick) solid var(--ts-color-border-focus);
+  outline-offset: 2px;
 }

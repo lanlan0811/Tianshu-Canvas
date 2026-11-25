@@ -538,6 +538,77 @@ function selectorTexts(css) {
   return out.filter((s) => s.length > 0 && !s.startsWith('@'))
 }
 
+/**
+ * 交互库的 ARIA 契约校验：声明必须真在运行时里出现。
+ *
+ * 目的不是统一实现方式，而是让「文档说支持」变成「代码必须支持」：
+ * - `roles` / `attrs` / `keys` 里的每个字符串都要在 interactions.js 源码里出现；
+ * - `focusReturn: true` 的条目必须真的调用 focus()；
+ * - `gesture: 'cancellable'` 的条目必须处理 pointercancel 与 lostpointercapture。
+ * 新增条目忘了补契约、或删了实现却留着声明，都会在构建期失败。
+ */
+export function validateInteractionA11y(interactionsDoc, interactionsJs, errors) {
+  const list = Array.isArray(interactionsDoc?.interactions) ? interactionsDoc.interactions : []
+  for (const item of list) {
+    const spec = item?.a11y
+    const label = `交互 ${item?.id ?? '(无 id)'}`
+    if (!spec || typeof spec !== 'object') {
+      errors.push(`${label} 缺少 a11y 契约（roles / attrs / keys）`)
+      continue
+    }
+    // 语义可以由运行时设置，也可以由骨架标记直接写死；两者都算实现，
+    // 但必须至少有一处出现，不能只写在契约里。
+    const sources = [interactionsJs, String(item.skeletonHtml ?? '')]
+    for (const key of ['roles', 'attrs', 'keys']) {
+      if (!Array.isArray(spec[key])) {
+        errors.push(`${label} 的 a11y.${key} 必须是数组`)
+        continue
+      }
+      for (const token of spec[key]) {
+        if (typeof token !== 'string' || !token) {
+          errors.push(`${label} 的 a11y.${key} 含空值`)
+          continue
+        }
+        if (!sources.some((source) => source.includes(token))) {
+          errors.push(`${label} 声明了 ${key}「${token}」，但运行时与骨架里都没有对应实现`)
+        }
+      }
+    }
+    // 行为类契约只能在运行时验证。
+    if (spec.focusReturn === true && !/\.focus\(/.test(interactionsJs)) {
+      errors.push(`${label} 声明了 focusReturn，但运行时没有调用 focus()`)
+    }
+    if (spec.gesture === 'cancellable') {
+      for (const token of ['pointercancel', 'lostpointercapture']) {
+        if (!interactionsJs.includes(token)) errors.push(`${label} 声明手势可中断，但运行时没有处理 ${token}`)
+      }
+    }
+    if (spec.live !== undefined && spec.live !== 'polite' && spec.live !== 'assertive') {
+      errors.push(`${label} 的 a11y.live 只能是 polite / assertive`)
+    }
+  }
+}
+
+/**
+ * 减少动效块的一致性门禁：统一用「缩短到 0.01ms」而不是 animation/transition: none，
+ * 这样 animationend / transitionend 仍会触发，交互状态机不会卡死。
+ * 需要显式豁免时在同行写 `/* ts-motion-allow-none: 理由 *\/`。
+ */
+export function validateReducedMotionPolicy(interactionsCss, errors) {
+  if (!/prefers-reduced-motion/.test(interactionsCss)) {
+    errors.push('interactions.css 缺少 prefers-reduced-motion 块')
+    return
+  }
+  // 逐行扫描：声明可能出现在单行压缩写法里，所以不要求整行只有这条声明。
+  const lines = interactionsCss.split(String.fromCharCode(10))
+  const NONE_DECL = /(?:^|[;{\s])(?:animation|transition)\s*:\s*none(?![a-z-])/
+  lines.forEach((line, index) => {
+    if (!NONE_DECL.test(line)) return
+    if (/ts-motion-allow-none/.test(line)) return
+    errors.push('interactions.css 第 ' + (index + 1) + ' 行用了 ' + line.trim() + '：改用「缩短到 0.01ms」策略，或加 /* ts-motion-allow-none: 理由 */ 显式豁免')
+  })
+}
+
 export function validateStateContract(components, componentsCss, errors) {
   const declared = new Set(components?.sharedClasses ?? [])
   for (const component of components?.components ?? []) {
