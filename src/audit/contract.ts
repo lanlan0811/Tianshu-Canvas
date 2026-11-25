@@ -75,7 +75,8 @@ export function collectUsage(html: string, manifest: DesignManifest | null): Con
 }
 
 export function computeContract(html: string, styleId: string | null, cwd: string, manifest: DesignManifest | null): ContractResult {
-  const report = lintHtml(html, styleId, cwd)
+  // 契约只衡量「是否符合设计系统」，必须显式关掉工艺规则，否则符合度会被 slop 发现污染。
+  const report = lintHtml(html, styleId, cwd, { detector: false })
   const usage = collectUsage(html, manifest)
   const byRule: Record<string, number> = {}
   for (const issue of report.findings) byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1

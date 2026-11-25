@@ -19,6 +19,7 @@ import { isWorkerSession, warnUser } from './host.js'
 import { appendHistory, diffProjects, historyPath, readHistory, warnHistoryFailure, type HistoryEntry } from './history.js'
 import type { DeviceType } from './device.js'
 import { normalizeStoredPageBrief, type PageBrief } from './brief.js'
+import { normalizeSurfaceMode, type SurfaceMode } from './modes.js'
 
 export const PROJECT_DIR_NAME = '.tianshu-canvas'
 
@@ -31,6 +32,8 @@ export interface PageNode {
   width: number
   height: number
   deviceType: DeviceType
+  /** 页面模式（persuade / operate / read / experience）；未设置表示未声明。 */
+  mode?: SurfaceMode
   /** 相对 cwd 的路径，如 `.tianshu-canvas/pages/page-3f2a91c4.html` */
   htmlPath: string
   /** 原型内容版本：AI 写入新 HTML 时更新，画布据此刷新 iframe。 */
@@ -523,7 +526,14 @@ function normalizeComment(v: unknown): Comment | null {
 function isPageNode(n: unknown): n is PageNode {
   if (!n || typeof n !== 'object') return false
   const o = n as Record<string, unknown>
-  return typeof o.id === 'string' && isSafeId(o.id) && o.type === 'page'
+  if (!(typeof o.id === 'string' && isSafeId(o.id) && o.type === 'page')) return false
+  // 未知或非法的 mode 值在读取时丢弃（不猜测、不写回），保证旧项目可迁移。
+  if (Object.hasOwn(o, 'mode')) {
+    const mode = normalizeSurfaceMode(o.mode)
+    if (mode) o.mode = mode
+    else delete o.mode
+  }
+  return true
 }
 
 function isEdge(e: unknown): e is Edge {

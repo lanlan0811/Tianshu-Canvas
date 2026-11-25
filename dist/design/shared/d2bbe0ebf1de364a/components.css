@@ -709,3 +709,209 @@ svg {
   border-radius: var(--ts-radius-full);
   background: var(--ts-color-action-primary);
 }
+
+/* ---------- 状态契约（八态；只允许属性/伪类，不新增 ts- 类） ---------- */
+
+/* 按钮：按下、加载、危险态 */
+.ts-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.ts-btn--danger:hover {
+  filter: brightness(0.94);
+}
+.ts-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ts-btn[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.ts-btn[aria-busy='true']::after {
+  content: '';
+  width: 1em;
+  height: 1em;
+  margin-left: var(--ts-space-2);
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--ts-radius-full);
+  animation: ts-btn-spin var(--ts-motion-base) linear infinite;
+}
+@keyframes ts-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 图标按钮：焦点、按下、禁用、加载 */
+.ts-icon-btn:focus-visible {
+  outline: var(--ts-border-thick) solid var(--ts-color-border-focus);
+  outline-offset: 2px;
+}
+.ts-icon-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.ts-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ts-icon-btn[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* 输入框/下拉：悬停、禁用、错误 */
+.ts-input:hover:not(:disabled),
+.ts-select:hover:not(:disabled) {
+  border-color: var(--ts-color-border-strong);
+}
+.ts-input:disabled,
+.ts-select:disabled {
+  background: var(--ts-color-bg-sunken);
+  color: var(--ts-color-text-muted);
+  cursor: not-allowed;
+}
+.ts-input[aria-invalid='true'],
+.ts-select[aria-invalid='true'] {
+  border-color: var(--ts-color-status-danger);
+  box-shadow: 0 0 0 3px var(--ts-color-status-danger-bg);
+}
+
+/* 开关：焦点、悬停、禁用、aria-checked */
+.ts-switch:hover:not(:disabled) {
+  border-color: var(--ts-color-border-strong);
+}
+.ts-switch:focus-visible {
+  outline: var(--ts-border-thick) solid var(--ts-color-border-focus);
+  outline-offset: 2px;
+}
+.ts-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ts-switch[aria-checked='true'] {
+  background: var(--ts-color-action-primary);
+  border-color: var(--ts-color-action-primary);
+}
+.ts-switch[aria-checked='true']::after {
+  transform: translateX(16px);
+}
+
+/* 复选框：焦点、禁用、错误 */
+.ts-check input:focus-visible + .ts-check__box {
+  outline: var(--ts-border-thick) solid var(--ts-color-border-focus);
+  outline-offset: 2px;
+}
+.ts-check input:disabled + .ts-check__box {
+  opacity: 0.5;
+}
+.ts-check input:disabled ~ .ts-check__label {
+  color: var(--ts-color-text-muted);
+}
+.ts-check input[aria-invalid='true'] + .ts-check__box {
+  border-color: var(--ts-color-status-danger);
+  box-shadow: 0 0 0 3px var(--ts-color-status-danger-bg);
+}
+
+/* 选项卡：悬停、焦点、禁用、aria-selected */
+.ts-tab:hover:not(:disabled) {
+  color: var(--ts-color-text-primary);
+  background: var(--ts-color-action-ghost-hover);
+}
+.ts-tab:focus-visible {
+  outline: var(--ts-border-thick) solid var(--ts-color-border-focus);
+  outline-offset: -2px;
+}
+.ts-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ts-tab[aria-selected='true'] {
+  color: var(--ts-color-text-primary);
+  border-bottom-color: var(--ts-color-action-primary);
+  font-weight: var(--ts-weight-medium);
+}
+
+/* 导航与侧栏：悬停、焦点、当前项 */
+.ts-nav__link:hover,
+.ts-sidebar__item:hover {
+  color: var(--ts-color-text-primary);
+  background: var(--ts-color-action-ghost-hover);
+}
+.ts-nav__link:focus-visible,
+.ts-sidebar__item:focus-visible {
+  outline: var(--ts-border-thick) solid var(--ts-color-border-focus);
+  outline-offset: 2px;
+}
+.ts-nav__link[aria-current='page'],
+.ts-sidebar__item[aria-current='page'] {
+  color: var(--ts-color-text-primary);
+  font-weight: var(--ts-weight-medium);
+}
+
+/* 提示条：语义变体已有 --success/--danger；补一个可访问的焦点环 */
+.ts-toast[role='status'],
+.ts-toast[role='alert'] {
+  outline: none;
+}
+
+/* ---------- 浏览器表面（由 token 统一主题化，页面不要重写） ---------- */
+
+::selection {
+  background: var(--ts-color-action-ghost-hover);
+  color: var(--ts-color-text-primary);
+}
+
+body {
+  caret-color: var(--ts-color-action-primary);
+  scrollbar-color: var(--ts-color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--ts-color-border-strong);
+  border: 2px solid transparent;
+  border-radius: var(--ts-radius-full);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ts-color-border-focus);
+  background-clip: padding-box;
+}
+
+a {
+  text-underline-offset: 0.22em;
+  text-decoration-color: var(--ts-color-border-strong);
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+.ts-stat__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 减少动效：缩短而不是删除，保证 animationend / transitionend 仍会触发 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

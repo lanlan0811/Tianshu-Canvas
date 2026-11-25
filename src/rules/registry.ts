@@ -1,0 +1,237 @@
+/**
+ * 工艺规则注册表：唯一真源。
+ *
+ * 每条规则的 id / 阈值判据来自 impeccable（Apache-2.0）的同名规则；
+ * 中文名、描述、修复建议为原创。`origin` 记录判据出处，便于后续按实测
+ * 命中精度决定升级/降级/下线。
+ */
+import type { RuleDef } from './types.js'
+
+export const RULES: readonly RuleDef[] = [
+  {
+    id: 'overused-font',
+    category: 'slop',
+    severity: 'warning',
+    engine: 'source',
+    name: '烂大街字体',
+    description:
+      'Inter、Roboto、Open Sans、Lato、Montserrat、Fraunces、Geist、Plus Jakarta Sans、Space Grotesk 等字体被 AI 生成的页面反复使用，已经失去辨识度。',
+    fix: '换一个有性格的字体，或使用当前风格的字体栈（var(--ts-font-sans) / var(--ts-font-display)）。',
+    origin: 'crates/foundation/src/constants.rs:85',
+    free: true,
+  },
+  {
+    id: 'gradient-text',
+    category: 'slop',
+    severity: 'warning',
+    engine: 'source',
+    name: '渐变文字',
+    description: '渐变文字是装饰而非表意，是 AI 生成界面最常见的痕迹之一，多出现在标题和数字上。',
+    fix: '用纯色；强调靠字重与字号，不靠渐变色。',
+    modes: { operate: 'advisory', read: 'off' },
+    origin: 'crates/core/src/checks/rules.rs:1023',
+    free: true,
+  },
+  {
+    id: 'side-tab',
+    category: 'slop',
+    severity: 'warning',
+    engine: 'source',
+    name: '侧色条',
+    description: '圆角盒子上画一条单侧色条（左侧或右侧的 accent 竖条），是 AI 卡片的典型套路。',
+    fix: '改用整圈描边、背景色深浅，或在前面放一个图标/标签。',
+    origin: 'crates/core/src/checks/side_bar.rs',
+    free: true,
+  },
+  {
+    id: 'border-accent-on-rounded',
+    category: 'slop',
+    severity: 'warning',
+    engine: 'source',
+    name: '圆角上的强调边框',
+    description: '圆角卡片配一条很粗的上/下强调边框，边框与圆角互相冲突。',
+    fix: '去掉边框改用背景色，或降低圆角。',
+    origin: 'crates/core/src/checks/rules.rs:413',
+    free: true,
+  },
+  {
+    id: 'ai-color-palette',
+    category: 'slop',
+    severity: 'warning',
+    engine: 'source',
+    name: 'AI 配色',
+    description:
+      '紫罗兰渐变、青绿配近黑，是最容易辨认的 AI 生成配色；flat neon ink 叠在暗底上同样如此。',
+    fix: '从主题本身取材（行业材料、真实工具、内容术语）建立配色，不要用默认的紫蓝。',
+    modes: { operate: 'advisory', read: 'off' },
+    origin: 'crates/core/src/checks/rules.rs:969',
+    free: true,
+  },
+  {
+    id: 'cream-palette',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '奶油米色底',
+    description: '暖奶油/米色页面背景已经成了"有品味的 AI 页面"的默认底色，属于条件反射式选择。',
+    fix: '选一个来自明确配色的背景，而不是安全的暖白。',
+    modes: { operate: 'off', read: 'off', experience: 'on' },
+    origin: 'crates/core/src/checks/measures.rs:392',
+    free: true,
+  },
+  {
+    id: 'gray-on-color',
+    category: 'quality',
+    severity: 'warning',
+    engine: 'source',
+    name: '彩色底上的灰字',
+    description: '彩色背景上用灰色文字，会显得发灰、发脏，对比度也常常不够。',
+    fix: '改用该背景色的更深色调，或用白色/近白色。',
+    origin: 'crates/core/src/checks/rules.rs (gray-on-color)',
+    free: true,
+  },
+  {
+    id: 'hard-offset-shadow',
+    category: 'quality',
+    severity: 'advisory',
+    engine: 'source',
+    name: '硬偏移阴影',
+    description: '零模糊、偏移 ≥4px 的硬阴影。它可以是新粗野主义方向的有意选择，但多数情况下是没想清楚的默认值。',
+    fix: '确认这是不是该视觉方向的选择；不是就换成带模糊的柔和阴影，或只用描边。',
+    origin: 'crates/core/src/checks/hard_offset_shadow.rs',
+    free: true,
+  },
+  {
+    id: 'bounce-easing',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '回弹缓动',
+    description: 'bounce / elastic 缓动显得过时而廉价；真实物体是平滑减速的。',
+    fix: '用指数 ease-out（如 cubic-bezier(.16,1,.3,1)）。',
+    modes: { operate: 'advisory', read: 'off' },
+    origin: 'crates/detect/src/regex_matchers.rs',
+    free: true,
+  },
+  {
+    id: 'repeating-stripes-gradient',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '重复渐变条纹',
+    description: '用 repeating-gradient 画装饰性条纹，是生成式界面的常见签名。',
+    fix: '换成有意图的材质，或保持纯色。',
+    origin: 'crates/core/src/checks/html_patterns.rs:463',
+    free: true,
+  },
+  {
+    id: 'codex-grid-background',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '装饰网格底纹',
+    description: '用极细的线性渐变叠出网格或线阵背景，是生成式界面的常见签名。',
+    fix: '网格只留给真正的画布、地图、蓝图或测量界面；其它页面用产品结构或纯色。',
+    origin: 'crates/core/src/checks/css_scan.rs:270',
+    free: true,
+  },
+  {
+    id: 'marquee',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '自动滚动跑马灯',
+    description: '持续自动滚动的内容会抢走注意力，并始终藏起一半内容。',
+    fix: '动效只留给真正在变化的内容；让读者按自己的节奏移动。',
+    modes: { read: 'off', experience: 'advisory' },
+    origin: 'crates/core/src/checks/html_patterns.rs (marquee)',
+    free: true,
+  },
+  {
+    id: 'monotonous-spacing',
+    category: 'quality',
+    severity: 'warning',
+    engine: 'source',
+    name: '间距单调',
+    description: '所有间距都是同一个值，没有节奏：相关项不紧凑、区块间不分离。',
+    fix: '相关元素用小间距归组，区块之间用大间距分开。',
+    origin: 'crates/core/src/checks/html_patterns.rs:759',
+    free: true,
+  },
+  {
+    id: 'em-dash-overuse',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '破折号过密',
+    description: '正文里破折号密度过高（约每 500 字符一个），是 AI 的句式习惯。',
+    fix: '改用逗号、冒号、句号或括号。',
+    origin: 'crates/detect/src/regex_matchers.rs (em-dash-overuse)',
+    free: true,
+  },
+  {
+    id: 'marketing-buzzword',
+    category: 'slop',
+    severity: 'warning',
+    engine: 'source',
+    name: '营销黑话',
+    description: 'streamline / empower / supercharge / 一站式 / 无缝 / 极致 这类词是即时的 AI 味信号。',
+    fix: '用具体的动词和名词，说清产品实际做了什么。',
+    origin: 'crates/detect/src/regex_matchers.rs (marketing-buzzword)',
+    free: true,
+  },
+  {
+    id: 'aphoristic-cadence',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '格言腔',
+    description: '连续多个区块都以「X。不是 Y。」这类对仗短句收尾，读起来是 AI 腔而不是人声。',
+    fix: '一次可以；把这个句式留给真正需要强调的那一处。',
+    modes: { operate: 'off', read: 'off' },
+    origin: 'crates/detect/src/regex_matchers.rs (aphoristic-cadence)',
+    free: true,
+  },
+  {
+    id: 'radial-halo',
+    category: 'slop',
+    severity: 'advisory',
+    engine: 'source',
+    name: '径向光晕',
+    description: '暗底页面上用饱和色径向渐变做装饰光晕，是"暗色+发光"套路的渐变版本。',
+    fix: '用纯色或轻微偏移的背景；需要光就做有明确载体的材质光。',
+    modes: { operate: 'off', read: 'off', experience: 'on' },
+    origin: 'crates/core/src/checks/css_scan.rs:350',
+    free: true,
+  },
+  {
+    id: 'emoji-icon',
+    category: 'quality',
+    severity: 'warning',
+    engine: 'source',
+    name: 'emoji 当图标',
+    description: '用 emoji 充当图标或分节符号，渲染不稳定，也无法与图标系统保持一致。',
+    fix: '用 <svg data-icon="名字" class="ts-icon"> 从图标目录取图。',
+    origin: '项目规则（AGENTS.md：禁止 emoji 图标）',
+    free: true,
+  },
+]
+
+const BY_ID = new Map(RULES.map((r) => [r.id, r]))
+
+export function getRule(id: string): RuleDef | undefined {
+  return BY_ID.get(id)
+}
+
+export function sourceRules(): RuleDef[] {
+  return RULES.filter((r) => r.engine === 'source')
+}
+
+export function renderRules(): RuleDef[] {
+  return RULES.filter((r) => r.engine === 'render')
+}
+
+/** 固定输出顺序（与原风格规则分组展示用）。 */
+export function ruleIds(): string[] {
+  return RULES.map((r) => r.id)
+}

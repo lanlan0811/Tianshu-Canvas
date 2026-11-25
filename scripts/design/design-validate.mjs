@@ -489,6 +489,105 @@ export function validateInteractions(interactionsDoc, interactionsCss, interacti
   const ownClasses = [...allClasses].filter((c) => !componentSet.has(c))
   return { allClasses, ownClasses, ids: [...ids], rootAttrs: [...rootAttrs] }
 }
+/**
+ * 组件状态契约校验：每个组件声明欠哪些状态，就必须在 components.css 里找到对应选择器。
+ *
+ * 状态一律用伪类 / 属性驱动，因此这里只查「选择器里是否同时出现 base 类与该状态的标记」：
+ *   hover → `:hover`、focus → `:focus` 或 `:focus-visible`、active → `:active`、
+ *   disabled → `:disabled` 或 `[disabled]` 或 `[aria-disabled]`、loading → `[aria-busy`、
+ *   error → `[aria-invalid`、success/error 也接受 `--success` / `--danger` 变体类。
+ *
+ * 另做 ts- 前缀单向守卫：components.css 里出现、但不在声明类集合里的 ts-* 类一律报错，
+ * 防止偷偷新增只有 CSS 没有契约的状态类。
+ */
+const STATE_MARKERS = {
+  hover: [':hover'],
+  focus: [':focus-visible', ':focus'],
+  active: [':active'],
+  disabled: [':disabled', '[disabled]', '[aria-disabled'],
+  loading: ['[aria-busy'],
+  error: ['[aria-invalid', '--danger', '--error'],
+  success: ['--success'],
+}
+const ALL_STATES = ['default', 'hover', 'focus', 'active', 'disabled', 'loading', 'error', 'success']
+
+/** 扫 CSS 里所有规则的选择器文本（不解析嵌套语义，够用即可）。 */
+function selectorTexts(css) {
+  const out = []
+  let depth = 0
+  let start = 0
+  let quote = ''
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i]
+    if (quote) {
+      if (ch === quote && css[i - 1] !== '\\') quote = ''
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === '{') {
+      if (depth === 0) out.push(css.slice(start, i).trim())
+      depth++
+    } else if (ch === '}') {
+      depth = Math.max(0, depth - 1)
+      if (depth === 0) start = i + 1
+    }
+  }
+  return out.filter((s) => s.length > 0 && !s.startsWith('@'))
+}
+
+export function validateStateContract(components, componentsCss, errors) {
+  const declared = new Set(components?.sharedClasses ?? [])
+  for (const component of components?.components ?? []) {
+    for (const className of component.classes ?? []) declared.add(className)
+  }
+
+  // 1) states 必须是合法状态名，且 default 恰好一次。
+  for (const component of components?.components ?? []) {
+    const states = component.states
+    if (!Array.isArray(states) || states.length === 0) {
+      errors.push(`组件 ${component.id} 缺少 states 声明`)
+      continue
+    }
+    for (const state of states) {
+      if (!ALL_STATES.includes(state)) errors.push(`组件 ${component.id} 的 states 含未知状态：${state}`)
+    }
+    if (states.filter((s) => s === 'default').length !== 1) {
+      errors.push(`组件 ${component.id} 的 states 必须恰好包含一次 default`)
+    }
+  }
+
+  // 2) 每个欠的状态都要在 CSS 里找到「该组件的某个类 + 状态标记」的选择器。
+  //    状态可能挂在子类上（tabs 的 ts-tab、nav 的 ts-nav__link），所以用组件的全部声明类。
+  const selectors = selectorTexts(componentsCss)
+  for (const component of components?.components ?? []) {
+    const owned = (component.classes ?? []).filter((c) => Boolean(c))
+    if (owned.length === 0) continue
+    for (const state of component.states ?? []) {
+      if (state === 'default') continue
+      const markers = STATE_MARKERS[state]
+      if (!markers) continue
+      const found = selectors.some((selector) => {
+        const touchesComponent = owned.some((c) => selector.includes(`.${c}`))
+        if (!touchesComponent) return false
+        return markers.some((marker) => selector.includes(marker))
+      })
+      if (!found) errors.push(`组件 ${component.id} 声明了 ${state} 状态，但 components.css 里没有对应选择器`)
+    }
+  }
+
+  // 3) ts- 前缀单向守卫：CSS 里出现的 ts-* 类必须已在 components.json 声明。
+  const used = new Set()
+  for (const match of componentsCss.matchAll(/\.(ts-[A-Za-z0-9_-]+)/g)) used.add(match[1])
+  for (const className of used) {
+    if (!declared.has(className)) {
+      errors.push(`components.css 使用了未声明的 ts- 类：${className}（状态请用伪类/属性表达，不要新增状态类）`)
+    }
+  }
+}
+
 export function validateConsistency(styles, errors) {
   const first = styles[0]
   if (!first) return

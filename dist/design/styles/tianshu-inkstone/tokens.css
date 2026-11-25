@@ -116,6 +116,7 @@
   --ts-motion-fast: 110ms;
   --ts-motion-base: 190ms;
   --ts-motion-easing: cubic-bezier(.25,.8,.3,1);
+  color-scheme: light;
 }
 
 /* 深色模式：给根元素加 class="dark" 即切换。 */
@@ -157,4 +158,5 @@
   --ts-color-chart-4: #7fb3c6;
   --ts-color-chart-5: #b68ac6;
   --ts-color-overlay-scrim: rgba(0,0,0,0.6);
+  color-scheme: dark;
 }

@@ -116,4 +116,5 @@
   --ts-motion-fast: 140ms;
   --ts-motion-base: 240ms;
   --ts-motion-easing: cubic-bezier(.18,.78,.32,1);
+  color-scheme: light;
 }

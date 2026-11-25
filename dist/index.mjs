@@ -61426,6 +61426,26 @@ function savePageBrief(cwd, pageId, value, tx) {
   return next;
 }
 
+// src/modes.ts
+var SURFACE_MODES = ["persuade", "operate", "read", "experience"];
+var LABELS = {
+  persuade: "\u8BF4\u670D\u578B",
+  operate: "\u64CD\u4F5C\u578B",
+  read: "\u9605\u8BFB\u578B",
+  experience: "\u4F53\u9A8C\u578B"
+};
+function normalizeSurfaceMode(value) {
+  if (typeof value !== "string") return null;
+  const lower = value.trim().toLowerCase();
+  return SURFACE_MODES.includes(lower) ? lower : null;
+}
+function surfaceModeLabel(mode) {
+  return LABELS[mode];
+}
+function surfaceModeChoices() {
+  return SURFACE_MODES.map((m) => `${m}\uFF08${LABELS[m]}\uFF09`).join("\u3001");
+}
+
 // src/project.ts
 var PROJECT_DIR_NAME = ".tianshu-canvas";
 var projectEvents = new EventEmitter();
@@ -61808,7 +61828,13 @@ function normalizeComment(v2) {
 function isPageNode(n) {
   if (!n || typeof n !== "object") return false;
   const o = n;
-  return typeof o.id === "string" && isSafeId(o.id) && o.type === "page";
+  if (!(typeof o.id === "string" && isSafeId(o.id) && o.type === "page")) return false;
+  if (Object.hasOwn(o, "mode")) {
+    const mode = normalizeSurfaceMode(o.mode);
+    if (mode) o.mode = mode;
+    else delete o.mode;
+  }
+  return true;
 }
 function isEdge(e) {
   if (!e || typeof e !== "object") return false;
@@ -62180,6 +62206,7 @@ function tokensToCss(tokens) {
   let css = `/* \u7531 tokens.json \u751F\u6210\uFF0C\u8BF7\u52FF\u624B\u6539\u3002 */
 :root {
 ${lines.join("\n")}
+  color-scheme: light;
 }
 `;
   if (hasDarkMode(tokens)) {
@@ -62188,6 +62215,7 @@ ${lines.join("\n")}
 /* \u6DF1\u8272\u6A21\u5F0F\uFF1A\u7ED9\u6839\u5143\u7D20\u52A0 class="dark" \u5373\u5207\u6362\u3002 */
 .dark {
 ${darkLines.join("\n")}
+  color-scheme: dark;
 }
 `;
   }
@@ -65173,6 +65201,222 @@ function prototypeClasses() {
   return [...new Set(listPrototypes().flatMap((p) => read("prototypes", p.id).classes).concat(listDirections().flatMap((d) => read("directions", d.id).examples.filter((e) => !e.prototypeId).flatMap((e) => read("directions", e.resourceId).classes))).filter((cls) => cls.startsWith("tp-")))];
 }
 
+// src/rules/registry.ts
+var RULES = [
+  {
+    id: "overused-font",
+    category: "slop",
+    severity: "warning",
+    engine: "source",
+    name: "\u70C2\u5927\u8857\u5B57\u4F53",
+    description: "Inter\u3001Roboto\u3001Open Sans\u3001Lato\u3001Montserrat\u3001Fraunces\u3001Geist\u3001Plus Jakarta Sans\u3001Space Grotesk \u7B49\u5B57\u4F53\u88AB AI \u751F\u6210\u7684\u9875\u9762\u53CD\u590D\u4F7F\u7528\uFF0C\u5DF2\u7ECF\u5931\u53BB\u8FA8\u8BC6\u5EA6\u3002",
+    fix: "\u6362\u4E00\u4E2A\u6709\u6027\u683C\u7684\u5B57\u4F53\uFF0C\u6216\u4F7F\u7528\u5F53\u524D\u98CE\u683C\u7684\u5B57\u4F53\u6808\uFF08var(--ts-font-sans) / var(--ts-font-display)\uFF09\u3002",
+    origin: "crates/foundation/src/constants.rs:85",
+    free: true
+  },
+  {
+    id: "gradient-text",
+    category: "slop",
+    severity: "warning",
+    engine: "source",
+    name: "\u6E10\u53D8\u6587\u5B57",
+    description: "\u6E10\u53D8\u6587\u5B57\u662F\u88C5\u9970\u800C\u975E\u8868\u610F\uFF0C\u662F AI \u751F\u6210\u754C\u9762\u6700\u5E38\u89C1\u7684\u75D5\u8FF9\u4E4B\u4E00\uFF0C\u591A\u51FA\u73B0\u5728\u6807\u9898\u548C\u6570\u5B57\u4E0A\u3002",
+    fix: "\u7528\u7EAF\u8272\uFF1B\u5F3A\u8C03\u9760\u5B57\u91CD\u4E0E\u5B57\u53F7\uFF0C\u4E0D\u9760\u6E10\u53D8\u8272\u3002",
+    modes: { operate: "advisory", read: "off" },
+    origin: "crates/core/src/checks/rules.rs:1023",
+    free: true
+  },
+  {
+    id: "side-tab",
+    category: "slop",
+    severity: "warning",
+    engine: "source",
+    name: "\u4FA7\u8272\u6761",
+    description: "\u5706\u89D2\u76D2\u5B50\u4E0A\u753B\u4E00\u6761\u5355\u4FA7\u8272\u6761\uFF08\u5DE6\u4FA7\u6216\u53F3\u4FA7\u7684 accent \u7AD6\u6761\uFF09\uFF0C\u662F AI \u5361\u7247\u7684\u5178\u578B\u5957\u8DEF\u3002",
+    fix: "\u6539\u7528\u6574\u5708\u63CF\u8FB9\u3001\u80CC\u666F\u8272\u6DF1\u6D45\uFF0C\u6216\u5728\u524D\u9762\u653E\u4E00\u4E2A\u56FE\u6807/\u6807\u7B7E\u3002",
+    origin: "crates/core/src/checks/side_bar.rs",
+    free: true
+  },
+  {
+    id: "border-accent-on-rounded",
+    category: "slop",
+    severity: "warning",
+    engine: "source",
+    name: "\u5706\u89D2\u4E0A\u7684\u5F3A\u8C03\u8FB9\u6846",
+    description: "\u5706\u89D2\u5361\u7247\u914D\u4E00\u6761\u5F88\u7C97\u7684\u4E0A/\u4E0B\u5F3A\u8C03\u8FB9\u6846\uFF0C\u8FB9\u6846\u4E0E\u5706\u89D2\u4E92\u76F8\u51B2\u7A81\u3002",
+    fix: "\u53BB\u6389\u8FB9\u6846\u6539\u7528\u80CC\u666F\u8272\uFF0C\u6216\u964D\u4F4E\u5706\u89D2\u3002",
+    origin: "crates/core/src/checks/rules.rs:413",
+    free: true
+  },
+  {
+    id: "ai-color-palette",
+    category: "slop",
+    severity: "warning",
+    engine: "source",
+    name: "AI \u914D\u8272",
+    description: "\u7D2B\u7F57\u5170\u6E10\u53D8\u3001\u9752\u7EFF\u914D\u8FD1\u9ED1\uFF0C\u662F\u6700\u5BB9\u6613\u8FA8\u8BA4\u7684 AI \u751F\u6210\u914D\u8272\uFF1Bflat neon ink \u53E0\u5728\u6697\u5E95\u4E0A\u540C\u6837\u5982\u6B64\u3002",
+    fix: "\u4ECE\u4E3B\u9898\u672C\u8EAB\u53D6\u6750\uFF08\u884C\u4E1A\u6750\u6599\u3001\u771F\u5B9E\u5DE5\u5177\u3001\u5185\u5BB9\u672F\u8BED\uFF09\u5EFA\u7ACB\u914D\u8272\uFF0C\u4E0D\u8981\u7528\u9ED8\u8BA4\u7684\u7D2B\u84DD\u3002",
+    modes: { operate: "advisory", read: "off" },
+    origin: "crates/core/src/checks/rules.rs:969",
+    free: true
+  },
+  {
+    id: "cream-palette",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u5976\u6CB9\u7C73\u8272\u5E95",
+    description: '\u6696\u5976\u6CB9/\u7C73\u8272\u9875\u9762\u80CC\u666F\u5DF2\u7ECF\u6210\u4E86"\u6709\u54C1\u5473\u7684 AI \u9875\u9762"\u7684\u9ED8\u8BA4\u5E95\u8272\uFF0C\u5C5E\u4E8E\u6761\u4EF6\u53CD\u5C04\u5F0F\u9009\u62E9\u3002',
+    fix: "\u9009\u4E00\u4E2A\u6765\u81EA\u660E\u786E\u914D\u8272\u7684\u80CC\u666F\uFF0C\u800C\u4E0D\u662F\u5B89\u5168\u7684\u6696\u767D\u3002",
+    modes: { operate: "off", read: "off", experience: "on" },
+    origin: "crates/core/src/checks/measures.rs:392",
+    free: true
+  },
+  {
+    id: "gray-on-color",
+    category: "quality",
+    severity: "warning",
+    engine: "source",
+    name: "\u5F69\u8272\u5E95\u4E0A\u7684\u7070\u5B57",
+    description: "\u5F69\u8272\u80CC\u666F\u4E0A\u7528\u7070\u8272\u6587\u5B57\uFF0C\u4F1A\u663E\u5F97\u53D1\u7070\u3001\u53D1\u810F\uFF0C\u5BF9\u6BD4\u5EA6\u4E5F\u5E38\u5E38\u4E0D\u591F\u3002",
+    fix: "\u6539\u7528\u8BE5\u80CC\u666F\u8272\u7684\u66F4\u6DF1\u8272\u8C03\uFF0C\u6216\u7528\u767D\u8272/\u8FD1\u767D\u8272\u3002",
+    origin: "crates/core/src/checks/rules.rs (gray-on-color)",
+    free: true
+  },
+  {
+    id: "hard-offset-shadow",
+    category: "quality",
+    severity: "advisory",
+    engine: "source",
+    name: "\u786C\u504F\u79FB\u9634\u5F71",
+    description: "\u96F6\u6A21\u7CCA\u3001\u504F\u79FB \u22654px \u7684\u786C\u9634\u5F71\u3002\u5B83\u53EF\u4EE5\u662F\u65B0\u7C97\u91CE\u4E3B\u4E49\u65B9\u5411\u7684\u6709\u610F\u9009\u62E9\uFF0C\u4F46\u591A\u6570\u60C5\u51B5\u4E0B\u662F\u6CA1\u60F3\u6E05\u695A\u7684\u9ED8\u8BA4\u503C\u3002",
+    fix: "\u786E\u8BA4\u8FD9\u662F\u4E0D\u662F\u8BE5\u89C6\u89C9\u65B9\u5411\u7684\u9009\u62E9\uFF1B\u4E0D\u662F\u5C31\u6362\u6210\u5E26\u6A21\u7CCA\u7684\u67D4\u548C\u9634\u5F71\uFF0C\u6216\u53EA\u7528\u63CF\u8FB9\u3002",
+    origin: "crates/core/src/checks/hard_offset_shadow.rs",
+    free: true
+  },
+  {
+    id: "bounce-easing",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u56DE\u5F39\u7F13\u52A8",
+    description: "bounce / elastic \u7F13\u52A8\u663E\u5F97\u8FC7\u65F6\u800C\u5EC9\u4EF7\uFF1B\u771F\u5B9E\u7269\u4F53\u662F\u5E73\u6ED1\u51CF\u901F\u7684\u3002",
+    fix: "\u7528\u6307\u6570 ease-out\uFF08\u5982 cubic-bezier(.16,1,.3,1)\uFF09\u3002",
+    modes: { operate: "advisory", read: "off" },
+    origin: "crates/detect/src/regex_matchers.rs",
+    free: true
+  },
+  {
+    id: "repeating-stripes-gradient",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u91CD\u590D\u6E10\u53D8\u6761\u7EB9",
+    description: "\u7528 repeating-gradient \u753B\u88C5\u9970\u6027\u6761\u7EB9\uFF0C\u662F\u751F\u6210\u5F0F\u754C\u9762\u7684\u5E38\u89C1\u7B7E\u540D\u3002",
+    fix: "\u6362\u6210\u6709\u610F\u56FE\u7684\u6750\u8D28\uFF0C\u6216\u4FDD\u6301\u7EAF\u8272\u3002",
+    origin: "crates/core/src/checks/html_patterns.rs:463",
+    free: true
+  },
+  {
+    id: "codex-grid-background",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u88C5\u9970\u7F51\u683C\u5E95\u7EB9",
+    description: "\u7528\u6781\u7EC6\u7684\u7EBF\u6027\u6E10\u53D8\u53E0\u51FA\u7F51\u683C\u6216\u7EBF\u9635\u80CC\u666F\uFF0C\u662F\u751F\u6210\u5F0F\u754C\u9762\u7684\u5E38\u89C1\u7B7E\u540D\u3002",
+    fix: "\u7F51\u683C\u53EA\u7559\u7ED9\u771F\u6B63\u7684\u753B\u5E03\u3001\u5730\u56FE\u3001\u84DD\u56FE\u6216\u6D4B\u91CF\u754C\u9762\uFF1B\u5176\u5B83\u9875\u9762\u7528\u4EA7\u54C1\u7ED3\u6784\u6216\u7EAF\u8272\u3002",
+    origin: "crates/core/src/checks/css_scan.rs:270",
+    free: true
+  },
+  {
+    id: "marquee",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u81EA\u52A8\u6EDA\u52A8\u8DD1\u9A6C\u706F",
+    description: "\u6301\u7EED\u81EA\u52A8\u6EDA\u52A8\u7684\u5185\u5BB9\u4F1A\u62A2\u8D70\u6CE8\u610F\u529B\uFF0C\u5E76\u59CB\u7EC8\u85CF\u8D77\u4E00\u534A\u5185\u5BB9\u3002",
+    fix: "\u52A8\u6548\u53EA\u7559\u7ED9\u771F\u6B63\u5728\u53D8\u5316\u7684\u5185\u5BB9\uFF1B\u8BA9\u8BFB\u8005\u6309\u81EA\u5DF1\u7684\u8282\u594F\u79FB\u52A8\u3002",
+    modes: { read: "off", experience: "advisory" },
+    origin: "crates/core/src/checks/html_patterns.rs (marquee)",
+    free: true
+  },
+  {
+    id: "monotonous-spacing",
+    category: "quality",
+    severity: "warning",
+    engine: "source",
+    name: "\u95F4\u8DDD\u5355\u8C03",
+    description: "\u6240\u6709\u95F4\u8DDD\u90FD\u662F\u540C\u4E00\u4E2A\u503C\uFF0C\u6CA1\u6709\u8282\u594F\uFF1A\u76F8\u5173\u9879\u4E0D\u7D27\u51D1\u3001\u533A\u5757\u95F4\u4E0D\u5206\u79BB\u3002",
+    fix: "\u76F8\u5173\u5143\u7D20\u7528\u5C0F\u95F4\u8DDD\u5F52\u7EC4\uFF0C\u533A\u5757\u4E4B\u95F4\u7528\u5927\u95F4\u8DDD\u5206\u5F00\u3002",
+    origin: "crates/core/src/checks/html_patterns.rs:759",
+    free: true
+  },
+  {
+    id: "em-dash-overuse",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u7834\u6298\u53F7\u8FC7\u5BC6",
+    description: "\u6B63\u6587\u91CC\u7834\u6298\u53F7\u5BC6\u5EA6\u8FC7\u9AD8\uFF08\u7EA6\u6BCF 500 \u5B57\u7B26\u4E00\u4E2A\uFF09\uFF0C\u662F AI \u7684\u53E5\u5F0F\u4E60\u60EF\u3002",
+    fix: "\u6539\u7528\u9017\u53F7\u3001\u5192\u53F7\u3001\u53E5\u53F7\u6216\u62EC\u53F7\u3002",
+    origin: "crates/detect/src/regex_matchers.rs (em-dash-overuse)",
+    free: true
+  },
+  {
+    id: "marketing-buzzword",
+    category: "slop",
+    severity: "warning",
+    engine: "source",
+    name: "\u8425\u9500\u9ED1\u8BDD",
+    description: "streamline / empower / supercharge / \u4E00\u7AD9\u5F0F / \u65E0\u7F1D / \u6781\u81F4 \u8FD9\u7C7B\u8BCD\u662F\u5373\u65F6\u7684 AI \u5473\u4FE1\u53F7\u3002",
+    fix: "\u7528\u5177\u4F53\u7684\u52A8\u8BCD\u548C\u540D\u8BCD\uFF0C\u8BF4\u6E05\u4EA7\u54C1\u5B9E\u9645\u505A\u4E86\u4EC0\u4E48\u3002",
+    origin: "crates/detect/src/regex_matchers.rs (marketing-buzzword)",
+    free: true
+  },
+  {
+    id: "aphoristic-cadence",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u683C\u8A00\u8154",
+    description: "\u8FDE\u7EED\u591A\u4E2A\u533A\u5757\u90FD\u4EE5\u300CX\u3002\u4E0D\u662F Y\u3002\u300D\u8FD9\u7C7B\u5BF9\u4ED7\u77ED\u53E5\u6536\u5C3E\uFF0C\u8BFB\u8D77\u6765\u662F AI \u8154\u800C\u4E0D\u662F\u4EBA\u58F0\u3002",
+    fix: "\u4E00\u6B21\u53EF\u4EE5\uFF1B\u628A\u8FD9\u4E2A\u53E5\u5F0F\u7559\u7ED9\u771F\u6B63\u9700\u8981\u5F3A\u8C03\u7684\u90A3\u4E00\u5904\u3002",
+    modes: { operate: "off", read: "off" },
+    origin: "crates/detect/src/regex_matchers.rs (aphoristic-cadence)",
+    free: true
+  },
+  {
+    id: "radial-halo",
+    category: "slop",
+    severity: "advisory",
+    engine: "source",
+    name: "\u5F84\u5411\u5149\u6655",
+    description: '\u6697\u5E95\u9875\u9762\u4E0A\u7528\u9971\u548C\u8272\u5F84\u5411\u6E10\u53D8\u505A\u88C5\u9970\u5149\u6655\uFF0C\u662F"\u6697\u8272+\u53D1\u5149"\u5957\u8DEF\u7684\u6E10\u53D8\u7248\u672C\u3002',
+    fix: "\u7528\u7EAF\u8272\u6216\u8F7B\u5FAE\u504F\u79FB\u7684\u80CC\u666F\uFF1B\u9700\u8981\u5149\u5C31\u505A\u6709\u660E\u786E\u8F7D\u4F53\u7684\u6750\u8D28\u5149\u3002",
+    modes: { operate: "off", read: "off", experience: "on" },
+    origin: "crates/core/src/checks/css_scan.rs:350",
+    free: true
+  },
+  {
+    id: "emoji-icon",
+    category: "quality",
+    severity: "warning",
+    engine: "source",
+    name: "emoji \u5F53\u56FE\u6807",
+    description: "\u7528 emoji \u5145\u5F53\u56FE\u6807\u6216\u5206\u8282\u7B26\u53F7\uFF0C\u6E32\u67D3\u4E0D\u7A33\u5B9A\uFF0C\u4E5F\u65E0\u6CD5\u4E0E\u56FE\u6807\u7CFB\u7EDF\u4FDD\u6301\u4E00\u81F4\u3002",
+    fix: '\u7528 <svg data-icon="\u540D\u5B57" class="ts-icon"> \u4ECE\u56FE\u6807\u76EE\u5F55\u53D6\u56FE\u3002',
+    origin: "\u9879\u76EE\u89C4\u5219\uFF08AGENTS.md\uFF1A\u7981\u6B62 emoji \u56FE\u6807\uFF09",
+    free: true
+  }
+];
+var BY_ID = new Map(RULES.map((r) => [r.id, r]));
+function getRule(id) {
+  return BY_ID.get(id);
+}
+function ruleIds() {
+  return RULES.map((r) => r.id);
+}
+
 // src/cssParse.ts
 var HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g;
 var FUNC_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi;
@@ -65256,6 +65500,146 @@ function declarations(text3) {
   if (start < text3.length) flush(text3.length);
   return out;
 }
+function atRuleKind(preamble) {
+  const name = /^@([A-Za-z-]+)/.exec(preamble.trimStart())?.[1]?.toLowerCase() ?? "";
+  if (name === "media" || name === "supports" || name === "layer" || name === "container" || name === "scope") return "at";
+  if (name.endsWith("keyframes")) return "keyframes";
+  if (name === "font-face" || name === "page" || name === "counter-style" || name === "property" || name === "font-feature-values") return "rule-at";
+  return "opaque";
+}
+function ruleBlocks(text3, start = 0) {
+  const out = [];
+  const stack = [];
+  let depth = 0;
+  let quote = "";
+  let preambleStart = 0;
+  const atRuleOf = () => {
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const frame = stack[i];
+      if (frame.kind === "at") return frame.selector;
+    }
+    return null;
+  };
+  const inSkipped = () => stack.some((f) => f.kind === "keyframes" || f.kind === "opaque");
+  const blankRanges = (body, ranges) => {
+    if (ranges.length === 0) return body;
+    const chars = body.split("");
+    for (const [from2, to] of ranges) {
+      for (let i = Math.max(0, from2); i < Math.min(chars.length, to); i++) {
+        if (chars[i] !== "\n") chars[i] = " ";
+      }
+    }
+    return chars.join("");
+  };
+  for (let i = 0; i < text3.length; i++) {
+    const ch = text3[i];
+    if (quote) {
+      if (ch === quote && text3[i - 1] !== "\\") quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth++;
+      continue;
+    }
+    if (ch === ")") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth > 0) continue;
+    if (ch === "{") {
+      const preamble = text3.slice(preambleStart, i);
+      const raw = preamble.trim();
+      const isAt = raw.startsWith("@");
+      const parentRule = [...stack].reverse().find((f) => f.kind === "rule" || f.kind === "rule-at") ?? null;
+      const selector = !isAt && parentRule ? raw.includes("&") ? raw.split("&").join(parentRule.selector) : `${parentRule.selector} ${raw}` : raw;
+      const frame = {
+        kind: isAt ? atRuleKind(preamble) : "rule",
+        selector,
+        selectorOffset: start + preambleStart + (preamble.length - preamble.trimStart().length),
+        bodyStart: i + 1,
+        atRule: atRuleOf(),
+        children: []
+      };
+      stack.push(frame);
+      preambleStart = i + 1;
+      continue;
+    }
+    if (ch === ";") {
+      preambleStart = i + 1;
+      continue;
+    }
+    if (ch === "}") {
+      const frame = stack.pop();
+      const parent = stack.length > 0 ? stack[stack.length - 1] : null;
+      if (frame && parent) parent.children.push([frame.bodyStart, i]);
+      if (frame && (frame.kind === "rule" || frame.kind === "rule-at") && !inSkipped()) {
+        const body = blankRanges(
+          text3.slice(frame.bodyStart, i),
+          frame.children.map(([from2, to]) => [from2 - frame.bodyStart, to - frame.bodyStart])
+        );
+        const decls = declarations(body).map((d) => ({ ...d, offset: d.offset + start + frame.bodyStart }));
+        if (decls.length) {
+          out.push({
+            selector: frame.selector,
+            selectorOffset: frame.selectorOffset,
+            start: start + frame.bodyStart,
+            end: start + i,
+            decls,
+            atRule: frame.atRule
+          });
+        }
+      }
+      preambleStart = i + 1;
+      continue;
+    }
+  }
+  if (stack.length === 0) {
+    const tail = text3.slice(preambleStart);
+    if (tail.includes(":") && !tail.trimStart().startsWith("@")) {
+      const decls = declarations(tail).map((d) => ({ ...d, offset: d.offset + start + preambleStart }));
+      if (decls.length) {
+        out.push({
+          selector: "",
+          selectorOffset: start + preambleStart,
+          start: start + preambleStart,
+          end: start + text3.length,
+          decls,
+          atRule: null
+        });
+      }
+    }
+  }
+  out.sort((a2, b2) => a2.selectorOffset - b2.selectorOffset);
+  return out;
+}
+var TAG_WITH_ATTRS = /<([A-Za-z][A-Za-z0-9-]*)\b([^>]*)>/g;
+var STYLE_ATTR = /(?<![\w-])style\s*=\s*(?:"([^"]*)"|'([^']*)')/i;
+function inlineStyleBlocks(maskedHtml) {
+  const out = [];
+  for (const tagMatch of maskedHtml.matchAll(TAG_WITH_ATTRS)) {
+    const attrs = tagMatch[2] ?? "";
+    const styleMatch = STYLE_ATTR.exec(attrs);
+    if (!styleMatch) continue;
+    const value = styleMatch[1] ?? styleMatch[2] ?? "";
+    const tagStart = tagMatch.index ?? 0;
+    const attrOffset = tagStart + "<".length + (tagMatch[1] ?? "").length + attrs.indexOf(styleMatch[0]);
+    const valueOffset = attrOffset + styleMatch[0].indexOf(value);
+    const classMatch = /class\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs);
+    const classes = (classMatch?.[1] ?? classMatch?.[2] ?? "").split(/\s+/).filter(Boolean);
+    out.push({
+      tag: (tagMatch[1] ?? "").toLowerCase(),
+      classes,
+      attrs,
+      decls: declarations(value).map((d) => ({ ...d, offset: d.offset + valueOffset })),
+      offset: valueOffset
+    });
+  }
+  return out;
+}
 function lineIndex(html) {
   const index = [0];
   for (let i = 0; i < html.length; i++) if (html[i] === "\n") index.push(i + 1);
@@ -65285,9 +65669,1207 @@ function pxValues(value) {
   return [...found];
 }
 
+// src/rules/cssShared.ts
+function parseBorderSide(value) {
+  if (value.includes("var(")) return null;
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+  let width = 3;
+  let style = "none";
+  const colors = [];
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    if (/^-?\d*\.?\d+px$/.test(lower) || lower === "thin" || lower === "medium" || lower === "thick") {
+      width = lower === "thin" ? 1 : lower === "medium" ? 3 : lower === "thick" ? 5 : Number(lower.replace("px", ""));
+    } else if (["none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"].includes(lower)) {
+      style = lower;
+    } else {
+      colors.push(part);
+    }
+  }
+  if (style === "none" && colors.length === 0 && width > 0) style = "solid";
+  if (style === "none" || style === "hidden") return { width: 0, style, color: colors.join(" ") };
+  return { width, style, color: colors.join(" ") };
+}
+function isTransparentish(value) {
+  return /\btransparent\b/i.test(value) || /rgba?\([^)]*,\s*0(?:\.0+)?\s*\)/i.test(value);
+}
+function pxOf(value) {
+  const v2 = value.trim();
+  if (v2 === "0") return 0;
+  const m = /^(-?\d*\.?\d+)px$/i.exec(v2);
+  return m ? Number(m[1]) : null;
+}
+function declarationOf(decls, prop) {
+  return decls.find((d) => d.prop === prop);
+}
+function originalValue(ctx, decl) {
+  return ctx.html.slice(decl.offset, decl.offset + decl.raw.length);
+}
+function isNeutralColorValue(value) {
+  const v2 = value.trim().toLowerCase();
+  if (v2 === "currentcolor" || v2 === "inherit") return false;
+  if (/\b(?:black|white|gray|grey|silver|transparent)\b/.test(v2)) return true;
+  const hex = /^#([0-9a-f]{3,8})$/.exec(v2);
+  if (hex) {
+    const h = hex[1];
+    const full = h.length === 3 || h.length === 4 ? h.split("").map((c) => c + c).join("") : h;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b2 = parseInt(full.slice(4, 6), 16);
+    return Math.max(r, g, b2) - Math.min(r, g, b2) <= 12;
+  }
+  const rgb = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(v2);
+  if (rgb) {
+    const [r, g, b2] = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+    return Math.max(r, g, b2) - Math.min(r, g, b2) <= 12;
+  }
+  return false;
+}
+
+// src/rules/cssBorders.ts
+var SIDE_PROPS = [
+  { prop: "border-left", side: "left" },
+  { prop: "border-right", side: "right" },
+  { prop: "border-inline-start", side: "left" },
+  { prop: "border-inline-end", side: "right" }
+];
+var OPPOSITE = [
+  { prop: "border-left", other: ["border-right", "border-top", "border-bottom", "border-block-start", "border-block-end", "border-inline-end"] },
+  { prop: "border-right", other: ["border-left", "border-top", "border-bottom", "border-block-start", "border-block-end", "border-inline-start"] },
+  { prop: "border-inline-start", other: ["border-inline-end", "border-top", "border-bottom", "border-block-start", "border-block-end", "border-left"] },
+  { prop: "border-inline-end", other: ["border-inline-start", "border-top", "border-bottom", "border-block-start", "border-block-end", "border-right"] }
+];
+var CIRCLE_TAGS = /* @__PURE__ */ new Set(["hr"]);
+function checkBorders(ctx) {
+  const out = [];
+  for (const block of ctx.blocks) {
+    const radius = radiusPx(block.decls);
+    const uniform = hasUniformBorder(block.decls);
+    for (const { prop, side } of SIDE_PROPS) {
+      const decl = declarationOf(block.decls, prop);
+      if (!decl) continue;
+      const parsed = parseBorderSide(decl.value);
+      if (!parsed || parsed.width < 1 || parsed.width > 12) continue;
+      if (isTransparentish(decl.value)) continue;
+      const others = OPPOSITE.find((o) => o.prop === prop).other;
+      const otherWidths = others.map((p) => declarationOf(block.decls, p)).filter((d) => Boolean(d)).map((d) => parseBorderSide(d.value)?.width ?? 0);
+      const maxOther = otherWidths.length ? Math.max(...otherWidths) : 0;
+      const isBar = maxOther === 0 || maxOther <= 1 || parsed.width >= maxOther * 2;
+      if (!isBar || uniform) continue;
+      if (radius < 4) continue;
+      if (looksLikeCircle(block.selector, block.decls)) continue;
+      out.push({
+        rule: "side-tab",
+        offset: block.selectorOffset,
+        message: `\u5706\u89D2\u76D2\u5B50\u4E0A\u7684\u5355\u4FA7\u8272\u6761\uFF08${side} ${parsed.width}px + \u5706\u89D2 ${radius}px\uFF09\uFF1B\u6539\u7528\u6574\u5708\u63CF\u8FB9\u3001\u80CC\u666F\u8272\u6DF1\u6D45\uFF0C\u6216\u5728\u524D\u9762\u653E\u56FE\u6807/\u6807\u7B7E`,
+        severity: "warning"
+      });
+      break;
+    }
+    for (const prop of ["border-top", "border-bottom"]) {
+      const decl = declarationOf(block.decls, prop);
+      if (!decl) continue;
+      const parsed = parseBorderSide(decl.value);
+      if (!parsed || parsed.width < 2) continue;
+      if (isTransparentish(decl.value)) continue;
+      if (isNeutralColorValue(parsed.color)) continue;
+      if (radius <= 0) continue;
+      if (uniform) continue;
+      if (CIRCLE_TAGS.has(block.selector)) continue;
+      out.push({
+        rule: "border-accent-on-rounded",
+        offset: block.selectorOffset,
+        message: `\u5706\u89D2 ${radius}px \u4E0A\u53E0 ${parsed.width}px \u7684${prop === "border-top" ? "\u4E0A" : "\u4E0B"}\u5F3A\u8C03\u8FB9\u6846\uFF1B\u8FB9\u6846\u4E0E\u5706\u89D2\u4E92\u76F8\u51B2\u7A81\uFF0C\u53BB\u6389\u5176\u4E2D\u4E00\u4E2A`,
+        severity: "warning"
+      });
+      break;
+    }
+  }
+  return out;
+}
+function radiusPx(decls) {
+  for (const d of decls) {
+    if (!/^border(?:-[a-z]+)*-radius$/.test(d.prop)) continue;
+    const values = d.value.split(/[\s/]+/).map((v2) => pxOf(v2)).filter((n) => n !== null && n > 0);
+    if (values.length) return Math.max(...values);
+  }
+  return 0;
+}
+function hasUniformBorder(decls) {
+  const widths = ["border-top", "border-right", "border-bottom", "border-left"].map((prop) => {
+    const d = declarationOf(decls, prop);
+    return d ? parseBorderSide(d.value)?.width ?? null : null;
+  });
+  if (widths.some((w2) => w2 === null)) return false;
+  const first2 = widths[0];
+  return first2 > 1 && widths.every((w2) => w2 === first2);
+}
+function looksLikeCircle(selector, decls) {
+  const radiusDecl = decls.find((d) => /^border(?:-[a-z]+)*-radius$/.test(d.prop));
+  if (!radiusDecl) return false;
+  const raw = radiusDecl.value;
+  if (/\b50%/.test(raw) || /\b9999px/.test(raw) || /\b999px/.test(raw)) return true;
+  const aspect = declarationOf(decls, "aspect-ratio");
+  if (aspect && /^\s*1(\s*\/\s*1)?\s*$/.test(aspect.value)) {
+    const px = radiusPx(decls);
+    if (px >= 40) return true;
+  }
+  return /\b(avatar|dot|pill|circle|badge)\b/i.test(selector);
+}
+
+// src/rules/colorMath.ts
+function parseHex2(value) {
+  const m = /^#([0-9a-fA-F]{3,8})$/.exec(value.trim());
+  if (!m) return null;
+  const hex = m[1].toLowerCase();
+  if (hex.length === 3 || hex.length === 4) {
+    const r = parseInt(hex[0] + hex[0], 16);
+    const g = parseInt(hex[1] + hex[1], 16);
+    const b2 = parseInt(hex[2] + hex[2], 16);
+    const a2 = hex.length === 4 ? parseInt(hex[3] + hex[3], 16) / 255 : 1;
+    return { r, g, b: b2, a: a2 };
+  }
+  if (hex.length === 6 || hex.length === 8) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b2 = parseInt(hex.slice(4, 6), 16);
+    const a2 = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
+    return { r, g, b: b2, a: a2 };
+  }
+  return null;
+}
+function clamp012(n) {
+  return Math.min(1, Math.max(0, n));
+}
+function to2552(n, scale = 255) {
+  return Math.round(clamp012(n / scale) * 255);
+}
+function parseRgbFunction(value) {
+  const m = /^rgba?\(([^)]+)\)$/i.exec(value.trim());
+  if (!m) return null;
+  const body = m[1];
+  const [channels, alphaPart] = body.includes("/") ? body.split("/") : [body, ""];
+  const parts = channels.split(/[\s,]+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const channel2 = (raw) => {
+    if (raw.endsWith("%")) return to2552(Number(raw.slice(0, -1)), 100);
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.round(Math.min(255, Math.max(0, n))) : null;
+  };
+  const r = channel2(parts[0]);
+  const g = channel2(parts[1]);
+  const b2 = channel2(parts[2]);
+  if (r === null || g === null || b2 === null) return null;
+  let a2 = 1;
+  const alphaRaw = alphaPart || parts[3];
+  if (alphaRaw !== void 0 && alphaRaw !== "") {
+    const n = alphaRaw.trim().endsWith("%") ? Number(alphaRaw.trim().slice(0, -1)) / 100 : Number(alphaRaw.trim());
+    if (Number.isFinite(n)) a2 = clamp012(n);
+  }
+  return { r, g, b: b2, a: a2 };
+}
+function parseHslFunction(value) {
+  const m = /^hsla?\(([^)]+)\)$/i.exec(value.trim());
+  if (!m) return null;
+  const body = m[1];
+  const [channels, alphaPart] = body.includes("/") ? body.split("/") : [body, ""];
+  const parts = channels.split(/[\s,]+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const h = Number(parts[0].replace(/deg$/i, ""));
+  const s = Number(parts[1].replace("%", "")) / 100;
+  const l = Number(parts[2].replace("%", "")) / 100;
+  if (![h, s, l].every(Number.isFinite)) return null;
+  const a2 = alphaPart ? alphaPart.trim().endsWith("%") ? Number(alphaPart.trim().slice(0, -1)) / 100 : Number(alphaPart.trim()) : 1;
+  return { ...hslToRgb2(h, s, l), a: Number.isFinite(a2) ? clamp012(a2) : 1 };
+}
+function hslToRgb2(h, s, l) {
+  const hue = (h % 360 + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x2 = c * (1 - Math.abs(hue / 60 % 2 - 1));
+  const mm = l - c / 2;
+  let rgb;
+  if (hue < 60) rgb = [c, x2, 0];
+  else if (hue < 120) rgb = [x2, c, 0];
+  else if (hue < 180) rgb = [0, c, x2];
+  else if (hue < 240) rgb = [0, x2, c];
+  else if (hue < 300) rgb = [x2, 0, c];
+  else rgb = [c, 0, x2];
+  return { r: Math.round((rgb[0] + mm) * 255), g: Math.round((rgb[1] + mm) * 255), b: Math.round((rgb[2] + mm) * 255) };
+}
+function parseOklchFunction(value) {
+  const m = /^oklch\(\s*([^)]+)\)$/i.exec(value.trim());
+  if (!m) return null;
+  const body = m[1];
+  const [channels, alphaPart] = body.includes("/") ? body.split("/") : [body, ""];
+  const parts = channels.split(/\s+/).filter(Boolean);
+  if (parts.length < 3) return null;
+  const l = parts[0].endsWith("%") ? Number(parts[0].slice(0, -1)) / 100 : Number(parts[0]);
+  const c = Number(parts[1]);
+  const h = Number(parts[2].replace(/deg$/i, ""));
+  if (![l, c, h].every(Number.isFinite)) return null;
+  const hr = h * Math.PI / 180;
+  const a2 = c * Math.cos(hr);
+  const bb = c * Math.sin(hr);
+  const L2 = l + 0.3963377774 * a2 + 0.2158037573 * bb;
+  const M = l - 0.1055613458 * a2 - 0.0638541728 * bb;
+  const S = l - 0.0894841775 * a2 - 1.291485548 * bb;
+  const l3 = L2 * L2 * L2;
+  const m3 = M * M * M;
+  const s3 = S * S * S;
+  const lin = [
+    4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3,
+    -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3,
+    -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3
+  ];
+  const gamma = (u) => u <= 31308e-7 ? 12.92 * u : 1.055 * Math.pow(u, 1 / 2.4) - 0.055;
+  const alpha = alphaPart ? alphaPart.trim().endsWith("%") ? Number(alphaPart.trim().slice(0, -1)) / 100 : Number(alphaPart.trim()) : 1;
+  return {
+    r: Math.round(clamp012(gamma(lin[0])) * 255),
+    g: Math.round(clamp012(gamma(lin[1])) * 255),
+    b: Math.round(clamp012(gamma(lin[2])) * 255),
+    a: Number.isFinite(alpha) ? clamp012(alpha) : 1
+  };
+}
+function parseColor2(value) {
+  const v2 = value.trim();
+  if (!v2 || v2.includes("var(") || v2.includes("currentColor") || v2.includes("color-mix")) return null;
+  const named = {
+    white: "#ffffff",
+    black: "#000000",
+    transparent: "#00000000",
+    red: "#ff0000",
+    green: "#008000",
+    blue: "#0000ff",
+    gray: "#808080",
+    grey: "#808080",
+    cream: "#fffdd0",
+    beige: "#f5f5dc"
+  };
+  const direct = parseHex2(v2);
+  if (direct) return direct;
+  const rgb = parseRgbFunction(v2);
+  if (rgb) return rgb;
+  const hsl = parseHslFunction(v2);
+  if (hsl) return hsl;
+  const oklch = parseOklchFunction(v2);
+  if (oklch) return oklch;
+  const namedHex = named[v2.toLowerCase()];
+  return namedHex ? parseHex2(namedHex) : null;
+}
+function channelSpread(c) {
+  return Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
+}
+function hueOf(c) {
+  const r = c.r / 255;
+  const g = c.g / 255;
+  const b2 = c.b / 255;
+  const max = Math.max(r, g, b2);
+  const min = Math.min(r, g, b2);
+  const d = max - min;
+  if (d === 0) return 0;
+  let h;
+  if (max === r) h = (g - b2) / d % 6;
+  else if (max === g) h = (b2 - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return (h * 60 % 360 + 360) % 360;
+}
+function saturationOf(c) {
+  const r = c.r / 255;
+  const g = c.g / 255;
+  const b2 = c.b / 255;
+  const max = Math.max(r, g, b2);
+  const min = Math.min(r, g, b2);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return 0;
+  return d / (1 - Math.abs(2 * l - 1)) * 100;
+}
+function relativeLuminance(c) {
+  const srgb = [c.r, c.g, c.b].map((v2) => {
+    const u = v2 / 255;
+    return u <= 0.03928 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+}
+function isCreamColor(c) {
+  const min = Math.min(c.r, c.g, c.b);
+  return min >= 209 && c.r >= c.g && c.g >= c.b && c.r - c.b >= 6 && c.r - c.b <= 48;
+}
+function isNeutralGray(c) {
+  if (channelSpread(c) > 30) return false;
+  return saturationOf(c) <= 12;
+}
+var PURPLE_TELL_HEXES = /* @__PURE__ */ new Set([
+  "7c3aed",
+  "8b5cf6",
+  "a855f7",
+  "9333ea",
+  "7e22ce",
+  "6d28d9",
+  "6366f1",
+  "764ba2",
+  "667eea"
+]);
+function colorsIn(value) {
+  const out = [];
+  for (const m of value.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
+    const c = parseHex2(m[0]);
+    if (c) out.push({ at: m.index ?? 0, rgba: c });
+  }
+  for (const m of value.matchAll(/\b(?:rgba?|hsla?|oklch)\([^)]*\)/gi)) {
+    const c = parseColor2(m[0]);
+    if (c) out.push({ at: m.index ?? 0, rgba: c });
+  }
+  for (const m of value.matchAll(/\btransparent\b/gi)) {
+    out.push({ at: m.index ?? 0, rgba: { r: 0, g: 0, b: 0, a: 0 } });
+  }
+  return out.sort((a2, b2) => a2.at - b2.at).map((entry) => entry.rgba);
+}
+
+// src/rules/decls.ts
+function allDeclarations(ctx) {
+  return [...ctx.blocks.flatMap((b2) => b2.decls), ...ctx.inlineDecls];
+}
+
+// src/rules/cssColor.ts
+function styleBrandIsTell(ctx) {
+  if (!ctx.manifest) return false;
+  const entry = ctx.manifest.resolvedSemantic?.["color.action.primary"];
+  if (!entry?.value) return false;
+  const c = parseColor2(entry.value);
+  if (!c) return false;
+  const hex = [c.r, c.g, c.b].map((v2) => v2.toString(16).padStart(2, "0")).join("");
+  if (PURPLE_TELL_HEXES.has(hex)) return true;
+  const hue = hueOf(c);
+  return channelSpread(c) >= 30 && hue >= 260 && hue <= 310;
+}
+function styleCanvasIsCream(ctx) {
+  if (!ctx.manifest) return false;
+  const entry = ctx.manifest.resolvedSemantic?.["color.bg.canvas"];
+  if (!entry?.value) return false;
+  const c = parseColor2(entry.value);
+  return c ? isCreamColor(c) : false;
+}
+function isTellColor(c) {
+  if (channelSpread(c) < 30) return false;
+  const hue = hueOf(c);
+  const sat = saturationOf(c);
+  const purple = hue >= 260 && hue <= 310 && sat >= 50;
+  const cyan = hue >= 170 && hue <= 197 && sat >= 40;
+  return purple || cyan;
+}
+function checkAiPalette(ctx) {
+  if (styleBrandIsTell(ctx)) return [];
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const pageDecls = allDeclarations(ctx);
+  for (const decl of pageDecls) {
+    if (decl.value.includes("var(")) continue;
+    const relevant = /^(?:color|background(?:-color|-image)?|border(?:-[a-z]+)*(?:-color)?|fill|stroke)$/.test(decl.prop);
+    if (!relevant) continue;
+    for (const m of decl.value.matchAll(/#([0-9a-fA-F]{3,8})\b/g)) {
+      const hex = m[1].toLowerCase();
+      const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+      if (!PURPLE_TELL_HEXES.has(full)) continue;
+      const key = `${decl.offset}:${full}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        rule: "ai-color-palette",
+        offset: decl.offset,
+        message: `AI \u751F\u6210\u754C\u9762\u7684\u5178\u578B\u914D\u8272 #${full}\uFF08\u7D2B\u7F57\u5170/\u975B\u84DD\u7CFB\uFF09\uFF1B\u4ECE\u4E3B\u9898\u672C\u8EAB\u53D6\u6750\u5EFA\u7ACB\u914D\u8272`,
+        severity: "warning"
+      });
+      break;
+    }
+    if (/gradient\(/i.test(decl.value)) {
+      const stops = colorsIn(decl.value);
+      if (stops.length >= 2) {
+        const tell = stops.filter((c) => isTellColor(c));
+        if (tell.length >= Math.ceil(stops.length / 2)) {
+          out.push({
+            rule: "ai-color-palette",
+            offset: decl.offset,
+            message: "\u6E10\u53D8\u7684\u4E3B\u8272\u843D\u5728\u9752\u7EFF/\u7D2B\u7F57\u5170 tell \u5E26\uFF1B\u8FD9\u7C7B\u6E10\u53D8\u662F AI \u751F\u6210\u754C\u9762\u6700\u660E\u663E\u7684\u75D5\u8FF9",
+            severity: "warning"
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+function checkCreamPalette(ctx) {
+  if (styleCanvasIsCream(ctx)) return [];
+  for (const block of ctx.blocks) {
+    if (!/(?:^|,)\s*(?:html|body|:root)\b/i.test(block.selector)) continue;
+    for (const prop of ["background", "background-color"]) {
+      const decl = declarationOf(block.decls, prop);
+      if (!decl) continue;
+      const c = parseColor2(decl.value.split(/\s+/)[0] ?? "");
+      if (!c) continue;
+      if (isCreamColor(c)) {
+        return [
+          {
+            rule: "cream-palette",
+            offset: decl.offset,
+            message: `\u5976\u6CB9/\u7C73\u8272\u9875\u9762\u5E95\u8272 rgb(${c.r}, ${c.g}, ${c.b}) \u662F"\u6709\u54C1\u5473\u7684 AI \u9875\u9762"\u7684\u9ED8\u8BA4\u9009\u62E9\uFF1B\u6362\u6210\u6765\u81EA\u660E\u786E\u914D\u8272\u7684\u80CC\u666F`,
+            severity: "advisory"
+          }
+        ];
+      }
+    }
+  }
+  return [];
+}
+function checkGrayOnColor(ctx) {
+  const out = [];
+  for (const block of ctx.blocks) {
+    const bgDecl = declarationOf(block.decls, "background-color") ?? declarationOf(block.decls, "background");
+    const fgDecl = declarationOf(block.decls, "color");
+    if (!bgDecl || !fgDecl) continue;
+    const bg = parseColor2(bgDecl.value.split(/\s+/)[0] ?? "");
+    const fg = parseColor2(fgDecl.value.split(/\s+/)[0] ?? "");
+    if (!bg || !fg) continue;
+    if (bg.a < 0.5) continue;
+    if (channelSpread(bg) < 12) continue;
+    if (!isNeutralGray(fg)) continue;
+    if (fg.r >= 240 && fg.g >= 240 && fg.b >= 240) continue;
+    out.push({
+      rule: "gray-on-color",
+      offset: fgDecl.offset,
+      message: "\u5F69\u8272\u80CC\u666F\u4E0A\u7528\u7070\u8272\u6587\u5B57\u4F1A\u53D1\u7070\u53D1\u810F\uFF1B\u6539\u7528\u8BE5\u80CC\u666F\u8272\u7684\u66F4\u6DF1\u8272\u8C03\uFF0C\u6216\u7528\u8FD1\u767D\u8272",
+      severity: "warning"
+    });
+  }
+  return out;
+}
+function checkGradientText(ctx) {
+  const out = [];
+  for (const block of ctx.blocks) {
+    const clip = block.decls.find((d) => /^(?:-webkit-)?background-clip$/.test(d.prop));
+    if (!clip || !/\btext\b/i.test(clip.value)) continue;
+    const image = block.decls.find((d) => /^background(?:-image)?$/.test(d.prop));
+    if (!image || !/gradient\(/i.test(image.value)) continue;
+    const stops = colorsIn(image.value);
+    if (stops.length >= 2) {
+      const first2 = stops[0];
+      const oneColour = stops.every(
+        (c) => Math.abs(c.r - first2.r) <= 12 && Math.abs(c.g - first2.g) <= 12 && Math.abs(c.b - first2.b) <= 12
+      );
+      if (oneColour) continue;
+    }
+    out.push({
+      rule: "gradient-text",
+      offset: block.selectorOffset,
+      message: "\u6807\u9898/\u6587\u5B57\u4F7F\u7528\u6E10\u53D8\u8272\u586B\u5145\uFF1B\u6E10\u53D8\u8272\u662F\u88C5\u9970\u800C\u975E\u8868\u610F\uFF0C\u6539\u7528\u7EAF\u8272\uFF0C\u5F3A\u8C03\u9760\u5B57\u91CD\u4E0E\u5B57\u53F7",
+      severity: "warning"
+    });
+  }
+  return out;
+}
+function checkRadialHalo(ctx) {
+  const dark = pageIsDark(ctx);
+  if (!dark) return [];
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const decl of allDeclarations(ctx)) {
+    const original = originalValue(ctx, decl);
+    if (!/radial-gradient\(/i.test(original)) continue;
+    if (/repeating-radial-gradient\(/i.test(original)) continue;
+    if (/url\(/i.test(original)) continue;
+    const fn = /radial-gradient\((.*)\)/is.exec(decl.value)?.[1];
+    if (!fn) continue;
+    const stops = colorsIn(fn);
+    if (stops.length < 2) continue;
+    const first2 = stops[0];
+    const last2 = stops[stops.length - 1];
+    if (first2.a < 0.7) continue;
+    if (last2.a > 0.05) continue;
+    if (channelSpread(first2) < 24) continue;
+    if (/(?:^|[\s,(])(?:\d{1,2})px/.test(fn)) continue;
+    const key = String(decl.offset);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      rule: "radial-halo",
+      offset: decl.offset,
+      message: '\u6697\u5E95\u4E0A\u53E0\u52A0\u9971\u548C\u8272\u5F84\u5411\u5149\u6655\uFF1B\u8FD9\u662F"\u6697\u8272+\u53D1\u5149"\u5957\u8DEF\u7684\u6E10\u53D8\u7248\u672C\uFF0C\u6539\u7528\u7EAF\u8272\u6216\u8F7B\u5FAE\u504F\u79FB\u7684\u5E95\u8272',
+      severity: "advisory"
+    });
+  }
+  return out;
+}
+function pageIsDark(ctx) {
+  for (const block of ctx.blocks) {
+    if (!/(?:^|,)\s*(?:html|body|:root)\b/i.test(block.selector)) continue;
+    const decl = declarationOf(block.decls, "background-color") ?? declarationOf(block.decls, "background");
+    if (!decl) continue;
+    const c = parseColor2(decl.value.split(/\s+/)[0] ?? "");
+    if (c && c.a > 0.5) return relativeLuminance(c) < 0.1;
+  }
+  return false;
+}
+
+// src/rules/cssType.ts
+var OVERUSED_FONTS = [
+  "inter",
+  "roboto",
+  "opensans",
+  "lato",
+  "montserrat",
+  "arial",
+  "helvetica",
+  "fraunces",
+  "instrumentsans",
+  "instrumentserif",
+  "geist",
+  "geistsans",
+  "geistmono",
+  "monasans",
+  "plusjakartasans",
+  "spacegrotesk",
+  "recoleta"
+];
+function squash(name) {
+  return name.toLowerCase().replace(/[\s_-]/g, "").replace(/^['"]|['"]$/g, "");
+}
+function styleFamilies(ctx) {
+  const out = /* @__PURE__ */ new Set();
+  for (const stack of ctx.manifest?.fontFamilies ?? []) {
+    for (const part of stack.split(",")) {
+      const name = squash(part.trim());
+      if (name) out.add(name);
+    }
+  }
+  return out;
+}
+function checkOverusedFont(ctx) {
+  const brand = styleFamilies(ctx);
+  const out = [];
+  for (const decl of allDeclarations(ctx)) {
+    if (decl.prop !== "font-family") continue;
+    if (decl.value.includes("var(")) continue;
+    for (const part of decl.value.split(",")) {
+      const raw = part.trim().replace(/^['"]|['"]$/g, "");
+      if (!raw) continue;
+      const name = squash(raw);
+      if (!OVERUSED_FONTS.includes(name)) continue;
+      if (brand.has(name)) break;
+      out.push({
+        rule: "overused-font",
+        offset: decl.offset,
+        message: `\u5B57\u4F53 ${raw} \u88AB AI \u751F\u6210\u7684\u9875\u9762\u53CD\u590D\u4F7F\u7528\uFF0C\u5DF2\u5931\u53BB\u8FA8\u8BC6\u5EA6\uFF1B\u6362\u4E00\u4E2A\u8D34\u5408\u4E3B\u9898\u7684\u5B57\u4F53\uFF0C\u6216\u4F7F\u7528\u98CE\u683C\u5B57\u4F53\u6808`,
+        severity: "warning"
+      });
+      break;
+    }
+  }
+  return out;
+}
+function checkBounceEasing(ctx) {
+  const out = [];
+  for (const decl of allDeclarations(ctx)) {
+    if (!/^(?:transition|animation)(?:-timing-function)?$/.test(decl.prop)) continue;
+    if (decl.value.includes("var(")) continue;
+    const timing = /\b(?:bounce|elastic)\b/i.test(decl.value);
+    let overshoot = false;
+    for (const m of decl.value.matchAll(/cubic-bezier\(\s*([^)]+)\)/gi)) {
+      const nums = (m[1] ?? "").split(",").map((v2) => Number(v2.trim()));
+      if (nums.length !== 4 || nums.some((n) => !Number.isFinite(n))) continue;
+      const [, y1, , y2] = nums;
+      if (y1 < 0 || y1 > 1 || y2 < 0 || y2 > 1) overshoot = true;
+    }
+    if (!timing && !overshoot) continue;
+    out.push({
+      rule: "bounce-easing",
+      offset: decl.offset,
+      message: "\u56DE\u5F39/\u5F39\u6027\u7F13\u52A8\u663E\u5F97\u8FC7\u65F6\uFF1B\u771F\u5B9E\u7269\u4F53\u662F\u5E73\u6ED1\u51CF\u901F\u7684\uFF0C\u6539\u7528\u6307\u6570 ease-out\uFF08\u5982 cubic-bezier(.16,1,.3,1)\uFF09",
+      severity: "advisory"
+    });
+  }
+  return out;
+}
+
+// src/rules/cssTexture.ts
+function parseShadowLayer(layer) {
+  const text3 = layer.trim();
+  if (!text3) return null;
+  if (/\b(?:calc|var|em|rem|ch|vw|vh|%)\b/i.test(text3)) return null;
+  const inset = /\binset\b/i.test(text3);
+  const lengths = [];
+  const colorParts = [];
+  for (const token of text3.split(/\s+/)) {
+    if (!token || token.toLowerCase() === "inset") continue;
+    if (/^-?\d*\.?\d+px$/i.test(token)) lengths.push(Number(token.replace(/px$/i, "")));
+    else if (token === "0") lengths.push(0);
+    else colorParts.push(token);
+  }
+  if (lengths.length < 2 || lengths.length > 4) return null;
+  if (colorParts.length === 0) return null;
+  return {
+    inset,
+    x: lengths[0],
+    y: lengths[1],
+    blur: lengths[2] ?? 0,
+    spread: lengths[3] ?? 0,
+    color: colorParts.join(" ")
+  };
+}
+function colorAlphaAtLeast(text3, min) {
+  const rgba = /rgba?\(\s*[\d.%\s,]*?,\s*([\d.]+)\s*\)/i.exec(text3);
+  if (rgba) {
+    const raw = rgba[1].trim();
+    const a2 = raw.endsWith("%") ? Number(raw.slice(0, -1)) / 100 : Number(raw);
+    if (!Number.isFinite(a2)) return true;
+    return a2 > min;
+  }
+  const hex = /#([0-9a-fA-F]{4}|[0-9a-fA-F]{8})\b/.exec(text3);
+  if (hex) {
+    const h = hex[1];
+    const a2 = parseInt(h.length === 4 ? h[3] + h[3] : h.slice(6, 8), 16) / 255;
+    return a2 > min;
+  }
+  return true;
+}
+function checkHardOffsetShadow(ctx) {
+  const out = [];
+  for (const decl of allDeclarations(ctx)) {
+    if (decl.prop !== "box-shadow") continue;
+    const raw = decl.value.trim();
+    if (raw === "none" || raw === "") continue;
+    const layers = raw.split(/,(?![^(]*\))/).map(parseShadowLayer);
+    if (layers.some((l) => l === null)) continue;
+    for (const layer of layers) {
+      if (layer.inset) continue;
+      if (layer.blur !== 0) continue;
+      if (layer.spread < 0) continue;
+      if (Math.max(Math.abs(layer.x), Math.abs(layer.y)) < 4) continue;
+      if (!colorAlphaAtLeast(layer.color, 0.1)) continue;
+      out.push({
+        rule: "hard-offset-shadow",
+        offset: decl.offset,
+        message: "\u96F6\u6A21\u7CCA\u3001\u504F\u79FB \u22654px \u7684\u786C\u9634\u5F71\uFF1A\u786E\u8BA4\u8FD9\u662F\u4E0D\u662F\u8BE5\u89C6\u89C9\u65B9\u5411\u7684\u9009\u62E9\uFF1B\u4E0D\u662F\u5C31\u6539\u7528\u5E26\u6A21\u7CCA\u7684\u67D4\u548C\u9634\u5F71\u6216\u7EAF\u63CF\u8FB9",
+        severity: "advisory"
+      });
+      break;
+    }
+  }
+  return out;
+}
+function actuallyRepeats(value) {
+  if (!/repeating-(?:linear|radial|conic)-gradient\(/i.test(value)) return false;
+  const body = /repeating-(?:linear|radial|conic)-gradient\((.*)\)/is.exec(value)?.[1] ?? "";
+  if (!body) return false;
+  if (body.includes("var(")) return true;
+  if (/repeating-radial-gradient\(/i.test(value) && /\b\d+(?:\.\d+)?(?:px|em|rem)\b/.test(body)) return true;
+  const stopRe = /([^,()]+?)\s+(100%|360deg|400grad|1turn|turn|100vw|100vh)\s*(?=,|$)/i;
+  if (stopRe.test(body)) {
+    const firstStopZero = /(?:^|[,(\s])(?:#|rgb|hsl|oklch|transparent|[a-z]+)[^,]*?\s+0(?:%|px|deg)?\s*(?=,|$)/i.test(body);
+    if (firstStopZero) return false;
+  }
+  return true;
+}
+function checkRepeatingStripes(ctx) {
+  const out = [];
+  for (const decl of allDeclarations(ctx)) {
+    if (!/^(?:background|background-image)$/.test(decl.prop)) continue;
+    if (!actuallyRepeats(decl.value)) continue;
+    out.push({
+      rule: "repeating-stripes-gradient",
+      offset: decl.offset,
+      message: "\u7528 repeating-gradient \u753B\u88C5\u9970\u6027\u6761\u7EB9\uFF1B\u6362\u6210\u6709\u610F\u56FE\u7684\u6750\u8D28\uFF0C\u6216\u4FDD\u6301\u7EAF\u8272",
+      severity: "advisory"
+    });
+  }
+  return out;
+}
+function checkGridBackground(ctx) {
+  const out = [];
+  for (const block of ctx.blocks) {
+    const bg = block.decls.find((d) => /^(?:background|background-image)$/.test(d.prop));
+    if (!bg) continue;
+    if (!/linear-gradient\(/i.test(bg.value)) continue;
+    const hairlines = [
+      ...bg.value.matchAll(/(?:^|[,(\s])(?:\d{1,3}px\s*,\s*transparent\s+\d{1,3}px|transparent\s+\d{1,3}px\s*,\s*calc\(100%\s*-\s*\d{1,3}px\))/gi),
+      ...bg.value.matchAll(/transparent\s+\d{1,3}px\s*,\s*(?:#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\))\s+\d{1,3}px/gi)
+    ];
+    if (hairlines.length < 2) continue;
+    const sizeDecl = block.decls.find((d) => d.prop === "background-size");
+    const shorthandSize = /\/\s*\d{1,3}px/i.test(bg.value);
+    const pxCell = sizeDecl ? /\d{1,3}px/i.test(sizeDecl.value) : shorthandSize;
+    if (!pxCell) continue;
+    out.push({
+      rule: "codex-grid-background",
+      offset: bg.offset,
+      message: "\u7528\u6781\u7EC6\u7EBF\u6027\u6E10\u53D8\u53E0\u51FA\u7F51\u683C\u5E95\u7EB9\uFF1B\u7F51\u683C\u53EA\u7559\u7ED9\u771F\u6B63\u7684\u753B\u5E03/\u5730\u56FE/\u84DD\u56FE/\u6D4B\u91CF\u754C\u9762",
+      severity: "advisory"
+    });
+  }
+  return out;
+}
+function checkMarquee(ctx) {
+  const out = [];
+  if (/<marquee\b/i.test(ctx.masked)) {
+    out.push({
+      rule: "marquee",
+      offset: Math.max(0, ctx.masked.search(/<marquee\b/i)),
+      message: "<marquee> \u81EA\u52A8\u6EDA\u52A8\u4F1A\u62A2\u8D70\u6CE8\u610F\u529B\u5E76\u59CB\u7EC8\u85CF\u8D77\u4E00\u534A\u5185\u5BB9\uFF1B\u8BA9\u8BFB\u8005\u6309\u81EA\u5DF1\u7684\u8282\u594F\u79FB\u52A8",
+      severity: "advisory"
+    });
+  }
+  for (const decl of allDeclarations(ctx)) {
+    if (decl.prop !== "animation" && decl.prop !== "animation-name") continue;
+    if (!/\b(?:marquee|scroll(?:ing)?(?:-|$|\b)|ticker)\b/i.test(decl.value)) continue;
+    out.push({
+      rule: "marquee",
+      offset: decl.offset,
+      message: "\u81EA\u52A8\u6EDA\u52A8\u7684 marquee/ticker \u52A8\u753B\uFF1B\u52A8\u6548\u53EA\u7559\u7ED9\u771F\u6B63\u5728\u53D8\u5316\u7684\u5185\u5BB9",
+      severity: "advisory"
+    });
+  }
+  return out;
+}
+
+// src/rules/textMath.ts
+var HIDDEN_TAGS = /* @__PURE__ */ new Set(["script", "style", "head", "title", "template", "noscript", "pre", "code", "kbd", "samp"]);
+var BLOCK_TAGS = /* @__PURE__ */ new Set([
+  "p",
+  "div",
+  "section",
+  "article",
+  "aside",
+  "main",
+  "header",
+  "footer",
+  "li",
+  "td",
+  "th",
+  "dd",
+  "dt",
+  "blockquote",
+  "figcaption",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "button",
+  "a",
+  "label",
+  "span",
+  "small",
+  "strong",
+  "em",
+  "b",
+  "i",
+  "time",
+  "summary",
+  "caption"
+]);
+var CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]/g;
+var LATIN_RE = /[A-Za-z]/g;
+function cjkRatio(text3) {
+  const cjk = text3.match(CJK_RE)?.length ?? 0;
+  const latin = text3.match(LATIN_RE)?.length ?? 0;
+  const total = cjk + latin;
+  return total === 0 ? 0 : cjk / total;
+}
+function textRuns(maskedHtml) {
+  const out = [];
+  const tagRe = /<\/?([A-Za-z][A-Za-z0-9-]*)\b[^>]*>/g;
+  let cursor = 0;
+  let currentTag = "";
+  let skipDepth = 0;
+  const push = (from2, to) => {
+    if (to <= from2) return;
+    const raw = maskedHtml.slice(from2, to);
+    if (!raw.trim()) return;
+    out.push({ text: raw, offset: from2, tag: currentTag });
+  };
+  for (const m of maskedHtml.matchAll(tagRe)) {
+    const index = m.index ?? 0;
+    if (skipDepth === 0) push(cursor, index);
+    const name = (m[1] ?? "").toLowerCase();
+    const closing = maskedHtml[index + 1] === "/";
+    if (HIDDEN_TAGS.has(name)) {
+      skipDepth = Math.max(0, skipDepth + (closing ? -1 : 1));
+    } else if (!closing && BLOCK_TAGS.has(name)) {
+      currentTag = name;
+    }
+    cursor = index + m[0].length;
+  }
+  if (skipDepth === 0) push(cursor, maskedHtml.length);
+  return out;
+}
+function decodeEntities2(text3) {
+  return text3.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+function findEmoji(text3) {
+  const out = [];
+  for (let i = 0; i < text3.length; i++) {
+    const code = text3.codePointAt(i);
+    if (code === void 0) continue;
+    const inEmoji = code >= 127744 && code <= 129791 || code >= 126976 && code <= 127743 || code >= 9728 && code <= 10175 || code >= 129280 && code <= 129535;
+    if (inEmoji) {
+      const char = String.fromCodePoint(code);
+      out.push({ char, index: i });
+      i += char.length - 1;
+    }
+  }
+  return out;
+}
+function sentenceEndings(maskedHtml) {
+  const out = [];
+  for (const run of textRuns(maskedHtml)) {
+    const decoded = decodeEntities2(run.text).replace(/\s+/g, " ").trim();
+    if (!decoded) continue;
+    out.push({ text: decoded, offset: run.offset });
+  }
+  return out;
+}
+
+// src/rules/htmlPatterns.ts
+var ICON_TAG_RE = /<(button|a|h1|h2|h3|h4|summary)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+var SOLO_EMOJI_RE = /<(span|div|li|p|em|strong)\b([^>]*)>\s*([^<]{1,8})\s*<\/\1>/gi;
+var ARIA_ATTR_RE = /\b(?:aria-label|title)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+function checkEmojiIcon(ctx) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const m of ctx.masked.matchAll(ICON_TAG_RE)) {
+    const attrs = m[2] ?? "";
+    if (/\bdata-icon\s*=/.test(attrs)) continue;
+    const inner = m[3] ?? "";
+    const emoji = findEmoji(inner);
+    if (emoji.length === 0) continue;
+    const offset = (m.index ?? 0) + m[0].indexOf(inner);
+    if (seen.has(offset)) continue;
+    seen.add(offset);
+    out.push({
+      rule: "emoji-icon",
+      offset,
+      message: `\u7528 emoji\uFF08${emoji.map((e) => e.char).join("")}\uFF09\u5145\u5F53\u56FE\u6807/\u5206\u8282\u7B26\uFF1B\u6539\u7528 <svg data-icon="\u540D\u5B57" class="ts-icon">`,
+      severity: "warning"
+    });
+  }
+  for (const m of ctx.masked.matchAll(SOLO_EMOJI_RE)) {
+    const attrs = m[2] ?? "";
+    if (/data-icon\s*=/.test(attrs)) continue;
+    const text3 = (m[3] ?? "").trim();
+    const emoji = findEmoji(text3);
+    if (emoji.length === 0) continue;
+    if (text3.replace(/\s/g, "").length > emoji.map((e) => e.char).join("").length) continue;
+    const offset = (m.index ?? 0) + m[0].indexOf(m[3] ?? "");
+    if (seen.has(offset)) continue;
+    seen.add(offset);
+    out.push({
+      rule: "emoji-icon",
+      offset,
+      message: `\u7528 emoji\uFF08${emoji.map((e) => e.char).join("")}\uFF09\u5145\u5F53\u56FE\u6807/\u5206\u8282\u7B26\uFF1B\u6539\u7528 <svg data-icon="\u540D\u5B57" class="ts-icon">`,
+      severity: "warning"
+    });
+  }
+  for (const m of ctx.masked.matchAll(ARIA_ATTR_RE)) {
+    const value = m[1] ?? m[2] ?? "";
+    const emoji = findEmoji(value);
+    if (emoji.length === 0) continue;
+    const offset = m.index ?? 0;
+    if (seen.has(offset)) continue;
+    seen.add(offset);
+    out.push({
+      rule: "emoji-icon",
+      offset,
+      message: `\u53EF\u8BBF\u95EE\u540D\u91CC\u7528\u4E86 emoji\uFF08${emoji.map((e) => e.char).join("")}\uFF09\uFF1B\u6539\u7528\u56FE\u6807\u76EE\u5F55\u91CC\u7684 SVG`,
+      severity: "warning"
+    });
+  }
+  return out;
+}
+
+// src/rules/pageCopy.ts
+function checkEmDashOveruse(ctx) {
+  const runs = sentenceEndings(ctx.masked);
+  const text3 = runs.map((r) => r.text).join(" ");
+  if (text3.length < 500) return [];
+  if (cjkRatio(text3) >= 0.5) return [];
+  const matches = [...text3.matchAll(/—|(?<!-)—(?!-)|(?<![-\w])--(?![-\w])/g)];
+  if (matches.length < 8) return [];
+  if (text3.length / matches.length > 500) return [];
+  const first2 = runs.find((r) => /—/.test(r.text));
+  return [
+    {
+      rule: "em-dash-overuse",
+      offset: first2?.offset ?? 0,
+      message: `\u6B63\u6587\u91CC ${matches.length} \u5904\u7834\u6298\u53F7\uFF08\u7EA6\u6BCF ${Math.round(text3.length / matches.length)} \u5B57\u7B26\u4E00\u4E2A\uFF09\uFF0C\u662F AI \u7684\u53E5\u5F0F\u4E60\u60EF\uFF1B\u6539\u7528\u9017\u53F7\u3001\u5192\u53F7\u3001\u53E5\u53F7\u6216\u62EC\u53F7`,
+      severity: "advisory"
+    }
+  ];
+}
+var EN_BUZZWORDS = [
+  "streamline",
+  "empower",
+  "empowering",
+  "supercharge",
+  "world-class",
+  "world class",
+  "enterprise-grade",
+  "enterprise grade",
+  "next-generation",
+  "next generation",
+  "cutting-edge",
+  "cutting edge",
+  "game-changer",
+  "game changer",
+  "revolutionize",
+  "revolutionary",
+  "seamless",
+  "seamlessly",
+  "effortless",
+  "effortlessly",
+  "unlock the power",
+  "take it to the next level",
+  "best-in-class",
+  "state-of-the-art"
+];
+var ZH_BUZZWORDS = [
+  "\u8D4B\u80FD",
+  "\u4E00\u7AD9\u5F0F",
+  "\u65E0\u7F1D",
+  "\u6781\u81F4",
+  "\u5F15\u9886",
+  "\u91CD\u65B0\u5B9A\u4E49",
+  "\u95ED\u73AF",
+  "\u6293\u624B",
+  "\u62A4\u57CE\u6CB3",
+  "\u964D\u672C\u589E\u6548",
+  "\u5168\u65B9\u4F4D",
+  "\u6DF1\u5C42\u6B21",
+  "\u98A0\u8986\u5F0F",
+  "\u98A0\u8986\u6027",
+  "\u5E95\u5C42\u903B\u8F91",
+  "\u7EC4\u5408\u62F3"
+];
+function checkMarketingBuzzword(ctx) {
+  const out = [];
+  for (const run of sentenceEndings(ctx.masked)) {
+    const text3 = decodeEntities2(run.text);
+    if (!text3.trim()) continue;
+    const lower = text3.toLowerCase();
+    const hits = [];
+    for (const word of EN_BUZZWORDS) {
+      const re2 = new RegExp(`(?<![A-Za-z])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z])`, "i");
+      const match = re2.exec(text3);
+      if (!match) continue;
+      const hit = match[0];
+      if (/^[A-Z][a-z]/.test(hit) && !lower.slice(0, match.index).match(/[a-z]/i)) continue;
+      hits.push(word);
+    }
+    for (const word of ZH_BUZZWORDS) {
+      if (text3.includes(word)) hits.push(word);
+    }
+    if (hits.length === 0) continue;
+    out.push({
+      rule: "marketing-buzzword",
+      offset: run.offset,
+      message: `\u8425\u9500\u9ED1\u8BDD\uFF1A${[...new Set(hits)].slice(0, 4).join("\u3001")}\uFF1B\u7528\u5177\u4F53\u7684\u52A8\u8BCD\u548C\u540D\u8BCD\u8BF4\u6E05\u4EA7\u54C1\u5B9E\u9645\u505A\u4E86\u4EC0\u4E48`,
+      severity: "warning"
+    });
+  }
+  return out;
+}
+var ZH_APHORISM = /[。！？]\s*(?:不是|而是|仅仅|只是)[^。！？]{1,40}[。！？]\s*$/;
+var EN_APHORISM = /(?:^|[.!?]\s*)(?:no|not|just|merely)\s+[^.!?]{1,60}\.\s*$/i;
+function checkAphoristicCadence(ctx) {
+  const hits = [];
+  for (const run of sentenceEndings(ctx.masked)) {
+    const text3 = decodeEntities2(run.text).trim();
+    if (text3.length < 6) continue;
+    if (ZH_APHORISM.test(text3) || EN_APHORISM.test(text3)) hits.push({ text: text3, offset: run.offset });
+  }
+  if (hits.length < 3) return [];
+  return [
+    {
+      rule: "aphoristic-cadence",
+      offset: hits[0].offset,
+      message: `${hits.length} \u4E2A\u533A\u5757\u90FD\u4EE5\u300CX\u3002\u4E0D\u662F Y\u3002\u300D\u5F0F\u5BF9\u4ED7\u77ED\u53E5\u6536\u5C3E\uFF0C\u8BFB\u8D77\u6765\u662F AI \u8154\uFF1B\u628A\u8FD9\u4E2A\u53E5\u5F0F\u7559\u7ED9\u771F\u6B63\u9700\u8981\u5F3A\u8C03\u7684\u4E00\u5904`,
+      severity: "advisory"
+    }
+  ];
+}
+
+// src/rules/pageSpacing.ts
+var SPACING_PROP_RE = /^(?:padding|margin|gap|row-gap|column-gap)(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?$/;
+function pxValuesOf(value) {
+  const out = [];
+  for (const token of value.split(/[\s,]+/)) {
+    const v2 = token.trim();
+    if (!v2 || v2 === "0" || v2.includes("var(") || v2.includes("calc(")) continue;
+    const px = /^(-?\d*\.?\d+)px$/i.exec(v2);
+    if (px) {
+      const n = Number(px[1]);
+      if (n > 0 && n < 200) out.push(n);
+      continue;
+    }
+    const rem = /^(-?\d*\.?\d+)rem$/i.exec(v2);
+    if (rem) {
+      const n = Number(rem[1]) * 16;
+      if (n > 0 && n < 200) out.push(n);
+    }
+  }
+  return out;
+}
+function checkMonotonousSpacing(ctx) {
+  const bins = /* @__PURE__ */ new Map();
+  let samples = 0;
+  let firstOffset = -1;
+  for (const decl of allDeclarations(ctx)) {
+    if (!SPACING_PROP_RE.test(decl.prop)) continue;
+    for (const px of pxValuesOf(decl.value)) {
+      const bin = Math.round(px / 4) * 4;
+      bins.set(bin, (bins.get(bin) ?? 0) + 1);
+      samples++;
+      if (firstOffset < 0) firstOffset = decl.offset;
+    }
+  }
+  if (samples < 10 || bins.size > 3) return [];
+  const sorted = [...bins.entries()].sort((a2, b2) => b2[1] - a2[1]);
+  const [dominantBin, dominantCount] = sorted[0];
+  if (dominantBin === 0) return [];
+  if (dominantCount / samples <= 0.6) return [];
+  return [
+    {
+      rule: "monotonous-spacing",
+      offset: Math.max(0, firstOffset),
+      message: `\u9875\u9762 ${samples} \u5904\u95F4\u8DDD\u91CC ${dominantCount} \u5904\u90FD\u662F ${dominantBin}px\uFF0C\u6CA1\u6709\u8282\u594F\uFF1B\u76F8\u5173\u5143\u7D20\u7528\u5C0F\u95F4\u8DDD\u5F52\u7EC4\uFF0C\u533A\u5757\u4E4B\u95F4\u7528\u5927\u95F4\u8DDD\u5206\u5F00`,
+      severity: "warning"
+    }
+  ];
+}
+
+// src/rules/profiles.ts
+function ruleStateFor(rule, mode) {
+  if (!mode) return "on";
+  return rule.modes?.[mode] ?? "on";
+}
+function activeRules(mode) {
+  return RULES.filter((rule) => rule.engine === "source" && ruleStateFor(rule, mode) !== "off");
+}
+function degradesToAdvisory(rule, mode) {
+  return ruleStateFor(rule, mode) === "advisory";
+}
+
+// src/rules/engine.ts
+var CHECKS = {
+  "side-tab": checkBorders,
+  "border-accent-on-rounded": checkBorders,
+  "overused-font": checkOverusedFont,
+  "bounce-easing": checkBounceEasing,
+  "gradient-text": checkGradientText,
+  "ai-color-palette": checkAiPalette,
+  "cream-palette": checkCreamPalette,
+  "gray-on-color": checkGrayOnColor,
+  "radial-halo": checkRadialHalo,
+  "hard-offset-shadow": checkHardOffsetShadow,
+  "repeating-stripes-gradient": checkRepeatingStripes,
+  "codex-grid-background": checkGridBackground,
+  marquee: checkMarquee,
+  "monotonous-spacing": checkMonotonousSpacing,
+  "em-dash-overuse": checkEmDashOveruse,
+  "marketing-buzzword": checkMarketingBuzzword,
+  "aphoristic-cadence": checkAphoristicCadence,
+  "emoji-icon": checkEmojiIcon
+};
+function buildContext(html, manifest, mode) {
+  let masked = html.replace(/<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->/g, mask).replace(/<script\b[\s\S]*?<\/script>/gi, mask).replace(/<!--[\s\S]*?-->/g, mask);
+  masked = maskUrls(masked);
+  const blocks = styleSegments(masked).filter((segment) => segment.text.includes("{")).flatMap((segment) => ruleBlocks(segment.text, segment.start));
+  const inlineBlocks = inlineStyleBlocks(masked);
+  const inlineDecls = inlineBlocks.flatMap((b2) => b2.decls);
+  const inlineAsBlocks = inlineBlocks.filter((b2) => b2.decls.length > 0).map((b2) => ({
+    selector: [b2.tag, ...b2.classes.map((c) => `.${c}`)].filter(Boolean).join(""),
+    selectorOffset: b2.offset,
+    start: b2.offset,
+    end: b2.offset,
+    decls: b2.decls,
+    atRule: null
+  }));
+  return { html, masked, blocks: [...blocks, ...inlineAsBlocks], inlineBlocks, inlineDecls, manifest, mode };
+}
+function runSourceRules(html, options) {
+  const ctx = buildContext(html, options.manifest, options.mode);
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const ran = /* @__PURE__ */ new Set();
+  for (const rule of activeRules(options.mode)) {
+    if (options.only && !options.only.has(rule.id)) continue;
+    if (options.ignore.has(rule.id)) continue;
+    const check = CHECKS[rule.id];
+    if (!check || ran.has(checkKey(check))) continue;
+    ran.add(checkKey(check));
+    for (const finding of check(ctx)) {
+      const def = getRule(finding.rule);
+      if (!def) continue;
+      if (options.only && !options.only.has(def.id)) continue;
+      if (options.ignore.has(def.id)) continue;
+      const key = `${finding.rule}:${finding.offset}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ...finding, severity: degradesToAdvisory(def, options.mode) ? "advisory" : def.severity });
+    }
+  }
+  out.sort((a2, b2) => a2.offset - b2.offset);
+  return out;
+}
+var CHECK_KEYS = /* @__PURE__ */ new Map();
+function checkKey(check) {
+  let key = CHECK_KEYS.get(check);
+  if (!key) {
+    key = check.name || String(CHECK_KEYS.size);
+    CHECK_KEYS.set(check, key);
+  }
+  return key;
+}
+
+// src/rules/ignores.ts
+var DIRECTIVE_RE = /<!--\s*tianshu-lint-disable(-next-line)?\s+([^>]*?)\s*-->/g;
+function parseIgnores(html) {
+  const index = lineIndex(html);
+  const set = { fileWide: /* @__PURE__ */ new Set(), byLine: /* @__PURE__ */ new Map(), directives: [] };
+  for (const m of html.matchAll(DIRECTIVE_RE)) {
+    const nextLine = Boolean(m[1]);
+    const rules = (m[2] ?? "").split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+    if (rules.length === 0) continue;
+    const line = lineOf(index, m.index ?? 0);
+    set.directives.push({ rules, line, scope: nextLine ? "next-line" : "file", raw: m[0] });
+    if (nextLine) {
+      const target = line + 1;
+      const bucket = set.byLine.get(target) ?? /* @__PURE__ */ new Set();
+      for (const rule of rules) bucket.add(rule);
+      set.byLine.set(target, bucket);
+    } else {
+      for (const rule of rules) set.fileWide.add(rule);
+    }
+  }
+  return set;
+}
+function isIgnored(set, rule, line) {
+  if (set.fileWide.has("all") || set.fileWide.has(rule)) return true;
+  const bucket = set.byLine.get(line);
+  return Boolean(bucket && (bucket.has("all") || bucket.has(rule)));
+}
+function directiveUsed(set, directive, findings) {
+  if (directive.scope === "file") {
+    return findings.some((f) => directive.rules.includes("all") || directive.rules.includes(f.rule));
+  }
+  const target = directive.line + 1;
+  return findings.some((f) => f.line === target && (directive.rules.includes("all") || directive.rules.includes(f.rule)));
+}
+
 // src/lint.ts
 var MAX_FINDINGS = 40;
-var RULES = ["color", "font", "spacing", "radius", "icon", "component", "interaction", "token", "resource"];
+var RULES2 = ["color", "font", "spacing", "radius", "icon", "component", "interaction", "token", "resource"];
 function nearest(values, target) {
   const sorted = [...values].sort((a2, b2) => Math.abs(a2 - target) - Math.abs(b2 - target));
   return sorted.slice(0, 2);
@@ -65301,14 +66883,15 @@ function keyFor(pool, value, kind) {
   const names = kind === "radius" ? { 0: "none", 4: "sm", 6: "sm", 8: "md", 10: "md", 12: "lg", 14: "lg", 16: "xl", 18: "xl", 20: "xl", 9999: "full" } : {};
   return names[value] ?? String(value);
 }
-function lintHtml(html, styleId, cwd) {
-  const counts = Object.fromEntries(RULES.map((r) => [r, 0]));
+function lintHtml(html, styleId, cwd, options = {}) {
+  const runStyle = options.style !== false;
+  const counts = Object.fromEntries(RULES2.map((r) => [r, 0]));
   const findings = [];
   const index = lineIndex(html);
-  const add = (rule, offset, message) => {
-    counts[rule]++;
+  const add = (rule, offset, message, severity) => {
+    counts[rule] = (counts[rule] ?? 0) + 1;
     if (findings.length < MAX_FINDINGS) {
-      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset) });
+      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset), ...severity ? { severity } : {} });
     }
   };
   const blocked = findBlockedResources(html);
@@ -65318,8 +66901,21 @@ function lintHtml(html, styleId, cwd) {
     add("resource", at, `\u5C06\u88AB\u753B\u5E03 CSP \u62E6\u622A\uFF1A${blocked.slice(0, 3).join("\u3001")}${blocked.length > 3 ? ` \u7B49 ${blocked.length} \u5904` : ""}`);
   }
   const style = styleId ? resolveDesignStyle(cwd, styleId) : null;
-  if (!style) {
-    return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource };
+  const finalize = (resolvedStyleId, styleName) => {
+    const total = Object.values(counts).reduce((a2, b2) => a2 + b2, 0);
+    findings.sort((a2, b2) => a2.line - b2.line || a2.rule.localeCompare(b2.rule));
+    return {
+      styleId: resolvedStyleId,
+      ...styleName !== void 0 ? { styleName } : {},
+      findings,
+      counts,
+      truncated: total > MAX_FINDINGS,
+      total
+    };
+  };
+  if (!style || !runStyle) {
+    runDetector(html, index, style, options, add);
+    return finalize(null, style?.summary.name);
   }
   const manifest = style.manifest;
   const varSet = new Set(manifest.vars);
@@ -65403,9 +66999,27 @@ function lintHtml(html, styleId, cwd) {
       add("interaction", 0, `\u7528\u5230\u4EA4\u4E92\uFF08${used.slice(0, 6).join("\u3001")}${used.length > 6 ? " \u7B49" : ""}\uFF09\u4F46\u7F3A\u5C11\u4EA4\u4E92\u8FD0\u884C\u65F6\uFF1B\u8BF7\u7528 canvas_upsert_page \u91CD\u65B0\u5199\u5165\u4EE5\u81EA\u52A8\u6CE8\u5165`);
     }
   }
-  const total = Object.values(counts).reduce((a2, b2) => a2 + b2, 0);
-  findings.sort((a2, b2) => a2.line - b2.line);
-  return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total };
+  runDetector(html, index, style, options, add);
+  return finalize(styleId, style.summary.name);
+}
+function runDetector(html, index, style, options, add) {
+  if (options.detector === false) return;
+  const ignores = parseIgnores(html);
+  const findings = runSourceRules(html, {
+    manifest: style?.manifest ?? null,
+    mode: options.mode ?? null,
+    only: options.rules && options.rules.length > 0 ? new Set(options.rules) : null,
+    ignore: new Set(options.ignore ?? [])
+  });
+  for (const finding of findings) {
+    const line = lineOf(index, finding.offset);
+    if (isIgnored(ignores, finding.rule, line)) continue;
+    add(finding.rule, finding.offset, finding.message, finding.severity);
+  }
+  for (const directive of ignores.directives) {
+    if (directiveUsed(ignores, directive, findings.map((f) => ({ rule: f.rule, line: lineOf(index, f.offset) })))) continue;
+    add("unused-ignore", 0, `\u7B2C ${directive.line} \u884C\u7684\u5FFD\u7565\u6CA1\u6709\u5339\u914D\u5230\u4EFB\u4F55\u53D1\u73B0\uFF1A${directive.rules.join(", ")}`, "advisory");
+  }
 }
 function hasRuntimeInjection(html) {
   return /id="tianshu-interactions"/.test(html);
@@ -65428,15 +67042,21 @@ function formatLintReport(report, label) {
     return `${head}
 \u672A\u53D1\u73B0\u4E0D\u7B26\u5408\u9879\uFF080 \u5904\uFF09\u3002`;
   }
-  const lines = report.findings.map((f, i) => `${i + 1}. [${f.rule}] \u7B2C ${f.line} \u884C ${f.message}
-   ${f.snippet}`);
-  const summary = RULES.filter((r) => report.counts[r] > 0).map((r) => `${r} ${report.counts[r]}`).join("\u3001");
+  const lines = report.findings.map(
+    (f, i) => `${i + 1}. [${f.rule}${f.severity === "advisory" ? "\xB7\u5EFA\u8BAE" : ""}] \u7B2C ${f.line} \u884C ${f.message}
+   ${f.snippet}`
+  );
+  const ordered = [...RULES2, ...ruleIds().filter((id) => !RULES2.includes(id))];
+  const summary = ordered.filter((r) => (report.counts[r] ?? 0) > 0).map((r) => `${r} ${report.counts[r]}`).join("\u3001");
+  const unused = report.counts["unused-ignore"] ?? 0;
+  const unusedNote = unused > 0 ? `
+\u672A\u751F\u6548\u7684\u5FFD\u7565\uFF1A${unused} \u6761\uFF08\u5DF2\u65E0\u5BF9\u5E94\u53D1\u73B0\uFF0C\u8BF7\u5220\u9664\u6216\u4FEE\u6B63\u89C4\u5219\u540D\uFF09\u3002` : "";
   const tail = report.truncated ? `
 \u2026\u53E6\u6709 ${report.total - report.findings.length} \u5904\u672A\u663E\u793A\u3002` : "";
   return `${head}
 \u53D1\u73B0 ${report.total} \u5904\uFF08\u4EC5\u62A5\u544A\uFF0C\u672A\u4FEE\u6539\u6587\u4EF6\uFF09\uFF1A
 ${lines.join("\n")}
-\u6C47\u603B\uFF1A${summary}${tail}`;
+\u6C47\u603B\uFF1A${summary}${tail}${unusedNote}`;
 }
 
 // src/audit/contract.ts
@@ -65471,7 +67091,7 @@ function collectUsage(html, manifest) {
   };
 }
 function computeContract(html, styleId, cwd, manifest) {
-  const report = lintHtml(html, styleId, cwd);
+  const report = lintHtml(html, styleId, cwd, { detector: false });
   const usage2 = collectUsage(html, manifest);
   const byRule = {};
   for (const issue of report.findings) byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1;
@@ -68376,7 +69996,7 @@ function toHex2({ r, g, b: b2 }) {
   const h = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
   return `#${h(r)}${h(g)}${h(b2)}`;
 }
-function parseColor2(value) {
+function parseColor3(value) {
   const text3 = value.trim();
   const hex = parseHex(text3);
   if (hex) return { r: hex[0], g: hex[1], b: hex[2] };
@@ -68385,11 +70005,11 @@ function parseColor2(value) {
   const hsl = /^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/i.exec(text3);
   if (hsl) {
     const [h, s, l] = [Number(hsl[1]) / 360, Number(hsl[2]) / 100, Number(hsl[3]) / 100];
-    return hslToRgb2(h, s, l);
+    return hslToRgb3(h, s, l);
   }
   return null;
 }
-function hslToRgb2(h, s, l) {
+function hslToRgb3(h, s, l) {
   if (s === 0) {
     const v2 = l * 255;
     return { r: v2, g: v2, b: v2 };
@@ -68435,7 +70055,7 @@ function luminanceOf2(hex) {
 function ensureContrast(fgHex, bgHex, min) {
   const bgLum = luminanceOf2(bgHex);
   const darken2 = bgLum > 0.5;
-  let current = parseColor2(fgHex);
+  let current = parseColor3(fgHex);
   if (!current) return fgHex;
   for (let i = 0; i < 200; i++) {
     if (contrast(toHex2(current), bgHex) >= min) break;
@@ -68447,8 +70067,8 @@ function ensureContrast(fgHex, bgHex, min) {
   return toHex2(current);
 }
 function mix2(aHex, bHex, t) {
-  const a2 = parseColor2(aHex);
-  const b2 = parseColor2(bHex);
+  const a2 = parseColor3(aHex);
+  const b2 = parseColor3(bHex);
   return toHex2({ r: a2.r + (b2.r - a2.r) * t, g: a2.g + (b2.g - a2.g) * t, b: a2.b + (b2.b - a2.b) * t });
 }
 function darken(hex, amount) {
@@ -68467,7 +70087,7 @@ function collectFromCss(css, into, weightBoost = 1) {
       const prop = decl.prop;
       if (COLOR_HINT.test(prop) || COLOR_FN_TEST.test(decl.raw)) {
         for (const match of decl.raw.matchAll(COLOR_FN)) {
-          const rgb = parseColor2(match[0]);
+          const rgb = parseColor3(match[0]);
           if (rgb) into.colors.push({ hex: toHex2(rgb), weight: boost });
         }
       }
@@ -68552,7 +70172,7 @@ async function gather(input2, warnings) {
 function neutralRamp(colors) {
   const observed = /* @__PURE__ */ new Map();
   for (const c of colors) {
-    const hsl = rgbToHsl(parseColor2(c.hex));
+    const hsl = rgbToHsl(parseColor3(c.hex));
     if (hsl.s < 0.12) observed.set(c.hex, (observed.get(c.hex) ?? 0) + c.weight);
   }
   const unique = [...observed.keys()].sort((a2, b2) => luminanceOf2(b2) - luminanceOf2(a2));
@@ -68583,7 +70203,7 @@ function pickStatus(colors) {
   for (const group of STATUS_GROUPS) {
     const [lo, hi] = bands[group];
     const inBand = colors.filter((c) => {
-      const hsl = rgbToHsl(parseColor2(c.hex));
+      const hsl = rgbToHsl(parseColor3(c.hex));
       if (hsl.s < 0.2 || hsl.l > 0.8 || hsl.l < 0.15) return false;
       const deg = hsl.h * 360;
       return group === "danger" ? deg >= lo || deg <= 20 : deg >= lo && deg <= hi;
@@ -68599,7 +70219,7 @@ function pickStatus(colors) {
 }
 function pickBrand(colors) {
   const colored = colors.filter((c) => {
-    const hsl = rgbToHsl(parseColor2(c.hex));
+    const hsl = rgbToHsl(parseColor3(c.hex));
     return hsl.s >= 0.2 && hsl.l > 0.15 && hsl.l < 0.8;
   });
   if (!colored.length) return { hex: FALLBACK.brand500, observed: false };
@@ -69369,6 +70989,12 @@ async function canvasUpsertPage(call) {
   if (requestedId && !isSafeId(requestedId)) {
     return { content: `\u975E\u6CD5 id\uFF1A${requestedId}\uFF08\u4EC5\u5141\u8BB8\u5B57\u6BCD\u6570\u5B57\u3001\u4E0B\u5212\u7EBF\u3001\u8FDE\u5B57\u7B26\uFF0C1\u201364 \u4F4D\uFF09`, isError: true };
   }
+  const rawMode = args.surface_mode;
+  const modeProvided = rawMode !== void 0 && rawMode !== null && rawMode !== "";
+  const requestedMode = modeProvided ? normalizeSurfaceMode(rawMode) : null;
+  if (modeProvided && !requestedMode) {
+    return { content: `\u975E\u6CD5 surface_mode\uFF1A${String(rawMode)}\uFF1B\u53EF\u9009\uFF1A${surfaceModeChoices()}`, isError: true };
+  }
   const id = requestedId ?? newPageId();
   let assetNote = "";
   let workHtml = html;
@@ -69439,6 +71065,8 @@ ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactEr
       createdAt: existing2?.createdAt ?? now2,
       updatedAt: now2
     };
+    const mode = modeProvided ? requestedMode : existing2?.mode;
+    if (mode) node2.mode = mode;
     upsertNode(call.cwd, node2, tx);
     const navigation = htmlChanged || !existing2 || existing2.title !== pageTitle ? backfillNavigation(call.cwd, tx) : { changed: [], warnings: [] };
     return { existing: existing2, node: node2, rel: rel2, pageHtml: pageHtml2, injection: injection2, navNote: navNote2, backfilled: navigation.changed, navWarnings: navigation.warnings, deviceType: deviceType2 };
@@ -69449,6 +71077,7 @@ ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactEr
 \u5DF2\u5E94\u7528\u8BBE\u8BA1\u98CE\u683C\u300C${designStyleSummary(call.cwd, injection.styleId ?? "")?.name ?? injection.styleId}\u300D\uFF08${injection.styleId}\uFF09\uFF1A\u6CE8\u5165 token/\u7EC4\u4EF6\u6837\u5F0F${injection.usedIcons.length ? `\uFF0C\u5185\u8054 ${injection.usedIcons.length} \u4E2A\u56FE\u6807` : ""}\u3002` : "\n\u5F53\u524D\u4E3A\u81EA\u7531\u53D1\u6325\uFF08\u672A\u9501\u5B9A\u98CE\u683C\uFF09\uFF1B\u5982\u9700\u7EDF\u4E00\u89C6\u89C9\uFF0C\u5148 canvas_style\uFF08action=set\uFF09\u3002" : "";
   const missingLine = injection?.missingIcons.length ? `
 \u6CE8\u610F\uFF1A\u8FD9\u4E9B\u56FE\u6807\u540D\u4E0D\u5728\u76EE\u5F55\u4E2D\uFF0C\u672A\u5185\u8054\uFF1A${injection.missingIcons.slice(0, 8).join("\u3001")}${injection.missingIcons.length > 8 ? ` \u7B49 ${injection.missingIcons.length} \u4E2A` : ""}\u3002\u53EF\u7528 canvas_style\uFF08action=get\uFF09\u67E5\u770B\u56FE\u6807\u6E05\u5355\u3002` : "";
+  const craftLine = pageHtml !== void 0 ? craftHint(call.cwd, pageHtml, injection?.styleId ?? null, node.mode ?? null) : "";
   return {
     content: `${existing ? "\u5DF2\u66F4\u65B0" : "\u5DF2\u6DFB\u52A0"}\u9875\u9762\u8282\u70B9\u300C${node.title}\u300D\uFF08id=${id}\uFF09\u3002
 \u4F4D\u7F6E\uFF1Ax=${node.x}, y=${node.y}\uFF1B\u5C3A\u5BF8\uFF1A${node.width}\xD7${node.height}\uFF08${deviceType}\uFF09
@@ -69457,9 +71086,23 @@ ${skipped.slice(0, 8).map((s) => `  - ${redactErrorPaths(s.ref)}\uFF08${redactEr
 `) + `\u753B\u5E03 URL\uFF1A${url}
 \u9879\u76EE\uFF1A${projectHint(call.cwd)}` + styleLine + missingLine + assetNote + textNote + navNote + (navWarnings.length ? `
 \u5BFC\u822A\u63D0\u793A\uFF1A${navWarnings.join("\uFF1B")}` : "") + (backfilled.length ? `
-\u9875\u9762\u8DF3\u8F6C\uFF1A\u5DF2\u8865\u9F50 ${backfilled.length} \u4E2A\u9875\u9762\u7684\u524D\u5411\u94FE\u63A5\uFF08${backfilled.join("\u3001")}\uFF09\u3002` : "") + scriptIconNote(injection?.scriptIcons ?? []) + (blocked.length ? `
+\u9875\u9762\u8DF3\u8F6C\uFF1A\u5DF2\u8865\u9F50 ${backfilled.length} \u4E2A\u9875\u9762\u7684\u524D\u5411\u94FE\u63A5\uFF08${backfilled.join("\u3001")}\uFF09\u3002` : "") + scriptIconNote(injection?.scriptIcons ?? []) + craftLine + (blocked.length ? `
 \u6CE8\u610F\uFF1A\u753B\u5E03 CSP \u4F1A\u62E6\u622A\u8FD9\u4E9B\u5916\u94FE\u6216\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\uFF0C\u9875\u9762\u91CC\u5C06\u52A0\u8F7D\u4E0D\u5230\uFF1A${blocked.slice(0, 8).map(redactErrorPaths).join("\u3001")}${blocked.length > 8 ? ` \u7B49 ${blocked.length} \u5904` : ""}\u3002\u8BF7\u6539\u4E3A\u5185\u8054\uFF08<style>\u3001<script>\u3001data: URI\uFF09\u6216\u7528 CSS/SVG \u7ED8\u5236\u3002` : "")
   };
+}
+function craftHint(cwd, html, styleId, mode) {
+  try {
+    const report = lintHtml(html, styleId, cwd, { style: false, mode });
+    const notable = report.findings.filter((f) => f.severity !== "advisory");
+    if (notable.length === 0) return "";
+    const counts = /* @__PURE__ */ new Map();
+    for (const finding of notable) counts.set(finding.rule, (counts.get(finding.rule) ?? 0) + 1);
+    const parts = [...counts.entries()].sort((a2, b2) => b2[1] - a2[1]).slice(0, 5).map(([rule, n]) => `${rule} ${n}`);
+    return `
+\u5DE5\u827A\u63D0\u793A\uFF08\u4E0D\u963B\u585E\uFF0C\u8BE6\u89C1 canvas_check_style\uFF09\uFF1A${notable.length} \u5904\uFF0C${parts.join("\u3001")}`;
+  } catch {
+    return "";
+  }
 }
 function pageRefsWith(project, self2) {
   const refs = project.nodes.map((n) => ({ id: n.id, title: n.title }));
@@ -69512,8 +71155,9 @@ async function canvasGetState(call) {
     sections.push("\u753B\u5E03\u4E0A\u6682\u65E0\u9875\u9762\u8282\u70B9\u3002\n\u7528 canvas_upsert_page \u6DFB\u52A0\u4E00\u4E2A HTML \u539F\u578B\u3002");
   } else {
     const lines = project.nodes.map((n, i) => {
+      const modeLine = n.mode ? `\uFF1B\u6A21\u5F0F ${n.mode}\uFF08${surfaceModeLabel(n.mode)}\uFF09` : "";
       return `${i + 1}. ${n.title} (id=${n.id})
-   \u4F4D\u7F6E x=${n.x}, y=${n.y}\uFF1B\u5C3A\u5BF8 ${n.width}\xD7${n.height}\uFF08${n.deviceType}\uFF09`;
+   \u4F4D\u7F6E x=${n.x}, y=${n.y}\uFF1B\u5C3A\u5BF8 ${n.width}\xD7${n.height}\uFF08${n.deviceType}\uFF09${modeLine}`;
     });
     sections.push(`\u753B\u5E03\u4E0A\u6709 ${project.nodes.length} \u4E2A\u9875\u9762\u8282\u70B9\uFF1A
 ${lines.join("\n")}`);
@@ -69977,6 +71621,11 @@ ${doc.skeletonHtml}
   }
 }
 async function canvasCheckStyle(call) {
+  const action = str(call.args.action) ?? "check";
+  if (action === "list_rules") return listRuleCatalog();
+  if (action !== "check") {
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acheck\uFF08\u9ED8\u8BA4\uFF09/ list_rules\u3002`, isError: true };
+  }
   const inlineHtml = str(call.args.html);
   const override = str(call.args.style_id);
   if (override && override !== "free" && !designStyleExists(call.cwd, override)) {
@@ -69984,16 +71633,32 @@ async function canvasCheckStyle(call) {
   }
   const styleId = override === "free" ? null : override ?? currentStyleId(call.cwd);
   const pageTheme = (html) => override !== void 0 ? styleId : styleId ?? readDesignMarker(html)?.styleId ?? null;
+  const rawMode = call.args.surface_mode;
+  const modeProvided = rawMode !== void 0 && rawMode !== null && rawMode !== "";
+  const mode = modeProvided ? normalizeSurfaceMode(rawMode) : null;
+  if (modeProvided && !mode) {
+    return { content: `\u975E\u6CD5 surface_mode\uFF1A${String(rawMode)}\uFF1B\u53EF\u9009\uFF1A${surfaceModeChoices()}`, isError: true };
+  }
+  const onlyRaw = str(call.args.rules);
+  const rules = onlyRaw ? onlyRaw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean) : void 0;
+  const ignoreRaw = str(call.args.ignore);
+  const ignore = ignoreRaw ? ignoreRaw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean) : void 0;
+  const baseOptions = (html) => ({
+    mode: modeProvided ? mode : readPageMode(call.cwd, call.args) ?? null,
+    ...rules ? { rules } : {},
+    ...ignore ? { ignore } : {}
+  });
   if (inlineHtml !== void 0) {
-    const report = lintHtml(inlineHtml, pageTheme(inlineHtml), call.cwd);
+    const report = lintHtml(inlineHtml, pageTheme(inlineHtml), call.cwd, baseOptions(inlineHtml));
     return { content: formatLintReport(report, "\u76F4\u63A5\u68C0\u67E5\u4F20\u5165\u7684 HTML") };
   }
   const pageId = str(call.args.page_id);
   if (pageId) {
     const html = readPageHtml(call.cwd, pageId);
     if (html === null) return { content: `\u9875\u9762\u4E0D\u5B58\u5728\uFF1A${pageId}`, isError: true };
-    const report = lintHtml(html, pageTheme(html), call.cwd);
-    return { content: formatLintReport(report, `\u9875\u9762 id=${pageId}`) };
+    const pageMode = modeProvided ? mode : readProject(call.cwd).nodes.find((n) => n.id === pageId)?.mode ?? null;
+    const report = lintHtml(html, pageTheme(html), call.cwd, { ...baseOptions(html), mode: pageMode });
+    return { content: formatLintReport(report, `\u9875\u9762 id=${pageId}${pageMode ? ` \xB7 ${pageMode}` : ""}`) };
   }
   const project = readProject(call.cwd);
   if (project.nodes.length === 0) return { content: "\u753B\u5E03\u4E0A\u6CA1\u6709\u9875\u9762\u53EF\u68C0\u67E5\u3002" };
@@ -70002,9 +71667,12 @@ async function canvasCheckStyle(call) {
   for (const node of project.nodes) {
     const html = readPageHtml(call.cwd, node.id);
     if (html === null) continue;
-    const report = lintHtml(html, pageTheme(html), call.cwd);
+    const nodeMode = modeProvided ? mode : node.mode ?? null;
+    const report = lintHtml(html, pageTheme(html), call.cwd, { ...baseOptions(html), mode: nodeMode });
     total += report.total;
-    if (report.total > 0) reports.push(formatLintReport(report, `\u9875\u9762\u300C${node.title}\u300D(id=${node.id})`));
+    if (report.total > 0) {
+      reports.push(formatLintReport(report, `\u9875\u9762\u300C${node.title}\u300D(id=${node.id})${nodeMode ? ` \xB7 ${nodeMode}` : ""}`));
+    }
   }
   if (reports.length === 0) {
     const name = styleId ? designStyleSummary(call.cwd, styleId)?.name ?? styleId : null;
@@ -70016,6 +71684,35 @@ async function canvasCheckStyle(call) {
   return { content: `${reports.join("\n\n")}
 
 \u5408\u8BA1\uFF1A${total} \u5904\u3002` };
+}
+function readPageMode(cwd, args) {
+  const pageId = str(args.page_id);
+  if (!pageId) return null;
+  return readProject(cwd).nodes.find((n) => n.id === pageId)?.mode ?? null;
+}
+function listRuleCatalog() {
+  const groups = { slop: [], quality: [] };
+  for (const rule of RULES) {
+    const modes = rule.modes ? Object.entries(rule.modes).map(([m, s]) => `${m}=${s}`).join(" ") : "";
+    groups[rule.category].push(
+      `- ${rule.id}\uFF08${rule.name}\uFF0C${rule.severity}\uFF0C${rule.engine}\uFF09${modes ? ` [${modes}]` : ""}
+  ${rule.description}
+  \u4FEE\u590D\uFF1A${rule.fix}`
+    );
+  }
+  const lines = [
+    `\u5DE5\u827A\u89C4\u5219\u5171 ${RULES.length} \u6761\uFF08\u6E90\u7801\u7EA7 ${RULES.filter((r) => r.engine === "source").length}\u3001\u6E32\u67D3\u7EA7 ${RULES.filter((r) => r.engine === "render").length}\uFF09\u3002`,
+    "\u4E25\u91CD\u5EA6\uFF1Awarning = \u5E94\u4FEE\u590D\uFF1Badvisory = \u5EFA\u8BAE\uFF0C\u4E0D\u963B\u585E\u4EA4\u4ED8\u3002",
+    "",
+    "## slop\uFF08AI \u5957\u8DEF\uFF09",
+    groups.slop.join("\n"),
+    "",
+    "## quality\uFF08\u901A\u7528\u8D28\u91CF\uFF09",
+    groups.quality.join("\n"),
+    "",
+    "\u5FFD\u7565\u8BED\u6CD5\uFF08\u5199\u5728\u9875\u9762 HTML \u6CE8\u91CA\u91CC\uFF09\uFF1A<!-- tianshu-lint-disable <rule> --> \u6216 <!-- tianshu-lint-disable-next-line <rule> -->\uFF1B\u672A\u5339\u914D\u5230\u53D1\u73B0\u7684\u5FFD\u7565\u4F1A\u5728\u62A5\u544A\u672B\u5C3E\u70B9\u540D\u3002"
+  ];
+  return { content: lines.join("\n") };
 }
 function builtinIds() {
   return designStyleIds();
@@ -70581,6 +72278,11 @@ var tools = [
             enum: ["desktop", "tablet", "mobile", "free"],
             description: "\u8BBE\u5907\u9884\u8BBE\uFF08\u65B0\u5EFA\u9ED8\u8BA4 desktop\uFF1B\u66F4\u65B0\u7F3A\u7701\u4FDD\u6301\u539F\u8BBE\u5907\u4E0E\u5C3A\u5BF8\uFF09"
           },
+          surface_mode: {
+            type: "string",
+            enum: ["persuade", "operate", "read", "experience"],
+            description: "\u9875\u9762\u6A21\u5F0F\uFF08\u6309\u9875\u9762\u9009\uFF0C\u4E0D\u6309\u4EA7\u54C1\u6574\u4F53\u9009\uFF09\uFF1Apersuade \u843D\u5730/\u8425\u9500\u3001operate \u540E\u53F0/\u5DE5\u5177\u3001read \u6587\u6863/\u6587\u7AE0\u3001experience \u4F5C\u54C1/\u753B\u5ECA\u3002\u5F71\u54CD\u68C0\u6D4B\u5668\u753B\u50CF\uFF1B\u66F4\u65B0\u65F6\u7701\u7565\u5219\u4FDD\u6301\u539F\u503C\u3002"
+          },
           inline_assets: {
             type: "boolean",
             description: "\u53EF\u9009\uFF08\u9ED8\u8BA4 false\uFF09\uFF1A\u628A\u539F\u578B\u91CC\u4F1A\u88AB\u753B\u5E03 CSP \u62E6\u622A\u7684\u5916\u94FE/\u76F8\u5BF9\u8DEF\u5F84\u8D44\u6E90\u6293\u53D6\u5E76\u5185\u8054\u4E3A data: URI\uFF08\u56FE\u7247/\u5B57\u4F53/CSS/SVG/\u811A\u672C\uFF09\u3002\u76F8\u5BF9\u8DEF\u5F84\u9700\u8981\u540C\u65F6\u7ED9\u51FA inline_assets_origin\u3002\u6293\u53D6\u5931\u8D25\u6216\u8D85\u9650\u7684\u8D44\u6E90\u4FDD\u7559\u539F\u5F15\u7528\u5E76\u5728\u8FD4\u56DE\u91CC\u8BF4\u660E\u3002\u5F00\u542F\u524D\u8BF7\u786E\u8BA4\u8FD9\u4E9B\u5916\u90E8\u8D44\u6E90\u662F\u4F60\u4FE1\u4EFB\u7684\u6765\u6E90\u3002"
@@ -70731,6 +72433,24 @@ var tools = [
           style_id: {
             type: "string",
             description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF08\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49 id\uFF09\uFF1Bfree \u8868\u793A\u53EA\u68C0\u67E5\u8D44\u6E90\u5F15\u7528"
+          },
+          action: {
+            type: "string",
+            enum: ["check", "list_rules"],
+            description: "check\uFF08\u9ED8\u8BA4\uFF09\u68C0\u67E5\u9875\u9762\uFF1Blist_rules \u5217\u51FA\u5168\u90E8\u5DE5\u827A\u89C4\u5219\u3001\u4E25\u91CD\u5EA6\u4E0E\u6A21\u5F0F\u753B\u50CF"
+          },
+          surface_mode: {
+            type: "string",
+            enum: ["persuade", "operate", "read", "experience"],
+            description: "\u6309\u6B64\u6A21\u5F0F\u8BC4\u4F30\uFF08\u8986\u76D6\u9875\u9762\u81EA\u5E26\u7684\u6A21\u5F0F\uFF09\uFF1B\u7701\u7565\u5219\u7528\u9875\u9762\u6A21\u5F0F\u6216\u9879\u76EE\u9ED8\u8BA4"
+          },
+          rules: {
+            type: "string",
+            description: "\u53EF\u9009\u7684\u89C4\u5219 id \u5B50\u96C6\uFF08\u9017\u53F7\u6216\u7A7A\u683C\u5206\u9694\uFF09\uFF0C\u53EA\u8DD1\u8FD9\u4E9B\u5DE5\u827A\u89C4\u5219"
+          },
+          ignore: {
+            type: "string",
+            description: "\u672C\u6B21\u8FD0\u884C\u989D\u5916\u5FFD\u7565\u7684\u89C4\u5219 id\uFF08\u9017\u53F7\u6216\u7A7A\u683C\u5206\u9694\uFF09\uFF0C\u4E0D\u5199\u5165\u9875\u9762"
           }
         },
         required: [],

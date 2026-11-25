@@ -10,6 +10,10 @@
 import { findBlockedResources } from './resources.js'
 import { resolveDesignStyle, type DesignManifest } from './design.js'
 import { prototypeClasses } from './prototypes.js'
+import type { SurfaceMode } from './modes.js'
+import { ruleIds } from './rules/registry.js'
+import { runSourceRules } from './rules/engine.js'
+import { directiveUsed, isIgnored, parseIgnores } from './rules/ignores.js'
 import {
   CLASS_ATTR_RE as CLASS_ATTR,
   COLOR_PROP,
@@ -36,10 +40,26 @@ import {
 export type LintRule = 'color' | 'font' | 'spacing' | 'radius' | 'icon' | 'component' | 'interaction' | 'token' | 'resource'
 
 export interface LintFinding {
-  rule: LintRule
+  rule: string
   line: number
   message: string
   snippet: string
+  /** 建议级（advisory）发现不阻塞交付；缺省为既定严重度。 */
+  severity?: 'warning' | 'advisory'
+}
+
+/** 检测器选项：原有风格规则与工艺规则（detector）可以分别开关。 */
+export interface LintOptions {
+  /** 是否运行工艺规则（slop / quality）；默认 true。 */
+  detector?: boolean
+  /** 是否运行原有风格一致性规则；默认 true。 */
+  style?: boolean
+  /** 只运行这些工艺规则 id（空或未提供表示全部）。 */
+  rules?: string[]
+  /** 本次运行额外忽略的规则 id。 */
+  ignore?: string[]
+  /** 页面模式；未提供时按无模式处理。 */
+  mode?: SurfaceMode | null
 }
 
 export interface LintReport {
@@ -47,7 +67,7 @@ export interface LintReport {
   /** 风格名（用于报告标题）；由 lintHtml 解析后写入，避免格式化层再触磁盘。 */
   styleName?: string | null
   findings: LintFinding[]
-  counts: Record<LintRule, number>
+  counts: Record<string, number>
   truncated: boolean
   total: number
 }
@@ -77,16 +97,20 @@ function keyFor(pool: number[], value: number, kind: 'space' | 'radius'): string
 /**
  * 检查一段页面 HTML。
  * styleId 为 null 时只检查资源引用（自由发挥模式）。
+ *
+ * `options.detector` 控制是否运行工艺规则（AI 套路 / 通用质量问题）；
+ * 契约审计（audit/contract.ts）必须显式关掉它，否则符合度分数会被工艺发现污染。
  */
-export function lintHtml(html: string, styleId: string | null, cwd?: string): LintReport {
-  const counts = Object.fromEntries(RULES.map((r) => [r, 0])) as Record<LintRule, number>
+export function lintHtml(html: string, styleId: string | null, cwd?: string, options: LintOptions = {}): LintReport {
+  const runStyle = options.style !== false
+  const counts: Record<string, number> = Object.fromEntries(RULES.map((r) => [r, 0]))
   const findings: LintFinding[] = []
   const index = lineIndex(html)
 
-  const add = (rule: LintRule, offset: number, message: string): void => {
-    counts[rule]++
+  const add = (rule: string, offset: number, message: string, severity?: 'warning' | 'advisory'): void => {
+    counts[rule] = (counts[rule] ?? 0) + 1
     if (findings.length < MAX_FINDINGS) {
-      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset) })
+      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset), ...(severity ? { severity } : {}) })
     }
   }
 
@@ -98,9 +122,25 @@ export function lintHtml(html: string, styleId: string | null, cwd?: string): Li
   }
 
   const style = styleId ? resolveDesignStyle(cwd, styleId) : null
-  if (!style) {
-    // 风格不可用时只查了资源，报告里不能显示成按某个风格检查过。
-    return { styleId: null, findings, counts, truncated: counts.resource > MAX_FINDINGS, total: counts.resource }
+
+  /** 收尾：排序、截断判定、总数。 */
+  const finalize = (resolvedStyleId: string | null, styleName?: string | null): LintReport => {
+    const total = Object.values(counts).reduce((a, b) => a + b, 0)
+    findings.sort((a, b) => a.line - b.line || a.rule.localeCompare(b.rule))
+    return {
+      styleId: resolvedStyleId,
+      ...(styleName !== undefined ? { styleName } : {}),
+      findings,
+      counts,
+      truncated: total > MAX_FINDINGS,
+      total,
+    }
+  }
+
+  if (!style || !runStyle) {
+    // 风格不可用时只查了资源与工艺规则，报告里不能显示成按某个风格检查过。
+    runDetector(html, index, style, options, add)
+    return finalize(null, style?.summary.name)
   }
 
   const manifest = style.manifest
@@ -207,9 +247,38 @@ export function lintHtml(html: string, styleId: string | null, cwd?: string): Li
     }
   }
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0)
-  findings.sort((a, b) => a.line - b.line)
-  return { styleId, styleName: style.summary.name, findings, counts, truncated: total > MAX_FINDINGS, total }
+  // 7) 工艺规则（AI 套路 / 通用质量问题）。契约审计显式关闭。
+  runDetector(html, index, style, options, add)
+
+  return finalize(styleId, style.summary.name)
+}
+
+/** 工艺规则的接入点；规则实现见 rules/engine。 */
+function runDetector(
+  html: string,
+  index: number[],
+  style: { manifest: DesignManifest } | null,
+  options: LintOptions,
+  add: (rule: string, offset: number, message: string, severity?: 'warning' | 'advisory') => void,
+): void {
+  if (options.detector === false) return
+  const ignores = parseIgnores(html)
+  const findings = runSourceRules(html, {
+    manifest: style?.manifest ?? null,
+    mode: options.mode ?? null,
+    only: options.rules && options.rules.length > 0 ? new Set(options.rules) : null,
+    ignore: new Set(options.ignore ?? []),
+  })
+  for (const finding of findings) {
+    const line = lineOf(index, finding.offset)
+    if (isIgnored(ignores, finding.rule, line)) continue
+    add(finding.rule, finding.offset, finding.message, finding.severity)
+  }
+  // 未匹配到任何发现的豁免：点名，避免豁免长期腐烂。
+  for (const directive of ignores.directives) {
+    if (directiveUsed(ignores, directive, findings.map((f) => ({ rule: f.rule, line: lineOf(index, f.offset) })))) continue
+    add('unused-ignore', 0, `第 ${directive.line} 行的忽略没有匹配到任何发现：${directive.rules.join(', ')}`, 'advisory')
+  }
 }
 
 /** 原始 HTML 里是否存在注入的交互运行时（style/script）。 */
@@ -240,10 +309,17 @@ export function formatLintReport(report: LintReport, label: string): string {
     return `${head}\n未发现不符合项（0 处）。`
   }
 
-  const lines = report.findings.map((f, i) => `${i + 1}. [${f.rule}] 第 ${f.line} 行 ${f.message}\n   ${f.snippet}`)
-  const summary = RULES.filter((r) => report.counts[r] > 0)
+  const lines = report.findings.map(
+    (f, i) => `${i + 1}. [${f.rule}${f.severity === 'advisory' ? '·建议' : ''}] 第 ${f.line} 行 ${f.message}\n   ${f.snippet}`,
+  )
+  // 固定顺序：原有风格规则在前，工艺规则按注册表顺序在后。
+  const ordered = [...RULES, ...ruleIds().filter((id) => !(RULES as string[]).includes(id))]
+  const summary = ordered
+    .filter((r) => (report.counts[r] ?? 0) > 0)
     .map((r) => `${r} ${report.counts[r]}`)
     .join('、')
+  const unused = report.counts['unused-ignore'] ?? 0
+  const unusedNote = unused > 0 ? `\n未生效的忽略：${unused} 条（已无对应发现，请删除或修正规则名）。` : ''
   const tail = report.truncated ? `\n…另有 ${report.total - report.findings.length} 处未显示。` : ''
-  return `${head}\n发现 ${report.total} 处（仅报告，未修改文件）：\n${lines.join('\n')}\n汇总：${summary}${tail}`
+  return `${head}\n发现 ${report.total} 处（仅报告，未修改文件）：\n${lines.join('\n')}\n汇总：${summary}${tail}${unusedNote}`
 }

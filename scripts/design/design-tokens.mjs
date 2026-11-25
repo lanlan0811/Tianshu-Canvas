@@ -137,10 +137,11 @@ export function flattenDarkSemantic(tokens) {
 export function tokensToCss(tokens) {
   const { vars } = flattenTokens(tokens)
   const lines = vars.map((v) => `  ${v.name}: ${v.value};`)
-  let css = `/* 由 tokens.json 生成，请勿手改。 */\n:root {\n${lines.join('\n')}\n}\n`
+  // color-scheme 让浏览器原生控件（滚动条、表单、光标）跟随主题。
+  let css = `/* 由 tokens.json 生成，请勿手改。 */\n:root {\n${lines.join('\n')}\n  color-scheme: light;\n}\n`
   if (hasDarkMode(tokens)) {
     const darkLines = flattenDarkSemantic(tokens).map((v) => `  ${v.name}: ${v.value};`)
-    css += `\n/* 深色模式：给根元素加 class="dark" 即切换。 */\n.dark {\n${darkLines.join('\n')}\n}\n`
+    css += `\n/* 深色模式：给根元素加 class="dark" 即切换。 */\n.dark {\n${darkLines.join('\n')}\n  color-scheme: dark;\n}\n`
   }
   return css
 }

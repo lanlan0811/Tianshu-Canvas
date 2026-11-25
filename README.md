@@ -199,6 +199,27 @@ AI 先打开画布、整理内容简报，使用相同文案和素材展示两�
 
 视觉基线默认在 `.tianshu-canvas/audit/baseline`（被 gitignore）；团队要共享基线时传 `baseline_dir` 指到仓库内可提交目录。
 
+### 页面模式与工艺规则
+
+`canvas_upsert_page` 支持按页面声明 **surface_mode**（`persuade` 说服 / `operate` 操作 / `read` 阅读 /
+`experience` 体验）。模式按页面选而非按产品选，决定该页的检测器画像：例如 `read` 页不判渐变文字与装饰光晕，
+`operate` 页把装饰类规则降级为建议，双首屏流程只在 `persuade` 生效。
+
+`canvas_check_style` 除原有风格一致性检查外，还会跑 **18 条工艺规则**（源码级、零浏览器）：
+烂大街字体、渐变文字、侧色条、圆角上的强调边框、AI 紫蓝配色、奶油米色底、彩色底上的灰字、
+硬偏移阴影、回弹缓动、重复渐变条纹、装饰网格底纹、跑马灯、间距单调、破折号过密、营销黑话、
+格言腔、径向光晕、emoji 当图标。`action=list_rules` 列出全部规则、严重度与模式画像；
+`severity=advisory` 的建议不阻塞交付。规则判据的出处见 [docs/rule-sources.md](docs/rule-sources.md)。
+
+页面内可用注释做窄豁免（未匹配到任何发现的豁免会在报告末尾点名）：
+
+```html
+<!-- tianshu-lint-disable side-tab -->
+<!-- tianshu-lint-disable-next-line gradient-text -->
+```
+
+写入页面时（`canvas_upsert_page`）会附最多 5 类非建议级工艺提示，**不阻塞写入**；0 命中时不追加任何行。
+
 **画布操作**：空格/中键拖拽平移 · Ctrl+滚轮缩放 · 普通滚轮平移 · 顶栏缩放百分比 · 右下角缩略图（MiniMap）。
 界面为手绘白板/便签风：顶栏含品牌与导出，左侧页面列表点击定位，右下角缩放控件，节点右键菜单（预览/预览设备）。
 
@@ -370,6 +391,9 @@ node scripts/verify-web.mjs <chrome.exe>
 ## 许可
 
 Apache License 2.0（见 [LICENSE](LICENSE)）。
+
+工艺检测规则的**判据与阈值**参考了 [Impeccable](https://github.com/pbakaus/impeccable)（Apache-2.0，Paul Bakaus），
+规则名、中文文案、解析器与测试均为本项目原创；对照表见 [docs/rule-sources.md](docs/rule-sources.md)。
 
 发行包内联了若干第三方组件（画布内核 [React Flow](https://github.com/xyflow/xyflow) / `@xyflow/react`（MIT）、
 `react` / `react-dom`（MIT）、`puppeteer-core` 与 `chromium-bidi`（Apache-2.0）、`ws`（MIT）等）。

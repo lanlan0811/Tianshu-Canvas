@@ -21,12 +21,27 @@ triggers:
 1. **先打开画布。** 调用 canvas_open，把真实画布 URL 单独一行交给用户；再读取 canvas_get_state，确认已有页面、品牌约束、锁定风格与页面简报。
 2. **形成内容简报。** 提取受众、任务、核心主张、可信证据、主行动、素材与品牌约束。只有缺失内容会实质改变设计时才追问，不编造客户、评价、业务数字或用户认可。已有品牌/指定布局/锁定风格优先；不自动全局换肤旧页。用户明确要求专属设计系统时一次收齐 token 配置后用 canvas_design_system create；其它情况不再默认询问风格名称。
 3. **按任务取资源。** canvas_style action=prototype 不传 ID 看摘要，再按 prototype_id 只取相关完整原型；action=direction 读取 editorial-narrative / product-evidence / brand-poster 的构图指导和原创中英示例。原型是信息架构，方向是视觉叙事，风格是 token；三者不能混为同一选择。资源中的演示数据与原创 SVG 示意必须替换或明确标注，不能声称产品实拍。
-4. **营销页面默认双首屏。** 除非用户已指定一个布局或要求直接成页，使用同一份文案、素材、品牌和预算，先创建两个普通画布节点，至少在构图、排版层级、视觉叙事中有两项显著区别；仅换色、圆角或阴影不算。两案都包含核心主张、主行动及必要证据。保留中性 A/B 标签和简短设计理由，邀请用户在画布选稿；没有回答前不推断已确认。未锁定时可使用自包含原创布局与本地字体回退，不必先 set 风格。
+4. **营销页面默认双首屏（仅 persuade）。** 仅当页面模式是 **persuade（说服型）**、且用户没指定布局也没要求直接成页时，才用同一份文案、素材、品牌和预算创建两个普通画布节点，至少在构图、排版层级、视觉叙事中有两项显著区别；仅换色、圆角或阴影不算。两案都包含核心主张、主行动及必要证据。保留中性 A/B 标签和简短设计理由，邀请用户在画布选稿；没有回答前不推断已确认。未锁定时可使用自包含原创布局与本地字体回退，不必先 set 风格。**operate / read / experience 页面不走双首屏**。
 5. **选择后原位深化。** 用 canvas_style action=brief 为各节点保存可选简报；只有用户明确选中方向并给出或认可理由后，才传 brief.confirmation={confirmed:true,directionId,reason}。canvas_get_state 的选择节点本身不代表认可。canvas_upsert_page 使用选中节点的原 ID 完成整页与移动端，未选案保留供比较，后续改稿读取 brief 沿用确认的方向。复制保留原确认记录，不能宣称用户重新确认。
 6. **应用按任务组织。** 后台、AI、移动、IDE、设置、文档直接围绕关键任务选择对应原型和视图，不套营销首屏；需要比较时做同一任务的两个界面。已指定布局时遵守。保持原有导航、元素可选中与声明式交互。
 7. **真实渲染后交付。** 每页 `canvas_check_style` 一轮，有命中就修；再至多一次 `canvas_audit action=review,page_id=<id>`，按 1440/768/390 截图做**一次**修正，然后交付。第二次 review 只用于确认已修项，不新增探索；不要写脚本探测 DOM、不要重复截图。宿主有本地读图能力时必须打开截图、按实际画面修正；没有读图能力时明确请用户查看，不能把截图生成或自动 lint 当成审美通过。用户的审美评审不能由代理代填。用户报「确实坏了」时允许修一次、再看一次、重发一次，到此为止。
 
-禁止在打开画布前写原型；禁止虚构用户选择、可信证据、视觉审阅或评审胜率。新页面不自动改旧页的项目级风格。默认双首屏流程不适用于用户明确要求直接成页、已指定布局和任务型应用。
+禁止在打开画布前写原型；禁止虚构用户选择、可信证据、视觉审阅或评审胜率。新页面不自动改旧页的项目级风格。双首屏流程不适用于用户明确要求直接成页、已指定布局和任务型应用。
+
+## 页面模式（四选一）
+
+**按页面（surface）选，不按产品整体选。** 工具的落地页仍是 persuade；时尚品牌的文档仍是 read。
+写入时用 `canvas_upsert_page` 的 `surface_mode` 声明，之后 `canvas_get_state` 会显示；省略则页面无模式（检测器按默认画像跑）。
+
+| 模式 | 访客的成功 | 典型页面 | 对设计的要求 |
+|---|---|---|---|
+| `persuade` 说服型 | 决定并行动 | 落地页、营销页、活动页、定价页 | 设计即产品；默认双首屏；允许更强的视觉表达 |
+| `operate` 操作型 | 完成一个任务 | 后台、看板、设置、工具界面 | 可扫读、一致性、平台预期优先；**世界只借字体/配色/密度/一个签名动作，不借布局与控件** |
+| `read` 阅读型 | 理解一件事 | 文档、指南、文章、更新日志 | 世界拥有"框"（报头、导航轨、章节开头），阅读栏保持冷静：真实字面、真实对比、真实行宽 |
+| `experience` 体验型 | 身处作品之中 | 作品集、画廊、展示 | 作品从第一屏领跑，界面后退 |
+
+模式会改变检测器的画像：例如 `read` 页不判渐变文字与光晕，`operate` 页把装饰类规则降级为建议。
+同一产品的不同页面可以是不同模式；不要因为"这是个营销站"就给文档页套营销首屏。
 
 ## 设计风格（项目级）
 
@@ -41,7 +56,8 @@ triggers:
   只有静态 HTML 里的图标会展开；脚本要用图标时，把它写在 `<template>` 里再克隆，不要写在 JS 字符串中。
 - 需要内容匹配的完整原型：canvas_style（action=prototype，prototype_id=<id>）；新原型用登记的 tp-* 局部类与根节点作用域 CSS，可用 clamp/grid 比例组织布局，不关闭旧 token 和组件校验。
 - 需要旧骨架：`canvas_style`（action=template，template_id=dashboard|landing）取完整 HTML，改内容后交给 `canvas_upsert_page`。
-- 每次写完页面调用 `canvas_check_style`（只报告）；有 color / font / spacing / icon / component 命中就修掉再交付。
+- 每次写完页面调用 `canvas_check_style`（只报告）；有 color / font / spacing / icon / component 或工艺规则命中就修掉再交付。
+  想看全部工艺规则与严重度：`canvas_check_style action=list_rules`；只想跑某几条：传 `rules`；临时豁免：传 `ignore`。
   每页只做一轮检查，改完即交付，不要反复检查同一页。
   **不要**把检查清单原样念给用户，除非用户问。
 - 换风格用 `canvas_style set`：所有页面会被重写、画布自动刷新；告知用户即可。
@@ -52,14 +68,15 @@ triggers:
 只在**未锁定风格、用户也没指定视觉方向**时生效。用户说了方向就照做；已锁定风格（含 `claude` 的衬线标题、
 部分内置字体栈里的 Inter）按其风格执行，不受本节约束。
 
-下面这些是当前 AI 生成设计最扎堆的套路，默认不要选：
+下面这些是当前 AI 生成设计最扎堆的套路，默认不要选（`canvas_check_style` 会把它们当工艺规则报出来）：
 
 - 奶油底 `#F4F1EA` + 衬线大标题 + 赤陶色强调；
 - 近黑背景 + 单一荧光绿或朱红点缀；
 - 白底紫蓝渐变首屏；
 - 把 Inter / Space Grotesk 当“安全牌”默认字体；
 - emoji 当分节符或图标；
-- 整页居中、处处 `rounded-lg`、圆角卡片加一条侧色条。
+- 整页居中、处处 `rounded-lg`、圆角卡片加一条侧色条；
+- 渐变文字、圆角卡片上的粗上/下强调边框、零模糊硬阴影、装饰性重复条纹或网格底纹。
 
 配色与字体从主题本身取材（行业材料、真实工具、内容里的术语），并刻意选一个只有这个主题才会有的细节。
 中性色不要用纯中间灰，带一点朝向主色的色相偏置。功能色（成功/警告/危险）与主色分开。
@@ -67,12 +84,50 @@ triggers:
 结构装置（01/02/03 编号、eyebrow、分隔线、徽标）只在内容本身是序列或确实需要分组时才用，
 不要为了“看起来专业”给并列内容编号。
 
+### 组件状态契约（八态）
+
+每个交互组件都要齐备它欠的状态，缺一半就交付算不合格。**只用伪类与属性表达，不要新增 `ts-` 状态类**
+（构建校验会拒绝未声明的 `ts-` 类）：
+
+| 状态 | 怎么写 | 谁欠它 |
+|---|---|---|
+| hover | `:hover` | button、icon-button、input、select、switch、tabs、nav、sidebar |
+| focus | `:focus-visible`（输入框用 `:focus`） | button、icon-button、input、select、switch、checkbox、tabs、nav、sidebar |
+| active | `:active` | button、icon-button |
+| disabled | `:disabled` 或 `[aria-disabled="true"]` | button、icon-button、input、select、switch、checkbox、tabs |
+| loading | `[aria-busy="true"]` | button、icon-button |
+| error | `[aria-invalid="true"]`（表单）、`.ts-toast--danger`（提示） | input、select、checkbox、toast |
+| success | `.ts-toast--success`（提示） | toast |
+| selected / current | `[aria-selected="true"]`、`[aria-checked="true"]`、`[aria-current="page"]` | tabs、switch、nav、sidebar |
+
+这些样式已由 components.css 统一提供，**页面里不要重写**；只需要在标记上写对属性。
+
+### 浏览器表面（由 components.css 统一主题化）
+
+`::selection`、`caret-color`、滚动条、`text-underline-offset`、表格等宽数字、
+`color-scheme`、`prefers-reduced-motion` 的降级策略都已按 token 写好。**不要每页重写**；
+需要覆盖时只用现有 `--ts-*` 变量，不要引入新变量或新类。
+reduced-motion 用「缩短到 0.01ms」而不是 `animation: none`，这样 `animationend` / `transitionend` 仍会触发，
+交互状态机不会被卡死。
+
 ### 标题与文案
+
+**四级信息层级（顺序不可乱）**：用户现在需要的那一个事实 → 接下来可用的动作 → 会改变决策的支撑上下文 → 这个时刻的语气。
+每个想法只说一次；**如果标题已经解释了状态，导语要么补充新信息，要么删掉**。
 
 - **`title` 是页面名，不是分类名**：2–4 个词的具体名词短语（中文 2–8 字）；不加破折号/冒号后的解释，
   解释放在写给用户的那一句话里。用户已有命名时沿用用户的。
 - **按钮写结果**：按钮是「发布」，toast 就是「已发布」；不写「提交」「确定」这类无信息量的词。
-- **错误说清怎么修**：说明发生了什么、下一步怎么做，不道歉、不含糊。
+- **破坏性操作**：能安全恢复时**优先 undo 而不是确认弹窗**；必须确认时，消息和按钮都要写出动作与对象
+  （「删除 3 个页面」），**禁止「确定 / 取消 / 提交」**这类无信息量的按钮。
+- **加载文案点明真实操作**（「正在加载项目…」），有确定进度就显示；**绝不编造进度**。
+- **空状态分五型**，不要一律写「暂无数据」：
+  - 首次使用：这里会出现什么 + 为什么重要 + 怎么开始 + 视觉趣味 + 上下文帮助（五要素齐全）；
+  - 用户主动清空：轻触即可，容易重建；
+  - 无结果：给一条出路（换关键词、清筛选）；
+  - 无权限：说明原因与获取方式；
+  - 加载失败：说明发生了什么 + 重试。
+- **错误三要素**：什么失败了 / 为什么（已知且有用时）/ 怎么恢复。不道歉、不含糊、不把内部错误码当主消息。
 - **主动语态、具体优先**：用读者认得的词（管的是「通知」，不是「webhook 配置」）。
 - 避免模板腔：「不是 X，而是 Y」、破折号插入语、「值得一提的是」「需要说明的是」、给自造概念加引号。
 - **禁止 lorem ipsum 和占位文案**：一律用真实内容；示例数据必须明确标注为示例。
@@ -286,7 +341,7 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
 | `canvas_get_state` | 读取页面列表、连线、用户当前选中项、画布 URL | 需要查看/确认，或用户选中元素后据此修改 |
 | `canvas_arrange` | 删除 / 复制页面、连线 / 取消连线（`action` 选择） | 编排画布、表达页面流程时 |
 | `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板或交互骨架 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template / interaction；导出代码时**先问目标（多端再问技术栈）**再 codegen |
-| `canvas_check_style` | 只读检查页面是否符合当前风格 | 每次写完页面后；用户问「为什么风格不统一」时 |
+| `canvas_check_style` | 只读检查页面是否符合当前风格 + 工艺规则（`action`: check / list_rules） | 每次写完页面后；用户问「为什么风格不统一」时；想列规则时用 `list_rules` |
 | `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`extract` 反抽取；`import` 从仓库主题导入；`export` / `import_pack` 品牌包 | 用户要做「专属设计系统」时：问清配置后 create；要「照这个站点的风格」时 extract（先 dry_run）；要接入现有项目主题时 import；要交接/迁移时 export / import_pack |
-| `canvas_audit` | 设计 CI：契约、可访问性、视觉回归、设计漂移（`action`: contract / a11y / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
+| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、视觉回归、设计漂移（`action`: contract / a11y / quality / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
 | `canvas_comments` | 读取 / 处理画布元素批注（`action`: list / resolve / reopen / remove） | 用户圈了几处要改时：先 list 读全部，逐条改完再 resolve |

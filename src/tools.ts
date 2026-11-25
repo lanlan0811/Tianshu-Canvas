@@ -57,6 +57,8 @@ import { applyProjectStyle, currentStyleId, interactionDocument, templateDocumen
 import { extractTokens } from './extract.js'
 import { inlineAssets } from './inlineAssets.js'
 import { InvalidInputError, isSafeId, newPageId } from './ids.js'
+import { normalizeSurfaceMode, surfaceModeChoices, surfaceModeLabel, type SurfaceMode } from './modes.js'
+import { RULES } from './rules/registry.js'
 import { readTextInWorkspace, writeFileAtomic, writeFileInWorkspace } from './paths.js'
 import { formatLintReport, lintHtml } from './lint.js'
 import { findBlockedResources } from './resources.js'
@@ -247,6 +249,14 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
     return { content: `非法 id：${requestedId}（仅允许字母数字、下划线、连字符，1–64 位）`, isError: true }
   }
 
+  // 页面模式（可选）：不传则新建页面无模式、更新页面保持原值。
+  const rawMode = args.surface_mode
+  const modeProvided = rawMode !== undefined && rawMode !== null && rawMode !== ''
+  const requestedMode = modeProvided ? normalizeSurfaceMode(rawMode) : null
+  if (modeProvided && !requestedMode) {
+    return { content: `非法 surface_mode：${String(rawMode)}；可选：${surfaceModeChoices()}`, isError: true }
+  }
+
   const id = requestedId ?? newPageId()
 
   // 资源内联（可选）：把会被 CSP 拦截的外链/相对路径抓取成 data: URI。
@@ -315,6 +325,9 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       width: size.width, height: size.height, deviceType, htmlPath: rel,
       htmlRev: htmlChanged ? Math.max(now, (existing?.htmlRev ?? 0) + 1) : existing?.htmlRev, createdAt: existing?.createdAt ?? now, updatedAt: now,
     }
+    // 模式：显式传入则覆盖；未传则保留原值（新建页面即为无模式）。
+    const mode = modeProvided ? requestedMode! : existing?.mode
+    if (mode) node.mode = mode
     upsertNode(call.cwd, node, tx)
     const navigation = htmlChanged || !existing || existing.title !== pageTitle
       ? backfillNavigation(call.cwd, tx)
@@ -333,6 +346,8 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
   const missingLine = injection?.missingIcons.length
     ? `\n注意：这些图标名不在目录中，未内联：${injection.missingIcons.slice(0, 8).join('、')}${injection.missingIcons.length > 8 ? ` 等 ${injection.missingIcons.length} 个` : ''}。可用 canvas_style（action=get）查看图标清单。`
     : ''
+  // 工艺提示：写入后跑一遍检测器，只报非 advisory 的前 5 条；0 命中不加任何行（不干扰既有响应）。
+  const craftLine = pageHtml !== undefined ? craftHint(call.cwd, pageHtml, injection?.styleId ?? null, node.mode ?? null) : ''
   return {
     content:
       `${existing ? '已更新' : '已添加'}页面节点「${node.title}」（id=${id}）。\n` +
@@ -348,14 +363,35 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
       (navWarnings.length ? `\n导航提示：${navWarnings.join('；')}` : '') +
       (backfilled.length ? `\n页面跳转：已补齐 ${backfilled.length} 个页面的前向链接（${backfilled.join('、')}）。` : '') +
       scriptIconNote(injection?.scriptIcons ?? []) +
+      craftLine +
       (blocked.length
         ? `\n注意：画布 CSP 会拦截这些外链或相对路径资源，页面里将加载不到：${blocked.slice(0, 8).map(redactErrorPaths).join('、')}${blocked.length > 8 ? ` 等 ${blocked.length} 处` : ''}。请改为内联（<style>、<script>、data: URI）或用 CSS/SVG 绘制。`
         : ''),
   }
 }
 
-/** 页面引用集合：项目现有页面 + 本次写入的页面（覆盖同 id 的旧标题）。 */
-function pageRefsWith(project: Project, self: PageRef): PageRef[] {
+/**
+ * 写入时的工艺提示（不阻塞）。
+ *
+ * 只跑检测器（不跑风格规则，风格检查由 canvas_check_style 负责），
+ * 只取非 advisory 的前 5 条，0 命中返回空串。检测器抛错时静默跳过——
+ * 提示是可选的，绝不能影响写入本身。
+ */
+function craftHint(cwd: string, html: string, styleId: string | null, mode: SurfaceMode | null): string {
+  try {
+    const report = lintHtml(html, styleId, cwd, { style: false, mode })
+    const notable = report.findings.filter((f) => f.severity !== 'advisory')
+    if (notable.length === 0) return ''
+    const counts = new Map<string, number>()
+    for (const finding of notable) counts.set(finding.rule, (counts.get(finding.rule) ?? 0) + 1)
+    const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([rule, n]) => `${rule} ${n}`)
+    return `\n工艺提示（不阻塞，详见 canvas_check_style）：${notable.length} 处，${parts.join('、')}`
+  } catch {
+    return ''
+  }
+}
+
+/** 页面引用集合：项目现有页面 + 本次写入的页面（覆盖同 id 的旧标题）。 */function pageRefsWith(project: Project, self: PageRef): PageRef[] {
   const refs = project.nodes.map((n) => ({ id: n.id, title: n.title }))
   const idx = refs.findIndex((r) => r.id === self.id)
   if (idx >= 0) refs[idx] = { id: self.id, title: self.title }
@@ -420,9 +456,10 @@ async function canvasGetState(call: ToolCall): Promise<ToolResult> {
     sections.push('画布上暂无页面节点。\n用 canvas_upsert_page 添加一个 HTML 原型。')
   } else {
     const lines = project.nodes.map((n, i) => {
+      const modeLine = n.mode ? `；模式 ${n.mode}（${surfaceModeLabel(n.mode)}）` : ''
       return (
         `${i + 1}. ${n.title} (id=${n.id})\n` +
-        `   位置 x=${n.x}, y=${n.y}；尺寸 ${n.width}×${n.height}（${n.deviceType}）`
+        `   位置 x=${n.x}, y=${n.y}；尺寸 ${n.width}×${n.height}（${n.deviceType}）${modeLine}`
       )
     })
     sections.push(`画布上有 ${project.nodes.length} 个页面节点：\n${lines.join('\n')}`)
@@ -924,6 +961,12 @@ async function canvasStyle(call: ToolCall): Promise<ToolResult> {
 // ---------------------------------------------------------------------------
 
 async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
+  const action = str(call.args.action) ?? 'check'
+  if (action === 'list_rules') return listRuleCatalog()
+  if (action !== 'check') {
+    return { content: `未知的 action：${action}。可选：check（默认）/ list_rules。`, isError: true }
+  }
+
   const inlineHtml = str(call.args.html)
   const override = str(call.args.style_id)
   if (override && override !== 'free' && !designStyleExists(call.cwd, override)) {
@@ -932,8 +975,25 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   const styleId = override === 'free' ? null : (override ?? currentStyleId(call.cwd))
   const pageTheme = (html: string): string | null => override !== undefined ? styleId : (styleId ?? readDesignMarker(html)?.styleId ?? null)
 
+  // 本次运行的检测器选项：规则子集、额外忽略、模式覆盖。
+  const rawMode = call.args.surface_mode
+  const modeProvided = rawMode !== undefined && rawMode !== null && rawMode !== ''
+  const mode = modeProvided ? normalizeSurfaceMode(rawMode) : null
+  if (modeProvided && !mode) {
+    return { content: `非法 surface_mode：${String(rawMode)}；可选：${surfaceModeChoices()}`, isError: true }
+  }
+  const onlyRaw = str(call.args.rules)
+  const rules = onlyRaw ? onlyRaw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean) : undefined
+  const ignoreRaw = str(call.args.ignore)
+  const ignore = ignoreRaw ? ignoreRaw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean) : undefined
+  const baseOptions = (html: string) => ({
+    mode: modeProvided ? mode : (readPageMode(call.cwd, call.args) ?? null),
+    ...(rules ? { rules } : {}),
+    ...(ignore ? { ignore } : {}),
+  })
+
   if (inlineHtml !== undefined) {
-    const report = lintHtml(inlineHtml, pageTheme(inlineHtml), call.cwd)
+    const report = lintHtml(inlineHtml, pageTheme(inlineHtml), call.cwd, baseOptions(inlineHtml))
     return { content: formatLintReport(report, '直接检查传入的 HTML') }
   }
 
@@ -941,8 +1001,9 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   if (pageId) {
     const html = readPageHtml(call.cwd, pageId)
     if (html === null) return { content: `页面不存在：${pageId}`, isError: true }
-    const report = lintHtml(html, pageTheme(html), call.cwd)
-    return { content: formatLintReport(report, `页面 id=${pageId}`) }
+    const pageMode = modeProvided ? mode : (readProject(call.cwd).nodes.find((n) => n.id === pageId)?.mode ?? null)
+    const report = lintHtml(html, pageTheme(html), call.cwd, { ...baseOptions(html), mode: pageMode })
+    return { content: formatLintReport(report, `页面 id=${pageId}${pageMode ? ` · ${pageMode}` : ''}`) }
   }
 
   const project = readProject(call.cwd)
@@ -952,9 +1013,12 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
   for (const node of project.nodes) {
     const html = readPageHtml(call.cwd, node.id)
     if (html === null) continue
-    const report = lintHtml(html, pageTheme(html), call.cwd)
+    const nodeMode = modeProvided ? mode : (node.mode ?? null)
+    const report = lintHtml(html, pageTheme(html), call.cwd, { ...baseOptions(html), mode: nodeMode })
     total += report.total
-    if (report.total > 0) reports.push(formatLintReport(report, `页面「${node.title}」(id=${node.id})`))
+    if (report.total > 0) {
+      reports.push(formatLintReport(report, `页面「${node.title}」(id=${node.id})${nodeMode ? ` · ${nodeMode}` : ''}`))
+    }
   }
   if (reports.length === 0) {
     const name = styleId ? (designStyleSummary(call.cwd, styleId)?.name ?? styleId) : null
@@ -963,6 +1027,39 @@ async function canvasCheckStyle(call: ToolCall): Promise<ToolResult> {
     }
   }
   return { content: `${reports.join('\n\n')}\n\n合计：${total} 处。` }
+}
+
+/** 从调用参数里取页面模式（仅当传了 page_id 时有效）。 */
+function readPageMode(cwd: string, args: Record<string, unknown>): SurfaceMode | null {
+  const pageId = str(args.page_id)
+  if (!pageId) return null
+  return readProject(cwd).nodes.find((n) => n.id === pageId)?.mode ?? null
+}
+
+/** `canvas_check_style action=list_rules`：列出所有工艺规则与其模式画像。 */
+function listRuleCatalog(): ToolResult {
+  const groups: Record<'slop' | 'quality', string[]> = { slop: [], quality: [] }
+  for (const rule of RULES) {
+    const modes = rule.modes
+      ? Object.entries(rule.modes).map(([m, s]) => `${m}=${s}`).join(' ')
+      : ''
+    groups[rule.category].push(
+      `- ${rule.id}（${rule.name}，${rule.severity}，${rule.engine}）${modes ? ` [${modes}]` : ''}\n  ${rule.description}\n  修复：${rule.fix}`,
+    )
+  }
+  const lines = [
+    `工艺规则共 ${RULES.length} 条（源码级 ${RULES.filter((r) => r.engine === 'source').length}、渲染级 ${RULES.filter((r) => r.engine === 'render').length}）。`,
+    '严重度：warning = 应修复；advisory = 建议，不阻塞交付。',
+    '',
+    '## slop（AI 套路）',
+    groups.slop.join('\n'),
+    '',
+    '## quality（通用质量）',
+    groups.quality.join('\n'),
+    '',
+    '忽略语法（写在页面 HTML 注释里）：<!-- tianshu-lint-disable <rule> --> 或 <!-- tianshu-lint-disable-next-line <rule> -->；未匹配到发现的忽略会在报告末尾点名。',
+  ]
+  return { content: lines.join('\n') }
 }
 
 // ---------------------------------------------------------------------------
@@ -1562,6 +1659,12 @@ export const tools: TpiTool[] = [
             enum: ['desktop', 'tablet', 'mobile', 'free'],
             description: '设备预设（新建默认 desktop；更新缺省保持原设备与尺寸）',
           },
+          surface_mode: {
+            type: 'string',
+            enum: ['persuade', 'operate', 'read', 'experience'],
+            description:
+              '页面模式（按页面选，不按产品整体选）：persuade 落地/营销、operate 后台/工具、read 文档/文章、experience 作品/画廊。影响检测器画像；更新时省略则保持原值。',
+          },
           inline_assets: {
             type: 'boolean',
             description:
@@ -1713,6 +1816,24 @@ export const tools: TpiTool[] = [
           style_id: {
             type: 'string',
             description: '覆盖当前锁定的风格（内置或自定义 id）；free 表示只检查资源引用',
+          },
+          action: {
+            type: 'string',
+            enum: ['check', 'list_rules'],
+            description: 'check（默认）检查页面；list_rules 列出全部工艺规则、严重度与模式画像',
+          },
+          surface_mode: {
+            type: 'string',
+            enum: ['persuade', 'operate', 'read', 'experience'],
+            description: '按此模式评估（覆盖页面自带的模式）；省略则用页面模式或项目默认',
+          },
+          rules: {
+            type: 'string',
+            description: '可选的规则 id 子集（逗号或空格分隔），只跑这些工艺规则',
+          },
+          ignore: {
+            type: 'string',
+            description: '本次运行额外忽略的规则 id（逗号或空格分隔），不写入页面',
           },
         },
         required: [],

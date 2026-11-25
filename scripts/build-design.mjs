@@ -12,6 +12,7 @@ import { buildPrototypeLibrary } from './build-prototypes.mjs'
 import {
   auditForbidden,
   validateComponents,
+  validateStateContract,
   validateConsistency,
   validateIcons,
   validateInteractions,
@@ -157,6 +158,7 @@ export function buildDesignSystems({ root, dist }) {
     }
   }
   const classSet = validateComponents(componentsDoc, componentsCss, representativeManifest, errors, warnings)
+  validateStateContract(componentsDoc, componentsCss, errors)
   const componentClasses = [...classSet]
 
   // 交互库只在全局校验一次；它的类与组件类合并成同一份 ts-* 契约。
