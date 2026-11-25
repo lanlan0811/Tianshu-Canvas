@@ -28,6 +28,23 @@
 | `radial-halo` | advisory | `crates/core/src/checks/css_scan.rs` (radial halo) |
 | `emoji-icon` | warning | 本项目规则（AGENTS.md：禁止 emoji 图标） |
 
+### 渲染级规则（`src/audit/quality.ts`，需要浏览器）
+
+| 规则 id | 严重度 | 判据来源 |
+|---|---|---|
+| `tiny-text` | warning | `crates/browser/quality.rs` / `crates/html/src/quality.rs`（<12px 正文） |
+| `undersized-ui-text` | warning | `crates/browser/quality.rs`（功能性文字 <11px 地板） |
+| `all-caps-body` | warning | `crates/browser/quality.rs`（≥80 字符大写） |
+| `wide-tracking` | warning | `crates/browser/quality.rs`（letter-spacing / font-size > 0.05） |
+| `tight-leading` | warning | `crates/foundation/src/rules/text.rs`（line-height 比 < 1.3） |
+| `line-length` | warning | `crates/browser/quality.rs`（>80 字符折算） |
+| `flat-type-hierarchy` | warning / advisory | `crates/core/src/checks/rules.rs`（相邻角色步进 < 1.25） |
+| `heading-rhythm` | warning | `crates/browser/page_checks.rs`（上方间距应大于下方） |
+
+差异：本项目的渲染级实现用 `Range.getClientRects()` 聚合行矩形后**估算**每行字符数
+（拉丁 0.5em / CJK 1em），因此 `line-length` 阈值留了 +5 余量并对 CJK 直接不判；
+字号层级只在「正文与标题各有一个明确主导字号」时判定，并列时弃权并写入 skipped。
+
 ## 与原实现的差异
 
 - **不移植**需要真实渲染几何 / DOM 邻接的规则（字号层级、行宽、行高、标题节奏、

@@ -23,6 +23,7 @@
 | 规则引擎 | `src/rules/engine.ts` + 6 个规则模块 + `colorMath` / `textMath` / `ignores` / `profiles` |
 | 豁免 | `<!-- tianshu-lint-disable[-next-line] rule -->`，未生效豁免点名 |
 | 工具面 | `canvas_check_style`：`action=list_rules`、`rules`、`ignore`、`surface_mode`；写入时工艺提示（非阻塞，0 命中不加行） |
+| 渲染级规则 | `src/audit/quality.ts`：8 条需真实几何的规则；`canvas_audit action=quality` |
 | 文档 | `docs/rule-sources.md`（溯源与差异）、README 两节 |
 
 ## 规则清单与门禁
@@ -48,9 +49,9 @@ em-dash-overuse · marketing-buzzword · aphoristic-cadence · radial-halo · em
 7. **时间维 / 基线**：components.css 新增状态样式与浏览器表面，**会改变渲染结果**；
    已有视觉基线需要重新生成（`canvas_audit action=baseline`），这是预期变化。
 8. **假绿 / 未测项**：
-   - 渲染级 8 条规则（tiny-text、line-length、tight-leading、all-caps-body、wide-tracking、
-     flat-type-hierarchy、heading-rhythm、undersized-ui-text）**本轮未实现**，留待下一阶段接 Puppeteer 通道；
-   - 无 Chrome 的 CI 环境不会跑任何渲染检查；
+   - 渲染级 8 条规则已实现（`src/audit/quality.ts`）：字号下限、功能性文字下限、全大写长段、
+     字距、行高、行宽、字号层级、标题节奏；纯判定 17 项测试 + 真实浏览器 e2e 4 项（无浏览器时跳过）；
+   - 无 Chrome 的 CI 环境不会跑 `a11y` 与 `quality` 两类渲染检查；
    - 浏览器差异（Safari/Firefox 的滚动条伪元素、`color-scheme` 表现）未在本轮验证；
    - 中文 em-dash 规则按设计不生效（「——」是合法标点），因此中文页面的破折号过密不会被报出。
 
@@ -61,3 +62,7 @@ em-dash-overuse · marketing-buzzword · aphoristic-cadence · radial-halo · em
 - **`::selection` 用 `action.ghost-hover`**：各内置风格都是 brand 浅色调；自定义风格若该值过深，
   需人工复核选中文字的可读性。
 - **`cream-palette` 对 `#faf9f5` 不报**：暖差 5 未达 6 的下限（claude 风格画布色），属规则阈值的预期边界。
+- **行宽与字符数按估算**：`quality` 用「行宽 ÷ 平均字宽」折算每行字符数（拉丁 0.5em、CJK 1em），
+  不是精确字形测量；因此阈值刻意留了 +5 的余量（>85 才报），并对 CJK 直接不判。
+- **标题节奏只比较相邻兄弟块**：跨容器、绝对定位或 flex 布局里的标题间距无法可靠测量，一律不判。
+- **字号层级的「主导字号」并列时弃权**：正文或标题出现并列第一时写入 skipped，不猜。

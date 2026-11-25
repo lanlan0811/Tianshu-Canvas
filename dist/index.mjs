@@ -65150,6 +65150,293 @@ function formatA11yReport(report, label) {
   return lines.join("\n");
 }
 
+// src/audit/quality.ts
+var COLLECT_SCRIPT2 = `(() => {
+  const out = { elements: 0, multiLine: 0, items: [], skipped: [], fontStatus: '' }
+  const css = (el, prop) => getComputedStyle(el).getPropertyValue(prop).trim()
+  const hidden = (el) => {
+    let n = el
+    while (n && n.nodeType === 1) {
+      const s = getComputedStyle(n)
+      if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) return true
+      n = n.parentElement
+    }
+    return false
+  }
+  const path = (el) => {
+    const parts = []
+    let n = el
+    while (n && n.nodeType === 1 && parts.length < 5) {
+      let s = n.tagName.toLowerCase()
+      if (n.id) { s += '#' + n.id; parts.unshift(s); break }
+      const cls = (n.getAttribute('class') || '').split(/\\s+/).filter(Boolean).slice(0, 2).join('.')
+      if (cls) s += '.' + cls
+      parts.unshift(s)
+      n = n.parentElement
+    }
+    return parts.join(' > ')
+  }
+  /** \u5143\u7D20\u81EA\u6709\u6587\u672C\uFF08\u4E0D\u542B\u5B50\u5143\u7D20\uFF09\uFF0C\u7528\u4E8E\u300C\u8FD9\u6BB5\u6587\u5B57\u672C\u8EAB\u591A\u957F\u300D\u3002 */
+  const ownText = (el) => {
+    let t = ''
+    for (const n of el.childNodes) if (n.nodeType === 3) t += n.nodeValue || ''
+    return t.replace(/\\s+/g, ' ').trim()
+  }
+  /** \u7528 Range \u91CF\u6BCF\u884C\u77E9\u5F62\uFF1A\u8FD4\u56DE [{width, chars}]\uFF0Cchars \u4E3A\u8BE5\u884C\u7684\u5B57\u7B26\u6570\uFF08\u6309\u8282\u70B9\u5747\u5206\uFF09\u3002 */
+  const lineRects = (el) => {
+    const range = document.createRange()
+    const rects = []
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let node
+    while ((node = walker.nextNode())) {
+      const text = node.nodeValue || ''
+      if (!text.trim()) continue
+      range.selectNodeContents(node)
+      for (const r of range.getClientRects()) {
+        if (r.width <= 0 || r.height <= 0) continue
+        rects.push({ width: r.width, top: r.top, height: r.height, len: text.length })
+      }
+    }
+    if (!rects.length) return []
+    // \u6309 top \u805A\u5408\u6210\u884C\uFF08\u540C\u4E00\u884C\u7684\u77E9\u5F62 top \u63A5\u8FD1\uFF09
+    const lines = []
+    for (const r of rects.sort((a, b) => a.top - b.top)) {
+      const last = lines[lines.length - 1]
+      if (last && Math.abs(last.top - r.top) < Math.max(2, last.height * 0.5)) {
+        last.width += r.width
+        last.len += r.len
+        last.height = Math.max(last.height, r.height)
+      } else lines.push({ ...r })
+    }
+    return lines
+  }
+  const CJK = /[\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uac00-\\ud7af]/
+  const texts = Array.from(document.body ? document.body.querySelectorAll('*') : [])
+  for (const el of texts) {
+    const own = ownText(el)
+    if (!own) continue
+    if (hidden(el)) continue
+    const tag = el.tagName.toLowerCase()
+    if (['script', 'style', 'svg', 'path', 'pre', 'code', 'kbd', 'samp', 'textarea'].includes(tag)) continue
+    if (el.closest('pre, code, kbd, samp')) continue
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+    out.elements++
+    const fontSize = parseFloat(css(el, 'font-size')) || 16
+    const lineHeightRaw = css(el, 'line-height')
+    const lineHeight = lineHeightRaw === 'normal' ? fontSize * 1.2 : parseFloat(lineHeightRaw) || fontSize * 1.2
+    const letterSpacingRaw = css(el, 'letter-spacing')
+    const letterSpacing = letterSpacingRaw === 'normal' ? 0 : parseFloat(letterSpacingRaw) || 0
+    const lines = lineRects(el)
+    if (lines.length > 1) out.multiLine++
+    // \u5E73\u5747\u6BCF\u884C\u5B57\u7B26\u6570\uFF1A\u6309\u884C\u5BBD / \u5E73\u5747\u5B57\u5BBD\u4F30\u7B97\uFF08\u62C9\u4E01\u7528 0.5em\uFF0CCJK \u7528 1em\uFF09
+    const isCjk = CJK.test(own)
+    let charsPerLine = 0
+    if (lines.length) {
+      const avgCharWidth = isCjk ? fontSize : fontSize * 0.5
+      const widths = lines.map((l) => l.width)
+      charsPerLine = Math.round(Math.max(...widths) / Math.max(1, avgCharWidth))
+    }
+    const cls = (el.getAttribute('class') || '').toLowerCase()
+    const role = (el.getAttribute('role') || '').toLowerCase()
+    const interactive = ['a', 'button', 'summary'].includes(tag) || /^(button|link|tab|menuitem|option)$/.test(role)
+    const uiText = interactive || ['label', 'th', 'td', 'time', 'small', 'figcaption', 'dt', 'dd'].includes(tag) || /(label|caption|meta|badge|tag|chip|hint|helper)/.test(cls)
+    out.items.push({
+      tag,
+      selector: path(el),
+      snippet: (el.outerHTML || '').slice(0, 160),
+      text: own.slice(0, 160),
+      textChars: own.length,
+      fontSize,
+      fontWeight: Number(css(el, 'font-weight')) || 400,
+      lineHeight,
+      letterSpacing,
+      textTransform: css(el, 'text-transform'),
+      isHeading: /^h[1-6]$/.test(tag),
+      headingLevel: /^h[1-6]$/.test(tag) ? Number(tag[1]) : 0,
+      interactive,
+      uiText,
+      isCjk,
+      lines: lines.length,
+      charsPerLine,
+      // \u4E0B\u65B9\u95F4\u8DDD\uFF1A\u5230\u4E0B\u4E00\u4E2A\u5144\u5F1F\u6587\u5B57\u5757\u7684\u9876\u90E8\u8DDD\u79BB\uFF1B\u6CA1\u6709\u5144\u5F1F\u65F6\u4E3A -1
+      gapBelow: (() => {
+        let sib = el.nextElementSibling
+        while (sib && !(sib.textContent || '').trim()) sib = sib.nextElementSibling
+        if (!sib) return -1
+        const r = sib.getBoundingClientRect()
+        if (r.width <= 0 || r.height <= 0) return -1
+        return Math.round(r.top - rect.bottom)
+      })(),
+      // \u4E0A\u65B9\u95F4\u8DDD\uFF1A\u5230\u4E0A\u4E00\u4E2A\u5144\u5F1F\u6587\u5B57\u5757\u7684\u5E95\u90E8\u8DDD\u79BB
+      gapAbove: (() => {
+        let sib = el.previousElementSibling
+        while (sib && !(sib.textContent || '').trim()) sib = sib.previousElementSibling
+        if (!sib) return -1
+        const r = sib.getBoundingClientRect()
+        if (r.width <= 0 || r.height <= 0) return -1
+        return Math.round(rect.top - r.bottom)
+      })(),
+      // \u662F\u5426\u5728\u5361\u7247\u5185\uFF08\u9AD8\u5EA6 < 200 \u7684\u5BB9\u5668\uFF09
+      inSmallCard: (() => {
+        let n = el.parentElement
+        let depth = 0
+        while (n && n !== document.body && depth < 6) {
+          const r = n.getBoundingClientRect()
+          if (r.height > 0 && r.height < 200 && r.width < 480) return true
+          n = n.parentElement
+          depth++
+        }
+        return false
+      })(),
+      inBlockquote: Boolean(el.closest('blockquote, q')),
+      hasTextWrapBalance: /balance/.test(css(el, 'text-wrap')),
+      hasTextWrapPretty: /pretty/.test(css(el, 'text-wrap')),
+      displayInline: css(el, 'display') === 'inline',
+    })
+  }
+  return out
+})()`;
+function analyzeQuality(raw, options = {}) {
+  const minBodyPx = options.minBodyPx ?? 12;
+  const minUiPx = options.minUiPx ?? 11;
+  const lineMax = options.lineMax ?? 80;
+  const ignore = (options.ignore ?? []).map((s) => s.trim()).filter(Boolean);
+  const issues = [];
+  const skipped = [...raw.skipped ?? []];
+  const push = (rule, severity, item, message) => {
+    if (ignore.some((sel) => item.selector.includes(sel))) return;
+    issues.push({ rule, severity, selector: item.selector, snippet: item.snippet, message });
+  };
+  if (raw.elements === 0) {
+    skipped.push("\u9875\u9762\u6CA1\u6709\u53EF\u6D4B\u7684\u6587\u5B57\u5143\u7D20\uFF0C\u6240\u6709\u6392\u7248\u89C4\u5219\u672A\u5224\u5B9A");
+  }
+  for (const item of raw.items) {
+    if (!item.isHeading && item.textChars >= 8 && item.fontSize < minBodyPx) {
+      push("tiny-text", "warning", item, `\u6B63\u6587\u5B57\u53F7 ${item.fontSize}px \u4F4E\u4E8E ${minBodyPx}px \u4E0B\u9650\uFF0C\u9AD8 DPI \u4E0E\u5C0F\u5C4F\u4E0A\u96BE\u4EE5\u9605\u8BFB`);
+    }
+    if (item.uiText && item.textChars > 0 && item.fontSize > 0 && item.fontSize < minUiPx) {
+      push("undersized-ui-text", "warning", item, `\u529F\u80FD\u6027\u6587\u5B57 ${item.fontSize}px \u4F4E\u4E8E ${minUiPx}px\uFF1B\u6309\u94AE\u3001\u6807\u7B7E\u3001\u8868\u683C\u4E0E\u5143\u4FE1\u606F\u90FD\u5E94\u53EF\u8BFB`);
+    }
+    if (!item.isHeading && item.textTransform === "uppercase" && item.textChars >= 80) {
+      push("all-caps-body", "warning", item, `\u5168\u5927\u5199\u957F\u6BB5\u843D\uFF08${item.textChars} \u5B57\u7B26\uFF09\uFF1A\u5927\u5199\u4F1A\u8BA9\u8BCD\u5F62\u5931\u53BB\u8FA8\u8BC6\u5EA6\uFF0C\u53EA\u7528\u4E8E\u77ED\u6807\u7B7E\u4E0E\u6807\u9898`);
+    }
+    const tracking = item.fontSize > 0 ? item.letterSpacing / item.fontSize : 0;
+    if (tracking > 0.05 && item.textChars > 20 && !item.isCjk && item.textTransform !== "lowercase") {
+      const capsLabel = item.textTransform === "uppercase" && item.lines <= 1;
+      if (!capsLabel) push("wide-tracking", "warning", item, `\u5B57\u8DDD ${tracking.toFixed(3)}em \u8D85\u8FC7 0.05em\uFF1A\u5BBD\u5B57\u8DDD\u53EA\u7559\u7ED9\u77ED\u7684\u5927\u5199\u6807\u7B7E`);
+    }
+    const leading = item.fontSize > 0 ? item.lineHeight / item.fontSize : 0;
+    if (leading > 0 && leading < 1.3 && item.textChars > 50 && !item.isHeading && item.fontSize < 24 && item.lines > 1) {
+      const lead = item.fontSize >= 20 && item.lines <= 3 && leading >= 1.15;
+      const boldTitle = item.fontWeight >= 600 && item.lines <= 2;
+      const capsLabel = item.textTransform === "uppercase" && item.lines <= 3;
+      if (!lead && !boldTitle && !capsLabel) {
+        push("tight-leading", "warning", item, `\u884C\u9AD8 ${leading.toFixed(2)} \u4F4E\u4E8E 1.3\uFF1A\u591A\u884C\u6B63\u6587\u9700\u8981 1.5\u20131.7`);
+      }
+    }
+    if (item.lines >= 2 && item.charsPerLine > lineMax + 5 && !item.isCjk) {
+      push("line-length", "warning", item, `\u5355\u884C\u7EA6 ${item.charsPerLine} \u5B57\u7B26\uFF0C\u8D85\u8FC7 ${lineMax}\uFF1A\u7ED9\u6587\u672C\u5BB9\u5668\u52A0 max-width\uFF0865\u201375ch\uFF09`);
+    }
+    if (item.headingLevel >= 2 && item.headingLevel <= 4 && item.textChars >= 3 && item.gapBelow >= 6 && item.gapBelow <= 160 && item.gapAbove >= 0 && !item.inSmallCard && !item.inBlockquote && !item.displayInline) {
+      const crowded = item.gapAbove < item.gapBelow * 0.75 && item.gapBelow - item.gapAbove >= 12;
+      if (crowded) {
+        push("heading-rhythm", "warning", item, `\u6807\u9898\u4E0A\u65B9 ${item.gapAbove}px\u3001\u4E0B\u65B9 ${item.gapBelow}px\uFF1A\u6807\u9898\u5C5E\u4E8E\u5B83\u4E0B\u9762\u7684\u5185\u5BB9\uFF0C\u4E0A\u65B9\u95F4\u8DDD\u5E94\u66F4\u5927`);
+      }
+    }
+  }
+  const hierarchy = analyzeHierarchy(raw.items);
+  if (hierarchy.kind === "flat") {
+    issues.push({
+      rule: "flat-type-hierarchy",
+      severity: hierarchy.advisory ? "advisory" : "warning",
+      selector: hierarchy.selector,
+      snippet: hierarchy.snippet,
+      message: `\u6807\u9898\u4E0E\u6B63\u6587\u7684\u5B57\u53F7\u6B65\u8FDB\u53EA\u6709 ${hierarchy.ratio.toFixed(2)}\xD7\uFF08\u8981\u6C42 \u22651.25\xD7\uFF09\uFF1A\u5C42\u7EA7\u9760\u5B57\u53F7\u62C9\u5F00\uFF0C\u6216\u660E\u786E\u7528\u5B57\u91CD\u627F\u62C5\u533A\u5206`
+    });
+  } else if (hierarchy.kind === "skipped") {
+    skipped.push(hierarchy.reason);
+  }
+  const counts = { warning: 0, advisory: 0 };
+  const byRule = {};
+  for (const issue of issues) {
+    counts[issue.severity]++;
+    byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1;
+  }
+  return { elements: raw.elements, multiLine: raw.multiLine, issues, counts, byRule, skipped: [...new Set(skipped)] };
+}
+function analyzeHierarchy(items) {
+  const body = items.filter((i) => !i.isHeading && i.textChars >= 20 && i.lines > 0);
+  const headings = items.filter((i) => i.isHeading && i.textChars >= 2);
+  if (body.length < 2) return { kind: "skipped", reason: "\u53EF\u6D4B\u7684\u6B63\u6587\u5B57\u5757\u4E0D\u8DB3 2 \u4E2A\uFF0C\u5B57\u53F7\u5C42\u7EA7\u672A\u5224\u5B9A" };
+  if (headings.length < 1) return { kind: "skipped", reason: "\u9875\u9762\u6CA1\u6709\u6807\u9898\uFF0C\u5B57\u53F7\u5C42\u7EA7\u672A\u5224\u5B9A" };
+  const dominant = (list) => {
+    const tally = /* @__PURE__ */ new Map();
+    for (const item of list) {
+      const size = Math.round(item.fontSize);
+      const entry = tally.get(size);
+      if (entry) entry.count++;
+      else tally.set(size, { count: 1, item });
+    }
+    const sorted = [...tally.entries()].sort((a2, b2) => b2[1].count - a2[1].count || b2[0] - a2[0]);
+    const top2 = sorted[0];
+    if (!top2) return null;
+    if (sorted[1] && sorted[1][1].count === top2[1].count) return null;
+    return { size: top2[0], item: top2[1].item };
+  };
+  const bodyRole = dominant(body);
+  const headingRole = dominant(headings);
+  if (!bodyRole || !headingRole) {
+    return { kind: "skipped", reason: "\u6B63\u6587\u6216\u6807\u9898\u7684\u4E3B\u5BFC\u5B57\u53F7\u5E76\u5217\uFF0C\u65E0\u6CD5\u786E\u5B9A\u5C42\u7EA7\uFF0C\u672A\u5224\u5B9A" };
+  }
+  if (headingRole.size < bodyRole.size) {
+    return { kind: "skipped", reason: "\u6807\u9898\u5B57\u53F7\u5C0F\u4E8E\u6B63\u6587\uFF0C\u9875\u9762\u65E0\u6709\u6548\u5C42\u7EA7\uFF0C\u672A\u5224\u5B9A" };
+  }
+  const ratio = bodyRole.size > 0 ? headingRole.size / bodyRole.size : 0;
+  if (ratio >= 1.25) return { kind: "ok" };
+  const headingWeight = headingRole.item.fontWeight;
+  const bodyWeight = bodyRole.item.fontWeight;
+  const weightSeparates = headingWeight - bodyWeight >= 200;
+  const weightShare = headings.filter((h) => h.fontWeight - bodyWeight >= 200).length / Math.max(1, headings.length);
+  return {
+    kind: "flat",
+    ratio,
+    advisory: weightSeparates && weightShare >= 0.8,
+    selector: headingRole.item.selector,
+    snippet: headingRole.item.snippet
+  };
+}
+async function auditQuality(browser, url, options = {}) {
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    await page.waitForSelector("body", { timeout: 1e4 });
+    await new Promise((r) => setTimeout(r, 200));
+    const raw = await page.evaluate(COLLECT_SCRIPT2);
+    return analyzeQuality(raw, options);
+  } finally {
+    await page.close().catch(() => {
+    });
+  }
+}
+function formatQualityReport(report, label) {
+  const lines = [
+    `\u6E32\u67D3\u5DE5\u827A\u5BA1\u8BA1\uFF1A${label}`,
+    `\u626B\u63CF ${report.elements} \u4E2A\u6587\u5B57\u5143\u7D20\uFF08\u5176\u4E2D ${report.multiLine} \u4E2A\u591A\u884C\uFF09 \xB7 warning ${report.counts.warning} / advisory ${report.counts.advisory}`
+  ];
+  if (report.issues.length === 0) lines.push("\u672A\u53D1\u73B0\u5DE5\u827A\u95EE\u9898\u3002");
+  for (const issue of report.issues) {
+    lines.push(`- [${issue.severity}] ${issue.rule} \xB7 ${issue.message}`);
+    lines.push(`    \u9009\u62E9\u5668\uFF1A${issue.selector}`);
+    lines.push(`    \u7247\u6BB5\uFF1A${issue.snippet.replace(/\s+/g, " ").slice(0, 120)}`);
+  }
+  if (report.skipped.length) {
+    lines.push(`\u8DF3\u8FC7 ${report.skipped.length} \u9879\uFF1A${report.skipped.slice(0, 6).join("\uFF1B")}${report.skipped.length > 6 ? " \u2026" : ""}`);
+  }
+  return lines.join("\n");
+}
+
 // src/resources.ts
 var TAG_RESOURCE = /<(?:script|img|link|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|href|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
 var CSS_RESOURCE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)|@import\s+(?:"([^"]*)"|'([^']*)')/gi;
@@ -72152,6 +72439,49 @@ async function canvasAudit(call) {
         await dispose();
       }
     }
+    if (action === "quality") {
+      const { pages, error } = auditPages(call);
+      if (error) return { content: error, isError: true };
+      const { url } = await ensureServer(call.cwd);
+      const exe = resolveBrowser();
+      if (!exe) return { content: "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u6E32\u67D3\u9875\u9762\u505A\u5DE5\u827A\u5BA1\u8BA1\u3002\u53EF\u7528 TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u8DEF\u5F84\u3002", isError: true };
+      const project = readProject(call.cwd);
+      const modeOverride = str(call.args.surface_mode);
+      const modeProvided = modeOverride !== void 0 && modeOverride !== "";
+      const overrideMode = modeProvided ? normalizeSurfaceMode(modeOverride) : null;
+      if (modeProvided && !overrideMode) {
+        return { content: `\u975E\u6CD5 surface_mode\uFF1A${modeOverride}\uFF1B\u53EF\u9009\uFF1A${surfaceModeChoices()}`, isError: true };
+      }
+      const { browser, dispose } = await launchBrowser(exe);
+      try {
+        const authPage = await browser.newPage();
+        await authPage.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+        await authPage.waitForFunction("!location.hash", { timeout: 15e3 });
+        await authPage.close();
+        const parts = [];
+        let warnings = 0;
+        for (const page of pages) {
+          const pageUrl = new URL(url);
+          pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`;
+          pageUrl.hash = "";
+          const nodeMode = project.nodes.find((n) => n.id === page.id)?.mode ?? null;
+          const report = await auditQuality(browser, pageUrl.toString(), {
+            minBodyPx: num(call.args.min_body_px),
+            minUiPx: num(call.args.min_ui_px),
+            lineMax: num(call.args.line_max),
+            mode: modeProvided ? overrideMode : nodeMode,
+            ignore: Array.isArray(call.args.ignore) ? call.args.ignore.map(String) : void 0
+          });
+          warnings += report.counts.warning;
+          parts.push(formatQualityReport(report, `\u9875\u9762\u300C${page.title}\u300D(id=${page.id})`));
+        }
+        return { content: `${parts.join("\n\n")}
+
+\u5408\u8BA1 warning ${warnings} \u5904\u3002` };
+      } finally {
+        await dispose();
+      }
+    }
     if (action === "baseline" || action === "visual") {
       const { styleId } = resolveAuditStyle(call);
       const rawDir = str(call.args.baseline_dir);
@@ -72164,7 +72494,7 @@ async function canvasAudit(call) {
       const result = await compareWithBaselines(call.cwd, styleId ?? "free", dir, { threshold, updateMissing: call.args.update_missing === true });
       return { content: formatVisualReport(result, false) };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / visual / baseline / drift / review\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / quality / visual / baseline / drift / review\u3002`, isError: true };
   } catch (err) {
     return { content: reportError(err), isError: true };
   }
@@ -72542,14 +72872,14 @@ var tools = [
   {
     definition: {
       name: "canvas_audit",
-      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u8BBE\u8BA1\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\u3001\u89C6\u89C9\u56DE\u5F52\u3001\u8BBE\u8BA1\u6F02\u79FB\uFF1Breview \u5BF9\u6307\u5B9A\u9875\u9762\u751F\u6210\u684C\u9762/\u5E73\u677F/\u624B\u673A\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8981\u771F\u5B9E\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
+      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u8BBE\u8BA1\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\u3001\u6E32\u67D3\u5DE5\u827A\u8D28\u91CF\u3001\u89C6\u89C9\u56DE\u5F52\u3001\u8BBE\u8BA1\u6F02\u79FB\uFF1Breview \u751F\u6210\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8981\u771F\u5B9E\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
       input_schema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["contract", "a11y", "visual", "baseline", "drift", "review"],
-            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
+            enum: ["contract", "a11y", "quality", "visual", "baseline", "drift", "review"],
+            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bquality=\u6E32\u67D3\u5DE5\u827A\u5BA1\u8BA1\uFF1A\u5B57\u53F7\u3001\u884C\u9AD8\u3001\u5B57\u8DDD\u3001\u884C\u5BBD\u3001\u5168\u5927\u5199\u3001\u5B57\u53F7\u5C42\u7EA7\u3001\u6807\u9898\u8282\u594F\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
           },
           page_id: { type: "string", description: "\u53EA\u5BA1\u8BA1\u6307\u5B9A\u9875\u9762\uFF1B\u7701\u7565\u5219\u5BA1\u8BA1\u5168\u90E8\u9875\u9762" },
           style_id: { type: "string", description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF1Bfree \u8868\u793A\u4E0D\u505A\u98CE\u683C\u76F8\u5173\u68C0\u67E5" },
@@ -72566,7 +72896,15 @@ var tools = [
           update_missing: { type: "boolean", description: "visual\uFF1A\u7F3A\u5C11\u57FA\u7EBF\u7684\u9875\u9762\u662F\u5426\u987A\u624B\u5199\u5165\uFF08\u9ED8\u8BA4 false\uFF09" },
           min_contrast: { type: "number", description: "a11y\uFF1A\u6B63\u6587\u5BF9\u6BD4\u5EA6\u4E0B\u9650\uFF08\u9ED8\u8BA4 4.5\uFF09" },
           min_target_size: { type: "number", description: "a11y\uFF1A\u70B9\u51FB\u76EE\u6807\u6700\u5C0F\u5C3A\u5BF8\uFF08CSS px\uFF0C\u9ED8\u8BA4 24\uFF09" },
-          ignore: { type: "array", items: { type: "string" }, description: 'a11y\uFF1A\u5FFD\u7565\u7684\u9009\u62E9\u5668\u7247\u6BB5\uFF08\u5982 ["page-node__header"]\uFF09' }
+          surface_mode: {
+            type: "string",
+            enum: ["persuade", "operate", "read", "experience"],
+            description: "quality\uFF1A\u6309\u6B64\u6A21\u5F0F\u8BC4\u4F30\uFF08\u8986\u76D6\u9875\u9762\u81EA\u5E26\u6A21\u5F0F\uFF09\uFF1B\u7701\u7565\u5219\u7528\u9875\u9762\u6A21\u5F0F"
+          },
+          min_body_px: { type: "number", description: "quality\uFF1A\u6B63\u6587\u6700\u5C0F\u5B57\u53F7\uFF08px\uFF0C\u9ED8\u8BA4 12\uFF09" },
+          min_ui_px: { type: "number", description: "quality\uFF1A\u529F\u80FD\u6027 UI \u6587\u5B57\u6700\u5C0F\u5B57\u53F7\uFF08px\uFF0C\u9ED8\u8BA4 11\uFF09" },
+          line_max: { type: "number", description: "quality\uFF1A\u5355\u884C\u5B57\u7B26\u4E0A\u9650\uFF08\u9ED8\u8BA4 80\uFF09" },
+          ignore: { type: "array", items: { type: "string" }, description: 'a11y / quality\uFF1A\u5FFD\u7565\u7684\u9009\u62E9\u5668\u7247\u6BB5\uFF08\u5982 ["page-node__header"]\uFF09' }
         },
         required: ["action"],
         additionalProperties: false

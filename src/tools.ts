@@ -13,6 +13,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { adapterContext, detectAdapters, generateWithAdapter, getAdapter } from './adapters/registry.js'
 import type { AdapterId } from './adapters/types.js'
 import { auditPage, formatA11yReport } from './audit/a11y.js'
+import { auditQuality, formatQualityReport } from './audit/quality.js'
 import { computeContract, formatContractReport } from './audit/contract.js'
 import { launchBrowser, resolveBrowser } from './export.js'
 import {
@@ -1519,6 +1520,48 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       }
     }
 
+    if (action === 'quality') {
+      const { pages, error } = auditPages(call)
+      if (error) return { content: error, isError: true }
+      const { url } = await ensureServer(call.cwd)
+      const exe = resolveBrowser()
+      if (!exe) return { content: '未找到 Chrome/Edge，无法渲染页面做工艺审计。可用 TIANSHU_CANVAS_BROWSER 指定路径。', isError: true }
+      const project = readProject(call.cwd)
+      const modeOverride = str(call.args.surface_mode)
+      const modeProvided = modeOverride !== undefined && modeOverride !== ''
+      const overrideMode = modeProvided ? normalizeSurfaceMode(modeOverride) : null
+      if (modeProvided && !overrideMode) {
+        return { content: `非法 surface_mode：${modeOverride}；可选：${surfaceModeChoices()}`, isError: true }
+      }
+      const { browser, dispose } = await launchBrowser(exe)
+      try {
+        const authPage = await browser.newPage()
+        await authPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await authPage.waitForFunction('!location.hash', { timeout: 15000 })
+        await authPage.close()
+        const parts: string[] = []
+        let warnings = 0
+        for (const page of pages) {
+          const pageUrl = new URL(url)
+          pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`
+          pageUrl.hash = ''
+          const nodeMode = project.nodes.find((n) => n.id === page.id)?.mode ?? null
+          const report = await auditQuality(browser, pageUrl.toString(), {
+            minBodyPx: num(call.args.min_body_px),
+            minUiPx: num(call.args.min_ui_px),
+            lineMax: num(call.args.line_max),
+            mode: modeProvided ? overrideMode : nodeMode,
+            ignore: Array.isArray(call.args.ignore) ? (call.args.ignore as unknown[]).map(String) : undefined,
+          })
+          warnings += report.counts.warning
+          parts.push(formatQualityReport(report, `页面「${page.title}」(id=${page.id})`))
+        }
+        return { content: `${parts.join('\n\n')}\n\n合计 warning ${warnings} 处。` }
+      } finally {
+        await dispose()
+      }
+    }
+
     if (action === 'baseline' || action === 'visual') {
       const { styleId } = resolveAuditStyle(call)
       const rawDir = str(call.args.baseline_dir)
@@ -1532,7 +1575,7 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       return { content: formatVisualReport(result, false) }
     }
 
-    return { content: `未知的 action：${action}。可选：contract / a11y / visual / baseline / drift / review。`, isError: true }
+    return { content: `未知的 action：${action}。可选：contract / a11y / quality / visual / baseline / drift / review。`, isError: true }
   } catch (err) {
     return { content: reportError(err), isError: true }
   }
@@ -1933,15 +1976,16 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_audit',
-      description: '设计 CI 审计：设计契约、可访问性、视觉回归、设计漂移；review 对指定页面生成桌面/平板/手机截图与客观报告，审美判断需要真实读图和用户评审',
+      description: '设计 CI 审计：设计契约、可访问性、渲染工艺质量、视觉回归、设计漂移；review 生成多尺寸截图与客观报告，审美判断需要真实读图和用户评审',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['contract', 'a11y', 'visual', 'baseline', 'drift', 'review'],
+            enum: ['contract', 'a11y', 'quality', 'visual', 'baseline', 'drift', 'review'],
             description:
               'contract=源码级设计契约（确定性，无需浏览器）；a11y=渲染后可访问性审计（需要 Chrome/Edge）；' +
+              'quality=渲染工艺审计：字号、行高、字距、行宽、全大写、字号层级、标题节奏（需要 Chrome/Edge）；' +
               'baseline=写入视觉基线（覆盖式）；visual=与基线逐像素比较；drift=与上次设计快照比较；review=指定 page_id 的多尺寸截图与客观报告，不自动评审审美',
           },
           page_id: { type: 'string', description: '只审计指定页面；省略则审计全部页面' },
@@ -1959,7 +2003,15 @@ export const tools: TpiTool[] = [
           update_missing: { type: 'boolean', description: 'visual：缺少基线的页面是否顺手写入（默认 false）' },
           min_contrast: { type: 'number', description: 'a11y：正文对比度下限（默认 4.5）' },
           min_target_size: { type: 'number', description: 'a11y：点击目标最小尺寸（CSS px，默认 24）' },
-          ignore: { type: 'array', items: { type: 'string' }, description: 'a11y：忽略的选择器片段（如 ["page-node__header"]）' },
+          surface_mode: {
+            type: 'string',
+            enum: ['persuade', 'operate', 'read', 'experience'],
+            description: 'quality：按此模式评估（覆盖页面自带模式）；省略则用页面模式',
+          },
+          min_body_px: { type: 'number', description: 'quality：正文最小字号（px，默认 12）' },
+          min_ui_px: { type: 'number', description: 'quality：功能性 UI 文字最小字号（px，默认 11）' },
+          line_max: { type: 'number', description: 'quality：单行字符上限（默认 80）' },
+          ignore: { type: 'array', items: { type: 'string' }, description: 'a11y / quality：忽略的选择器片段（如 ["page-node__header"]）' },
         },
         required: ['action'],
         additionalProperties: false,

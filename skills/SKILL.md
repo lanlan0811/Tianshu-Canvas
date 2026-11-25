@@ -343,5 +343,5 @@ slug 歧义会**直接报错**，改用真实 id 或 `data-nav`。`edges`（画�
 | `canvas_style` | 列出 / 查看 / 锁定 / 切换设计风格，取模板或交互骨架 HTML，或 `action=codegen` 导出生产代码 | 用户没指定风格时先 list 再问；写页面前 get；需要骨架时 template / interaction；导出代码时**先问目标（多端再问技术栈）**再 codegen |
 | `canvas_check_style` | 只读检查页面是否符合当前风格 + 工艺规则（`action`: check / list_rules） | 每次写完页面后；用户问「为什么风格不统一」时；想列规则时用 `list_rules` |
 | `canvas_design_system` | 创建 / 查看 / 删除自定义设计系统；`extract` 反抽取；`import` 从仓库主题导入；`export` / `import_pack` 品牌包 | 用户要做「专属设计系统」时：问清配置后 create；要「照这个站点的风格」时 extract（先 dry_run）；要接入现有项目主题时 import；要交接/迁移时 export / import_pack |
-| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、视觉回归、设计漂移（`action`: contract / a11y / quality / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
+| `canvas_audit` | 设计 CI：契约、可访问性、渲染工艺质量、视觉回归、设计漂移（`action`: contract / a11y / quality / visual / baseline / drift） | 交付前跑 contract；上线前跑 a11y / quality（需 Chrome/Edge）；改版前后跑 baseline→visual；想知道哪里偏离规范时 drift |
 | `canvas_comments` | 读取 / 处理画布元素批注（`action`: list / resolve / reopen / remove） | 用户圈了几处要改时：先 list 读全部，逐条改完再 resolve |
