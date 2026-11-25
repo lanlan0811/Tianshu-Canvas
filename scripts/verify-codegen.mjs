@@ -107,6 +107,11 @@ mkdirSync(outRoot, { recursive: true })
 let failures = 0
 const report = []
 
+/** 反向用例的 tsc 报错是预期证据，必须标出来，避免 CI 日志被误读成失败。 */
+function expectedError(output) {
+  return `预期错误（证明类型桩不是 any）：\n${output.split('\n').slice(0, 3).join('\n')}`
+}
+
 function check(name, ok, detail = '') {
   report.push(`${ok ? '✔' : '✖'} ${name}${detail ? `\n${detail}` : ''}`)
   if (!ok) failures++
@@ -125,7 +130,7 @@ writeWorkspace(shadcnBadDir, {
   'app/page.tsx': shadcnFiles['app/page.tsx'].replace(/<Button variant="default"/, '<Button variant="nope"'),
 })
 const shadcnBad = tsc(shadcnBadDir)
-check('shadcn：非法 variant 必须编译失败（桩非 any）', !shadcnBad.ok, shadcnBad.output.split('\n').slice(0, 3).join('\n'))
+check('shadcn：非法 variant 必须编译失败（桩非 any）', !shadcnBad.ok, shadcnBad.ok ? 'tsc 未报错，类型桩退回成了 any' : expectedError(shadcnBad.output))
 
 const shadcnBadThemeDir = join(outRoot, 'shadcn-theme-negative')
 writeWorkspace(shadcnBadThemeDir, {
@@ -133,7 +138,7 @@ writeWorkspace(shadcnBadThemeDir, {
   'lib/theme.ts': shadcnFiles['lib/theme.ts'] + '\nexport const broken: number = "not-a-number"\n',
 })
 const shadcnThemeBad = tsc(shadcnBadThemeDir)
-check('shadcn：主题文件类型错误必须被捕获', !shadcnThemeBad.ok, shadcnThemeBad.output.split('\n').slice(0, 3).join('\n'))
+check('shadcn：主题文件类型错误必须被捕获', !shadcnThemeBad.ok, shadcnThemeBad.ok ? 'tsc 未报错，类型桩退回成了 any' : expectedError(shadcnThemeBad.output))
 
 // ---- antd ----
 const antdFiles = await generate('antd')
@@ -148,7 +153,7 @@ writeWorkspace(antdBadDir, {
   'src/App.tsx': antdFiles['src/App.tsx'].replace(/<Button type="primary"/, '<Button type="nope"'),
 })
 const antdBad = tsc(antdBadDir)
-check('antd：非法 Button type 必须编译失败', !antdBad.ok, antdBad.output.split('\n').slice(0, 3).join('\n'))
+check('antd：非法 Button type 必须编译失败', !antdBad.ok, antdBad.ok ? 'tsc 未报错，类型桩退回成了 any' : expectedError(antdBad.output))
 
 const antdBadThemeDir = join(outRoot, 'antd-theme-negative')
 writeWorkspace(antdBadThemeDir, {
@@ -156,7 +161,7 @@ writeWorkspace(antdBadThemeDir, {
   'src/theme.ts': antdFiles['src/theme.ts'].replace(/borderRadius: (\d+)/, 'borderRadius: "large"'),
 })
 const antdThemeBad = tsc(antdBadThemeDir)
-check('antd：borderRadius 类型错误必须被捕获', !antdThemeBad.ok, antdThemeBad.output.split('\n').slice(0, 3).join('\n'))
+check('antd：borderRadius 类型错误必须被捕获', !antdThemeBad.ok, antdThemeBad.ok ? 'tsc 未报错，类型桩退回成了 any' : expectedError(antdThemeBad.output))
 
 console.log(report.join('\n'))
 if (failures > 0) {
