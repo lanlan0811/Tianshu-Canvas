@@ -1,0 +1,9 @@
+可访问性审计：页面「<page-title>」(id=<page-id>)
+扫描 3 个元素 + 3 个文字元素 · error 0 / warning 0 / info 1
+- [info] focus-visible · 未检测到可见焦点样式（outline 或 box-shadow）；如由 :focus-visible 规则提供可忽略
+    选择器：html > body > form > button
+    片段：<button type="submit">保存</button>
+
+移动视口 375×812（44px 设计地板）：未发现过小的点击目标。
+
+合计 error 0 处。

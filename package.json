@@ -18,6 +18,7 @@
     "verify:codegen": "node scripts/verify-codegen.mjs",
     "verify:codegen:real": "node scripts/verify-codegen-real.mjs",
     "verify:prototypes": "node scripts/verify-prototypes.mjs",
+    "verify:precision": "node scripts/rule-precision.mjs",
     "check:plugin": "node scripts/check-plugin.mjs",
     "pack:plugin": "node scripts/pack-plugin.mjs"
   },

@@ -58,14 +58,37 @@
 7. **时间维 / 基线**：新增 `dist/design/components/contract.json` 使发行包从 123 → 124 个文件（4814.8 → 4847.2 KiB）；漂移报告格式变化（新增模式/状态/表面三行、四段顺序）已在 `docs/rule-sources.md` 与本文件记录。
 8. **假绿**：负例都真失败——deferred 规则写入不提示（真阴）、设计系统漂移写入要提示（真阳）、golden 改一个字符即失败、输入 sha256 不匹配即失败、`DESIGN.md` 已存在时不覆盖。
 
-## 未测项（不得当成通过）
+## 未测项补齐（本轮追加）
 
-- **规则命中精度 / 伤害率未统计**：impeccable 靠真实站点语料人工判读（`DELTAS.md` 记录 precision/harm）；本项目只有 4 flag + 5 pass 的 fixture，**没有真实页面语料**，所以「immediate 名单」是按判据人工划的，不是实测结论。
-- **渲染级报告无 golden**：`a11y`/`states`/`quality`/`review` 需要浏览器，本地无浏览器时 skip，做 golden 容易变假绿；因此不在覆盖范围内。
-- **DESIGN.md 未做 round-trip 导入**：只导出，不解析回 tokens；Stitch 实际解析器也未跑过（无该工具），只按 spec 的标题/键名/属性白名单自检。
-- **漂移的 usedStates 只反映设计系统侧**：页面实际用到哪些状态没有统计（口径选择见计划），因此「页面用了未声明的状态」不在检测范围。
-- **`browserSurfaces` 只做存在性探测**：不判断取值是否合理（例如滚动条颜色对比度）。
-- **旧快照升级只做字段补齐**：不做语义迁移（v1 的 `classes` 与 v2 的 `declaredClasses` 语义未变，但历史快照缺少状态/表面数据，升级后首轮比较会出现「新增」噪声）。
+原本列的六项，逐条处置如下：
+
+| 原未测项 | 处置 | 证据 |
+|---|---|---|
+| 规则命中精度 / 伤害率未统计 | **部分补齐**：新增 `scripts/rule-precision.mjs`（`npm run verify:precision`），在 44 份自建语料上测干净命中、88 份 flag 测召回、110 份 pass 测误报 | `docs/rule-precision.md`：干净语料 0/44、召回 88/88、阴性误报 0/110 |
+| 渲染级报告无 golden | **补齐 a11y / states**：`test/golden/render/` 两个页面 × 两个 action，报告逐字节比对（页面 id/标题归一化） | `test/golden.render.test.mjs`（5 项，需浏览器） |
+| DESIGN.md 未做 round-trip | **补齐**：`parseDesignDoc` 回读 + `validateDesignDoc` 结构校验（五组/八属性/引用路径/八节顺序） | `test/design-doc.test.mjs`（新增 7 项，含 5 个负例） |
+| Stitch 实际解析未验证 | **仍不可测**：本机无 Stitch，只在文档里标明「结构自检 ≠ 官方校验器」 | — |
+| usedStates 只反映设计系统侧 | **补齐**：快照加 `pageStates`（页面实际出现的状态信号），报告单列增减 | `test/drift.test.mjs`（新增 1 项） |
+| browserSurfaces 只做存在性探测 | **仍保持**：不判断取值合理性（例如滚动条颜色对比度），属渲染级判断 | — |
+
+### 精度实测的诚实边界
+
+`docs/rule-precision.md` 写明了三点：干净语料零命中是**选择偏倚**的结果（语料本身按规范写成）、
+召回 100% 只证明 fixture 与实现一致、阴性零误报证明豁免逻辑没坏。
+**真实世界精度与伤害率仍无法测**——需要外部站点语料与人工判读，本项目不具备。
+
+实测过程中发现的真实缺陷：`rule-precision.mjs` 最初对所有规则硬编码 `tianshu-original` 风格，
+把 `overused-font` 的「品牌字体豁免」阴性样本误判成 1 条误报；改为逐规则读取 fixture 的 `meta.json` 后归零。
+这说明**测试口径与 fixture 不一致会制造假信号**。
+
+## 仍未覆盖（不得当成通过）
+
+- **真实站点语料**：精度与伤害率无法外推。
+- **Stitch 官方解析器**：本机无该工具，`validateDesignDoc` 只是按 spec 文本的结构自检。
+- **`quality` / `review` 的报告 golden**：quality 依赖字体加载与几何测量（跨机器有 1px 级差异），review 是多视口截图，逐字节比对成本高于收益。
+- **渲染级 golden 只在 Chromium 跑过**：Safari / Firefox 排版差异未测。
+- **`browserSurfaces` 取值合理性**：只探测存在性。
+- **旧快照升级只做字段补齐**：不做语义迁移；v1 快照缺少状态/表面数据，升级后首轮比较会出现「新增」噪声。
 
 ## 已知取舍
 

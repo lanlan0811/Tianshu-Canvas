@@ -96,3 +96,59 @@ test('缺数据时整节省略，不编造', () => {
 test('确定性：同输入两次输出字节相同', () => {
   assert.equal(buildDesignDoc(input), buildDesignDoc(input))
 })
+
+// --- round-trip 与 spec 校验 ---
+
+const { parseDesignDoc, validateDesignDoc } = await import(pathToFileURL(join(outDir, 'doc.mjs')).href)
+
+test('round-trip：导出后能回读名称、五组、八节与命名规则', () => {
+  const doc = buildDesignDoc(input)
+  const parsed = parseDesignDoc(doc)
+  assert.equal(parsed.name, '演示系统')
+  assert.equal(parsed.description, '演示用设计系统')
+  assert.deepEqual(Object.keys(parsed.groups).sort(), ['colors', 'components', 'rounded', 'spacing', 'typography'])
+  assert.deepEqual(parsed.sections, SECTIONS.map((title) => title.replace(/^## /, '')))
+  assert.ok(parsed.namedRules.length >= 6, `命名规则太少：${parsed.namedRules.join('、')}`)
+})
+
+test('spec 校验：真实产物零错误', () => {
+  assert.deepEqual(validateDesignDoc(buildDesignDoc(input)), [])
+})
+
+test('spec 校验负例：多余的 frontmatter 组被拒', () => {
+  const broken = buildDesignDoc(input).replace('rounded:', 'motion:\n  fast: "{motion.fast}"\nrounded:')
+  const errors = validateDesignDoc(broken)
+  assert.ok(errors.some((e) => e.includes('不允许的组')), errors.join('; '))
+})
+
+test('spec 校验负例：组件出现八属性之外的键被拒', () => {
+  const broken = buildDesignDoc(input).replace('    padding: "{spacing.s3}"', '    boxShadow: "{shadow.md}"')
+  const errors = validateDesignDoc(broken)
+  assert.ok(errors.some((e) => e.includes('不允许的属性')), errors.join('; '))
+})
+
+test('spec 校验负例：引用指向不存在的路径被拒', () => {
+  const broken = buildDesignDoc(input).replace('{colors.bg-canvas}', '{colors.nonexistent-token}')
+  const errors = validateDesignDoc(broken)
+  assert.ok(errors.some((e) => e.includes('不存在的路径')), errors.join('; '))
+})
+
+test('spec 校验负例：八节顺序颠倒被拒', () => {
+  const doc = buildDesignDoc(input)
+  // 把 Layout 节整段挪到 Typography 之前：标题都在，顺序错了。
+  const typographyStart = doc.indexOf('## Typography')
+  const layoutStart = doc.indexOf('## Layout')
+  const elevationStart = doc.indexOf('## Elevation & Depth')
+  assert.ok(typographyStart > 0 && layoutStart > typographyStart && elevationStart > layoutStart)
+  const head = doc.slice(0, typographyStart)
+  const typographySection = doc.slice(typographyStart, layoutStart)
+  const layoutSection = doc.slice(layoutStart, elevationStart)
+  const rest = doc.slice(elevationStart)
+  const errors = validateDesignDoc(head + layoutSection + typographySection + rest)
+  assert.ok(errors.some((e) => e.includes('顺序')), errors.join('; '))
+})
+
+test('spec 校验负例：缺 frontmatter 被拒', () => {
+  const errors = validateDesignDoc('# 只有正文\n\n## Colors\n')
+  assert.ok(errors.some((e) => e.includes('缺少 YAML frontmatter')), errors.join('; '))
+})

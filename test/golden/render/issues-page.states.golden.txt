@@ -1,0 +1,14 @@
+状态完整性审计：页面「<page-title>」(id=<page-id>)
+扫描 2 个容器 / 0 行数据 · warning 1 / advisory 2
+- [warning] empty-list-no-hint · 列表/表格没有数据，也没有空状态提示；用户会以为页面坏了（用 .ts-empty 并写清这里会出现什么）
+    选择器：html > body > ul.empty
+    片段：<ul class="empty"></ul>
+- [advisory] submit-unguarded · 表单有提交按钮，但页面没有 aria-busy、data-ts-form 或脚本里的 disabled——疑似没有防重复提交
+    选择器：html > body > form
+    片段：<form><input><button type="submit">提交</button></form>
+- [advisory] loading-unannounced · 元素标记了 aria-busy="true"，但既不在 aria-live/role=status 区域内，也没有加载文案；读屏用户不知道正在加载
+    选择器：html > body > div
+    片段：<div aria-busy="true"></div>
+未判定 2 项（不得当成通过）：权限三态（无权限 / 只读 / 编辑受限）无法从静态渲染判定，需人工核实；并发竞态（双提交、乐观更新回滚）无法从静态渲染判定，需人工核实
+
+合计 warning 1 处。

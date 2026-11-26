@@ -70091,6 +70091,28 @@ function collectUsedStates(componentsCss) {
     return { component: component.id, states: states.sort() };
   });
 }
+var PAGE_STATE_MARKERS = [
+  { marker: 'aria-busy="true"', state: "loading" },
+  { marker: 'aria-invalid="true"', state: "error" },
+  { marker: 'aria-disabled="true"', state: "disabled" },
+  { marker: 'aria-checked="true"', state: "checked" },
+  { marker: 'aria-selected="true"', state: "selected" },
+  { marker: 'aria-expanded="true"', state: "expanded" },
+  { marker: "aria-current=", state: "current" },
+  { marker: 'role="alert"', state: "alert" },
+  { marker: 'role="status"', state: "status" },
+  { marker: "--success", state: "success" },
+  { marker: "--danger", state: "danger" }
+];
+function collectPageStates(htmls) {
+  const out = /* @__PURE__ */ new Set();
+  for (const html of htmls) {
+    for (const { marker, state: state2 } of PAGE_STATE_MARKERS) {
+      if (html.includes(marker)) out.add(state2);
+    }
+  }
+  return [...out].sort();
+}
 function collectBrowserSurfaces(componentsCss) {
   return BROWSER_SURFACES.filter((marker) => componentsCss.includes(marker));
 }
@@ -70120,6 +70142,7 @@ function buildSnapshot(input2) {
     modes: input2.modes ?? input2.htmls.map(() => null),
     usedStates: collectUsedStates(input2.componentsCss),
     browserSurfaces: collectBrowserSurfaces(input2.componentsCss),
+    pageStates: collectPageStates(input2.htmls),
     hashes: { tokens: hash(input2.tokensCss), components: hash(input2.componentsCss) }
   };
 }
@@ -70153,6 +70176,8 @@ function diffSnapshots(before, after) {
     statesRemoved: [...statesBefore].filter((x2) => !statesAfter.has(x2)).sort(),
     surfacesAdded: [...after.browserSurfaces ?? []].filter((x2) => !(before.browserSurfaces ?? []).includes(x2)).sort(),
     surfacesRemoved: [...before.browserSurfaces ?? []].filter((x2) => !(after.browserSurfaces ?? []).includes(x2)).sort(),
+    pageStatesAdded: [...after.pageStates ?? []].filter((x2) => !(before.pageStates ?? []).includes(x2)).sort(),
+    pageStatesRemoved: [...before.pageStates ?? []].filter((x2) => !(after.pageStates ?? []).includes(x2)).sort(),
     upgradedFromV1: before.upgradedFromV1 === true
   };
 }
@@ -70172,6 +70197,7 @@ function readSnapshot(cwd, file) {
       modes: parsed.modes ?? [],
       usedStates: parsed.usedStates ?? [],
       browserSurfaces: parsed.browserSurfaces ?? [],
+      pageStates: parsed.pageStates ?? [],
       hashes: parsed.hashes ?? { tokens: "", components: "" },
       // 旧快照标记放在快照对象之外会丢失，这里用只读附加字段随对象带出。
       ...isV1 ? { upgradedFromV1: true } : {}
@@ -70210,7 +70236,9 @@ function formatDriftReport(result, before, after) {
   if (result.statesAdded.length) lines.push(`\u65B0\u589E\u7684\u7EC4\u4EF6\u72B6\u6001 ${result.statesAdded.length} \u9879\uFF1A${listOf(result.statesAdded)}`);
   if (result.surfacesAdded.length) lines.push(`\u65B0\u589E\u7684\u6D4F\u89C8\u5668\u8868\u9762\uFF1A${listOf(result.surfacesAdded)}`);
   if (result.surfacesRemoved.length) lines.push(`\u4E22\u5931\u7684\u6D4F\u89C8\u5668\u8868\u9762\uFF1A${listOf(result.surfacesRemoved)}`);
-  const nothing = !result.added.length && !result.removed.length && !result.unknown.length && !result.unused.length && !result.tokensChanged && !result.componentsChanged && !result.styleChanged && !result.modesChanged && !result.statesAdded.length && !result.statesRemoved.length && !result.surfacesAdded.length && !result.surfacesRemoved.length;
+  if (result.pageStatesAdded.length) lines.push(`\u9875\u9762\u65B0\u589E\u7684\u72B6\u6001\uFF1A${listOf(result.pageStatesAdded)}`);
+  if (result.pageStatesRemoved.length) lines.push(`\u9875\u9762\u4E0D\u518D\u4F7F\u7528\u7684\u72B6\u6001\uFF1A${listOf(result.pageStatesRemoved)}`);
+  const nothing = !result.added.length && !result.removed.length && !result.unknown.length && !result.unused.length && !result.tokensChanged && !result.componentsChanged && !result.styleChanged && !result.modesChanged && !result.statesAdded.length && !result.statesRemoved.length && !result.surfacesAdded.length && !result.surfacesRemoved.length && !result.pageStatesAdded.length && !result.pageStatesRemoved.length;
   if (nothing) lines.push("\u672A\u68C0\u6D4B\u5230\u6F02\u79FB\u3002");
   return lines.join("\n");
 }

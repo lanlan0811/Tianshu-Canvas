@@ -382,3 +382,141 @@ export function buildDesignDoc(input: DesignDocInput): string {
 export function designDocFile(outDir: string, id: string): string {
   return join(outDir, 'DESIGN.md')
 }
+
+// ---------------------------------------------------------------------------
+// 回读：解析 DESIGN.md 并按 spec 校验（round-trip 用）
+// ---------------------------------------------------------------------------
+
+export interface ParsedDesignDoc {
+  name: string
+  description: string
+  /** frontmatter 的嵌套结构（name/description 已剥离）。 */
+  groups: Record<string, unknown>
+  /** 正文出现的二级标题（按出现顺序）。 */
+  sections: string[]
+  /** 正文里所有 `**The X Rule.**` 规则名。 */
+  namedRules: string[]
+}
+
+/** 极简 YAML 解析：缩进栈 + 标量，覆盖本合同投影写出的结构。 */
+function parseYaml(yaml: string): Record<string, unknown> {
+  const root: Record<string, unknown> = {}
+  const stack: Array<{ indent: number; node: Record<string, unknown> }> = [{ indent: -1, node: root }]
+  for (const raw of yaml.split('\n')) {
+    if (!raw.trim() || raw.trim().startsWith('#')) continue
+    const indent = raw.length - raw.trimStart().length
+    const line = raw.trim()
+    const colon = line.indexOf(':')
+    if (colon < 0) continue
+    const key = line.slice(0, colon).trim()
+    const valueText = line.slice(colon + 1).trim()
+    while (stack.length > 1 && indent <= stack[stack.length - 1]!.indent) stack.pop()
+    const parent = stack[stack.length - 1]!.node
+    if (valueText === '') {
+      const child: Record<string, unknown> = {}
+      parent[key] = child
+      stack.push({ indent, node: child })
+    } else {
+      const scalar = valueText.startsWith('"')
+        ? JSON.parse(valueText)
+        : valueText.startsWith("'")
+          ? valueText.slice(1, -1)
+          : Number.isFinite(Number(valueText)) && valueText !== ''
+            ? Number(valueText)
+            : valueText
+      parent[key] = scalar
+    }
+  }
+  return root
+}
+
+/** 把嵌套对象拍平成 [路径, 标量] 列表（引用校验与属性校验共用）。 */
+function leaves(value: unknown, prefix = ''): Array<[string, string | number]> {
+  if (!isRecord(value)) return []
+  const out: Array<[string, string | number]> = []
+  for (const [key, item] of Object.entries(value)) {
+    const path = prefix ? `${prefix}.${key}` : key
+    if (isRecord(item)) out.push(...leaves(item, path))
+    else if (typeof item === 'string' || typeof item === 'number') out.push([path, item])
+  }
+  return out
+}
+
+/** 解析 DESIGN.md；结构不符（缺 frontmatter）时抛错。 */
+export function parseDesignDoc(text: string): ParsedDesignDoc {
+  const normalized = text.split('\r\n').join('\n')
+  const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(normalized)
+  if (!match) throw new Error('DESIGN.md 缺少 YAML frontmatter')
+  const yaml = match[1] ?? ''
+  const body = match[2] ?? ''
+  const root = parseYaml(yaml)
+  const { name, description, ...groups } = root
+  const sections = [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1]!.trim())
+  const namedRules = [...body.matchAll(/\*\*The ([^*]+?) Rule\.\*\*/g)].map((m) => m[1]!.trim())
+  return {
+    name: typeof name === 'string' ? name : '',
+    description: typeof description === 'string' ? description : '',
+    groups,
+    sections,
+    namedRules,
+  }
+}
+
+/**
+ * spec 校验：五组白名单、组件八属性、引用可解析、八节顺序。
+ * 这是对本项目投影的**结构自检**，不等于 Stitch 官方校验器（未内置）。
+ * 返回错误列表（空 = 通过）。
+ */
+export function validateDesignDoc(text: string): string[] {
+  const errors: string[] = []
+  let parsed: ParsedDesignDoc
+  try {
+    parsed = parseDesignDoc(text)
+  } catch (err) {
+    return [String((err as Error).message)]
+  }
+  if (!parsed.name) errors.push('frontmatter 缺少 name')
+
+  const allowedGroups = new Set(['colors', 'typography', 'rounded', 'spacing', 'components'])
+  for (const key of Object.keys(parsed.groups)) {
+    if (!allowedGroups.has(key)) errors.push(`frontmatter 出现不允许的组：${key}`)
+  }
+
+  /* 组件子 token：八属性白名单。components.<组件名>.<属性> = 引用。 */
+  const components = parsed.groups.components
+  if (isRecord(components)) {
+    for (const [componentName, props] of Object.entries(components)) {
+      if (!isRecord(props)) { errors.push(`components.${componentName} 必须是映射`); continue }
+      for (const prop of Object.keys(props)) {
+        if (!(COMPONENT_PROPS as readonly string[]).includes(prop)) {
+          errors.push(`组件 ${componentName} 出现不允许的属性：${prop}`)
+        }
+      }
+    }
+  }
+
+  /* 引用必须能解析到同文件的组内路径。 */
+  for (const [path, value] of leaves(parsed.groups)) {
+    if (typeof value !== 'string') continue
+    for (const ref of value.matchAll(/\{([a-z0-9.-]+)\}/g)) {
+      const parts = ref[1]!.split('.')
+      let node: unknown = parsed.groups
+      for (const part of parts) {
+        if (!isRecord(node) || !(part in node)) { node = undefined; break }
+        node = node[part]
+      }
+      if (node === undefined) errors.push(`${path} 引用了不存在的路径：{${ref[1]}}`)
+    }
+  }
+
+  /* 八节顺序：出现的节必须是规范标题，且相对顺序与规范一致。 */
+  const canonical = SECTIONS as readonly string[]
+  let lastIndex = -1
+  for (const section of parsed.sections) {
+    const index = canonical.indexOf(section)
+    if (index < 0) { errors.push(`未知的二级标题：${section}`); continue }
+    if (index <= lastIndex) errors.push(`二级标题顺序不对：${section}`)
+    lastIndex = index
+  }
+  return errors
+}

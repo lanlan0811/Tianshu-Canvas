@@ -33,6 +33,8 @@ export interface DesignSnapshot {
   usedStates: { component: string; states: string[] }[]
   /** 实际存在的浏览器表面标记。 */
   browserSurfaces: string[]
+  /** 页面侧：HTML 里实际出现的状态信号（如 button:aria-busy、input:aria-invalid）。 */
+  pageStates: string[]
   /** 注入块与 manifest 的内容指纹（跨版本比较用）。 */
   hashes: { tokens: string; components: string }
   /** 仅内存标记：基线来自 schemaVersion 1 的旧快照（不落盘，见 writeSnapshot）。 */
@@ -85,6 +87,35 @@ function collectUsedStates(componentsCss: string): { component: string; states: 
   })
 }
 
+/**
+ * 页面侧状态信号：只看 HTML 里真实写出的状态属性/变体类。
+ * 与 usedStates（设计系统侧「有没有样式」）互补：
+ * 这条回答「页面用到了哪些状态」，那条回答「设计系统覆盖了哪些状态」。
+ */
+const PAGE_STATE_MARKERS: Array<{ marker: string; state: string; role?: string }> = [
+  { marker: 'aria-busy="true"', state: 'loading' },
+  { marker: 'aria-invalid="true"', state: 'error' },
+  { marker: 'aria-disabled="true"', state: 'disabled' },
+  { marker: 'aria-checked="true"', state: 'checked' },
+  { marker: 'aria-selected="true"', state: 'selected' },
+  { marker: 'aria-expanded="true"', state: 'expanded' },
+  { marker: 'aria-current=', state: 'current' },
+  { marker: 'role="alert"', state: 'alert' },
+  { marker: 'role="status"', state: 'status' },
+  { marker: '--success', state: 'success' },
+  { marker: '--danger', state: 'danger' },
+]
+
+function collectPageStates(htmls: string[]): string[] {
+  const out = new Set<string>()
+  for (const html of htmls) {
+    for (const { marker, state } of PAGE_STATE_MARKERS) {
+      if (html.includes(marker)) out.add(state)
+    }
+  }
+  return [...out].sort()
+}
+
 function collectBrowserSurfaces(componentsCss: string): string[] {
   return BROWSER_SURFACES.filter((marker) => componentsCss.includes(marker))
 }
@@ -125,6 +156,7 @@ export function buildSnapshot(input: {
     modes: input.modes ?? input.htmls.map(() => null),
     usedStates: collectUsedStates(input.componentsCss),
     browserSurfaces: collectBrowserSurfaces(input.componentsCss),
+    pageStates: collectPageStates(input.htmls),
     hashes: { tokens: hash(input.tokensCss), components: hash(input.componentsCss) },
   }
 }
@@ -151,6 +183,9 @@ export interface DriftResult {
   /** 浏览器表面的增减。 */
   surfacesAdded: string[]
   surfacesRemoved: string[]
+  /** 页面侧状态信号的增减。 */
+  pageStatesAdded: string[]
+  pageStatesRemoved: string[]
   /** 旧版快照升级后补齐的字段（非空时报告要注明基线来自旧版）。 */
   upgradedFromV1: boolean
 }
@@ -186,6 +221,8 @@ export function diffSnapshots(before: DesignSnapshot, after: DesignSnapshot): Dr
     statesRemoved: [...statesBefore].filter((x) => !statesAfter.has(x)).sort(),
     surfacesAdded: [...(after.browserSurfaces ?? [])].filter((x) => !(before.browserSurfaces ?? []).includes(x)).sort(),
     surfacesRemoved: [...(before.browserSurfaces ?? [])].filter((x) => !(after.browserSurfaces ?? []).includes(x)).sort(),
+    pageStatesAdded: [...(after.pageStates ?? [])].filter((x) => !(before.pageStates ?? []).includes(x)).sort(),
+    pageStatesRemoved: [...(before.pageStates ?? [])].filter((x) => !(after.pageStates ?? []).includes(x)).sort(),
     upgradedFromV1: before.upgradedFromV1 === true,
   }
 }
@@ -206,6 +243,7 @@ export function readSnapshot(cwd: string, file: string): DesignSnapshot | null {
       modes?: (string | null)[]
       usedStates?: { component: string; states: string[] }[]
       browserSurfaces?: string[]
+      pageStates?: string[]
       hashes?: { tokens: string; components: string }
     }
     const isV1 = parsed.schemaVersion === 1
@@ -220,6 +258,7 @@ export function readSnapshot(cwd: string, file: string): DesignSnapshot | null {
       modes: parsed.modes ?? [],
       usedStates: parsed.usedStates ?? [],
       browserSurfaces: parsed.browserSurfaces ?? [],
+      pageStates: parsed.pageStates ?? [],
       hashes: parsed.hashes ?? { tokens: '', components: '' },
       // 旧快照标记放在快照对象之外会丢失，这里用只读附加字段随对象带出。
       ...(isV1 ? { upgradedFromV1: true } : {}),
@@ -268,12 +307,15 @@ export function formatDriftReport(result: DriftResult, before: string, after: st
   if (result.statesAdded.length) lines.push(`新增的组件状态 ${result.statesAdded.length} 项：${listOf(result.statesAdded)}`)
   if (result.surfacesAdded.length) lines.push(`新增的浏览器表面：${listOf(result.surfacesAdded)}`)
   if (result.surfacesRemoved.length) lines.push(`丢失的浏览器表面：${listOf(result.surfacesRemoved)}`)
+  if (result.pageStatesAdded.length) lines.push(`页面新增的状态：${listOf(result.pageStatesAdded)}`)
+  if (result.pageStatesRemoved.length) lines.push(`页面不再使用的状态：${listOf(result.pageStatesRemoved)}`)
 
   const nothing =
     !result.added.length && !result.removed.length && !result.unknown.length && !result.unused.length &&
     !result.tokensChanged && !result.componentsChanged && !result.styleChanged && !result.modesChanged &&
     !result.statesAdded.length && !result.statesRemoved.length &&
-    !result.surfacesAdded.length && !result.surfacesRemoved.length
+    !result.surfacesAdded.length && !result.surfacesRemoved.length &&
+    !result.pageStatesAdded.length && !result.pageStatesRemoved.length
   if (nothing) lines.push('未检测到漂移。')
   return lines.join('\n')
 }

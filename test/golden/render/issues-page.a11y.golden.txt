@@ -1,0 +1,25 @@
+可访问性审计：页面「<page-title>」(id=<page-id>)
+扫描 4 个元素 + 1 个文字元素 · error 3 / warning 0 / info 2
+- [error] contrast · 对比度 1.61 低于 4.5（文字 13px / 400）
+    选择器：html > body > p.low
+    片段：<p class="low">对比度很低的正文</p>
+- [error] img-alt · 图片缺少 alt（装饰性图片请写 alt=""）
+    选择器：html > body > img
+    片段：<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+- [error] label · 表单控件没有关联标签（label / aria-label / aria-labelledby）
+    选择器：html > body > form > input
+    片段：<input>
+- [info] focus-visible · 未检测到可见焦点样式（outline 或 box-shadow）；如由 :focus-visible 规则提供可忽略
+    选择器：html > body > form > input
+    片段：<input>
+- [info] focus-visible · 未检测到可见焦点样式（outline 或 box-shadow）；如由 :focus-visible 规则提供可忽略
+    选择器：html > body > form > button
+    片段：<button type="submit">提交</button>
+
+移动视口 375×812（44px 设计地板）
+- [warning] target-size · 点击目标 177×21px 小于 44px（375×812）
+    选择器：html > body > form > input
+- [warning] target-size · 点击目标 43×25px 小于 44px（375×812）
+    选择器：html > body > form > button
+
+合计 error 3 处。

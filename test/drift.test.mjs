@@ -40,6 +40,7 @@ function snapshot(overrides = {}) {
     modes: ['persuade'],
     usedStates: [{ component: 'button', states: ['hover', 'focus'] }],
     browserSurfaces: ['::selection', 'caret-color'],
+    pageStates: ['loading'],
     hashes: { tokens: 'aaa', components: 'bbb' },
     ...overrides,
   }
@@ -120,6 +121,19 @@ test('旧版快照读入后补齐字段，并在 diff 里标记升级', () => {
   } finally {
     rmSync(cwd, { recursive: true, force: true })
   }
+})
+
+test('页面侧状态信号增减分别列出', () => {
+  const after = snapshot({ pageStates: ['error', 'loading'] })
+  const drift = diffSnapshots(snapshot(), after)
+  assert.deepEqual(drift.pageStatesAdded, ['error'])
+  assert.deepEqual(drift.pageStatesRemoved, [])
+  const report = formatDriftReport(drift, '上次', '当前')
+  assert.match(report, /页面新增的状态：error/)
+
+  const back = diffSnapshots(after, snapshot({ pageStates: [] }))
+  assert.deepEqual(back.pageStatesRemoved, ['error', 'loading'])
+  assert.match(formatDriftReport(back, '上次', '当前'), /页面不再使用的状态：error、loading/)
 })
 
 test('快照写盘确定性：同输入两次字节相同', () => {

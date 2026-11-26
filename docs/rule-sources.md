@@ -155,6 +155,11 @@ donation 只借 discipline 的规则、远端 world catalog —— 这些依赖�
 | `DESIGN.md` 的八节与 frontmatter 五组 | `skill/reference/document.md:3,45-62,412-418`（Google design.md spec：机器层/语境层、token 引用、组件八属性、语义键名、八节固定标题、缺数据省略、不静默覆盖） | 判据逐条照搬；标题英文原样、正文中文重写；不移植 sidecar `.impeccable/design.json` |
 | 命名规则（`**The [Name] Rule.**`） | `document.md:402`（"memorable, citable, and much stickier for AI consumers"；每节 1–3 条） | 格式照搬；规则名与教义全部原创 |
 
+| `scripts/rule-precision.mjs` 的三段实测（干净语料 / 召回 / 阴性误报） | `tests/oracle/README.md` 的 oracle 机制 + `DELTAS.md` 的 precision/harm 记录方式 | **只借方法论**：本项目无外部语料，用自建 44 份页面 + 176 份 fixture 近似；结论明确标注不可外推 |
+| `test/golden/render/` 的 a11y / states 报告基线 | 同 oracle（"Byte-equal is the bar"） | 归一化页面 id/标题后逐字节；无浏览器时 skip，由 CI 的 Require-a-browser 步骤兜底 |
+| `parseDesignDoc` / `validateDesignDoc` 的 round-trip 自检 | `document.md` 的结构判据 + `CLI-CONTRACT.md:799` 的 canonical H2 名 | 自写解析器；**不等于 Stitch 官方校验器**，文档已标注 |
+| 漂移快照的 `pageStates` | `craft-floor.md:14` / `operate.md:32` 的状态全集 | 页面实际写出的状态属性探测；与设计系统侧的 `usedStates` 互补 |
+
 **不移植的部分（诚实记录）**：impeccable 的 oracle 语料（1466 份 golden 依赖其 CLI 二进制与远端 catalog）、
 `DELTAS.md` 的实测命中精度/伤害率记录（本项目没有真实站点语料，只把取舍理由写进 registry 注释）、
 `hook-before-edit` 的写前拦截与「6 次后放行」、`concept-seed` 随机掷骰、doctor 的 `auto` 自动修复。
