@@ -212,5 +212,5 @@ test('main CI requires full original-composition evidence before release eligibi
 
 test('release package ships only the current acceptance document', () => {
   const documents = PACKAGE_ENTRIES.filter(entry => entry.startsWith('docs/'))
-  assert.deepEqual(documents, ['docs/review-0.9.6-acceptance.md'])
+  assert.deepEqual(documents, ['docs/review-1.0.0-acceptance.md'])
 })

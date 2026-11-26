@@ -3,6 +3,24 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v1.0.0] - 2026-11-27
+
+首个 1.0：完成阶段 2–6 五轮交付——UX 评审体系、交互 a11y 与动效、鲁棒性、视觉方向与反收敛、治理与回归。
+工具仍 9 个，项目格式保持 v1。
+详细说明见 [release-1.0.0.md](release/release-1.0.0.md)，验证与已知边界见 [验收记录](docs/review-1.0.0-acceptance.md)。
+
+- **阶段 2 评审体系**：`canvas_audit action=ux` 三段式门禁（A 出模板时物理剥离检测结论 → B → 算分），
+  量表 10 条启发式 ×5 档、8 项认知负荷、5 persona、P0–P3。
+- **阶段 3 交互与动效**：23 条 a11y 契约按值级校验；焦点陷阱/inert/焦点归还、tooltip 真实气泡、
+  date-picker roving tabindex、scroll-progress 焦点陷阱修复；`bindPointerDrag` 中断手势；
+  reduced-motion 统一 0.01ms；`action=motion` 抓帧审计 5 个相对指标。
+- **阶段 4 鲁棒性**：布局韧性工具类 + 移动端 16px 地板；4 条 i18n 规则；`action=states` 状态审计；
+  a11y 24px 间距豁免与 44px 移动轮次。
+- **阶段 5 视觉方向**：世界推导流程（窠臼剔除、7 候选、跨 3 材质族）；新增 operate-instrument /
+  read-reference / experience-gallery 三方向与 6 份原创示例。
+- **阶段 6 治理**：immediate/deferred 两档；check_style 与渲染级报告的 golden 基线（含输入 sha256）；
+  漂移快照三字段 + 按严重度排序；`DESIGN.md` 导出与结构自检；规则精度实测脚本。
+
 ## [v0.9.6] - 2026-11-23
 
 修复版：逐项处置审核清单——僵尸锁自动回收、对比度覆盖正文、create 参数契约、风格资产内容寻址去重，
