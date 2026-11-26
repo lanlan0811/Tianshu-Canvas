@@ -477,12 +477,15 @@ test('交互 ARIA（桌面）：默认态 + 打开态逐个读真实 DOM', { ski
       document.querySelectorAll('#pager .ts-i-pagination__item')[1].click()
       await sleep(50)
       document.getElementById('cp-btn').click()
-      await sleep(120)
+      /* 复制可能走 Clipboard API 的异步路径，失败才回退 execCommand；
+         不同环境落地时间不同，这里等播报区真的出现文案，而不是死等固定毫秒。 */
+      const announcer = () => document.getElementById('ts-i-announcer')?.textContent ?? ''
+      for (let i = 0; i < 40 && !announcer().includes('已复制'); i++) await sleep(50)
       return {
         checkedText: checked?.getAttribute('data-ts-value'),
         switchChecked: sw.getAttribute('aria-checked'),
         pageCurrent: document.querySelector('#pager [aria-current="page"]')?.textContent,
-        announced: document.getElementById('ts-i-announcer')?.textContent,
+        announced: announcer(),
       }
     })
     assert.equal(misc.checkedText, 'week')

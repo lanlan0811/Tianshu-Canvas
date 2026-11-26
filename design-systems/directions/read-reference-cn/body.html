@@ -1,0 +1,79 @@
+<main data-ts-prototype="read-reference-cn">
+<div class="tp-rr-shell">
+<header class="tp-rr-masthead">
+<a class="tp-mark" href="#top">调度手册 / FIELD MANUAL</a>
+<span class="tp-label">修订 3 · 原创演示文档</span>
+<nav aria-label="章节">
+<a href="#concepts">概念</a>
+<a href="#usage">用法</a>
+<a href="#reference">参考</a>
+</nav>
+</header>
+
+<div class="tp-rr-body">
+<nav class="tp-rr-rail" aria-label="导航轨">
+<a href="#concepts" aria-current="true">01 概念</a>
+<a href="#usage">02 用法</a>
+<a href="#reference">03 参考</a>
+</nav>
+
+<article id="top" class="tp-rr-column">
+<header class="tp-rr-opener">
+<span class="tp-eyebrow">第一章 / 概念</span>
+<h1>排期是怎么排出来的</h1>
+<p>这份文档说明线路排期的三条规则。示例里的线路、站台和时间都是演示数据，不代表真实运营安排。</p>
+</header>
+
+<section id="concepts" class="tp-rr-section">
+<span class="tp-rr-number">01</span>
+<h2>班次与容量</h2>
+<p>一条线路在一个时段内能发多少班，由站台数量与最短间隔共同决定。改任意一项都会影响下游的换乘衔接，所以先确认容量，再谈排期。</p>
+<pre><code>最短间隔 = 站台数 × 平均停站时间 + 缓冲</code></pre>
+<p>缓冲不是余量，而是留给延误的处置空间；低于 2 分钟时，一次设备检修就会把整条线路推到延误状态。</p>
+</section>
+
+<section id="usage" class="tp-rr-section">
+<span class="tp-rr-number">02</span>
+<h2>什么时候该加开班次</h2>
+<p>延误超过阈值、且后续三班都已满载时，加开比压缩间隔更安全。下表是三种处置的取舍：</p>
+<div class="tp-scroll">
+<table>
+<thead><tr><th scope="col">处置</th><th scope="col">适用</th><th scope="col">代价</th></tr></thead>
+<tbody>
+<tr><td>压缩间隔</td><td>延误小于 5 分钟</td><td>停站时间被挤压，下一班更容易迟到</td></tr>
+<tr><td>加开班次</td><td>后续三班满载</td><td>需要空闲站台与司机</td></tr>
+<tr><td>改签</td><td>单一班次受影响</td><td>影响乘客行程，只作最后手段</td></tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>为什么把改签放最后</summary>
+<p>改签把成本转给乘客；只有在加开与压缩都不成立时才使用。这是演示说明，不构成任何真实服务承诺。</p>
+</details>
+</section>
+
+<section id="reference" class="tp-rr-section">
+<span class="tp-rr-number">03</span>
+<h2>参考数据</h2>
+<dl class="tp-properties">
+<div><dt>延误阈值</dt><dd class="tp-number">10 分钟</dd></div>
+<div><dt>缓冲下限</dt><dd class="tp-number">2 分钟</dd></div>
+<div><dt>排期粒度</dt><dd class="tp-number">5 分钟</dd></div>
+</dl>
+</section>
+
+<footer class="tp-footer">
+<span>原创演示文档与图形，不代表真实运营规则或服务承诺。</span>
+<a href="#top">回到开头</a>
+</footer>
+</article>
+
+<aside class="tp-rr-toc" aria-label="页内目录">
+<p class="tp-rr-toc-title">本页</p>
+<a href="#concepts">班次与容量</a>
+<a href="#usage">什么时候加开</a>
+<a href="#reference">参考数据</a>
+</aside>
+</div>
+</div>
+</main>

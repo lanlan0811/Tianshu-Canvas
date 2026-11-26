@@ -1,0 +1,27 @@
+{
+  "id": "operate-instrument-en",
+  "name": "Dispatch Board / English instrument operate",
+  "language": "en",
+  "category": "direction-example",
+  "description": "Original direction example: the world lends only type, palette, density and one signature move (a service route map); the product shell and controls stay standard.",
+  "variants": [
+    "Adjust to the user's real business and data fields"
+  ],
+  "contentRequirements": [
+    "All figures and the route map are original demo content, not real service data",
+    "Real metrics and states come from the user or an explicit confirmation"
+  ],
+  "responsive": [
+    "1440px: sidebar nav + main work area + route map on the right",
+    "768px: route map moves below the main content, toolbar wraps",
+    "390px: single column; denser but state text is kept"
+  ],
+  "interactions": [
+    "Native links and summary disclosure"
+  ],
+  "designDecisions": [
+    "The world lends type, palette, density and one signature move only; no layout or controls",
+    "Service health is drawn as a route map, not a dashboard costume",
+    "State is stated in words as well as colour"
+  ]
+}

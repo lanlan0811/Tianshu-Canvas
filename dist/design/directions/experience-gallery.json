@@ -1,0 +1,51 @@
+{
+  "id": "experience-gallery",
+  "name": "作品陈列",
+  "description": "面向作品集与展示：作品从第一屏领跑，界面后退；展签式编号与展厅留白提供节奏。",
+  "suitableModes": [
+    "experience"
+  ],
+  "suitableFor": [
+    "作品集、画廊、案例陈列与展陈页",
+    "观看本身就是任务，界面不该抢戏"
+  ],
+  "composition": [
+    "首屏只放一件作品与一条展签；后续按展陈顺序陈列",
+    "展签只承担事实（编号、材质、年份），动机留给观众"
+  ],
+  "typography": [
+    "作品承担视觉重量，标题与说明退到展签层级",
+    "编号与年份用等宽体，保持档案感"
+  ],
+  "rhythm": [
+    "留白按展厅节奏分配，而不是均匀间距",
+    "每间展厅有一个明确的观看起点"
+  ],
+  "mobile": [
+    "单列时展签跟在作品下方，编号仍可读",
+    "不为了塞下更多作品压缩留白到不可读"
+  ],
+  "assets": [
+    "真实作品图与准确展签；缺失时用原创 SVG 并标注演示",
+    "不虚构作者、年份或藏品来源"
+  ],
+  "misuses": [
+    "把页面做成营销落地页，作品变成配图",
+    "展签写成创作说明或广告语",
+    "界面装饰比作品更抢眼"
+  ],
+  "examples": [
+    {
+      "id": "experience-gallery-cn",
+      "name": "作品陈列 / 中文体验型画廊",
+      "language": "zh-CN",
+      "resourceId": "experience-gallery-cn"
+    },
+    {
+      "id": "experience-gallery-en",
+      "name": "Exhibition Room / English experience gallery",
+      "language": "en",
+      "resourceId": "experience-gallery-en"
+    }
+  ]
+}

@@ -45,5 +45,8 @@
       "prototypeId": "editorial-casebook",
       "resourceId": "editorial-casebook"
     }
+  ],
+  "suitableModes": [
+    "persuade"
   ]
 }

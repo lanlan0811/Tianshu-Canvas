@@ -44,5 +44,8 @@
       "language": "en",
       "resourceId": "poster-en"
     }
+  ],
+  "suitableModes": [
+    "persuade"
   ]
 }

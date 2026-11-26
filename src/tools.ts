@@ -15,6 +15,7 @@ import { adapterContext, detectAdapters, generateWithAdapter, getAdapter } from 
 import type { AdapterId } from './adapters/types.js'
 import { auditPage, formatA11yReport } from './audit/a11y.js'
 import { auditQuality, formatQualityReport } from './audit/quality.js'
+import { auditStates, formatStatesReport } from './audit/states.js'
 import { computeContract, formatContractReport } from './audit/contract.js'
 import { launchBrowser, resolveBrowser } from './export.js'
 import {
@@ -1509,13 +1510,31 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
           const pageUrl = new URL(url)
           pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`
           pageUrl.hash = ''
-          const report = await auditPage(browser, pageUrl.toString(), {
+          const desktop = await auditPage(browser, pageUrl.toString(), {
             minContrast: num(call.args.min_contrast),
             minTargetSize: num(call.args.min_target_size),
             ignore: Array.isArray(call.args.ignore) ? (call.args.ignore as unknown[]).map(String) : undefined,
+            viewport: { width: 1440, height: 900 },
+            viewportLabel: '1440×900',
           })
-          errors += report.counts.error
-          parts.push(formatA11yReport(report, `页面「${page.title}」(id=${page.id})`))
+          /* 移动轮次只判 44px 设计地板：WCAG 的 24px 间距豁免不适用于设计底线。 */
+          const mobile = await auditPage(browser, pageUrl.toString(), {
+            minContrast: num(call.args.min_contrast),
+            minTargetSize: 44,
+            spacingExemption: false,
+            viewport: { width: 375, height: 812 },
+            viewportLabel: '375×812',
+            only: ['target-size'],
+            ignore: Array.isArray(call.args.ignore) ? (call.args.ignore as unknown[]).map(String) : undefined,
+          })
+          errors += desktop.counts.error
+          const mergedSkipped = [...new Set([...desktop.skipped, ...mobile.skipped])]
+          parts.push(formatA11yReport({ ...desktop, skipped: mergedSkipped }, `页面「${page.title}」(id=${page.id})`))
+          if (mobile.issues.length) {
+            parts.push(`移动视口 375×812（44px 设计地板）\n${mobile.issues.map((issue) => `- [${issue.severity}] ${issue.rule} · ${issue.message}\n    选择器：${issue.selector}`).join('\n')}`)
+          } else {
+            parts.push('移动视口 375×812（44px 设计地板）：未发现过小的点击目标。')
+          }
         }
         return { content: `${parts.join('\n\n')}\n\n合计 error ${errors} 处。` }
       } finally {
@@ -1558,6 +1577,37 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
           })
           warnings += report.counts.warning
           parts.push(formatQualityReport(report, `页面「${page.title}」(id=${page.id})`))
+        }
+        return { content: `${parts.join('\n\n')}\n\n合计 warning ${warnings} 处。` }
+      } finally {
+        await dispose()
+      }
+    }
+
+    if (action === 'states') {
+      const { pages, error } = auditPages(call)
+      if (error) return { content: error, isError: true }
+      const { url } = await ensureServer(call.cwd)
+      const exe = resolveBrowser()
+      if (!exe) return { content: '未找到 Chrome/Edge，无法渲染页面做状态审计。可用 TIANSHU_CANVAS_BROWSER 指定路径。', isError: true }
+      const { browser, dispose } = await launchBrowser(exe)
+      try {
+        const authPage = await browser.newPage()
+        await authPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await authPage.waitForFunction('!location.hash', { timeout: 15000 })
+        await authPage.close()
+        const parts: string[] = []
+        let warnings = 0
+        for (const page of pages) {
+          const pageUrl = new URL(url)
+          pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`
+          pageUrl.hash = ''
+          const report = await auditStates(browser, pageUrl.toString(), {
+            largeRows: num(call.args.states_large_rows),
+            ignore: Array.isArray(call.args.ignore) ? (call.args.ignore as unknown[]).map(String) : undefined,
+          })
+          warnings += report.counts.warning
+          parts.push(formatStatesReport(report, `页面「${page.title}」(id=${page.id})`))
         }
         return { content: `${parts.join('\n\n')}\n\n合计 warning ${warnings} 处。` }
       } finally {
@@ -1716,7 +1766,7 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       return { content: formatVisualReport(result, false) }
     }
 
-    return { content: `未知的 action：${action}。可选：contract / a11y / quality / ux / motion / visual / baseline / drift / review。`, isError: true }
+    return { content: `未知的 action：${action}。可选：contract / a11y / quality / states / ux / motion / visual / baseline / drift / review。`, isError: true }
   } catch (err) {
     return { content: reportError(err), isError: true }
   }
@@ -1940,7 +1990,7 @@ export const tools: TpiTool[] = [
           },
           template_id: { type: 'string', description: 'action=template 时使用：模板 id（如 dashboard / landing）' },
           prototype_id: { type: 'string', description: 'prototype：中性原型 ID，省略列出所有摘要；指定后返回完整 HTML、内容要求及响应式说明' },
-          direction_id: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster'], description: 'direction：视觉方向 ID；省略列出摘要。方向与风格、原型分别选择' },
+          direction_id: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster', 'operate-instrument', 'read-reference', 'experience-gallery'], description: 'direction：视觉方向 ID；省略列出摘要。方向与风格、原型分别选择' },
           brief: {
             type: 'object', description: 'brief：指定页面简报的部分更新；省略则读取。不得代填用户确认或虚构证据',
             properties: {
@@ -1949,9 +1999,9 @@ export const tools: TpiTool[] = [
               evidence: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 2000 } },
               assets: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 2000 } },
               brandConstraints: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 2000 } },
-              prototypeId: { type: 'string' }, directionId: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster'] },
+              prototypeId: { type: 'string' }, directionId: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster', 'operate-instrument', 'read-reference', 'experience-gallery'] },
               confirmation: { type: 'object', description: '仅用户已明确选择后传入；不能从复制、选中节点或代理偏好推断认可',
-                properties: { confirmed: { type: 'boolean', enum: [true] }, directionId: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster'] }, reason: { type: 'string', minLength: 1, maxLength: 2000 } },
+                properties: { confirmed: { type: 'boolean', enum: [true] }, directionId: { type: 'string', enum: ['editorial-narrative', 'product-evidence', 'brand-poster', 'operate-instrument', 'read-reference', 'experience-gallery'] }, reason: { type: 'string', minLength: 1, maxLength: 2000 } },
                 required: ['confirmed', 'directionId', 'reason'], additionalProperties: false },
             }, additionalProperties: false,
           },
@@ -2117,16 +2167,17 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_audit',
-      description: '设计 CI 审计：契约、可访问性、工艺质量、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审',
+      description: '设计 CI 审计：契约、可访问性（含移动触控）、工艺质量、状态完整性、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审',
       input_schema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['contract', 'a11y', 'quality', 'ux', 'motion', 'visual', 'baseline', 'drift', 'review'],
+            enum: ['contract', 'a11y', 'quality', 'states', 'ux', 'motion', 'visual', 'baseline', 'drift', 'review'],
             description:
-              'contract=源码级设计契约（确定性，无需浏览器）；a11y=渲染后可访问性审计（需要 Chrome/Edge）；' +
+              'contract=源码级设计契约（确定性，无需浏览器）；a11y=渲染后可访问性审计：桌面 1440 全量 + 移动 375 的 44px 触控地板（需要 Chrome/Edge）；' +
               'quality=渲染工艺审计：字号、行高、字距、行宽、全大写、字号层级、标题节奏（需要 Chrome/Edge）；' +
+              'states=状态完整性审计：空状态、加载播报、大数据集分页、防重复提交（需要 Chrome/Edge）；' +
               'ux=三段式 UX 评审：phase=a 出截图与量表模板（不含检测结论）→ 回填 a_assessment → phase=b 跑确定性检测 → phase=synthesize 算分；' +
               'motion=动效抓帧审计：点击 motion_selector 后按固定采样点抓帧，出 filmstrip 与相对指标（需 Chrome/Edge）；' +
               'baseline=写入视觉基线（覆盖式）；visual=与基线逐像素比较；drift=与上次设计快照比较；review=指定 page_id 的多尺寸截图与客观报告，不自动评审审美',
@@ -2154,6 +2205,7 @@ export const tools: TpiTool[] = [
           min_body_px: { type: 'number', description: 'quality：正文最小字号（px，默认 12）' },
           min_ui_px: { type: 'number', description: 'quality：功能性 UI 文字最小字号（px，默认 11）' },
           line_max: { type: 'number', description: 'quality：单行字符上限（默认 80）' },
+          states_large_rows: { type: 'number', description: 'states：大数据集阈值（渲染行数，默认 1000）' },
           phase: { type: 'string', enum: ['a', 'b', 'synthesize'], description: 'ux：a=设计评审（首调出模板，带 a_assessment 则回填）；b=确定性检测（需 A 已回填）；synthesize=算分与落盘' },
           review_id: { type: 'string', description: 'ux：phase=a 首次返回的评审 ID；phase=b / synthesize 必填' },
           a_assessment: {

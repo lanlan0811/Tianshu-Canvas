@@ -3,7 +3,7 @@
  * 用 port:0 避免与真实端口冲突。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -14,7 +14,8 @@ const { tools } = await loadPlugin(pathToFileURL(join(root, 'dist', 'index.mjs')
 
 const cwd = mkdtempSync(join(tmpdir(), 'tsc-srv-'))
 try {
-  const open = await tools.canvas_open.execute({ input: { port: 0 }, cwd })
+  // 首选端口 2049 在 Chrome 的不安全端口表里（ERR_UNSAFE_PORT）：服务必须跳过它。
+  const open = await tools.canvas_open.execute({ input: { port: 2049 }, cwd })
   assert.ok(!open.isError, open.content)
   const m = open.content.match(/http:\/\/127\.0\.0\.1:\d+\/w\/[0-9a-f]{32}\/\?ws=[0-9a-f]{32}#[0-9a-f]{64}/)
   assert.ok(m, `未返回合法 URL: ${open.content}`)
@@ -149,6 +150,17 @@ try {
     body: JSON.stringify({ ws: token, styleId: 'claude' }),
   })
   assert.equal(designGone.status, 404)
+
+  // 浏览器把一组端口列为不安全（ERR_UNSAFE_PORT）：上方 canvas_open 传的首选端口 2049
+  // 必须被跳过，否则画布直接打不开。这里做行为级断言 + 源码级兜底（防止屏蔽表被删空）。
+  const assigned = Number(parsed.port)
+  assert.notEqual(assigned, 2049, `不应落在浏览器屏蔽端口上：${assigned}`)
+  assert.ok(!(assigned >= 6665 && assigned <= 6669), `不应落在 6665–6669：${assigned}`)
+  assert.ok(assigned > 0 && assigned < 65536, `端口应合法：${assigned}`)
+  const serverSource = readFileSync(join(root, 'src', 'server.ts'), 'utf8')
+  for (const blocked of ['2049', '6665', '6669', '10080', '6000']) {
+    assert.ok(serverSource.includes(blocked), `屏蔽端口表缺少 ${blocked}`)
+  }
 
   console.log('OK 服务: /、/api/project、/page/:id（含探针）、/api/selection、/api/design-systems、CSRF 头、越界 id 全部通过')
 } finally {

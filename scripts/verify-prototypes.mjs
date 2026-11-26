@@ -73,7 +73,7 @@ mkdirSync(cwd)
 const prototypes = api.listPrototypes()
 const directions = api.listDirections()
 assert.equal(prototypes.length, 32, 'must cover all 32 neutral target prototypes')
-assert.equal(directions.length, 3)
+assert.equal(directions.length, 6)
 const tasks = prototypes.map((p) => ({ id: p.id, type: 'prototype', name: p.name, html: api.getPrototype(p.id).html }))
 for (const summary of directions) {
   const direction = api.getDirection(summary.id)
@@ -81,7 +81,7 @@ for (const summary of directions) {
   assert.deepEqual(new Set(direction.examples.map((example) => example.language)), new Set(['zh-CN', 'en']))
   for (const example of direction.examples) tasks.push({ id: 'direction-' + example.id, type: 'direction-example', directionId: summary.id, name: example.name, html: example.html })
 }
-assert.equal(tasks.length, 38)
+assert.equal(tasks.length, 44)
 const selected = only ? tasks.filter((task) => task.id === only) : tasks
 assert.ok(selected.length, 'Unknown --only id')
 const results = []

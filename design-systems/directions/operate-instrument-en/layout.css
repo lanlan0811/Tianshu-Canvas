@@ -1,0 +1,21 @@
+:scope .tp-oi-strip{display:flex;align-items:baseline;gap:var(--ts-space-5);padding:var(--ts-space-5) 0;border-top:2px solid var(--ts-color-text-primary);border-bottom:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-oi-strip .tp-metric{font-size:clamp(2.5rem,5vw,4rem)}
+
+:scope .tp-oi-diagram{margin:0;display:grid;gap:var(--ts-space-3)}
+
+:scope .tp-oi-diagram svg{width:100%;height:auto;background:var(--ts-color-bg-raised);border:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-oi-timetable{display:grid;gap:0;border-top:1px solid var(--ts-color-border-strong)}
+
+:scope .tp-oi-row{display:grid;grid-template-columns:5rem minmax(0,1fr) auto;align-items:baseline;gap:var(--ts-space-4);padding:var(--ts-space-4) 0;border-bottom:1px solid var(--ts-color-border-default)}
+
+:scope .tp-oi-row .tp-number{font-variant-numeric:tabular-nums;font-family:var(--ts-font-mono)}
+
+@media(max-width:780px){:scope .tp-oi-strip{flex-wrap:wrap;gap:var(--ts-space-3)}
+
+:scope .tp-oi-row{grid-template-columns:4rem minmax(0,1fr)}
+
+:scope .tp-oi-row .tp-badge,:scope .tp-oi-row .tp-status{grid-column:2}
+
+}

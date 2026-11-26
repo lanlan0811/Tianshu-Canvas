@@ -15,7 +15,7 @@ const root = resolve(import.meta.dirname, '..')
 const components = JSON.parse(readFileSync(join(root, 'design-systems/components/components.json'), 'utf8'))
 const componentsCss = readFileSync(join(root, 'design-systems/components/components.css'), 'utf8')
 
-const { validateStateContract } = await import(
+const { validateStateContract, validateComponents } = await import(
   pathToFileURL(join(root, 'scripts/design/design-validate.mjs')).href
 )
 
@@ -113,4 +113,43 @@ test('浏览器表面：深色风格输出 color-scheme: dark', () => {
   const manifest = JSON.parse(readFileSync(join(root, 'dist/design/styles/tianshu-inkstone/assets.json'), 'utf8'))
   const tokens = readFileSync(join(root, 'dist/design/styles/tianshu-inkstone', manifest.tokens), 'utf8')
   if (tokens.includes('.dark {')) assert.ok(tokens.includes('color-scheme: dark'), '有深色块时缺少 color-scheme: dark')
+})
+
+test('布局韧性：溢出工具类已在共享类里登记且在 CSS 中定义', () => {
+  const resilience = ['ts-shrink', 'ts-clamp-1', 'ts-clamp-2', 'ts-clamp-3', 'ts-wrap-anywhere']
+  for (const name of resilience) {
+    assert.ok(components.sharedClasses.includes(name), `${name} 未登记到 sharedClasses`)
+    assert.ok(componentsCss.includes(`.${name}`), `${name} 在 components.css 中没有定义`)
+  }
+  // 组件数不变：这些是无状态的布局工具类，不是组件。
+  assert.equal(components.components.length, 26)
+})
+
+test('布局韧性：三种换行配方与 flex/grid 收缩契约都存在', () => {
+  assert.match(componentsCss, /\.ts-shrink\s*\{[^}]*min-width:\s*0[^}]*min-height:\s*0/, 'ts-shrink 必须同时声明 min-width 与 min-height')
+  assert.match(componentsCss, /\.ts-clamp-1\s*\{[^}]*text-overflow:\s*ellipsis/, 'ts-clamp-1 必须用省略号')
+  assert.match(componentsCss, /-webkit-line-clamp:\s*2/, '缺少两行截断')
+  assert.match(componentsCss, /-webkit-line-clamp:\s*3/, '缺少三行截断')
+  assert.match(componentsCss, /\.ts-wrap-anywhere\s*\{[^}]*overflow-wrap:\s*anywhere/, 'ts-wrap-anywhere 必须允许任意位置断行')
+})
+
+test('布局韧性：移动端输入框 16px 地板（iOS Safari 缩放）', () => {
+  const start = componentsCss.indexOf('/* ---------- 布局韧性')
+  const end = componentsCss.indexOf('/* ---------- 浏览器表面')
+  assert.ok(start > 0 && end > start, '布局韧性段落必须存在且位于浏览器表面之前')
+  const block = componentsCss.slice(start, end)
+  assert.match(block, /@media\s*\(max-width:\s*768px\)/, '缺少窄屏媒体查询')
+  assert.match(block, /font-size:\s*max\(16px,\s*var\(--ts-fs-md\)\)/, '输入框在窄屏必须用 max(16px, …)')
+  for (const selector of ['.ts-input', '.ts-select', 'textarea']) assert.ok(block.includes(selector), `地板未覆盖 ${selector}`)
+})
+
+test('布局韧性负例：删掉工具类定义必须构建期报错', () => {
+  // definedClasses 会扫到注释里的类名，所以负例必须把类名整体抹掉，
+  // 而不是只删规则体——否则注释残留会让校验误判为「已定义」。
+  const stripped = componentsCss.split('ts-shrink').join('ts-removed')
+  const errors = []
+  const warnings = []
+  const manifest = JSON.parse(readFileSync(join(root, 'dist/design/styles/tianshu-original/tokens.manifest.json'), 'utf8'))
+  validateComponents(components, stripped, manifest, errors, warnings)
+  assert.ok(errors.some((e) => e.includes('ts-shrink')), errors.join('; '))
 })

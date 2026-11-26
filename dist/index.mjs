@@ -61284,7 +61284,7 @@ function warnHistoryFailure(error) {
 }
 
 // src/brief.ts
-var DIRECTION_IDS = ["editorial-narrative", "product-evidence", "brand-poster"];
+var DIRECTION_IDS = ["editorial-narrative", "product-evidence", "brand-poster", "operate-instrument", "read-reference", "experience-gallery"];
 var BRIEF_PROTOTYPE_IDS = [
   "product-story",
   "editorial-casebook",
@@ -64965,7 +64965,7 @@ var COLLECT_SCRIPT = `(() => {
       alt: el.getAttribute('alt'),
       id: el.id || '',
       htmlFor: el.getAttribute('for') || '',
-      rect: { width: rect.width, height: rect.height },
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       color: css(el, 'color'),
       fontSize: parseFloat(css(el, 'font-size')) || 16,
       fontWeight: Number(css(el, 'font-weight')) || 400,
@@ -64996,7 +64996,7 @@ var COLLECT_SCRIPT = `(() => {
       alt: el.getAttribute('alt'),
       id: el.id || '',
       htmlFor: el.getAttribute('for') || '',
-      rect: { width: rect.width, height: rect.height },
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       color: css(el, 'color'),
       fontSize: parseFloat(css(el, 'font-size')) || 16,
       fontWeight: Number(css(el, 'font-weight')) || 400,
@@ -65006,6 +65006,14 @@ var COLLECT_SCRIPT = `(() => {
       boxShadow: css(el, 'box-shadow'),
       level: /^h[1-6]$/.test(tag) ? Number(tag[1]) : 0,
       disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true',
+      /* WCAG 2.5.8 \u7684 inline \u4F8B\u5916\uFF1A\u53E5\u5B50/\u6BB5\u843D\u91CC\u7684\u94FE\u63A5\u4E0D\u7B97\u72EC\u7ACB\u70B9\u51FB\u76EE\u6807\u3002 */
+      inlineText: (() => {
+        const parent = el.parentElement
+        if (!parent) return false
+        const display = getComputedStyle(parent).display
+        return ['p', 'li', 'td', 'dd', 'blockquote', 'figcaption', 'span', 'label'].includes(parent.tagName.toLowerCase()) &&
+          display !== 'flex' && display !== 'grid' && display !== 'inline-flex' && display !== 'inline-grid'
+      })(),
       contentEditable: el.getAttribute('contenteditable'),
       hasLabel: (() => {
         if (el.id) { const l = document.querySelector('label[for="' + CSS.escape(el.id) + '"]'); if (l) return true }
@@ -65036,17 +65044,51 @@ function contrastRgb(a2, b2) {
   const lo = Math.min(la, lb);
   return (hi + 0.05) / (lo + 0.05);
 }
+function circleIntersectsBox(cx, cy, radius, box) {
+  const nearestX = Math.max(box.x, Math.min(cx, box.x + box.width));
+  const nearestY = Math.max(box.y, Math.min(cy, box.y + box.height));
+  const dx = cx - nearestX;
+  const dy = cy - nearestY;
+  return dx * dx + dy * dy <= radius * radius;
+}
+function circlesIntersect(ax, ay, bx, by, radius) {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy <= radius * 2 * (radius * 2);
+}
+function passesSpacingExemption(item, targets, minTarget) {
+  const radius = minTarget / 2;
+  const cx = item.rect.x + item.rect.width / 2;
+  const cy = item.rect.y + item.rect.height / 2;
+  for (const other of targets) {
+    if (other === item) continue;
+    if (circleIntersectsBox(cx, cy, radius, other.rect)) return false;
+    const otherUndersized = other.rect.width < minTarget || other.rect.height < minTarget;
+    if (otherUndersized) {
+      const ox = other.rect.x + other.rect.width / 2;
+      const oy = other.rect.y + other.rect.height / 2;
+      if (circlesIntersect(cx, cy, ox, oy, radius)) return false;
+    }
+  }
+  return true;
+}
 function analyze(raw, options = {}) {
   const minContrast = options.minContrast ?? 4.5;
   const minTarget = options.minTargetSize ?? 24;
   const ignore = (options.ignore ?? []).map((s) => s.trim()).filter(Boolean);
+  const only = options.only ? new Set(options.only) : null;
+  const spacingExemption = options.spacingExemption ?? minTarget <= 24;
   const issues = [];
   const skipped = [...raw.skipped ?? []];
   let lastLevel = 0;
   const push = (rule, severity, item, message) => {
+    if (only && !only.has(rule)) return;
     if (ignore.some((sel) => item.selector.includes(sel))) return;
     issues.push({ rule, severity, selector: item.selector, snippet: item.snippet, message });
   };
+  const targetItems = raw.items.filter(
+    (item) => !item.textOnly && ["a", "button", "input", "select", "textarea"].includes(item.tag) && !item.disabled && (item.rect.width > 0 || item.rect.height > 0)
+  );
   for (const item of raw.items) {
     const focusable = ["a", "button", "input", "select", "textarea"].includes(item.tag) || item.tabindex !== null || /^(button|link|checkbox|tab)$/.test(item.role);
     if (!item.textOnly) {
@@ -65081,8 +65123,15 @@ function analyze(raw, options = {}) {
       }
       const targetable = ["a", "button", "input", "select", "textarea"].includes(item.tag) && !item.disabled;
       if (targetable && (item.rect.width > 0 || item.rect.height > 0)) {
-        if (item.rect.width < minTarget || item.rect.height < minTarget) {
-          push("target-size", "warning", item, `\u70B9\u51FB\u76EE\u6807 ${Math.round(item.rect.width)}\xD7${Math.round(item.rect.height)}px \u5C0F\u4E8E ${minTarget}px`);
+        const undersized = item.rect.width < minTarget || item.rect.height < minTarget;
+        if (undersized) {
+          if (item.inlineText) {
+            skipped.push(`${item.selector}: \u884C\u5185\u6587\u5B57\u4E2D\u7684\u76EE\u6807\uFF0C\u6309 WCAG 2.5.8 inline \u4F8B\u5916\u8DF3\u8FC7\u5C3A\u5BF8\u5224\u5B9A`);
+          } else if (spacingExemption && passesSpacingExemption(item, targetItems, minTarget)) {
+          } else {
+            const label = options.viewportLabel ? `\uFF08${options.viewportLabel}\uFF09` : "";
+            push("target-size", "warning", item, `\u70B9\u51FB\u76EE\u6807 ${Math.round(item.rect.width)}\xD7${Math.round(item.rect.height)}px \u5C0F\u4E8E ${minTarget}px${label}`);
+          }
         }
       }
       if (targetable) {
@@ -65110,7 +65159,7 @@ function analyze(raw, options = {}) {
     }
   }
   if (!raw.htmlLang) {
-    issues.push({ rule: "html-lang", severity: "warning", selector: "html", snippet: "<html>", message: "\u6839\u5143\u7D20\u7F3A\u5C11 lang \u5C5E\u6027" });
+    if (!only || only.has("html-lang")) issues.push({ rule: "html-lang", severity: "warning", selector: "html", snippet: "<html>", message: "\u6839\u5143\u7D20\u7F3A\u5C11 lang \u5C5E\u6027" });
   }
   const counts = { error: 0, warning: 0, info: 0 };
   const byRule = {};
@@ -65123,7 +65172,8 @@ function analyze(raw, options = {}) {
 async function auditPage(browser, url, options = {}) {
   const page = await browser.newPage();
   try {
-    await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+    const viewport = options.viewport ?? { width: 1440, height: 900 };
+    await page.setViewport({ ...viewport, deviceScaleFactor: 1 });
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
     await page.waitForSelector("body", { timeout: 1e4 });
     await new Promise((r) => setTimeout(r, 200));
@@ -65438,6 +65488,246 @@ function formatQualityReport(report, label) {
   return lines.join("\n");
 }
 
+// src/audit/states.ts
+var COLLECT_SCRIPT3 = `(() => {
+  const out = { containers: [], busy: [], rows: 0, skipped: [], hasScript: false }
+  const css = (el, prop) => getComputedStyle(el).getPropertyValue(prop).trim()
+  const visible = (el) => {
+    let n = el
+    while (n && n.nodeType === 1) {
+      const s = getComputedStyle(n)
+      if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) return false
+      n = n.parentElement
+    }
+    return true
+  }
+  const path = (e) => {
+    const parts = []
+    let n = e
+    for (let i = 0; n && n.nodeType === 1 && i < 5; i++) {
+      let s = n.tagName.toLowerCase()
+      if (n.id) s += '#' + String(n.id).slice(0, 70)
+      else if (n.classList && n.classList.length) s += '.' + Array.from(n.classList).slice(0, 2).join('.')
+      parts.unshift(s)
+      n = n.parentElement
+    }
+    return parts.join(' > ')
+  }
+  const snippet = (e) => (e.outerHTML || '').replace(/\\s+/g, ' ').slice(0, 160)
+  const EMPTY_TEXT = /\u6682\u65E0|\u6CA1\u6709|\u6CA1\u6709\u4EFB\u4F55|\u8FD8\u6CA1\u6709|\u7A7A\u7A7A|\u65E0\u7ED3\u679C|\u672A\u627E\u5230|\u65E0\u6570\u636E|nothing|no results|no items|empty/i
+  const hintIn = (root) => {
+    const explicit = root.querySelector('.ts-empty, [data-ts-empty]') || root.closest('.ts-empty, [data-ts-empty]')
+    if (explicit) return explicit
+    for (const el of root.querySelectorAll('p, span, div, td, li')) {
+      if (el.children.length) continue
+      const text = (el.textContent || '').trim()
+      if (text && text.length <= 120 && EMPTY_TEXT.test(text)) return el
+    }
+    return null
+  }
+  const pagedIn = (root) => {
+    if (root.closest('[data-ts-pagination]')) return true
+    if (document.querySelector('[data-ts-pagination], nav[aria-label*="\u9875"], nav[aria-label*="page" i], [data-ts-page]')) return true
+    const scroller = root.closest('[style*="overflow"], .ts-scroll')
+    if (scroller) {
+      const s = getComputedStyle(scroller)
+      if (['auto', 'scroll'].includes(s.overflowY) && scroller.scrollHeight > scroller.clientHeight + 2) return true
+    }
+    return false
+  }
+  out.hasScript = !!document.querySelector('script:not([src])')
+
+  /* \u5217\u8868\uFF1Aul/ol/[role=list]\uFF0C\u53EA\u53D6\u53EF\u89C1\u4E14\u81F3\u5C11\u6709 1 \u4E2A li \u6216\u65E0 li \u7684\u663E\u5F0F\u5217\u8868\u5BB9\u5668\u3002 */
+  for (const el of document.querySelectorAll('ul, ol, [role="list"]')) {
+    if (!visible(el)) continue
+    const items = el.matches('ul, ol') ? el.querySelectorAll(':scope > li').length : el.querySelectorAll('[role="listitem"]').length
+    const hint = hintIn(el)
+    const parent = el.parentElement
+    const hintNearby = hint || (parent ? hintIn(parent) : null)
+    out.rows += items
+    out.containers.push({
+      kind: 'list',
+      selector: path(el),
+      snippet: snippet(el),
+      items,
+      emptyHint: !!hintNearby,
+      emptyHasAction: !!(hintNearby && hintNearby.querySelector('a[href], button, [role=button]')),
+      paged: pagedIn(el),
+      hasSubmit: false,
+      submitGuarded: false,
+    })
+  }
+
+  /* \u8868\u683C\uFF1Atable\uFF0C\u53EA\u6570 tbody \u7684\u53EF\u89C1\u6570\u636E\u884C\u3002 */
+  for (const el of document.querySelectorAll('table')) {
+    if (!visible(el)) continue
+    const body = el.tBodies && el.tBodies[0]
+    const items = body ? Array.from(body.rows).filter(visible).length : 0
+    const hint = hintIn(el.closest('section, div') || el)
+    out.rows += items
+    out.containers.push({
+      kind: 'table',
+      selector: path(el),
+      snippet: snippet(el),
+      items,
+      emptyHint: !!hint,
+      emptyHasAction: !!(hint && hint.querySelector('a[href], button, [role=button]')),
+      paged: pagedIn(el),
+      hasSubmit: false,
+      submitGuarded: false,
+    })
+  }
+
+  /* \u8868\u5355\uFF1A\u53EA\u5173\u5FC3\u6709\u6CA1\u6709\u63D0\u4EA4\u6309\u94AE\uFF0C\u4EE5\u53CA**\u8BE5\u8868\u5355\u81EA\u5DF1**\u6709\u6CA1\u6709\u9632\u91CD\u590D\u63D0\u4EA4\u75D5\u8FF9\u3002
+     \u5224\u5B9A\u5FC5\u987B\u9650\u5B9A\u5728\u8868\u5355\u5185\uFF0C\u9875\u9762\u522B\u5904\u7684 aria-busy\uFF08\u4F8B\u5982\u9AA8\u67B6\u5C4F\uFF09\u4E0D\u7B97\u8FD9\u4E2A\u8868\u5355\u7684\u9632\u62A4\u3002 */
+  const pageDisabledInScript = Array.from(document.querySelectorAll('script:not([src])')).some((s) => /disabled/.test(s.textContent || ''))
+  for (const el of document.querySelectorAll('form')) {
+    if (!visible(el)) continue
+    const submit = el.querySelector('button[type="submit"], input[type="submit"], button:not([type])')
+    if (!submit) continue
+    const guarded = el.hasAttribute('data-ts-form') ||
+      !!el.querySelector('[aria-busy="true"]') ||
+      submit.hasAttribute('aria-busy') ||
+      submit.hasAttribute('aria-disabled') ||
+      pageDisabledInScript
+    out.containers.push({
+      kind: 'form',
+      selector: path(el),
+      snippet: snippet(el),
+      items: 0,
+      emptyHint: false,
+      emptyHasAction: false,
+      paged: false,
+      hasSubmit: true,
+      submitGuarded: guarded,
+    })
+  }
+
+  /* \u52A0\u8F7D\u6001\uFF1Aaria-busy \u5143\u7D20\u662F\u5426\u88AB\u64AD\u62A5\u3002 */
+  for (const el of document.querySelectorAll('[aria-busy="true"]')) {
+    const live = el.closest('[aria-live], [role="status"], [role="alert"]')
+    const text = (el.getAttribute('aria-label') || el.textContent || '').trim()
+    out.busy.push({
+      selector: path(el),
+      snippet: snippet(el),
+      announced: !!live,
+      labelled: text.length > 0,
+    })
+  }
+
+  out.skipped.push('\u6743\u9650\u4E09\u6001\uFF08\u65E0\u6743\u9650 / \u53EA\u8BFB / \u7F16\u8F91\u53D7\u9650\uFF09\u65E0\u6CD5\u4ECE\u9759\u6001\u6E32\u67D3\u5224\u5B9A\uFF0C\u9700\u4EBA\u5DE5\u6838\u5B9E')
+  out.skipped.push('\u5E76\u53D1\u7ADE\u6001\uFF08\u53CC\u63D0\u4EA4\u3001\u4E50\u89C2\u66F4\u65B0\u56DE\u6EDA\uFF09\u65E0\u6CD5\u4ECE\u9759\u6001\u6E32\u67D3\u5224\u5B9A\uFF0C\u9700\u4EBA\u5DE5\u6838\u5B9E')
+  if (!out.hasScript) out.skipped.push('\u9875\u9762\u6CA1\u6709\u5185\u8054\u811A\u672C\uFF0C\u5E76\u53D1/\u9632\u91CD\u590D\u63D0\u4EA4\u53EA\u80FD\u6309\u6807\u8BB0\u5224\u65AD')
+  return out
+})()`;
+function analyzeStates(raw, options = {}) {
+  const largeRows = options.largeRows ?? 1e3;
+  const ignore = (options.ignore ?? []).map((s) => s.trim()).filter(Boolean);
+  const issues = [];
+  const skipped = [...raw.skipped ?? []];
+  const push = (rule, severity, selector, snippet, message) => {
+    if (ignore.some((sel) => selector.includes(sel))) return;
+    issues.push({ rule, severity, selector, snippet, message });
+  };
+  for (const container of raw.containers) {
+    if (container.kind === "form") {
+      if (container.hasSubmit && !container.submitGuarded) {
+        push(
+          "submit-unguarded",
+          "advisory",
+          container.selector,
+          container.snippet,
+          "\u8868\u5355\u6709\u63D0\u4EA4\u6309\u94AE\uFF0C\u4F46\u9875\u9762\u6CA1\u6709 aria-busy\u3001data-ts-form \u6216\u811A\u672C\u91CC\u7684 disabled\u2014\u2014\u7591\u4F3C\u6CA1\u6709\u9632\u91CD\u590D\u63D0\u4EA4"
+        );
+      }
+      continue;
+    }
+    if (container.items === 0) {
+      if (!container.emptyHint) {
+        push(
+          "empty-list-no-hint",
+          "warning",
+          container.selector,
+          container.snippet,
+          "\u5217\u8868/\u8868\u683C\u6CA1\u6709\u6570\u636E\uFF0C\u4E5F\u6CA1\u6709\u7A7A\u72B6\u6001\u63D0\u793A\uFF1B\u7528\u6237\u4F1A\u4EE5\u4E3A\u9875\u9762\u574F\u4E86\uFF08\u7528 .ts-empty \u5E76\u5199\u6E05\u8FD9\u91CC\u4F1A\u51FA\u73B0\u4EC0\u4E48\uFF09"
+        );
+      } else if (!container.emptyHasAction) {
+        push(
+          "empty-hint-no-action",
+          "advisory",
+          container.selector,
+          container.snippet,
+          "\u7A7A\u72B6\u6001\u63D0\u793A\u91CC\u6CA1\u6709\u4E0B\u4E00\u6B65\u52A8\u4F5C\uFF1B\u65E0\u7ED3\u679C\u7684\u7A7A\u6001\u81F3\u5C11\u8981\u7ED9\u4E00\u6761\u51FA\u8DEF\uFF08\u6E05\u7B5B\u9009 / \u65B0\u5EFA / \u8FD4\u56DE\uFF09"
+        );
+      }
+    }
+    if (container.items >= largeRows && !container.paged) {
+      push(
+        "large-dataset-unpaged",
+        "warning",
+        container.selector,
+        container.snippet,
+        `\u6E32\u67D3\u4E86 ${container.items} \u884C\u4E14\u6CA1\u6709\u5206\u9875\u6216\u56FA\u5B9A\u9AD8\u5EA6\u6EDA\u52A8\u5BB9\u5668\uFF1B1000+ \u884C\u9700\u8981\u5206\u9875\u6216\u865A\u62DF\u6EDA\u52A8`
+      );
+    }
+  }
+  for (const region of raw.busy) {
+    if (!region.announced && !region.labelled) {
+      push(
+        "loading-unannounced",
+        "advisory",
+        region.selector,
+        region.snippet,
+        '\u5143\u7D20\u6807\u8BB0\u4E86 aria-busy="true"\uFF0C\u4F46\u65E2\u4E0D\u5728 aria-live/role=status \u533A\u57DF\u5185\uFF0C\u4E5F\u6CA1\u6709\u52A0\u8F7D\u6587\u6848\uFF1B\u8BFB\u5C4F\u7528\u6237\u4E0D\u77E5\u9053\u6B63\u5728\u52A0\u8F7D'
+      );
+    }
+  }
+  const counts = { warning: 0, advisory: 0 };
+  const byRule = {};
+  for (const issue of issues) {
+    counts[issue.severity]++;
+    byRule[issue.rule] = (byRule[issue.rule] ?? 0) + 1;
+  }
+  return {
+    containers: raw.containers.length,
+    rows: raw.rows,
+    issues,
+    counts,
+    byRule,
+    skipped: [...new Set(skipped)]
+  };
+}
+async function auditStates(browser, url, options = {}) {
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    await page.waitForSelector("body", { timeout: 1e4 });
+    await new Promise((r) => setTimeout(r, 200));
+    const raw = await page.evaluate(COLLECT_SCRIPT3);
+    return analyzeStates(raw, options);
+  } finally {
+    await page.close().catch(() => {
+    });
+  }
+}
+function formatStatesReport(report, label) {
+  const lines = [
+    `\u72B6\u6001\u5B8C\u6574\u6027\u5BA1\u8BA1\uFF1A${label}`,
+    `\u626B\u63CF ${report.containers} \u4E2A\u5BB9\u5668 / ${report.rows} \u884C\u6570\u636E \xB7 warning ${report.counts.warning} / advisory ${report.counts.advisory}`
+  ];
+  if (report.issues.length === 0) lines.push("\u672A\u53D1\u73B0\u72B6\u6001\u5B8C\u6574\u6027\u95EE\u9898\u3002");
+  for (const issue of report.issues) {
+    lines.push(`- [${issue.severity}] ${issue.rule} \xB7 ${issue.message}`);
+    lines.push(`    \u9009\u62E9\u5668\uFF1A${issue.selector}`);
+    lines.push(`    \u7247\u6BB5\uFF1A${issue.snippet.replace(/\s+/g, " ").slice(0, 120)}`);
+  }
+  if (report.skipped.length) {
+    lines.push(`\u672A\u5224\u5B9A ${report.skipped.length} \u9879\uFF08\u4E0D\u5F97\u5F53\u6210\u901A\u8FC7\uFF09\uFF1A${report.skipped.join("\uFF1B")}`);
+  }
+  return lines.join("\n");
+}
+
 // src/resources.ts
 var TAG_RESOURCE = /<(?:script|img|link|iframe|video|audio|source|embed|object)\b[^>]*?\b(?:src|href|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
 var CSS_RESOURCE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]+))\s*\)|@import\s+(?:"([^"]*)"|'([^']*)')/gi;
@@ -65694,6 +65984,50 @@ var RULES = [
     description: "\u7528 emoji \u5145\u5F53\u56FE\u6807\u6216\u5206\u8282\u7B26\u53F7\uFF0C\u6E32\u67D3\u4E0D\u7A33\u5B9A\uFF0C\u4E5F\u65E0\u6CD5\u4E0E\u56FE\u6807\u7CFB\u7EDF\u4FDD\u6301\u4E00\u81F4\u3002",
     fix: '\u7528 <svg data-icon="\u540D\u5B57" class="ts-icon"> \u4ECE\u56FE\u6807\u76EE\u5F55\u53D6\u56FE\u3002',
     origin: "\u9879\u76EE\u89C4\u5219\uFF08AGENTS.md\uFF1A\u7981\u6B62 emoji \u56FE\u6807\uFF09",
+    free: true
+  },
+  {
+    id: "rtl-physical-direction",
+    category: "quality",
+    severity: "warning",
+    engine: "source",
+    name: "\u7269\u7406\u65B9\u5411\u5C5E\u6027",
+    description: 'dir="rtl" \u7684\u9875\u9762\u4E0A\u7528 margin-left/right\u3001padding-left/right\u3001border-left/right\u3001text-align: left/right\u3001float\u3001left/right \u5B9A\u4F4D\uFF0C\u955C\u50CF\u540E\u4F1A\u9519\u4F4D\u3002',
+    fix: "\u6539\u7528\u903B\u8F91\u5C5E\u6027\uFF1Amargin-inline-start/end\u3001padding-inline-start/end\u3001border-inline-start/end\u3001text-align: start/end\u3001inset-inline-start/end\u3002left:50% + translateX(-50%) \u5C45\u4E2D\u5199\u6CD5\u53EF\u4FDD\u7559\u3002",
+    origin: "skill/reference/audit.md:56\uFF08RTL signals\uFF09",
+    free: true
+  },
+  {
+    id: "fixed-text-width",
+    category: "quality",
+    severity: "advisory",
+    engine: "source",
+    name: "\u56FA\u5B9A\u5BBD\u5EA6\u6587\u672C\u5BB9\u5668",
+    description: "\u6309\u94AE\u3001\u94FE\u63A5\u3001\u6807\u7B7E\u3001\u6807\u9898\u7B49\u6587\u672C\u5BB9\u5668\u5199\u6B7B width\uFF0C\u7FFB\u8BD1\u53D8\u957F\u540E\uFF08\u5FB7\u8BED\u5E38\u6BD4\u82F1\u8BED\u957F 30%\uFF09\u4F1A\u6EA2\u51FA\u6216\u622A\u65AD\u3002",
+    fix: "\u6539\u7528 padding + \u5185\u5BB9\u81EA\u9002\u5E94\uFF1B\u786E\u9700\u4E0A\u9650\u65F6\u7528 max-width\uFF0C\u5E76\u4E3A\u7FFB\u8BD1\u9884\u7559 30\u201340% \u7A7A\u95F4\u3002",
+    origin: "skill/reference/harden.md:91-95\uFF08i18n: avoid fixed widths\uFF09",
+    free: true
+  },
+  {
+    id: "plural-concat",
+    category: "quality",
+    severity: "advisory",
+    engine: "source",
+    name: "\u590D\u6570\u62FC\u63A5",
+    description: '\u7528\u4E09\u5143\u8868\u8FBE\u5F0F\u62FC\u63A5\u82F1\u6587\u590D\u6570\uFF08`${n} item${n !== 1 ? "s" : ""}`\uFF09\u53EA\u5BF9\u82F1\u8BED\u6210\u7ACB\uFF0C\u5176\u5B83\u8BED\u8A00\u7684\u590D\u6570\u89C4\u5219\u4E0D\u540C\u3002',
+    fix: "\u6539\u7528 ICU \u590D\u6570\u89C4\u5219\u6216 Intl.PluralRules\uFF1B\u6570\u91CF\u8BCD\u4EA4\u7ED9\u7FFB\u8BD1\u8D44\u6E90\u5904\u7406\u3002",
+    origin: "skill/reference/harden.md:149-156\uFF08i18n: pluralization\uFF09",
+    free: true
+  },
+  {
+    id: "western-digits-rtl",
+    category: "quality",
+    severity: "advisory",
+    engine: "source",
+    name: "RTL \u8BED\u7CFB\u7684\u897F\u6587\u6570\u5B57",
+    description: "ar/fa/ur \u7B49 RTL \u8BED\u7CFB\u9875\u9762\u6B63\u6587\u91CC\u76F4\u63A5\u5199 ASCII \u6570\u5B57\uFF1B\u8FD9\u4E9B\u8BED\u8A00\u901A\u5E38\u4F7F\u7528\u672C\u5730\u6570\u5B57\u7CFB\u7EDF\uFF08fa-IR \u06F0-\u06F9\u3001ar-SA \u0660-\u0669\uFF09\uFF0C\u65E5\u671F\u8FD8\u9700 Jalali / Hijri \u5386\u3002",
+    fix: "\u7528 Intl.NumberFormat / Intl.DateTimeFormat \u5E76\u4F20\u5165\u6B63\u786E locale\uFF1B\u4E0D\u8981\u624B\u5199\u6570\u5B57\u4E0E\u65E5\u671F\u3002",
+    origin: "skill/reference/harden.md:115-128\uFF08i18n: numerals and calendars\uFF09",
     free: true
   }
 ];
@@ -66876,6 +67210,124 @@ function checkEmojiIcon(ctx) {
   return out;
 }
 
+// src/rules/i18n.ts
+var LOGICAL_HINT = {
+  "margin-left": "margin-inline-start",
+  "margin-right": "margin-inline-end",
+  "padding-left": "padding-inline-start",
+  "padding-right": "padding-inline-end",
+  "border-left": "border-inline-start",
+  "border-right": "border-inline-end",
+  "border-left-width": "border-inline-start-width",
+  "border-right-width": "border-inline-end-width",
+  "border-left-color": "border-inline-start-color",
+  "border-right-color": "border-inline-end-color",
+  "border-top-left-radius": "border-start-start-radius",
+  "border-top-right-radius": "border-start-end-radius",
+  "border-bottom-left-radius": "border-end-start-radius",
+  "border-bottom-right-radius": "border-end-end-radius"
+};
+function declaresRtl(html) {
+  return /<(?:html|body)\b[^>]*\bdir\s*=\s*["']?rtl["'\s>]/i.test(html);
+}
+function checkRtlPhysicalDirection(ctx) {
+  if (!declaresRtl(ctx.html)) return [];
+  const findings = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (offset, message) => {
+    const key = `${offset}:${message}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    findings.push({ rule: "rtl-physical-direction", offset, message, severity: "warning" });
+  };
+  for (const decl of allDeclarations(ctx)) {
+    const hint = LOGICAL_HINT[decl.prop];
+    if (hint) {
+      add(decl.offset, `${decl.prop} \u662F\u7269\u7406\u65B9\u5411\u5C5E\u6027\uFF1BRTL \u9875\u9762\u6539\u7528\u903B\u8F91\u5C5E\u6027 ${hint}`);
+      continue;
+    }
+    if (decl.prop === "text-align" && /^(?:left|right)\b/i.test(decl.value.trim())) {
+      add(decl.offset, `text-align: ${decl.value.trim()} \u5728 RTL \u4E0B\u65B9\u5411\u76F8\u53CD\uFF1B\u6539\u7528 start / end`);
+      continue;
+    }
+    if (decl.prop === "float" && /^(?:left|right)\b/i.test(decl.value.trim())) {
+      add(decl.offset, `float: ${decl.value.trim()} \u5728 RTL \u4E0B\u65B9\u5411\u76F8\u53CD\uFF1B\u6539\u7528 inline-start / inline-end`);
+      continue;
+    }
+    if ((decl.prop === "left" || decl.prop === "right") && !decl.value.includes("var(")) {
+      const percentCentered = /^\s*50%\s*$/.test(decl.value);
+      if (percentCentered) continue;
+      add(decl.offset, `${decl.prop}: ${decl.value.trim()} \u662F\u7269\u7406\u5B9A\u4F4D\uFF1BRTL \u9875\u9762\u6539\u7528 inset-inline-start / inset-inline-end`);
+    }
+  }
+  return findings;
+}
+var TEXT_SELECTOR = /(?:^|[\s,>+~])(?:button|a|label|h[1-6]|\.ts-btn|\.ts-tab|\.ts-nav__link|\.ts-badge|\.ts-input|\.ts-select)(?=$|[\s,.:[>+~#])/;
+function checkFixedTextWidth(ctx) {
+  const findings = [];
+  for (const block of ctx.blocks) {
+    if (!TEXT_SELECTOR.test(block.selector)) continue;
+    const width = block.decls.find((d) => d.prop === "width");
+    if (!width) continue;
+    if (!/^\d*\.?\d+(?:px|rem|em)$/.test(width.value.trim())) continue;
+    const hasFallback = block.decls.some((d) => d.prop === "min-width" || d.prop === "max-width");
+    if (hasFallback) continue;
+    findings.push({
+      rule: "fixed-text-width",
+      offset: width.offset,
+      message: `\u6587\u672C\u5BB9\u5668 ${block.selector} \u56FA\u5B9A width: ${width.value.trim()}\uFF1B\u7FFB\u8BD1\u540E\uFF08\u5FB7\u8BED\u5E38\u957F 30%\uFF09\u4F1A\u6EA2\u51FA\uFF0C\u6539\u7528 padding + \u5185\u5BB9\u81EA\u9002\u5E94\uFF0C\u5E76\u9884\u7559 30\u201340% \u7A7A\u95F4`,
+      severity: "advisory"
+    });
+  }
+  return findings;
+}
+var PLURAL_PATTERNS = [
+  /\$\{[^}]*\}\s*[^`$]{0,20}\$\{[^}]*!==?\s*1[^}]*\?[^}:]*:[^}]*\}/,
+  /\$\{[^}]*\}\s*[^`$]{0,20}\$\{[^}]*===\s*1[^}]*\?[^}:]*:[^}]*\}/,
+  /\+\s*\(\s*[A-Za-z_$][\w$]*\s*!==?\s*1\s*\?/
+];
+function checkPluralConcat(ctx) {
+  const findings = [];
+  for (const match of ctx.html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
+    const body = match[1] ?? "";
+    const base = (match.index ?? 0) + match[0].indexOf(">") + 1;
+    for (const pattern of PLURAL_PATTERNS) {
+      const hit = pattern.exec(body);
+      if (!hit) continue;
+      findings.push({
+        rule: "plural-concat",
+        offset: base + (hit.index ?? 0),
+        message: "\u7528\u4E09\u5143\u62FC\u63A5\u82F1\u6587\u590D\u6570\uFF08item/items\uFF09\u5728\u591A\u8BED\u8A00\u4E0B\u662F\u9519\u7684\uFF1B\u6539\u7528 ICU \u590D\u6570\u89C4\u5219\u6216 Intl.PluralRules",
+        severity: "advisory"
+      });
+      break;
+    }
+  }
+  return findings;
+}
+var RTL_LANGS = /* @__PURE__ */ new Set(["ar", "fa", "ur", "ps", "ckb", "he", "yi", "ug", "sd", "dv"]);
+function pageLang(html) {
+  const match = /<html\b[^>]*\blang\s*=\s*["']?([A-Za-z-]+)/i.exec(html);
+  return (match?.[1] ?? "").toLowerCase().split("-")[0] ?? "";
+}
+function checkWesternDigitsRtl(ctx) {
+  const lang = pageLang(ctx.html);
+  if (!RTL_LANGS.has(lang)) return [];
+  const bodyOnly = ctx.html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ").replace(/<!--[\s\S]*?-->/g, " ");
+  const text3 = decodeEntities2(bodyOnly.replace(/<[^>]+>/g, " "));
+  const hit = /\d/.exec(text3);
+  if (!hit) return [];
+  const offset = bodyOnly.indexOf(hit[0]);
+  return [
+    {
+      rule: "western-digits-rtl",
+      offset: Math.max(0, offset),
+      message: `\u9875\u9762 lang="${lang}" \u5C5E RTL \u8BED\u7CFB\uFF0C\u6B63\u6587\u91CC\u7684 ASCII \u6570\u5B57\u5E94\u4EA4\u7ED9 Intl.NumberFormat\uFF08fa-IR \u4E3A \u06F0-\u06F9\u3001ar-SA \u4E3A \u0660-\u0669\uFF09\uFF1B\u65E5\u671F\u8FD8\u9700 Jalali / Hijri \u5386`,
+      severity: "advisory"
+    }
+  ];
+}
+
 // src/rules/pageCopy.ts
 function checkEmDashOveruse(ctx) {
   const runs = sentenceEndings(ctx.masked);
@@ -67067,7 +67519,11 @@ var CHECKS = {
   "em-dash-overuse": checkEmDashOveruse,
   "marketing-buzzword": checkMarketingBuzzword,
   "aphoristic-cadence": checkAphoristicCadence,
-  "emoji-icon": checkEmojiIcon
+  "emoji-icon": checkEmojiIcon,
+  "rtl-physical-direction": checkRtlPhysicalDirection,
+  "fixed-text-width": checkFixedTextWidth,
+  "plural-concat": checkPluralConcat,
+  "western-digits-rtl": checkWesternDigitsRtl
 };
 function buildContext(html, manifest, mode) {
   let masked = html.replace(/<!--tianshu-ds:start[^>]*-->[\s\S]*?<!--tianshu-ds:end-->/g, mask).replace(/<script\b[\s\S]*?<\/script>/gi, mask).replace(/<!--[\s\S]*?-->/g, mask);
@@ -68404,6 +68860,90 @@ function reportResultError(message) {
 // src/server.ts
 var WEB_DIR = fileURLToPath2(new URL("./web/", import.meta.url));
 var DEFAULT_PORT = 43117;
+var BLOCKED_PORTS = /* @__PURE__ */ new Set([
+  1,
+  7,
+  9,
+  11,
+  13,
+  15,
+  17,
+  19,
+  20,
+  21,
+  22,
+  23,
+  25,
+  37,
+  42,
+  43,
+  53,
+  69,
+  77,
+  79,
+  87,
+  95,
+  101,
+  102,
+  103,
+  104,
+  109,
+  110,
+  111,
+  113,
+  115,
+  117,
+  119,
+  123,
+  135,
+  137,
+  139,
+  143,
+  161,
+  179,
+  389,
+  427,
+  465,
+  512,
+  513,
+  514,
+  515,
+  526,
+  530,
+  531,
+  532,
+  540,
+  548,
+  554,
+  556,
+  563,
+  587,
+  601,
+  636,
+  989,
+  990,
+  993,
+  995,
+  1719,
+  1720,
+  1723,
+  2049,
+  3659,
+  4045,
+  5060,
+  5061,
+  6e3,
+  6566,
+  6679,
+  6697,
+  10080
+]);
+function isSafePort(port) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return false;
+  if (BLOCKED_PORTS.has(port)) return false;
+  if (port >= 6665 && port <= 6669) return false;
+  return true;
+}
 var MUTATION_HEADER = "x-tianshu-canvas";
 var MAX_BODY = 4 * 1024 * 1024;
 var MAX_VIEWPORT_BODY = 4096;
@@ -68431,13 +68971,32 @@ function listen(server, port) {
   });
 }
 async function listenWithFallback(server, preferred) {
-  if (preferred === 0) return listen(server, 0);
+  if (preferred !== 0 && (!Number.isInteger(preferred) || preferred < 1 || preferred > 65535)) {
+    const err = new Error(`\u7AEF\u53E3\u5FC5\u987B\u5728 1\u201365535 \u4E4B\u95F4\uFF1A${preferred}`);
+    err.code = "ERR_SOCKET_BAD_PORT";
+    throw err;
+  }
+  if (preferred === 0) {
+    for (let i = 0; i < 10; i++) {
+      const port = await listen(server, 0);
+      if (isSafePort(port)) return port;
+      await new Promise((resolve15) => server.close(() => resolve15()));
+    }
+    return listen(server, 0);
+  }
   for (let i = 0; i < 21; i++) {
+    const candidate = preferred + i;
+    if (!isSafePort(candidate)) continue;
     try {
-      return await listen(server, preferred + i);
+      return await listen(server, candidate);
     } catch (err) {
       if (err.code !== "EADDRINUSE") throw err;
     }
+  }
+  for (let i = 0; i < 10; i++) {
+    const port = await listen(server, 0);
+    if (isSafePort(port)) return port;
+    await new Promise((resolve15) => server.close(() => resolve15()));
   }
   return listen(server, 0);
 }
@@ -73174,13 +73733,32 @@ async function canvasAudit(call) {
           const pageUrl = new URL(url);
           pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`;
           pageUrl.hash = "";
-          const report = await auditPage(browser, pageUrl.toString(), {
+          const desktop = await auditPage(browser, pageUrl.toString(), {
             minContrast: num(call.args.min_contrast),
             minTargetSize: num(call.args.min_target_size),
+            ignore: Array.isArray(call.args.ignore) ? call.args.ignore.map(String) : void 0,
+            viewport: { width: 1440, height: 900 },
+            viewportLabel: "1440\xD7900"
+          });
+          const mobile = await auditPage(browser, pageUrl.toString(), {
+            minContrast: num(call.args.min_contrast),
+            minTargetSize: 44,
+            spacingExemption: false,
+            viewport: { width: 375, height: 812 },
+            viewportLabel: "375\xD7812",
+            only: ["target-size"],
             ignore: Array.isArray(call.args.ignore) ? call.args.ignore.map(String) : void 0
           });
-          errors += report.counts.error;
-          parts.push(formatA11yReport(report, `\u9875\u9762\u300C${page.title}\u300D(id=${page.id})`));
+          errors += desktop.counts.error;
+          const mergedSkipped = [.../* @__PURE__ */ new Set([...desktop.skipped, ...mobile.skipped])];
+          parts.push(formatA11yReport({ ...desktop, skipped: mergedSkipped }, `\u9875\u9762\u300C${page.title}\u300D(id=${page.id})`));
+          if (mobile.issues.length) {
+            parts.push(`\u79FB\u52A8\u89C6\u53E3 375\xD7812\uFF0844px \u8BBE\u8BA1\u5730\u677F\uFF09
+${mobile.issues.map((issue) => `- [${issue.severity}] ${issue.rule} \xB7 ${issue.message}
+    \u9009\u62E9\u5668\uFF1A${issue.selector}`).join("\n")}`);
+          } else {
+            parts.push("\u79FB\u52A8\u89C6\u53E3 375\xD7812\uFF0844px \u8BBE\u8BA1\u5730\u677F\uFF09\uFF1A\u672A\u53D1\u73B0\u8FC7\u5C0F\u7684\u70B9\u51FB\u76EE\u6807\u3002");
+          }
         }
         return { content: `${parts.join("\n\n")}
 
@@ -73224,6 +73802,38 @@ async function canvasAudit(call) {
           });
           warnings += report.counts.warning;
           parts.push(formatQualityReport(report, `\u9875\u9762\u300C${page.title}\u300D(id=${page.id})`));
+        }
+        return { content: `${parts.join("\n\n")}
+
+\u5408\u8BA1 warning ${warnings} \u5904\u3002` };
+      } finally {
+        await dispose();
+      }
+    }
+    if (action === "states") {
+      const { pages, error } = auditPages(call);
+      if (error) return { content: error, isError: true };
+      const { url } = await ensureServer(call.cwd);
+      const exe = resolveBrowser();
+      if (!exe) return { content: "\u672A\u627E\u5230 Chrome/Edge\uFF0C\u65E0\u6CD5\u6E32\u67D3\u9875\u9762\u505A\u72B6\u6001\u5BA1\u8BA1\u3002\u53EF\u7528 TIANSHU_CANVAS_BROWSER \u6307\u5B9A\u8DEF\u5F84\u3002", isError: true };
+      const { browser, dispose } = await launchBrowser(exe);
+      try {
+        const authPage = await browser.newPage();
+        await authPage.goto(url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+        await authPage.waitForFunction("!location.hash", { timeout: 15e3 });
+        await authPage.close();
+        const parts = [];
+        let warnings = 0;
+        for (const page of pages) {
+          const pageUrl = new URL(url);
+          pageUrl.pathname = `${pageUrl.pathname}page/${encodeURIComponent(page.id)}`;
+          pageUrl.hash = "";
+          const report = await auditStates(browser, pageUrl.toString(), {
+            largeRows: num(call.args.states_large_rows),
+            ignore: Array.isArray(call.args.ignore) ? call.args.ignore.map(String) : void 0
+          });
+          warnings += report.counts.warning;
+          parts.push(formatStatesReport(report, `\u9875\u9762\u300C${page.title}\u300D(id=${page.id})`));
         }
         return { content: `${parts.join("\n\n")}
 
@@ -73374,7 +73984,7 @@ async function canvasAudit(call) {
       const result = await compareWithBaselines(call.cwd, styleId ?? "free", dir, { threshold, updateMissing: call.args.update_missing === true });
       return { content: formatVisualReport(result, false) };
     }
-    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / quality / ux / motion / visual / baseline / drift / review\u3002`, isError: true };
+    return { content: `\u672A\u77E5\u7684 action\uFF1A${action}\u3002\u53EF\u9009\uFF1Acontract / a11y / quality / states / ux / motion / visual / baseline / drift / review\u3002`, isError: true };
   } catch (err) {
     return { content: reportError(err), isError: true };
   }
@@ -73577,7 +74187,7 @@ var tools = [
           },
           template_id: { type: "string", description: "action=template \u65F6\u4F7F\u7528\uFF1A\u6A21\u677F id\uFF08\u5982 dashboard / landing\uFF09" },
           prototype_id: { type: "string", description: "prototype\uFF1A\u4E2D\u6027\u539F\u578B ID\uFF0C\u7701\u7565\u5217\u51FA\u6240\u6709\u6458\u8981\uFF1B\u6307\u5B9A\u540E\u8FD4\u56DE\u5B8C\u6574 HTML\u3001\u5185\u5BB9\u8981\u6C42\u53CA\u54CD\u5E94\u5F0F\u8BF4\u660E" },
-          direction_id: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster"], description: "direction\uFF1A\u89C6\u89C9\u65B9\u5411 ID\uFF1B\u7701\u7565\u5217\u51FA\u6458\u8981\u3002\u65B9\u5411\u4E0E\u98CE\u683C\u3001\u539F\u578B\u5206\u522B\u9009\u62E9" },
+          direction_id: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster", "operate-instrument", "read-reference", "experience-gallery"], description: "direction\uFF1A\u89C6\u89C9\u65B9\u5411 ID\uFF1B\u7701\u7565\u5217\u51FA\u6458\u8981\u3002\u65B9\u5411\u4E0E\u98CE\u683C\u3001\u539F\u578B\u5206\u522B\u9009\u62E9" },
           brief: {
             type: "object",
             description: "brief\uFF1A\u6307\u5B9A\u9875\u9762\u7B80\u62A5\u7684\u90E8\u5206\u66F4\u65B0\uFF1B\u7701\u7565\u5219\u8BFB\u53D6\u3002\u4E0D\u5F97\u4EE3\u586B\u7528\u6237\u786E\u8BA4\u6216\u865A\u6784\u8BC1\u636E",
@@ -73590,11 +74200,11 @@ var tools = [
               assets: { type: "array", maxItems: 20, items: { type: "string", maxLength: 2e3 } },
               brandConstraints: { type: "array", maxItems: 20, items: { type: "string", maxLength: 2e3 } },
               prototypeId: { type: "string" },
-              directionId: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster"] },
+              directionId: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster", "operate-instrument", "read-reference", "experience-gallery"] },
               confirmation: {
                 type: "object",
                 description: "\u4EC5\u7528\u6237\u5DF2\u660E\u786E\u9009\u62E9\u540E\u4F20\u5165\uFF1B\u4E0D\u80FD\u4ECE\u590D\u5236\u3001\u9009\u4E2D\u8282\u70B9\u6216\u4EE3\u7406\u504F\u597D\u63A8\u65AD\u8BA4\u53EF",
-                properties: { confirmed: { type: "boolean", enum: [true] }, directionId: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster"] }, reason: { type: "string", minLength: 1, maxLength: 2e3 } },
+                properties: { confirmed: { type: "boolean", enum: [true] }, directionId: { type: "string", enum: ["editorial-narrative", "product-evidence", "brand-poster", "operate-instrument", "read-reference", "experience-gallery"] }, reason: { type: "string", minLength: 1, maxLength: 2e3 } },
                 required: ["confirmed", "directionId", "reason"],
                 additionalProperties: false
               }
@@ -73752,14 +74362,14 @@ var tools = [
   {
     definition: {
       name: "canvas_audit",
-      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\u3001\u5DE5\u827A\u8D28\u91CF\u3001UX \u8BC4\u5BA1\uFF08\u4E09\u6BB5\u9694\u79BB\uFF09\u3001\u52A8\u6548\u6293\u5E27\u3001\u89C6\u89C9\u56DE\u5F52\u4E0E\u6F02\u79FB\uFF1B\u622A\u56FE\u4E0E\u6307\u6807\u662F\u8BC1\u636E\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
+      description: "\u8BBE\u8BA1 CI \u5BA1\u8BA1\uFF1A\u5951\u7EA6\u3001\u53EF\u8BBF\u95EE\u6027\uFF08\u542B\u79FB\u52A8\u89E6\u63A7\uFF09\u3001\u5DE5\u827A\u8D28\u91CF\u3001\u72B6\u6001\u5B8C\u6574\u6027\u3001UX \u8BC4\u5BA1\uFF08\u4E09\u6BB5\u9694\u79BB\uFF09\u3001\u52A8\u6548\u6293\u5E27\u3001\u89C6\u89C9\u56DE\u5F52\u4E0E\u6F02\u79FB\uFF1B\u622A\u56FE\u4E0E\u6307\u6807\u662F\u8BC1\u636E\uFF0C\u5BA1\u7F8E\u5224\u65AD\u9700\u8BFB\u56FE\u548C\u7528\u6237\u8BC4\u5BA1",
       input_schema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["contract", "a11y", "quality", "ux", "motion", "visual", "baseline", "drift", "review"],
-            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bquality=\u6E32\u67D3\u5DE5\u827A\u5BA1\u8BA1\uFF1A\u5B57\u53F7\u3001\u884C\u9AD8\u3001\u5B57\u8DDD\u3001\u884C\u5BBD\u3001\u5168\u5927\u5199\u3001\u5B57\u53F7\u5C42\u7EA7\u3001\u6807\u9898\u8282\u594F\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bux=\u4E09\u6BB5\u5F0F UX \u8BC4\u5BA1\uFF1Aphase=a \u51FA\u622A\u56FE\u4E0E\u91CF\u8868\u6A21\u677F\uFF08\u4E0D\u542B\u68C0\u6D4B\u7ED3\u8BBA\uFF09\u2192 \u56DE\u586B a_assessment \u2192 phase=b \u8DD1\u786E\u5B9A\u6027\u68C0\u6D4B \u2192 phase=synthesize \u7B97\u5206\uFF1Bmotion=\u52A8\u6548\u6293\u5E27\u5BA1\u8BA1\uFF1A\u70B9\u51FB motion_selector \u540E\u6309\u56FA\u5B9A\u91C7\u6837\u70B9\u6293\u5E27\uFF0C\u51FA filmstrip \u4E0E\u76F8\u5BF9\u6307\u6807\uFF08\u9700 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
+            enum: ["contract", "a11y", "quality", "states", "ux", "motion", "visual", "baseline", "drift", "review"],
+            description: "contract=\u6E90\u7801\u7EA7\u8BBE\u8BA1\u5951\u7EA6\uFF08\u786E\u5B9A\u6027\uFF0C\u65E0\u9700\u6D4F\u89C8\u5668\uFF09\uFF1Ba11y=\u6E32\u67D3\u540E\u53EF\u8BBF\u95EE\u6027\u5BA1\u8BA1\uFF1A\u684C\u9762 1440 \u5168\u91CF + \u79FB\u52A8 375 \u7684 44px \u89E6\u63A7\u5730\u677F\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bquality=\u6E32\u67D3\u5DE5\u827A\u5BA1\u8BA1\uFF1A\u5B57\u53F7\u3001\u884C\u9AD8\u3001\u5B57\u8DDD\u3001\u884C\u5BBD\u3001\u5168\u5927\u5199\u3001\u5B57\u53F7\u5C42\u7EA7\u3001\u6807\u9898\u8282\u594F\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bstates=\u72B6\u6001\u5B8C\u6574\u6027\u5BA1\u8BA1\uFF1A\u7A7A\u72B6\u6001\u3001\u52A0\u8F7D\u64AD\u62A5\u3001\u5927\u6570\u636E\u96C6\u5206\u9875\u3001\u9632\u91CD\u590D\u63D0\u4EA4\uFF08\u9700\u8981 Chrome/Edge\uFF09\uFF1Bux=\u4E09\u6BB5\u5F0F UX \u8BC4\u5BA1\uFF1Aphase=a \u51FA\u622A\u56FE\u4E0E\u91CF\u8868\u6A21\u677F\uFF08\u4E0D\u542B\u68C0\u6D4B\u7ED3\u8BBA\uFF09\u2192 \u56DE\u586B a_assessment \u2192 phase=b \u8DD1\u786E\u5B9A\u6027\u68C0\u6D4B \u2192 phase=synthesize \u7B97\u5206\uFF1Bmotion=\u52A8\u6548\u6293\u5E27\u5BA1\u8BA1\uFF1A\u70B9\u51FB motion_selector \u540E\u6309\u56FA\u5B9A\u91C7\u6837\u70B9\u6293\u5E27\uFF0C\u51FA filmstrip \u4E0E\u76F8\u5BF9\u6307\u6807\uFF08\u9700 Chrome/Edge\uFF09\uFF1Bbaseline=\u5199\u5165\u89C6\u89C9\u57FA\u7EBF\uFF08\u8986\u76D6\u5F0F\uFF09\uFF1Bvisual=\u4E0E\u57FA\u7EBF\u9010\u50CF\u7D20\u6BD4\u8F83\uFF1Bdrift=\u4E0E\u4E0A\u6B21\u8BBE\u8BA1\u5FEB\u7167\u6BD4\u8F83\uFF1Breview=\u6307\u5B9A page_id \u7684\u591A\u5C3A\u5BF8\u622A\u56FE\u4E0E\u5BA2\u89C2\u62A5\u544A\uFF0C\u4E0D\u81EA\u52A8\u8BC4\u5BA1\u5BA1\u7F8E"
           },
           page_id: { type: "string", description: "\u53EA\u5BA1\u8BA1\u6307\u5B9A\u9875\u9762\uFF1B\u7701\u7565\u5219\u5BA1\u8BA1\u5168\u90E8\u9875\u9762" },
           style_id: { type: "string", description: "\u8986\u76D6\u5F53\u524D\u9501\u5B9A\u7684\u98CE\u683C\uFF1Bfree \u8868\u793A\u4E0D\u505A\u98CE\u683C\u76F8\u5173\u68C0\u67E5" },
@@ -73784,6 +74394,7 @@ var tools = [
           min_body_px: { type: "number", description: "quality\uFF1A\u6B63\u6587\u6700\u5C0F\u5B57\u53F7\uFF08px\uFF0C\u9ED8\u8BA4 12\uFF09" },
           min_ui_px: { type: "number", description: "quality\uFF1A\u529F\u80FD\u6027 UI \u6587\u5B57\u6700\u5C0F\u5B57\u53F7\uFF08px\uFF0C\u9ED8\u8BA4 11\uFF09" },
           line_max: { type: "number", description: "quality\uFF1A\u5355\u884C\u5B57\u7B26\u4E0A\u9650\uFF08\u9ED8\u8BA4 80\uFF09" },
+          states_large_rows: { type: "number", description: "states\uFF1A\u5927\u6570\u636E\u96C6\u9608\u503C\uFF08\u6E32\u67D3\u884C\u6570\uFF0C\u9ED8\u8BA4 1000\uFF09" },
           phase: { type: "string", enum: ["a", "b", "synthesize"], description: "ux\uFF1Aa=\u8BBE\u8BA1\u8BC4\u5BA1\uFF08\u9996\u8C03\u51FA\u6A21\u677F\uFF0C\u5E26 a_assessment \u5219\u56DE\u586B\uFF09\uFF1Bb=\u786E\u5B9A\u6027\u68C0\u6D4B\uFF08\u9700 A \u5DF2\u56DE\u586B\uFF09\uFF1Bsynthesize=\u7B97\u5206\u4E0E\u843D\u76D8" },
           review_id: { type: "string", description: "ux\uFF1Aphase=a \u9996\u6B21\u8FD4\u56DE\u7684\u8BC4\u5BA1 ID\uFF1Bphase=b / synthesize \u5FC5\u586B" },
           a_assessment: {

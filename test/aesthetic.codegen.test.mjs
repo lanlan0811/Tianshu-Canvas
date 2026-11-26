@@ -25,18 +25,18 @@ function compile(files, { fixture = '' } = {}) {
 }
 const fileMap = (files) => Object.fromEntries(files.map((file) => [file.name, file.content]))
 
-test('React export keeps all 32 prototype and 6 direction layouts and compiles with real React types', () => {
+test('React export keeps all 32 prototype and 12 direction layouts and compiles with real React types', () => {
   const catalog = JSON.parse(readFileSync(join(root, 'dist/design/prototypes/index.json'), 'utf8'))
   assert.equal(catalog.prototypes.length, 32)
   const resources = catalog.prototypes.map((summary) => JSON.parse(readFileSync(join(root, 'dist/design/prototypes', summary.id + '.json'), 'utf8')))
   const directions = JSON.parse(readFileSync(join(root, 'dist/design/directions/index.json'), 'utf8'))
-  assert.equal(directions.directions.length, 3)
+  assert.equal(directions.directions.length, 6)
   for (const summary of directions.directions) {
     const direction = JSON.parse(readFileSync(join(root, 'dist/design/directions', summary.id + '.json'), 'utf8'))
     assert.equal(direction.examples.length, 2)
     for (const example of direction.examples) resources.push(JSON.parse(readFileSync(join(root, 'dist/design', example.prototypeId ? 'prototypes' : 'directions', example.resourceId + '.json'), 'utf8')))
   }
-  assert.equal(resources.length, 38)
+  assert.equal(resources.length, 44)
   const files = {}
   for (const [index, resource] of resources.entries()) {
     const html = '<!doctype html><html><head><style data-tianshu-prototype="' + resource.id + '">' + resource.css + '</style></head><body>' + resource.html + '</body></html>'

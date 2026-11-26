@@ -1,0 +1,101 @@
+<main data-ts-prototype="operate-instrument-cn">
+<div class="tp-app">
+<aside class="tp-sidebar">
+<span class="tp-mark">调度台</span>
+<nav aria-label="主导航">
+<a href="#overview" aria-current="page">运行总览</a>
+<a href="#routes">线路</a>
+<a href="#alerts">告警</a>
+<a href="#settings">设置</a>
+</nav>
+<p class="tp-demo-note">原创演示界面，数据为示例</p>
+</aside>
+<main class="tp-app-main">
+<header id="overview" class="tp-app-header">
+<div>
+<span class="tp-eyebrow">运行总览 / 演示数据</span>
+<h1>三条线路，<br>一条需要关注。</h1>
+</div>
+<div class="tp-actions">
+<button class="tp-button" type="button">导出班次</button>
+<button class="tp-button tp-button-primary" type="button">新建排期</button>
+</div>
+</header>
+
+<div class="tp-oi-strip">
+<span class="tp-label">今日班次</span>
+<span class="tp-metric">18</span>
+<span class="tp-muted">准点 16 · 延误 2 · 取消 0</span>
+</div>
+
+<section class="tp-two-columns" aria-label="运行状态与线路图">
+<div class="tp-stack">
+<h2>线路状态</h2>
+<div class="tp-scroll">
+<table>
+<thead>
+<tr><th scope="col">线路</th><th scope="col">班次</th><th scope="col">状态</th><th scope="col">下一班</th></tr>
+</thead>
+<tbody>
+<tr><td>东环线</td><td class="tp-number">6</td><td><span class="tp-badge">准点</span></td><td class="tp-number">14:20</td></tr>
+<tr><td>西支线</td><td class="tp-number">5</td><td><span class="tp-badge">准点</span></td><td class="tp-number">14:35</td></tr>
+<tr><td>南联络线</td><td class="tp-number">7</td><td class="tp-status">延误 12 分</td><td class="tp-number">14:48</td></tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>延误原因与处置</summary>
+<p>南联络线因设备检修延误 12 分；已加开一班，乘客改签不收费。本段为演示文案。</p>
+</details>
+</div>
+
+<figure class="tp-oi-diagram">
+<svg viewBox="0 0 380 280" role="img" aria-label="三条线路的运行示意图：东环线、西支线与南联络线">
+<path d="M30 60H200V120H350" fill="none" stroke="var(--ts-color-chart-1)" stroke-width="6"/>
+<path d="M30 140H140V220H350" fill="none" stroke="var(--ts-color-chart-2)" stroke-width="6"/>
+<path d="M30 220H90V180H350" fill="none" stroke="var(--ts-color-status-warning)" stroke-width="6" stroke-dasharray="12 8"/>
+<circle cx="30" cy="60" r="9" fill="var(--ts-color-chart-1)"/>
+<circle cx="200" cy="60" r="9" fill="var(--ts-color-chart-1)"/>
+<circle cx="350" cy="120" r="9" fill="var(--ts-color-chart-1)"/>
+<circle cx="30" cy="140" r="9" fill="var(--ts-color-chart-2)"/>
+<circle cx="140" cy="140" r="9" fill="var(--ts-color-chart-2)"/>
+<circle cx="350" cy="220" r="9" fill="var(--ts-color-chart-2)"/>
+<circle cx="30" cy="220" r="9" fill="var(--ts-color-status-warning)"/>
+<circle cx="90" cy="180" r="9" fill="var(--ts-color-status-warning)"/>
+</svg>
+<figcaption class="tp-demo-note">签名动作：把服务健康画成线路图；虚线 = 延误，实线 = 准点。</figcaption>
+</figure>
+</section>
+
+<section id="routes" class="tp-section">
+<h2>排期</h2>
+<div class="tp-oi-timetable">
+<div class="tp-oi-row"><span class="tp-number">14:20</span><span>东环线 · 站台 2</span><span class="tp-badge">准点</span></div>
+<div class="tp-oi-row"><span class="tp-number">14:35</span><span>西支线 · 站台 4</span><span class="tp-badge">准点</span></div>
+<div class="tp-oi-row"><span class="tp-number">14:48</span><span>南联络线 · 站台 1</span><span class="tp-status">延误 12 分</span></div>
+</div>
+</section>
+
+<section id="alerts" class="tp-section">
+<h2>告警</h2>
+<ul class="tp-activity">
+<li><time datetime="2026-11-26T14:05">14:05</time><p>南联络线设备检修，已通知站台。</p></li>
+<li><time datetime="2026-11-26T13:40">13:40</time><p>东环线班次恢复正常，告警关闭。</p></li>
+</ul>
+</section>
+
+<section id="settings" class="tp-section">
+<h2>当前生效的设置</h2>
+<dl class="tp-properties">
+<div><dt>延误阈值</dt><dd class="tp-number">10 分钟</dd></div>
+<div><dt>排期粒度</dt><dd class="tp-number">5 分钟</dd></div>
+</dl>
+</section>
+
+<footer class="tp-footer">
+<span>原创演示内容与图形，不代表真实运营数据或服务承诺。</span>
+<a href="#overview">回到顶部</a>
+</footer>
+</main>
+</div>
+</main>

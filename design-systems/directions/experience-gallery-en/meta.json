@@ -1,0 +1,27 @@
+{
+  "id": "experience-gallery-en",
+  "name": "Exhibition Room / English experience gallery",
+  "language": "en",
+  "category": "direction-example",
+  "description": "Original direction example: the work leads from the first screen and the interface steps back; label-style numbering and exhibition pacing set the rhythm.",
+  "variants": [
+    "Adjust to the user's real body of work and hanging order"
+  ],
+  "contentRequirements": [
+    "All works, authors and years are original demo content",
+    "Real work images and captions come from the user or an explicit confirmation"
+  ],
+  "responsive": [
+    "1440px: one lead work with label, then a three-up hang",
+    "768px: three-up becomes a single column, labels follow the work",
+    "390px: single column, numbering and labels stay legible"
+  ],
+  "interactions": [
+    "Native anchor navigation and summary disclosure"
+  ],
+  "designDecisions": [
+    "The first screen holds one work; interface chrome is minimal",
+    "Labels carry number, medium and year, never decorative copy",
+    "Whitespace follows exhibition pacing rather than even spacing"
+  ]
+}

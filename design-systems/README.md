@@ -67,7 +67,7 @@ design-systems/
 ## 原创原型与视觉方向
 
 - `prototypes/`：32 个原型，每个包含 `meta.json`、无脚本的 `body.html` 与以 `:scope` 开头的布局 CSS；构建为一次共享资源，不按 11 套风格复制。`tp-*` 类明确登记，不放宽旧模板或 `ts-*` 契约。
-- `directions/`：编辑叙事、产品证据、品牌海报；每类两个中英原创示例与适用条件、误用、移动端及素材指导。
+- `directions/`：编辑叙事、产品证据、品牌海报（persuade）、仪表操作台（operate）、参考文档（read）、作品陈列（experience）；每类两个中英原创示例与适用条件、误用、移动端及素材指导。`suitableModes` 标注适用模式，仅作指导不强制阻断。
 - `interactions/bindings.json`：登记搜索/筛选、实际行分页、纯文本聊天演示与本地表单反馈。只用内存，不联网、不保存，不放开 iframe 的 `allow-forms` 或同源权限。
 - `canvas_style prototype / direction` 按需读取；`brief` 保存指定页面简报，只有明确的 `confirmation` 才记录用户选择。复制保留原决定，删除清理，旧项目无需迁移。
 - `canvas_audit review` 生成 1440/768/390 完整截图与客观问题。截图与自动检查不构成审美评分；需要真实读图与项目所有者评审。

@@ -29,7 +29,7 @@ test('原创原型与六方向示例独立构建一次，输出确定且不改�
   const a=mkdtempSync(join(tmpdir(),'tsc-prototypes-a-'))
   const b=mkdtempSync(join(tmpdir(),'tsc-prototypes-b-'))
   try {
-    assert.deepEqual(buildPrototypeLibrary(root,a),{prototypes:32,directions:3,examples:6})
+    assert.deepEqual(buildPrototypeLibrary(root,a),{prototypes:32,directions:6,examples:12})
     buildPrototypeLibrary(root,b)
     const walk=(dir,prefix='')=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(dir,e.name),prefix+e.name+'/'):[prefix+e.name])
     for(const file of walk(join(a,'design'))) assert.equal(readFileSync(join(a,'design',file),'utf8'),readFileSync(join(b,'design',file),'utf8'),file)
@@ -40,12 +40,13 @@ test('原创原型与六方向示例独立构建一次，输出确定且不改�
       assert.doesNotMatch(compiled.html,/<script\b|<style\b|<html\b|https?:\/\//i)
     }
     const directions=json(join(a,'design','directions','index.json')).directions
-    assert.deepEqual(directions.map(d=>d.id),['editorial-narrative','product-evidence','brand-poster'])
+    assert.deepEqual(directions.map(d=>d.id),['editorial-narrative','product-evidence','brand-poster','operate-instrument','read-reference','experience-gallery'])
     for(const d of directions) {
       const doc=json(join(a,'design','directions',d.id+'.json'))
       assert.equal(doc.examples.length,2)
       assert.deepEqual(doc.examples.map(e=>e.language).sort(),['en','zh-CN'])
       for(const key of ['suitableFor','composition','typography','rhythm','mobile','assets','misuses']) assert.ok(doc[key].length,d.id+'/'+key)
+      if(doc.suitableModes!==undefined) for(const mode of doc.suitableModes) assert.ok(['persuade','operate','read','experience'].includes(mode),d.id+'/suitableModes')
     }
   } finally { rmSync(a,{recursive:true,force:true});rmSync(b,{recursive:true,force:true}) }
 })

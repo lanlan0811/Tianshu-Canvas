@@ -227,6 +227,11 @@
   ],
   "componentClasses": [
     "ts-icon",
+    "ts-shrink",
+    "ts-clamp-1",
+    "ts-clamp-2",
+    "ts-clamp-3",
+    "ts-wrap-anywhere",
     "ts-app",
     "ts-sidebar",
     "ts-sidebar__brand",

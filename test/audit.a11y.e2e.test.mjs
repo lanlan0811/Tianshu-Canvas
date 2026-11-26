@@ -47,3 +47,15 @@ test('对比度：渐变背景跳过并写明原因', { skip: !browserPath && '�
   assert.doesNotMatch(out, /\[error\] contrast/, out)
   assert.match(out, /跳过对比度/, out)
 })
+
+test('移动视口轮次：36px 按钮在 375×812 触发 44px 地板，桌面 24px 档不报', { skip: !browserPath && '未找到浏览器', timeout: 120000 }, async () => {
+  const out = await audit('<!doctype html><html lang="zh-CN"><head><style>body{margin:0;background:#fff;color:#111}button{width:36px;height:36px;font-size:14px}</style></head><body><h1>标题</h1><button aria-label="关闭">×</button></body></html>')
+  assert.doesNotMatch(out, /\[warning\] target-size[^\n]*1440×900/, out)
+  assert.match(out, /移动视口 375×812（44px 设计地板）/, out)
+  assert.match(out, /target-size[^\n]*375×812/, out)
+})
+
+test('移动视口轮次：间距充足的小目标按 24px 圆豁免，不在桌面报 target-size', { skip: !browserPath && '未找到浏览器', timeout: 120000 }, async () => {
+  const out = await audit('<!doctype html><html lang="zh-CN"><head><style>body{margin:0;background:#fff;color:#111}.bar{display:flex;gap:40px;padding:24px}.bar button{width:18px;height:18px;font-size:12px}</style></head><body><h1>标题</h1><div class="bar"><button aria-label="粗体">B</button><button aria-label="斜体">I</button></div></body></html>')
+  assert.doesNotMatch(out, /\[warning\] target-size[^\n]*1440×900/, out)
+})

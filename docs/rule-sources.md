@@ -105,3 +105,38 @@
 **不移植的部分（诚实记录）**：impeccable 的 `motion-capture --steps` 多步/键盘序列、`Page.startScreencast` 录屏、
 多帧并行采集、以及需要真实多代理编排的 critique 全流程。天枢的 motion 只支持单选择器单次点击，
 UX 隔离只保证时序不保证诚实——两点都已写进对应验收文档的「未测项」。
+
+## 阶段 4 · 鲁棒性的溯源
+
+| 天枢落地 | 复刻来源 | 移植方式 |
+|---|---|---|
+| `.ts-shrink` / `.ts-clamp-1..3` / `.ts-wrap-anywhere` | `harden.md` Text Overflow & Wrapping（L37–83） | 判据照搬（min-width:0、三种换行配方）；类名与中文说明为原创 |
+| 移动端输入框 16px 地板 | `harden.md` L81（iOS Safari 强制缩放 <16px 输入框）、`typeset.md` L46 | 阈值照搬；用 `max(16px, var(--ts-fs-md))` 实现，不改 token |
+| `rtl-physical-direction` | `audit.md` L56–61（RTL signals，只在 `dir="rtl"` 页面 flag；`left:50%` 居中豁免） | 判据照搬；实现为本项目的源码级规则 |
+| `fixed-text-width` | `harden.md` L88–95（避免文本容器固定宽度、预留 30–40%） | 阈值照搬（30–40%）；选择器白名单为原创 |
+| `plural-concat` | `harden.md` L149–156（复数拼接反例） | 判据照搬；检测形态为本项目自写 |
+| `western-digits-rtl` | `harden.md` L113–128（东阿拉伯数字、Jalali/Hijri 历）、L114（波斯/阿拉伯同形字母） | 语系清单与日历照搬；数字判定为本项目自写 |
+| `skills/reference/i18n-hardening.md` | `harden.md` i18n 段 | 中文重写；ZWNJ 与「lang 不表示方向」两条来自 `audit.md` L56–61 |
+| `canvas_audit action=states` 的五条规则 | `harden.md` Edge Cases（L199–242）、`onboard.md` L187–192（空状态五型）、`clarify.md` L47–59 | **判据照搬**（1000+ 行、空/加载/并发/权限）；静态可证的五条自写实现，权限与并发写入 skipped |
+| a11y 24px 间距豁免 + 移动 44px 轮次 | `audit.md` L50（WCAG 2.5.8 的五类例外与 24px 圆算法）、`adapt.md` L46/L148（44×44 设计地板） | 算法逐字照搬；44px 作为移动轮次的设计底线，不套用 24px 例外 |
+| 三维 SKILL 小节（溢出 / i18n / 状态） | `harden.md` 对应段落 | 中文重写 |
+
+**不移植的部分（诚实记录）**：impeccable 没有 i18n/RTL 的代码级检测（只有人工清单）；本项目的四条规则是
+按它的判据新写的实现。`harden.md` 未给出 truncate/clamp/overflow-wrap 的「选择条件」，本项目按用途补齐
+（单行摘要 / 多行摘要 / 无空格长串）。权限三态与并发竞态无法从静态渲染判定，`states` 审计只写 skipped。
+
+## 阶段 5 · 视觉方向与反收敛的溯源
+
+| 天枢落地 | 复刻来源 | 移植方式 |
+|---|---|---|
+| `skills/reference/world-derivation.md` 的步骤 1–2 | `new-work-world.md` L7–L8（点名窠臼、七个视觉系统、跨三材质族、两个强制问题） | 判据逐条照搬；中文表述与检查清单为原创 |
+| operate 方向的四条借取约束与自检 | `mode-operate.md` L3–L21（世界只借 type/palette/density/一个签名动作；只以配色呈现=还没找到动作） | 判据照搬；示例与文案原创 |
+| read 方向的「框/栏」分工与 60–75ch | `mode-read.md` L7–L21 | 判据照搬（行宽与 16px 阈值来自原文） |
+| 「作品领跑、界面后退」 | SKILL.md 既有 experience 表述 + `mode-persuade` 的相邻约束 | 沿用并补充展签事实化要求 |
+| 骨架测试 | `bolder.md` L22–24 | 判据与两个追问照搬；中文重写 |
+| `operate-instrument` / `read-reference` / `experience-gallery` 三个方向 | 无直接对应文件（impeccable 的方向由远端 catalog 提供，仓库内无 directions 目录） | **完全原创**：按上述模式判据自写构图指导、误用清单与 6 份示例 |
+| `suitableModes` 字段 | `catalog.rs` 的 `review.allowedModes` 语义（模式→候选筛选） | 只保留「适用模式」的指导语义，不做随机筛选 |
+
+**不移植的部分（诚实记录）**：impeccable 的 `concept-seed` 随机掷骰、challenger 三态裁决（wins/competitive/declined）、
+donation 只借 discipline 的规则、远端 world catalog —— 这些依赖在线服务与多轮代理编排，天枢以流程文档与自检问题近似，
+不追求等价。方向与模式的对应关系只作指导，不阻断选择。

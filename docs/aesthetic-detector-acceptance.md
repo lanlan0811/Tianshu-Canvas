@@ -19,7 +19,7 @@
 
 | 项 | 落地 |
 |---|---|
-| 规则注册表 | `src/rules/registry.ts`：18 条源码级规则，含中文名/描述/修复/模式画像/溯源 |
+| 规则注册表 | `src/rules/registry.ts`：18 条阶段 1 规则 + 4 条阶段 4 i18n 规则（共 22 条），含中文名/描述/修复/模式画像/溯源 |
 | 规则引擎 | `src/rules/engine.ts` + 6 个规则模块 + `colorMath` / `textMath` / `ignores` / `profiles` |
 | 豁免 | `<!-- tianshu-lint-disable[-next-line] rule -->`，未生效豁免点名 |
 | 工具面 | `canvas_check_style`：`action=list_rules`、`rules`、`ignore`、`surface_mode`；写入时工艺提示（非阻塞，0 命中不加行） |
@@ -28,12 +28,13 @@
 
 ## 规则清单与门禁
 
-18 条源码级规则，每条 **4 flag + 5 pass** fixture，共 162 个 fixture：
+22 条源码级规则，每条 **4 flag + 5 pass** fixture，共 198 个 fixture：
 
 overused-font · gradient-text · side-tab · border-accent-on-rounded · ai-color-palette ·
 cream-palette · gray-on-color · hard-offset-shadow · bounce-easing ·
 repeating-stripes-gradient · codex-grid-background · marquee · monotonous-spacing ·
-em-dash-overuse · marketing-buzzword · aphoristic-cadence · radial-halo · emoji-icon
+em-dash-overuse · marketing-buzzword · aphoristic-cadence · radial-halo · emoji-icon ·
+rtl-physical-direction · fixed-text-width · plural-concat · western-digits-rtl
 
 ## 验收（对应项目规则）
 

@@ -1,0 +1,101 @@
+<main data-ts-prototype="operate-instrument-en">
+<div class="tp-app">
+<aside class="tp-sidebar">
+<span class="tp-mark">Dispatch</span>
+<nav aria-label="Main">
+<a href="#overview" aria-current="page">Overview</a>
+<a href="#routes">Routes</a>
+<a href="#alerts">Alerts</a>
+<a href="#settings">Settings</a>
+</nav>
+<p class="tp-demo-note">Original demo interface; all data is sample data</p>
+</aside>
+<main class="tp-app-main">
+<header id="overview" class="tp-app-header">
+<div>
+<span class="tp-eyebrow">Operations overview / demo data</span>
+<h1>Three routes.<br>One needs attention.</h1>
+</div>
+<div class="tp-actions">
+<button class="tp-button" type="button">Export shifts</button>
+<button class="tp-button tp-button-primary" type="button">New schedule</button>
+</div>
+</header>
+
+<div class="tp-oi-strip">
+<span class="tp-label">Shifts today</span>
+<span class="tp-metric">18</span>
+<span class="tp-muted">16 on time · 2 delayed · 0 cancelled</span>
+</div>
+
+<section class="tp-two-columns" aria-label="Route status and diagram">
+<div class="tp-stack">
+<h2>Route status</h2>
+<div class="tp-scroll">
+<table>
+<thead>
+<tr><th scope="col">Route</th><th scope="col">Shifts</th><th scope="col">Status</th><th scope="col">Next</th></tr>
+</thead>
+<tbody>
+<tr><td>East loop</td><td class="tp-number">6</td><td><span class="tp-badge">On time</span></td><td class="tp-number">14:20</td></tr>
+<tr><td>West branch</td><td class="tp-number">5</td><td><span class="tp-badge">On time</span></td><td class="tp-number">14:35</td></tr>
+<tr><td>South link</td><td class="tp-number">7</td><td class="tp-status">Delayed 12 min</td><td class="tp-number">14:48</td></tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>Why the delay, and what changed</summary>
+<p>The south link is 12 minutes late after equipment servicing; one extra shift was added and rebooking is free. Demo copy.</p>
+</details>
+</div>
+
+<figure class="tp-oi-diagram">
+<svg viewBox="0 0 380 280" role="img" aria-label="Service diagram of three routes: east loop, west branch and south link">
+<path d="M30 60H200V120H350" fill="none" stroke="var(--ts-color-chart-1)" stroke-width="6"/>
+<path d="M30 140H140V220H350" fill="none" stroke="var(--ts-color-chart-2)" stroke-width="6"/>
+<path d="M30 220H90V180H350" fill="none" stroke="var(--ts-color-status-warning)" stroke-width="6" stroke-dasharray="12 8"/>
+<circle cx="30" cy="60" r="9" fill="var(--ts-color-chart-1)"/>
+<circle cx="200" cy="60" r="9" fill="var(--ts-color-chart-1)"/>
+<circle cx="350" cy="120" r="9" fill="var(--ts-color-chart-1)"/>
+<circle cx="30" cy="140" r="9" fill="var(--ts-color-chart-2)"/>
+<circle cx="140" cy="140" r="9" fill="var(--ts-color-chart-2)"/>
+<circle cx="350" cy="220" r="9" fill="var(--ts-color-chart-2)"/>
+<circle cx="30" cy="220" r="9" fill="var(--ts-color-status-warning)"/>
+<circle cx="90" cy="180" r="9" fill="var(--ts-color-status-warning)"/>
+</svg>
+<figcaption class="tp-demo-note">Signature move: service health drawn as a route map; dashed = delayed, solid = on time.</figcaption>
+</figure>
+</section>
+
+<section id="routes" class="tp-section">
+<h2>Schedule</h2>
+<div class="tp-oi-timetable">
+<div class="tp-oi-row"><span class="tp-number">14:20</span><span>East loop · platform 2</span><span class="tp-badge">On time</span></div>
+<div class="tp-oi-row"><span class="tp-number">14:35</span><span>West branch · platform 4</span><span class="tp-badge">On time</span></div>
+<div class="tp-oi-row"><span class="tp-number">14:48</span><span>South link · platform 1</span><span class="tp-status">Delayed 12 min</span></div>
+</div>
+</section>
+
+<section id="alerts" class="tp-section">
+<h2>Alerts</h2>
+<ul class="tp-activity">
+<li><time datetime="2026-11-26T14:05">14:05</time><p>South link equipment servicing; platforms notified.</p></li>
+<li><time datetime="2026-11-26T13:40">13:40</time><p>East loop back to schedule; alert closed.</p></li>
+</ul>
+</section>
+
+<section id="settings" class="tp-section">
+<h2>Active settings</h2>
+<dl class="tp-properties">
+<div><dt>Delay threshold</dt><dd class="tp-number">10 min</dd></div>
+<div><dt>Schedule step</dt><dd class="tp-number">5 min</dd></div>
+</dl>
+</section>
+
+<footer class="tp-footer">
+<span>Original demo content and graphics; not real operations data or a service promise.</span>
+<a href="#overview">Back to top</a>
+</footer>
+</main>
+</div>
+</main>

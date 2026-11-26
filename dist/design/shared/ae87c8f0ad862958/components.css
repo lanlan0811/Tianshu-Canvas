@@ -857,6 +857,57 @@ svg {
   outline: none;
 }
 
+/* ---------- 布局韧性（溢出与换行；不引入状态，故不属于组件状态契约） ---------- */
+
+/* flex / grid 子项默认 min-width:auto，长内容会把容器撑破。
+   给需要收缩的子项显式加 .ts-shrink，比任何响应式技巧都实用。 */
+.ts-shrink {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 单行摘要：用于列表标题、表格单元格、导航项。 */
+.ts-clamp-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 多行摘要：用于卡片描述、通知正文。行数固定，超出省略。 */
+.ts-clamp-2,
+.ts-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ts-clamp-2 {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.ts-clamp-3 {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+/* 长 URL、哈希、无空格标识符：允许在任意位置断行，避免横向溢出。 */
+.ts-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* 移动端输入框地板：iOS Safari 会强制缩放 16px 以下的聚焦输入框，直接破坏表单布局。
+   token 保持桌面值（13–15px），只在窄屏用 max() 抬到 16px。 */
+@media (max-width: 768px) {
+  .ts-input,
+  .ts-select,
+  textarea {
+    font-size: max(16px, var(--ts-fs-md));
+  }
+}
+
 /* ---------- 浏览器表面（由 token 统一主题化，页面不要重写） ---------- */
 
 ::selection {

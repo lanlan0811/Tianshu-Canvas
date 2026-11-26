@@ -1,0 +1,79 @@
+<main data-ts-prototype="read-reference-en">
+<div class="tp-rr-shell">
+<header class="tp-rr-masthead">
+<a class="tp-mark" href="#top">Dispatch Manual / FIELD NOTES</a>
+<span class="tp-label">Revision 3 · original demo documentation</span>
+<nav aria-label="Chapters">
+<a href="#concepts">Concepts</a>
+<a href="#usage">Usage</a>
+<a href="#reference">Reference</a>
+</nav>
+</header>
+
+<div class="tp-rr-body">
+<nav class="tp-rr-rail" aria-label="Navigation rail">
+<a href="#concepts" aria-current="true">01 Concepts</a>
+<a href="#usage">02 Usage</a>
+<a href="#reference">03 Reference</a>
+</nav>
+
+<article id="top" class="tp-rr-column">
+<header class="tp-rr-opener">
+<span class="tp-eyebrow">Chapter one / concepts</span>
+<h1>How a schedule is built</h1>
+<p>This page explains the three rules behind route scheduling. Routes, platforms and times are demo data and do not describe real operations.</p>
+</header>
+
+<section id="concepts" class="tp-rr-section">
+<span class="tp-rr-number">01</span>
+<h2>Shifts and capacity</h2>
+<p>How many shifts a route can run in a window follows from the number of platforms and the minimum headway. Changing either shifts the downstream connections, so confirm capacity before discussing the timetable.</p>
+<pre><code>headway = platforms × average dwell + buffer</code></pre>
+<p>The buffer is not slack: it is the room a delay needs to be absorbed. Below two minutes, a single servicing task pushes the whole route into delay.</p>
+</section>
+
+<section id="usage" class="tp-rr-section">
+<span class="tp-rr-number">02</span>
+<h2>When to add a shift</h2>
+<p>When a delay passes the threshold and the next three shifts are already full, adding a shift is safer than compressing the headway. The trade-offs:</p>
+<div class="tp-scroll">
+<table>
+<thead><tr><th scope="col">Action</th><th scope="col">Fits when</th><th scope="col">Cost</th></tr></thead>
+<tbody>
+<tr><td>Compress headway</td><td>Delay under 5 minutes</td><td>Dwell shrinks, the next shift is more likely to run late</td></tr>
+<tr><td>Add a shift</td><td>Next three shifts are full</td><td>Needs a free platform and driver</td></tr>
+<tr><td>Rebook</td><td>One shift affected</td><td>Moves cost to passengers; last resort</td></tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>Why rebooking comes last</summary>
+<p>Rebooking transfers the cost to passengers; use it only when adding and compressing are both ruled out. Demo note, not a service promise.</p>
+</details>
+</section>
+
+<section id="reference" class="tp-rr-section">
+<span class="tp-rr-number">03</span>
+<h2>Reference values</h2>
+<dl class="tp-properties">
+<div><dt>Delay threshold</dt><dd class="tp-number">10 min</dd></div>
+<div><dt>Buffer floor</dt><dd class="tp-number">2 min</dd></div>
+<div><dt>Schedule step</dt><dd class="tp-number">5 min</dd></div>
+</dl>
+</section>
+
+<footer class="tp-footer">
+<span>Original demo documentation and graphics; not real operational rules or a service promise.</span>
+<a href="#top">Back to top</a>
+</footer>
+</article>
+
+<aside class="tp-rr-toc" aria-label="On this page">
+<p class="tp-rr-toc-title">On this page</p>
+<a href="#concepts">Shifts and capacity</a>
+<a href="#usage">When to add a shift</a>
+<a href="#reference">Reference values</a>
+</aside>
+</div>
+</div>
+</main>

@@ -4,7 +4,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path'
 import { auditForbidden, findBlockedResources, buildManifest } from './design/design-validate.mjs'
 
 const ID = /^[a-z][a-z0-9-]{0,63}$/
-const DIRECTIONS = ['editorial-narrative', 'product-evidence', 'brand-poster']
+const DIRECTIONS = ['editorial-narrative', 'product-evidence', 'brand-poster', 'operate-instrument', 'read-reference', 'experience-gallery']
 const text = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n')
 const json = (p) => JSON.parse(text(p))
 const write = (p, value) => { mkdirSync(resolve(p, '..'), { recursive: true }); writeFileSync(p, JSON.stringify(value, null, 2) + '\n') }
@@ -91,6 +91,12 @@ export function buildPrototypeLibrary(root, dist) {
   if (JSON.stringify(directions.map(d => d.id)) !== JSON.stringify(DIRECTIONS)) throw new Error('方向必须完整且顺序稳定')
   for (const direction of directions) {
     if (direction.examples.length !== 2 || !direction.examples.some(e => e.language === 'zh-CN') || !direction.examples.some(e => e.language === 'en')) throw new Error(`方向 ${direction.id} 需要中英两份原创示例`)
+    // suitableModes 只作指导，但值必须合法，避免写错模式名后静默失效。
+    if (direction.suitableModes !== undefined) {
+      if (!Array.isArray(direction.suitableModes) || direction.suitableModes.length === 0) throw new Error(`方向 ${direction.id} 的 suitableModes 必须是非空数组`)
+      const valid = ['persuade', 'operate', 'read', 'experience']
+      for (const mode of direction.suitableModes) if (!valid.includes(mode)) throw new Error(`方向 ${direction.id} 的 suitableModes 含未知模式：${mode}`)
+    }
     for (const example of direction.examples) {
       if (example.prototypeId) {
         if (!resources.has(example.prototypeId)) throw new Error('方向示例指向缺失原型')

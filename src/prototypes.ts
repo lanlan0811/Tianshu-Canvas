@@ -25,6 +25,8 @@ export interface DirectionSummary {
   id: string
   name: string
   description: string
+  /** 适用页面模式（指导性，不强制阻断）。 */
+  suitableModes?: string[]
   suitableFor: string[]
   composition: string[]
   typography: string[]

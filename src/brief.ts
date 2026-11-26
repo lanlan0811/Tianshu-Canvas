@@ -2,7 +2,7 @@
 import { InvalidInputError, assertSafeId } from './ids.js'
 import { projectIssue, readProject, writeProject, withProjectTransaction, type ProjectTransaction } from './project.js'
 
-export const DIRECTION_IDS = ['editorial-narrative', 'product-evidence', 'brand-poster'] as const
+export const DIRECTION_IDS = ['editorial-narrative', 'product-evidence', 'brand-poster', 'operate-instrument', 'read-reference', 'experience-gallery'] as const
 export type DirectionId = typeof DIRECTION_IDS[number]
 
 /** Stable public IDs, deliberately independent of style IDs and private reference names. */

@@ -21,6 +21,7 @@ import { checkBounceEasing, checkOverusedFont } from './cssType.js'
 import { checkGridBackground, checkHardOffsetShadow, checkMarquee, checkRepeatingStripes } from './cssTexture.js'
 import { allDeclarations } from './decls.js'
 import { checkEmojiIcon } from './htmlPatterns.js'
+import { checkFixedTextWidth, checkPluralConcat, checkRtlPhysicalDirection, checkWesternDigitsRtl } from './i18n.js'
 import { checkAphoristicCadence, checkEmDashOveruse, checkMarketingBuzzword } from './pageCopy.js'
 import { checkMonotonousSpacing } from './pageSpacing.js'
 import { activeRules, degradesToAdvisory } from './profiles.js'
@@ -46,6 +47,10 @@ const CHECKS: Record<string, RuleCheck> = {
   'marketing-buzzword': checkMarketingBuzzword,
   'aphoristic-cadence': checkAphoristicCadence,
   'emoji-icon': checkEmojiIcon,
+  'rtl-physical-direction': checkRtlPhysicalDirection,
+  'fixed-text-width': checkFixedTextWidth,
+  'plural-concat': checkPluralConcat,
+  'western-digits-rtl': checkWesternDigitsRtl,
 }
 
 export interface RunOptions {

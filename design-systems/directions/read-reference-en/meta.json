@@ -1,0 +1,27 @@
+{
+  "id": "read-reference-en",
+  "name": "Field Manual / English read reference",
+  "language": "en",
+  "category": "direction-example",
+  "description": "Original direction example: the world owns the frame (masthead, rail, section openers, code and table setting); the reading column stays calm.",
+  "variants": [
+    "Adjust to the user's real documentation and section structure"
+  ],
+  "contentRequirements": [
+    "All paragraphs, code and tables are original demo content",
+    "Real documentation and version numbers come from the user or an explicit confirmation"
+  ],
+  "responsive": [
+    "1440px: left navigation rail + reading column + right in-page contents",
+    "768px: contents move to the top, reading column goes full width",
+    "390px: single column, navigation collapses to an anchor list"
+  ],
+  "interactions": [
+    "Native anchor navigation and summary disclosure"
+  ],
+  "designDecisions": [
+    "The world owns the frame and the opener, never the reading column",
+    "Reading column is about 65ch at 16px with real contrast",
+    "Numbering and running heads carry navigation; body text only explains"
+  ]
+}

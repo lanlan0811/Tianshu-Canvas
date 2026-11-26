@@ -215,6 +215,54 @@ export const RULES: readonly RuleDef[] = [
     origin: '项目规则（AGENTS.md：禁止 emoji 图标）',
     free: true,
   },
+  {
+    id: 'rtl-physical-direction',
+    category: 'quality',
+    severity: 'warning',
+    engine: 'source',
+    name: '物理方向属性',
+    description:
+      'dir="rtl" 的页面上用 margin-left/right、padding-left/right、border-left/right、text-align: left/right、float、left/right 定位，镜像后会错位。',
+    fix: '改用逻辑属性：margin-inline-start/end、padding-inline-start/end、border-inline-start/end、text-align: start/end、inset-inline-start/end。left:50% + translateX(-50%) 居中写法可保留。',
+    origin: 'skill/reference/audit.md:56（RTL signals）',
+    free: true,
+  },
+  {
+    id: 'fixed-text-width',
+    category: 'quality',
+    severity: 'advisory',
+    engine: 'source',
+    name: '固定宽度文本容器',
+    description:
+      '按钮、链接、标签、标题等文本容器写死 width，翻译变长后（德语常比英语长 30%）会溢出或截断。',
+    fix: '改用 padding + 内容自适应；确需上限时用 max-width，并为翻译预留 30–40% 空间。',
+    origin: 'skill/reference/harden.md:91-95（i18n: avoid fixed widths）',
+    free: true,
+  },
+  {
+    id: 'plural-concat',
+    category: 'quality',
+    severity: 'advisory',
+    engine: 'source',
+    name: '复数拼接',
+    description:
+      '用三元表达式拼接英文复数（`${n} item${n !== 1 ? "s" : ""}`）只对英语成立，其它语言的复数规则不同。',
+    fix: '改用 ICU 复数规则或 Intl.PluralRules；数量词交给翻译资源处理。',
+    origin: 'skill/reference/harden.md:149-156（i18n: pluralization）',
+    free: true,
+  },
+  {
+    id: 'western-digits-rtl',
+    category: 'quality',
+    severity: 'advisory',
+    engine: 'source',
+    name: 'RTL 语系的西文数字',
+    description:
+      'ar/fa/ur 等 RTL 语系页面正文里直接写 ASCII 数字；这些语言通常使用本地数字系统（fa-IR ۰-۹、ar-SA ٠-٩），日期还需 Jalali / Hijri 历。',
+    fix: '用 Intl.NumberFormat / Intl.DateTimeFormat 并传入正确 locale；不要手写数字与日期。',
+    origin: 'skill/reference/harden.md:115-128（i18n: numerals and calendars）',
+    free: true,
+  },
 ]
 
 const BY_ID = new Map(RULES.map((r) => [r.id, r]))

@@ -23,7 +23,8 @@ function item(overrides = {}) {
     alt: null,
     id: '',
     htmlFor: '',
-    rect: { width: 100, height: 40 },
+    rect: { x: 0, y: 0, width: 100, height: 40 },
+    inlineText: false,
     color: 'rgb(0, 0, 0)',
     fontSize: 16,
     fontWeight: 400,
@@ -130,9 +131,54 @@ test('tabindex>0 报 warning，aria-hidden 可聚焦元素报 error', () => {
   assert.ok(rules(report).includes('aria-hidden-focus'))
 })
 
-test('目标尺寸过小报 warning', () => {
-  const report = analyze(scan([item({ tag: 'button', name: '×', rect: { width: 16, height: 16 } })]))
-  assert.ok(rules(report).includes('target-size'))
+test('目标尺寸：孤立的 16px 目标按 WCAG 间距豁免通过', () => {
+  // 24px 圆不与任何其他目标重叠 → 通过（旧实现会误报）。
+  const report = analyze(scan([item({ tag: 'button', name: '×', rect: { x: 0, y: 0, width: 16, height: 16 } })]))
+  assert.ok(!rules(report).includes('target-size'), JSON.stringify(report.issues))
+})
+
+test('目标尺寸：两个相距 4px 的 16px 图标命中（密集图标栏）', () => {
+  // 24px 圆直径大于 16px 目标，间距 4px 时两圆相交 → 间距豁免不成立。
+  const report = analyze(scan([
+    item({ tag: 'button', name: '粗体', rect: { x: 0, y: 0, width: 16, height: 16 } }),
+    item({ tag: 'button', name: '斜体', rect: { x: 20, y: 0, width: 16, height: 16 } }),
+  ]))
+  assert.equal(report.byRule['target-size'] ?? 0, 2, JSON.stringify(report.issues))
+})
+
+test('目标尺寸：间距 10px 的两个 16px 图标按间距豁免通过', () => {
+  // 圆半径 12、目标半宽 8：两圆要相交，中心距必须 ≤24，即间隙 ≤8px。
+  const report = analyze(scan([
+    item({ tag: 'button', name: '粗体', rect: { x: 0, y: 0, width: 16, height: 16 } }),
+    item({ tag: 'button', name: '斜体', rect: { x: 26, y: 0, width: 16, height: 16 } }),
+  ]))
+  assert.equal(report.byRule['target-size'] ?? 0, 0, JSON.stringify(report.issues))
+})
+
+test('目标尺寸：行内文字中的链接按 WCAG 2.5.8 inline 例外跳过', () => {
+  const report = analyze(scan([
+    item({ tag: 'a', name: '文档', inlineText: true, rect: { x: 0, y: 0, width: 30, height: 16 } }),
+    item({ tag: 'button', name: '×', rect: { x: 200, y: 0, width: 16, height: 16 } }),
+  ]))
+  assert.equal(report.byRule['target-size'] ?? 0, 0, JSON.stringify(report.issues))
+})
+
+test('移动轮次：44px 设计地板对 36px 按钮报警，桌面 24px 档不报', () => {
+  const scan36 = () => scan([item({ tag: 'button', name: '保存', rect: { x: 0, y: 0, width: 36, height: 36 } })])
+  const desktop = analyze(scan36(), { minTargetSize: 24 })
+  assert.equal(desktop.byRule['target-size'] ?? 0, 0, '桌面 36px 满足 24px')
+  const mobile = analyze(scan36(), { minTargetSize: 44, spacingExemption: false, viewportLabel: '375×812', only: ['target-size'] })
+  assert.equal(mobile.byRule['target-size'] ?? 0, 1, '移动 44px 地板应命中')
+  assert.match(mobile.issues[0].message, /375×812/)
+})
+
+test('目标尺寸：only 过滤只保留指定规则', () => {
+  const report = analyze(scan([
+    item({ tag: 'img', alt: null }),
+    item({ tag: 'button', name: '×', rect: { x: 0, y: 0, width: 16, height: 16 } }),
+    item({ tag: 'button', name: 'y', rect: { x: 10, y: 0, width: 16, height: 16 } }),
+  ]), { only: ['target-size'] })
+  assert.deepEqual(Object.keys(report.byRule), ['target-size'])
 })
 
 test('缺少 lang 报 warning', () => {

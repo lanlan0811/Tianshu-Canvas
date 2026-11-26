@@ -173,7 +173,7 @@ async function verifyOriginalCompositions() {
     if (result.isError) throw new Error(result.content)
     for (const example of JSON.parse(result.content).examples) pages.push({ id: 'direction-' + example.id, html: example.html })
   }
-  if (pages.length !== 38) throw new Error('Expected 32 prototypes and six direction examples')
+  if (pages.length !== 44) throw new Error('Expected 32 prototypes and twelve direction examples')
   for (const page of pages) {
     const result = await styleTool.execute({ args: { action: 'codegen', target: 'react', html: page.html }, cwd, sessionId: 'real' })
     if (result.isError) throw new Error(result.content)
@@ -203,7 +203,7 @@ let failures = 0
 const results = []
 
 for (const [name, fn] of [
-  ['全部 32 原型与 6 方向（真实 React 类型）', verifyOriginalCompositions],
+  ['全部 32 原型与 12 方向（真实 React 类型）', verifyOriginalCompositions],
   ['shadcn（真实 react 类型）', verifyShadcn],
   ['antd（真实 antd 类型）', verifyAntd],
 ]) {

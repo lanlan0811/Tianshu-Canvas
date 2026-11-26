@@ -50,6 +50,26 @@ import {
 const WEB_DIR = fileURLToPath(new URL('./web/', import.meta.url))
 
 const DEFAULT_PORT = 43117
+/**
+ * Chrome 拒绝导航的端口（net/base/port_util.cc 的 restricted ports）。
+ * 静态服务器若落到这些端口，浏览器会直接报 ERR_UNSAFE_PORT，
+ * 用户看到的是「画布打不开」而不是任何可理解的原因。
+ */
+const BLOCKED_PORTS = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95,
+  101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179,
+  389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601,
+  636, 989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 5060, 5061, 6000, 6566,
+  6679, 6697, 10080,
+])
+
+/** 端口是否可被浏览器导航（含 Chrome 的 6665–6669 区间）。 */
+export function isSafePort(port: number): boolean {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return false
+  if (BLOCKED_PORTS.has(port)) return false
+  if (port >= 6665 && port <= 6669) return false
+  return true
+}
 const MUTATION_HEADER = 'x-tianshu-canvas'
 const MAX_BODY = 4 * 1024 * 1024
 /** 视口请求体很小，沿用比通用 JSON 更紧的上限。 */
@@ -92,13 +112,34 @@ function listen(server: http.Server, port: number): Promise<number> {
 }
 
 async function listenWithFallback(server: http.Server, preferred: number): Promise<number> {
-  if (preferred === 0) return listen(server, 0)
+  /* 越界端口必须报错，不能静默回退到随机端口——调用方传了非法值就要知道。 */
+  if (preferred !== 0 && (!Number.isInteger(preferred) || preferred < 1 || preferred > 65535)) {
+    const err = new Error(`端口必须在 1–65535 之间：${preferred}`) as NodeJS.ErrnoException
+    err.code = 'ERR_SOCKET_BAD_PORT'
+    throw err
+  }
+  if (preferred === 0) {
+    /* 自动分配时也可能撞上浏览器屏蔽的端口，重试到拿到可导航端口为止。 */
+    for (let i = 0; i < 10; i++) {
+      const port = await listen(server, 0)
+      if (isSafePort(port)) return port
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    }
+    return listen(server, 0)
+  }
   for (let i = 0; i < 21; i++) {
+    const candidate = preferred + i
+    if (!isSafePort(candidate)) continue
     try {
-      return await listen(server, preferred + i)
+      return await listen(server, candidate)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw err
     }
+  }
+  for (let i = 0; i < 10; i++) {
+    const port = await listen(server, 0)
+    if (isSafePort(port)) return port
+    await new Promise<void>((resolve) => server.close(() => resolve()))
   }
   return listen(server, 0)
 }

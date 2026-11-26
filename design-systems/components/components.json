@@ -1,7 +1,12 @@
 {
   "schema": 1,
   "sharedClasses": [
-    "ts-icon"
+    "ts-icon",
+    "ts-shrink",
+    "ts-clamp-1",
+    "ts-clamp-2",
+    "ts-clamp-3",
+    "ts-wrap-anywhere"
   ],
   "components": [
     {
