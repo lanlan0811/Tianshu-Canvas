@@ -5,6 +5,12 @@
  * 验证的是我们自己的处理器对 pointercancel / 第二指针 / 失焦的响应，
  * **不是**浏览器的原生手势仲裁（touch-action、滚动接管、指针捕获的内核行为）。
  * 真机与多浏览器差异仍是未测项。
+ *
+ * 环境确定性：tilt-card 按设计只在 (pointer: fine) 下武装。headless Linux CI
+ * 没有精细指针，处理器不会绑定，断言必然失败；Windows headless 又为真，
+ * 直接依赖宿主会得到随平台翻转的结果。页内因此只把 (pointer: fine) 回答为真
+ * 以模拟桌面指针设备，其余媒体查询走原生实现；「无精细指针时不武装」由
+ * interaction.e2e 按真实环境能力验证。
  */
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -19,7 +25,21 @@ const root = resolve(import.meta.dirname, '..')
 const browserPath = resolveTestBrowser()
 
 /** 页面只保留倾斜卡片，避免其它交互干扰。 */
-const PAGE = `<!doctype html><html lang="zh-CN"><head><style>
+const PAGE = `<!doctype html><html lang="zh-CN"><head>
+<script>
+/* 合成 PointerEvent 需要处理器真实绑定；tilt-card 只在精细指针下绑定。
+   内联脚本在文档解析期执行，先于注入的 defer 运行时，因此在这里把
+   (pointer: fine) 固定回答为真，模拟桌面指针设备。 */
+(function () {
+  var native = window.matchMedia.bind(window)
+  window.matchMedia = function (query) {
+    return query === '(pointer: fine)'
+      ? { matches: true, media: query, onchange: null, addEventListener: function () {}, removeEventListener: function () {}, addListener: function () {}, removeListener: function () {}, dispatchEvent: function () { return false; } }
+      : native(query)
+  }
+})()
+</script>
+<style>
 body{margin:0;background:#fff;padding:40px;font-family:system-ui}
 .ts-i-tilt{width:320px;height:200px;perspective:1000px}
 .ts-i-tilt__inner{width:100%;height:100%;background:#e5e7eb;border-radius:12px;transform-style:preserve-3d;transition:transform 120ms}
