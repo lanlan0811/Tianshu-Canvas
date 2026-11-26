@@ -44,8 +44,9 @@
 
 - 本地无浏览器时**会 skip**——这是已知的假绿风险；CI 的「Require a browser for E2E」步骤
   保证 CI 一定真跑（`.github/workflows/ci.yml`）。
-- 归一化：页面 id 与标题在录制与运行时都替换成 `<page-id>` / `<page-title>`，
-  这是报告里唯一的非确定性来源。
+- 归一化：页面 id 与标题在录制与运行时都替换成 `<page-id>` / `<page-title>`。
+- **目标尺寸必须显式钉死**：UA 默认的 input/button 尺寸随平台字体度量变化（实测 Windows 177×21 vs Linux 185×21），
+  报告里的 px 数字会漂移。fixture 里给 input/button 显式写 `width/height` 后，这些数字才与平台无关。
 - 两个用例：`clean-page`（合规页面，0 error / 0 warning）与 `issues-page`（对比度、图片 alt、
   空列表、无防重复提交各自命中）。
 - `quality` / `review` 未做 golden：quality 依赖字体加载与几何测量（不同机器会有 1px 级差异），

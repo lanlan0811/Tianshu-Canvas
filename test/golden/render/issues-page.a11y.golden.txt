@@ -17,9 +17,9 @@
     片段：<button type="submit">提交</button>
 
 移动视口 375×812（44px 设计地板）
-- [warning] target-size · 点击目标 177×21px 小于 44px（375×812）
+- [warning] target-size · 点击目标 120×20px 小于 44px（375×812）
     选择器：html > body > form > input
-- [warning] target-size · 点击目标 43×25px 小于 44px（375×812）
+- [warning] target-size · 点击目标 40×20px 小于 44px（375×812）
     选择器：html > body > form > button
 
 合计 error 3 处。
