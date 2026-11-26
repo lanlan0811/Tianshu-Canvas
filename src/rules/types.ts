@@ -19,12 +19,22 @@ export type RuleEngineKind = 'source' | 'render'
 /** 模式画像：on 正常、advisory 降级为建议、off 不跑。 */
 export type ModeRuleState = 'on' | 'advisory' | 'off'
 
+/**
+ * 编辑期提示档（判据来自 impeccable hooks.md 的两层机制）：
+ *  - immediate：机械、无歧义、在编辑点就能改对的问题，写入后提示一行；
+ *  - deferred：口味与叙事判断，只在交付前由 canvas_check_style / canvas_audit 一次性报告。
+ * 两档都不阻塞写入（canvas_upsert_page 永不 isError）。
+ */
+export type RuleTier = 'immediate' | 'deferred'
+
 export interface RuleDef {
   /** kebab-case；与 impeccable 同名便于溯源。 */
   id: string
   category: RuleCategory
   severity: RuleSeverity
   engine: RuleEngineKind
+  /** 编辑期提示档；见 RuleTier 注释。 */
+  tier: RuleTier
   name: string
   description: string
   fix: string

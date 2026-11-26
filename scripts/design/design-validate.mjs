@@ -500,7 +500,7 @@ export function validateInteractions(interactionsDoc, interactionsCss, interacti
  * 另做 ts- 前缀单向守卫：components.css 里出现、但不在声明类集合里的 ts-* 类一律报错，
  * 防止偷偷新增只有 CSS 没有契约的状态类。
  */
-const STATE_MARKERS = {
+export const STATE_MARKERS = {
   hover: [':hover'],
   focus: [':focus-visible', ':focus'],
   active: [':active'],
@@ -509,10 +509,10 @@ const STATE_MARKERS = {
   error: ['[aria-invalid', '--danger', '--error'],
   success: ['--success'],
 }
-const ALL_STATES = ['default', 'hover', 'focus', 'active', 'disabled', 'loading', 'error', 'success']
+export const ALL_STATES = ['default', 'hover', 'focus', 'active', 'disabled', 'loading', 'error', 'success']
 
 /** 扫 CSS 里所有规则的选择器文本（不解析嵌套语义，够用即可）。 */
-function selectorTexts(css) {
+export function selectorTexts(css) {
   const out = []
   let depth = 0
   let start = 0

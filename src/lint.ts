@@ -11,7 +11,7 @@ import { findBlockedResources } from './resources.js'
 import { resolveDesignStyle, type DesignManifest } from './design.js'
 import { prototypeClasses } from './prototypes.js'
 import type { SurfaceMode } from './modes.js'
-import { ruleIds } from './rules/registry.js'
+import { getRule, ruleIds } from './rules/registry.js'
 import { runSourceRules } from './rules/engine.js'
 import { directiveUsed, isIgnored, parseIgnores } from './rules/ignores.js'
 import {
@@ -46,6 +46,8 @@ export interface LintFinding {
   snippet: string
   /** 建议级（advisory）发现不阻塞交付；缺省为既定严重度。 */
   severity?: 'warning' | 'advisory'
+  /** 编辑期提示档：immediate 才进 craftHint；deferred 留到交付前一次性报告。 */
+  tier?: 'immediate' | 'deferred'
 }
 
 /** 检测器选项：原有风格规则与工艺规则（detector）可以分别开关。 */
@@ -75,6 +77,15 @@ export interface LintReport {
 const MAX_FINDINGS = 40
 
 const RULES: LintRule[] = ['color', 'font', 'spacing', 'radius', 'icon', 'component', 'interaction', 'token', 'resource']
+
+/**
+ * 风格规则的编辑期档位。判据同 register 里的 RuleTier：
+ * 只有「机械、无歧义、在编辑点就能改对」的才 immediate——
+ * 资源被 CSP 拦截属于输出坏掉，其余八条都是设计系统漂移。
+ */
+const IMMEDIATE_STYLE_RULES = new Set<LintRule>([
+  'resource', 'color', 'font', 'spacing', 'radius', 'icon', 'component', 'interaction', 'token',
+])
 
 function nearest<T extends number>(values: T[], target: number): T[] {
   const sorted = [...values].sort((a, b) => Math.abs(a - target) - Math.abs(b - target))
@@ -107,10 +118,17 @@ export function lintHtml(html: string, styleId: string | null, cwd?: string, opt
   const findings: LintFinding[] = []
   const index = lineIndex(html)
 
-  const add = (rule: string, offset: number, message: string, severity?: 'warning' | 'advisory'): void => {
+  const add = (
+    rule: string,
+    offset: number,
+    message: string,
+    severity?: 'warning' | 'advisory',
+    tier?: 'immediate' | 'deferred',
+  ): void => {
     counts[rule] = (counts[rule] ?? 0) + 1
     if (findings.length < MAX_FINDINGS) {
-      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset), ...(severity ? { severity } : {}) })
+      const resolvedTier = tier ?? (IMMEDIATE_STYLE_RULES.has(rule as LintRule) ? 'immediate' : 'deferred')
+      findings.push({ rule, line: lineOf(index, offset), message, snippet: snippetAt(html, offset), tier: resolvedTier, ...(severity ? { severity } : {}) })
     }
   }
 
@@ -259,7 +277,7 @@ function runDetector(
   index: number[],
   style: { manifest: DesignManifest } | null,
   options: LintOptions,
-  add: (rule: string, offset: number, message: string, severity?: 'warning' | 'advisory') => void,
+  add: (rule: string, offset: number, message: string, severity?: 'warning' | 'advisory', tier?: 'immediate' | 'deferred') => void,
 ): void {
   if (options.detector === false) return
   const ignores = parseIgnores(html)
@@ -272,7 +290,8 @@ function runDetector(
   for (const finding of findings) {
     const line = lineOf(index, finding.offset)
     if (isIgnored(ignores, finding.rule, line)) continue
-    add(finding.rule, finding.offset, finding.message, finding.severity)
+    /* 工艺规则的 tier 来自注册表（唯一真源），不在 lint 层二次猜测。 */
+    add(finding.rule, finding.offset, finding.message, finding.severity, getRule(finding.rule)?.tier)
   }
   // 未匹配到任何发现的豁免：点名，避免豁免长期腐烂。
   for (const directive of ignores.directives) {

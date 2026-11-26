@@ -73,4 +73,19 @@ export function validateInteractions(
   warnings: string[],
 ): { allClasses: Set<string>; ownClasses: string[]; ids: string[]; rootAttrs: string[] }
 
+/** 状态标记口径（构建期校验与运行时漂移共用，避免两套判定分叉）。 */
+export const STATE_MARKERS: Record<string, string[]>
+/** 合法状态名全集。 */
+export const ALL_STATES: string[]
+/** 扫 CSS 里所有规则的选择器文本。 */
+export function selectorTexts(css: string): string[]
+/** 组件状态契约：声明必须在 components.css 里有对应选择器。 */
+export function validateStateContract(components: unknown, componentsCss: string, errors: string[]): void
+/** 交互库 ARIA 契约：声明必须真在运行时或骨架里出现。 */
+export function validateInteractionA11y(interactionsDoc: unknown, interactionsJs: string, errors: string[]): void
+/** 减少动效策略：禁止 animation/transition: none（除非显式豁免）。 */
+export function validateReducedMotionPolicy(interactionsCss: string, errors: string[]): void
+/** 评审量表结构校验。 */
+export function validateRubric(doc: unknown, errors: string[]): void
+
 export { buildManifest }

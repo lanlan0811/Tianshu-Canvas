@@ -94,6 +94,24 @@ test('设计系统：清单与全部风格产物齐全', () => {
   assert.ok(sharedFiles.length <= 8, `共享目录不应堆积重复资产：${sharedFiles.length} 个文件`)
 })
 
+test('设计系统：组件契约产物供运行时读取（裁剪版，不含示例）', () => {
+  const file = join(designDir, 'components', 'contract.json')
+  assert.ok(existsSync(file), '缺少 dist/design/components/contract.json')
+  const contract = JSON.parse(readFileSync(file, 'utf8'))
+  assert.equal(contract.schemaVersion, 1)
+  assert.equal(contract.components.length, 26)
+  for (const component of contract.components) {
+    for (const key of ['id', 'base']) assert.ok(component[key], `${component.id} 缺少 ${key}`)
+    assert.ok(Array.isArray(component.classes) && component.classes.length > 0, component.id)
+    assert.ok(Array.isArray(component.states) && component.states.includes('default'), component.id)
+    assert.ok(Array.isArray(component.stateAttrs), component.id)
+    // 裁剪版不得携带示例 HTML / 插槽 / 变体：那些只给文档用，进包只会变大。
+    for (const forbidden of ['example', 'slots', 'variants']) {
+      assert.equal(component[forbidden], undefined, `${component.id} 不应包含 ${forbidden}`)
+    }
+  }
+})
+
 test('设计系统：各风格的变量/组件类/模板同构', () => {
   const manifests = STYLES.map((id) =>
     JSON.parse(readFileSync(join(designDir, 'styles', id, 'tokens.manifest.json'), 'utf8')),

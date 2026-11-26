@@ -39,7 +39,7 @@
       },
       {
         "name": "canvas_design_system",
-        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/），从现有 HTML/CSS/URL 反抽取、从仓库 shadcn/AntD 主题导入，或导出/导入可移植品牌包"
+        "description": "创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/），从现有 HTML/CSS/URL 反抽取、从仓库 shadcn/AntD 主题导入，或导出可移植品牌包与 DESIGN.md / 导入品牌包"
       },
       {
         "name": "canvas_audit",

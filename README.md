@@ -212,6 +212,11 @@ AI 先打开画布、整理内容简报，使用相同文案和素材展示两�
 格言腔、径向光晕、emoji 当图标、物理方向属性（RTL）、固定宽度文本容器、复数拼接、RTL 语系西文数字。`action=list_rules` 列出全部规则、严重度与模式画像；
 `severity=advisory` 的建议不阻塞交付。规则判据的出处见 [docs/rule-sources.md](docs/rule-sources.md)。
 
+另有两档**编辑期档位**：`immediate`（机械、无歧义、就地可改）在写入页面后追加一行非阻塞提示；
+`deferred`（口味与叙事判断）留到交付前用 `canvas_check_style` 一次性报告。分级理由见
+[docs/governance-acceptance.md](docs/governance-acceptance.md)；报告文本本身由
+`test/golden/check-style/` 的逐字节基线守住（改报告必须先人工复核）。
+
 页面内可用注释做窄豁免（未匹配到任何发现的豁免会在报告末尾点名）：
 
 ```html

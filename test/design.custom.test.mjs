@@ -304,3 +304,36 @@ test('自定义设计系统：get_state 显示自定义风格名', async () => {
     cleanup()
   }
 })
+
+test('自定义设计系统：export 同时产出品牌包与 DESIGN.md，二次导出不覆盖', async () => {
+  const { cwd, cleanup } = workspace('tsc-custom-designdoc-')
+  try {
+    const created = await create(cwd, 'mybrand', makeTokens())
+    assert.ok(!created.isError, created.content)
+
+    const first = await tools.canvas_design_system.execute({ input: { action: 'export', id: 'mybrand' }, cwd })
+    assert.ok(!first.isError, first.content)
+    assert.match(first.content, /已导出 DESIGN\.md（八节）/)
+
+    const docFile = join(cwd, '.tianshu-canvas', 'exports', 'DESIGN.md')
+    assert.ok(existsSync(docFile), 'DESIGN.md 未生成')
+    const doc = readFileSync(docFile, 'utf8')
+    for (const heading of ['## Overview', '## Colors', '## Typography', '## Components', "## Do's and Don'ts"]) {
+      assert.ok(doc.includes(heading), `DESIGN.md 缺少 ${heading}`)
+    }
+    assert.match(doc, /^---\n[\s\S]*\n---\n/, '缺少 YAML frontmatter')
+
+    // 用户手写内容：二次导出必须保留，不得静默覆盖。
+    const edited = doc + '\n<!-- 人工补充 -->\n'
+    readFileSync(docFile, 'utf8')
+    const { writeFileSync } = await import('node:fs')
+    writeFileSync(docFile, edited, 'utf8')
+
+    const second = await tools.canvas_design_system.execute({ input: { action: 'export', id: 'mybrand' }, cwd })
+    assert.ok(!second.isError, second.content)
+    assert.match(second.content, /DESIGN\.md 已存在，未覆盖/)
+    assert.equal(readFileSync(docFile, 'utf8'), edited, '二次导出覆盖了人工内容')
+  } finally {
+    cleanup()
+  }
+})

@@ -1,0 +1,84 @@
+风格检查：天枢原创（tianshu-original）· 直接检查传入的 HTML
+发现 45 处（仅报告，未修改文件）：
+1. [emoji-icon] 第 6 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 0 节 🚀</h2>
+2. [emoji-icon] 第 7 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 1 节 🚀</h2>
+3. [emoji-icon] 第 8 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 2 节 🚀</h2>
+4. [emoji-icon] 第 9 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 3 节 🚀</h2>
+5. [emoji-icon] 第 10 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 4 节 🚀</h2>
+6. [emoji-icon] 第 11 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 5 节 🚀</h2>
+7. [emoji-icon] 第 12 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 6 节 🚀</h2>
+8. [emoji-icon] 第 13 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 7 节 🚀</h2>
+9. [emoji-icon] 第 14 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 8 节 🚀</h2>
+10. [emoji-icon] 第 15 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 9 节 🚀</h2>
+11. [emoji-icon] 第 16 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 10 节 🚀</h2>
+12. [emoji-icon] 第 17 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 11 节 🚀</h2>
+13. [emoji-icon] 第 18 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 12 节 🚀</h2>
+14. [emoji-icon] 第 19 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 13 节 🚀</h2>
+15. [emoji-icon] 第 20 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 14 节 🚀</h2>
+16. [emoji-icon] 第 21 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 15 节 🚀</h2>
+17. [emoji-icon] 第 22 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 16 节 🚀</h2>
+18. [emoji-icon] 第 23 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 17 节 🚀</h2>
+19. [emoji-icon] 第 24 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 18 节 🚀</h2>
+20. [emoji-icon] 第 25 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 19 节 🚀</h2>
+21. [emoji-icon] 第 26 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 20 节 🚀</h2>
+22. [emoji-icon] 第 27 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 21 节 🚀</h2>
+23. [emoji-icon] 第 28 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 22 节 🚀</h2>
+24. [emoji-icon] 第 29 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 23 节 🚀</h2>
+25. [emoji-icon] 第 30 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 24 节 🚀</h2>
+26. [emoji-icon] 第 31 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 25 节 🚀</h2>
+27. [emoji-icon] 第 32 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 26 节 🚀</h2>
+28. [emoji-icon] 第 33 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 27 节 🚀</h2>
+29. [emoji-icon] 第 34 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 28 节 🚀</h2>
+30. [emoji-icon] 第 35 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 29 节 🚀</h2>
+31. [emoji-icon] 第 36 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 30 节 🚀</h2>
+32. [emoji-icon] 第 37 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 31 节 🚀</h2>
+33. [emoji-icon] 第 38 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 32 节 🚀</h2>
+34. [emoji-icon] 第 39 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 33 节 🚀</h2>
+35. [emoji-icon] 第 40 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 34 节 🚀</h2>
+36. [emoji-icon] 第 41 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 35 节 🚀</h2>
+37. [emoji-icon] 第 42 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 36 节 🚀</h2>
+38. [emoji-icon] 第 43 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 37 节 🚀</h2>
+39. [emoji-icon] 第 44 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 38 节 🚀</h2>
+40. [emoji-icon] 第 45 行 用 emoji（🚀）充当图标/分节符；改用 <svg data-icon="名字" class="ts-icon">
+   第 39 节 🚀</h2>
+汇总：emoji-icon 45
+…另有 5 处未显示。

@@ -40,29 +40,53 @@ test('写入提示：0 命中时不追加任何行（既有响应不变）', asy
   }
 })
 
-test('写入提示：只报非 advisory，且最多 5 类', async () => {
-  const cwd = mkdtempSync(join(tmpdir(), 'tsc-craft-advisory-'))
+test('写入提示：只报 immediate 档，deferred 一律不提示', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'tsc-craft-deferred-'))
   try {
     const html = `<!doctype html><html><head><style>
 .card { box-shadow: 4px 4px 0 #333333; }
 .btn { transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-</style></head><body><div class="card"><button class="btn">按钮</button></div></body></html>`
+.section { padding: 8px; }
+.section + .section { margin: 8px; }
+</style></head><body>
+<div class="card"><button class="btn">按钮</button></div>
+<div class="section"><p>一站式 seamless 体验。</p></div>
+<div class="section"><p>再来一段。</p></div>
+</body></html>`
     const res = await tools.canvas_upsert_page.execute({ input: { html, title: '只有建议级' }, cwd })
     assert.ok(!res.isError, res.content)
-    // hard-offset-shadow 与 bounce-easing 都是 advisory → 不应触发提示
+    // hard-offset-shadow / bounce-easing / monotonous-spacing / marketing-buzzword 全是 deferred → 不应触发提示
     assert.doesNotMatch(res.content, /工艺提示/)
   } finally {
     rmSync(cwd, { recursive: true, force: true })
   }
 })
 
-test('list_rules：列出规则、严重度、模式画像与忽略语法', async () => {
+test('写入提示：设计系统漂移（裸色值）属 immediate，写入后要提示', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'tsc-craft-drift-'))
+  try {
+    await tools.canvas_style.execute({ input: { action: 'set', style_id: 'tianshu-original' }, cwd })
+    const html = `<!doctype html><html><head><style>
+.card { color: #123456; }
+</style></head><body><div class="card">卡片</div></body></html>`
+    const res = await tools.canvas_upsert_page.execute({ input: { html, title: '漂移页' }, cwd })
+    assert.ok(!res.isError, res.content)
+    assert.match(res.content, /工艺提示（不阻塞，详见 canvas_check_style）/)
+    assert.match(res.content, /color/)
+  } finally {
+    rmSync(cwd, { recursive: true, force: true })
+  }
+})
+
+test('list_rules：列出规则、严重度、档位、模式画像与忽略语法', async () => {
   const res = await tools.canvas_check_style.execute({ input: { action: 'list_rules' }, cwd: root })
   assert.ok(!res.isError, res.content)
   assert.match(res.content, /工艺规则共 \d+ 条/)
   assert.match(res.content, /overused-font/)
   assert.match(res.content, /gradient-text/)
   assert.match(res.content, /advisory = 建议/)
+  assert.match(res.content, /immediate = 写入后立即提示/)
+  assert.match(res.content, /deferred = 留到交付前/)
   assert.match(res.content, /tianshu-lint-disable/)
   assert.match(res.content, /## slop/)
   assert.match(res.content, /## quality/)

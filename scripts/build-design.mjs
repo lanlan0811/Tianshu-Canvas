@@ -321,6 +321,22 @@ export function buildDesignSystems({ root, dist }) {
   // 评审量表与设计系统同生命周期：运行时只读 dist/design/rubrics/。
   writeJson(join(outRoot, 'rubrics', 'ux-review.json'), rubricDoc)
 
+  // 组件契约（裁剪版）：只保留运行时判定状态覆盖需要的字段。
+  // 不放 example/slots/variants——那些是给人看的，进包只会变大并暴露示例 HTML。
+  // 放在 dist/design/components/（与 rubrics 同级），不进 shared/，避免触发共享资产的数量约束。
+  writeJson(join(outRoot, 'components', 'contract.json'), {
+    schemaVersion: 1,
+    components: (componentsDoc.components ?? []).map((component) => ({
+      id: component.id,
+      base: component.base,
+      classes: component.classes ?? [],
+      states: component.states ?? [],
+      stateAttrs: component.stateAttrs ?? [],
+      /* 子 token 的属性清单（DESIGN.md 的 Components 节要用它决定每个组件写哪几项）。 */
+      tokens: component.tokens ?? [],
+    })),
+  })
+
   writeJson(join(outRoot, 'index.json'), {
     schemaVersion: 1,
     notice: index.notice,

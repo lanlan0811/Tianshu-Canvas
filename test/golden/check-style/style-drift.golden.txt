@@ -1,0 +1,9 @@
+风格检查：天枢原创（tianshu-original）· 直接检查传入的 HTML
+发现 3 处（仅报告，未修改文件）：
+1. [color] 第 4 行 裸色值 #123456，改用 var(--ts-color-*)
+   #123456; border-radius: 7px; }
+2. [radius] 第 4 行 圆角 7px 不在尺度上，最近：--ts-radius-md / --ts-radius-sm
+   7px; }
+3. [component] 第 6 行 组件目录无此类：ts-unknown-class
+   class="card ts-unknown-class">卡片</div>
+汇总：color 1、radius 1、component 1

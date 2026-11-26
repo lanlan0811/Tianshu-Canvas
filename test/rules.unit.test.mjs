@@ -112,6 +112,16 @@ test('注册表：源码级规则都有 fixture 目录', async () => {
   }
 })
 
+test('注册表：immediate 档只收机械可判的规则（防止悄悄放水）', () => {
+  const immediate = m.RULES.filter((r) => r.tier === 'immediate').map((r) => r.id).sort()
+  // 判据来自 impeccable hooks.md 的两层机制：编辑期只报「机械、无歧义、就地可改」的。
+  // 改这张表必须先改 registry 注释里的理由，再更新本断言——不允许为了让某条规则「更显眼」而随手加进来。
+  assert.deepEqual(immediate, ['border-accent-on-rounded', 'emoji-icon', 'gradient-text', 'gray-on-color', 'side-tab'])
+  for (const rule of m.RULES) {
+    assert.ok(['immediate', 'deferred'].includes(rule.tier), `${rule.id} 的 tier 非法：${String(rule.tier)}`)
+  }
+})
+
 test('模式画像：read 模式关掉装饰类规则，operate 保留结构类规则', () => {
   const ids = (mode) => m.activeRules(mode).map((r) => r.id)
   assert.equal(ids('read').includes('radial-halo'), false)

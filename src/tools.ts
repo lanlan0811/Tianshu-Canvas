@@ -33,6 +33,8 @@ import { analyzeMotion, captureMotion, formatMotionReport, type MotionCapture, t
 import { readPageBrief, savePageBrief } from './brief.js'
 import { listPrototypes, getPrototype, listDirections, getDirection } from './prototypes.js'
 import { buildBrandPack, exportBrandPack, forgetStyle, importBrandPack, memorySummary, recordUsage, verifyBrandPack } from './brand.js'
+import { buildDesignDoc } from './designDoc.js'
+import { loadComponentContract } from './design/components.js'
 import { DEFAULT_DEVICE, isDeviceType, resolveSize, type DeviceType } from './device.js'
 import { isWorkerSession, warnUser } from './host.js'
 import { formatHistoryEntry, recentHistory } from './history.js'
@@ -384,8 +386,9 @@ async function canvasUpsertPage(call: ToolCall): Promise<ToolResult> {
  */
 function craftHint(cwd: string, html: string, styleId: string | null, mode: SurfaceMode | null): string {
   try {
-    const report = lintHtml(html, styleId, cwd, { style: false, mode })
-    const notable = report.findings.filter((f) => f.severity !== 'advisory')
+    /* 风格规则也要跑：设计系统漂移属于编辑期可修的一类，不能只报工艺规则。 */
+    const report = lintHtml(html, styleId, cwd, { mode })
+    const notable = report.findings.filter((f) => f.tier === 'immediate')
     if (notable.length === 0) return ''
     const counts = new Map<string, number>()
     for (const finding of notable) counts.set(finding.rule, (counts.get(finding.rule) ?? 0) + 1)
@@ -1049,12 +1052,13 @@ function listRuleCatalog(): ToolResult {
       ? Object.entries(rule.modes).map(([m, s]) => `${m}=${s}`).join(' ')
       : ''
     groups[rule.category].push(
-      `- ${rule.id}（${rule.name}，${rule.severity}，${rule.engine}）${modes ? ` [${modes}]` : ''}\n  ${rule.description}\n  修复：${rule.fix}`,
+      `- ${rule.id}（${rule.name}，${rule.severity}，${rule.tier}，${rule.engine}）${modes ? ` [${modes}]` : ''}\n  ${rule.description}\n  修复：${rule.fix}`,
     )
   }
   const lines = [
     `工艺规则共 ${RULES.length} 条（源码级 ${RULES.filter((r) => r.engine === 'source').length}、渲染级 ${RULES.filter((r) => r.engine === 'render').length}）。`,
     '严重度：warning = 应修复；advisory = 建议，不阻塞交付。',
+    '档位：immediate = 写入后立即提示（机械、无歧义、就地可改）；deferred = 留到交付前用 canvas_check_style 一次性报告。两者都不阻塞写入。',
     '',
     '## slop（AI 套路）',
     groups.slop.join('\n'),
@@ -1330,11 +1334,32 @@ async function canvasDesignSystem(call: ToolCall): Promise<ToolResult> {
       } catch (err) {
         return { content: `品牌包导出失败：${reportError(err)}`, isError: true }
       }
+      /* DESIGN.md 投影：与品牌包同目录。已存在时不覆盖（规范要求不得静默覆盖人工内容）。 */
+      let designDocLine = ''
+      const docFile = join(dir, 'DESIGN.md')
+      if (existsSync(docFile)) {
+        designDocLine = `DESIGN.md 已存在，未覆盖：${docFile}（删除后重跑 export 可重新生成，或手工合并）`
+      } else {
+        try {
+          const doc = buildDesignDoc({
+            id,
+            name: pack.name,
+            tokens: pack.tokens as Record<string, unknown>,
+            meta: pack.meta as Record<string, unknown>,
+            components: loadComponentContract().components,
+          })
+          writeFileInWorkspace(call.cwd, docFile, doc, 'DESIGN.md')
+          designDocLine = `已导出 DESIGN.md（八节）：${docFile}`
+        } catch (err) {
+          designDocLine = `DESIGN.md 未生成：${reportError(err)}`
+        }
+      }
       return {
         content:
           `已导出品牌包「${pack.name}」（${id}）：${file}\n` +
           `包含：tokens、meta（含适配器绑定）、使用记忆（组件/图标/变量）、校验命中记录。\n` +
           `checksum：${pack.checksum.slice(0, 16)}…（导入时会校验）\n` +
+          `${designDocLine}\n` +
           `把它复制到目标工作区后，用 canvas_design_system（action=import_pack, pack_path=<该文件>）导入。`,
       }
     }
@@ -1473,6 +1498,9 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
       if (!style) return { content: 'drift 需要已锁定的风格（或传 style_id）；当前为自由发挥。', isError: true }
       const { pages, error } = auditPages(call)
       if (error) return { content: error, isError: true }
+      /* auditPages 不返回 mode；按 project.nodes 顺序取（与 pages 的过滤顺序一致）。 */
+      const pageIds = new Set(pages.map((p) => p.id))
+      const modes = readProject(call.cwd).nodes.filter((node) => pageIds.has(node.id)).map((node) => node.mode ?? null)
       const snapshot = buildSnapshot({
         styleId,
         htmls: pages.map((p) => p.html),
@@ -1480,6 +1508,7 @@ async function canvasAudit(call: ToolCall): Promise<ToolResult> {
         tokensCss: style.tokensCss,
         componentsCss: style.componentsCss,
         icons: style.manifest.iconNames,
+        modes,
       })
       const dir = str(call.args.out_dir) ? (isAbsolute(str(call.args.out_dir)!) ? str(call.args.out_dir)! : join(call.cwd, str(call.args.out_dir)!)) : snapshotDir(call.cwd)
       const file = join(dir, 'snapshot.json')
@@ -2084,7 +2113,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_design_system',
-      description: '创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/），从现有 HTML/CSS/URL 反抽取、从仓库 shadcn/AntD 主题导入，或导出/导入可移植品牌包',
+      description: '创建/查看/删除当前项目的自定义设计系统（.tianshu-canvas/library/），从现有 HTML/CSS/URL 反抽取、从仓库 shadcn/AntD 主题导入，或导出可移植品牌包与 DESIGN.md / 导入品牌包',
       input_schema: {
         type: 'object',
         properties: {

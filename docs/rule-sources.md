@@ -140,3 +140,22 @@ UX 隔离只保证时序不保证诚实——两点都已写进对应验收文�
 **不移植的部分（诚实记录）**：impeccable 的 `concept-seed` 随机掷骰、challenger 三态裁决（wins/competitive/declined）、
 donation 只借 discipline 的规则、远端 world catalog —— 这些依赖在线服务与多轮代理编排，天枢以流程文档与自检问题近似，
 不追求等价。方向与模式的对应关系只作指导，不阻断选择。
+
+## 阶段 6 · 治理与回归的溯源
+
+| 天枢落地 | 复刻来源 | 移植方式 |
+|---|---|---|
+| `RuleDef.tier` 的 immediate / deferred 两档 | `skill/reference/hooks.md:7`（per-edit 只出 immediate 层，其余推迟到 Stop 深度扫描一次性报告） | 判据照搬；两档都不阻塞写入（天枢没有 hook，用写入后一行提示近似） |
+| immediate 名单（资源被拦截、设计系统漂移、渐变文字、侧色条、圆角强调边框、彩色底灰字、emoji 图标） | `crates/foundation/src/registry.rs:655-682` 的 `IMMEDIATE_TIER_RULES`（broken output / objective legibility / single-property mechanical slop / design-system drift 四个桶） | 按四个桶逐条映射到本项目同名规则；未实现 impeccable 的「同一签名拦截 6 次后放行」机制 |
+| `test/golden/check-style/` 的逐字节基线 | `tests/oracle/README.md:1-35`（"Byte-equal is the bar"；新增用例要人工复核 golden）+ `AGENTS.md:52`（"never overwrite goldens just to make a regression pass"） | 机制照搬（golden + README + 禁令）；范围只覆盖 `canvas_check_style`，不做渲染级报告 |
+| 输入指纹（`input-sha256`） | `tests/oracle/run.mjs` 的输入归一化 + `vectors/README.md` 的「冻结后不可再生成」 | 自写实现：只校验输入未被悄悄替换，不做路径/时间戳归一化（check_style 报告本身无这两类因素） |
+| 漂移快照的 `usedStates` | `skill/reference/operate.md:32`（组件态全集）+ `craft-floor.md:14`（状态清单）+ 本项目 `validateStateContract` 的判定口径 | 口径复用构建期常量（`STATE_MARKERS`），只统计「设计系统侧真实有选择器」的状态 |
+| 漂移快照的 `browserSurfaces` | `skill/reference/craft-floor.md:15`（Browser surfaces：选中、光标、滚动条、焦点环、下划线偏移、表格数字） | 七项清单照搬；实现为本项目的 CSS 文本探测 |
+| 漂移报告的严重度顺序（越界 > 未使用 > 移除 > 新增） | `docs/CLI-CONTRACT.md` 的 severity 排序与 `doctor.md` 的 `auto/mention/route` 三档思路 | 只借「按严重度排序」的原则；三档语义不移植（天枢的漂移不自动修复） |
+| `DESIGN.md` 的八节与 frontmatter 五组 | `skill/reference/document.md:3,45-62,412-418`（Google design.md spec：机器层/语境层、token 引用、组件八属性、语义键名、八节固定标题、缺数据省略、不静默覆盖） | 判据逐条照搬；标题英文原样、正文中文重写；不移植 sidecar `.impeccable/design.json` |
+| 命名规则（`**The [Name] Rule.**`） | `document.md:402`（"memorable, citable, and much stickier for AI consumers"；每节 1–3 条） | 格式照搬；规则名与教义全部原创 |
+
+**不移植的部分（诚实记录）**：impeccable 的 oracle 语料（1466 份 golden 依赖其 CLI 二进制与远端 catalog）、
+`DELTAS.md` 的实测命中精度/伤害率记录（本项目没有真实站点语料，只把取舍理由写进 registry 注释）、
+`hook-before-edit` 的写前拦截与「6 次后放行」、`concept-seed` 随机掷骰、doctor 的 `auto` 自动修复。
+这些要么依赖在线服务，要么需要多轮实测语料，天枢以「档位 + golden + 文档」近似，不追求等价。

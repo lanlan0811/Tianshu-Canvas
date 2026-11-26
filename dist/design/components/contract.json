@@ -1,0 +1,564 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": "app",
+      "base": "ts-app",
+      "classes": [
+        "ts-app"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.bg.canvas",
+        "font.families.sans",
+        "font.sizes.md"
+      ]
+    },
+    {
+      "id": "sidebar",
+      "base": "ts-sidebar",
+      "classes": [
+        "ts-sidebar",
+        "ts-sidebar__brand",
+        "ts-sidebar__nav",
+        "ts-sidebar__item",
+        "ts-sidebar__item--active"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus-visible",
+        "aria-current"
+      ],
+      "tokens": [
+        "color.bg.surface",
+        "color.border.default",
+        "size.sidebar",
+        "space.3"
+      ]
+    },
+    {
+      "id": "main",
+      "base": "ts-main",
+      "classes": [
+        "ts-main",
+        "ts-main__header",
+        "ts-main__body"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.bg.canvas",
+        "space.6"
+      ]
+    },
+    {
+      "id": "container",
+      "base": "ts-container",
+      "classes": [
+        "ts-container"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "size.containerLg",
+        "space.6"
+      ]
+    },
+    {
+      "id": "stack",
+      "base": "ts-stack",
+      "classes": [
+        "ts-stack",
+        "ts-stack--sm",
+        "ts-stack--lg"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "space.4"
+      ]
+    },
+    {
+      "id": "row",
+      "base": "ts-row",
+      "classes": [
+        "ts-row",
+        "ts-row--between",
+        "ts-row--center"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "space.3"
+      ]
+    },
+    {
+      "id": "grid",
+      "base": "ts-grid",
+      "classes": [
+        "ts-grid",
+        "ts-grid--2",
+        "ts-grid--3",
+        "ts-grid--4"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "space.4"
+      ]
+    },
+    {
+      "id": "section",
+      "base": "ts-section",
+      "classes": [
+        "ts-section",
+        "ts-section__title",
+        "ts-section__desc"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "font.sizes.lg",
+        "font.weights.semibold",
+        "space.4"
+      ]
+    },
+    {
+      "id": "button",
+      "base": "ts-btn",
+      "classes": [
+        "ts-btn",
+        "ts-btn--primary",
+        "ts-btn--secondary",
+        "ts-btn--ghost",
+        "ts-btn--danger",
+        "ts-btn--sm",
+        "ts-btn--lg"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled",
+        "loading"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus-visible",
+        "active",
+        "disabled",
+        "aria-busy"
+      ],
+      "tokens": [
+        "color.action.primary",
+        "size.controlMd",
+        "radius.md",
+        "space.3",
+        "font.sizes.md"
+      ]
+    },
+    {
+      "id": "icon-button",
+      "base": "ts-icon-btn",
+      "classes": [
+        "ts-icon-btn"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled",
+        "loading"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus-visible",
+        "active",
+        "disabled",
+        "aria-busy"
+      ],
+      "tokens": [
+        "size.controlMd",
+        "radius.md",
+        "color.text.secondary"
+      ]
+    },
+    {
+      "id": "input",
+      "base": "ts-input",
+      "classes": [
+        "ts-input",
+        "ts-input--sm"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "disabled",
+        "error"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus",
+        "disabled",
+        "aria-invalid"
+      ],
+      "tokens": [
+        "color.bg.surface",
+        "color.border.default",
+        "size.controlMd",
+        "radius.md"
+      ]
+    },
+    {
+      "id": "field",
+      "base": "ts-field",
+      "classes": [
+        "ts-field",
+        "ts-field__label",
+        "ts-field__hint"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "font.sizes.sm",
+        "color.text.secondary",
+        "space.2"
+      ]
+    },
+    {
+      "id": "select",
+      "base": "ts-select",
+      "classes": [
+        "ts-select"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "disabled",
+        "error"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus",
+        "disabled",
+        "aria-invalid"
+      ],
+      "tokens": [
+        "color.bg.surface",
+        "color.border.default",
+        "size.controlMd"
+      ]
+    },
+    {
+      "id": "switch",
+      "base": "ts-switch",
+      "classes": [
+        "ts-switch",
+        "ts-switch--on"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "disabled"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus-visible",
+        "disabled",
+        "aria-checked"
+      ],
+      "tokens": [
+        "color.action.primary",
+        "color.border.default"
+      ]
+    },
+    {
+      "id": "checkbox",
+      "base": "ts-check",
+      "classes": [
+        "ts-check",
+        "ts-check__box",
+        "ts-check__label"
+      ],
+      "states": [
+        "default",
+        "focus",
+        "disabled",
+        "error"
+      ],
+      "stateAttrs": [
+        "focus-visible",
+        "disabled",
+        "aria-invalid"
+      ],
+      "tokens": [
+        "color.border.default",
+        "color.action.primary",
+        "font.sizes.md"
+      ]
+    },
+    {
+      "id": "card",
+      "base": "ts-card",
+      "classes": [
+        "ts-card",
+        "ts-card__header",
+        "ts-card__title",
+        "ts-card__body",
+        "ts-card__footer"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.bg.surface",
+        "color.border.default",
+        "radius.lg",
+        "shadow.sm",
+        "space.4"
+      ]
+    },
+    {
+      "id": "stat",
+      "base": "ts-stat",
+      "classes": [
+        "ts-stat",
+        "ts-stat__label",
+        "ts-stat__value",
+        "ts-stat__delta",
+        "ts-stat__delta--up",
+        "ts-stat__delta--down"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "font.sizes.3xl",
+        "font.weights.semibold",
+        "color.status.success",
+        "color.status.danger"
+      ]
+    },
+    {
+      "id": "badge",
+      "base": "ts-badge",
+      "classes": [
+        "ts-badge",
+        "ts-badge--success",
+        "ts-badge--warning",
+        "ts-badge--danger",
+        "ts-badge--info"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.status.successBg",
+        "color.status.success",
+        "radius.full",
+        "font.sizes.xs"
+      ]
+    },
+    {
+      "id": "table",
+      "base": "ts-table",
+      "classes": [
+        "ts-table",
+        "ts-table__num"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.border.default",
+        "color.bg.sunken",
+        "font.sizes.md",
+        "space.3"
+      ]
+    },
+    {
+      "id": "nav",
+      "base": "ts-nav",
+      "classes": [
+        "ts-nav",
+        "ts-nav__brand",
+        "ts-nav__links",
+        "ts-nav__link",
+        "ts-nav__link--active"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus-visible",
+        "aria-current"
+      ],
+      "tokens": [
+        "color.bg.surface",
+        "color.border.default",
+        "font.sizes.md"
+      ]
+    },
+    {
+      "id": "tabs",
+      "base": "ts-tabs",
+      "classes": [
+        "ts-tabs",
+        "ts-tab",
+        "ts-tab--active"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus",
+        "disabled"
+      ],
+      "stateAttrs": [
+        "hover",
+        "focus-visible",
+        "disabled",
+        "aria-selected"
+      ],
+      "tokens": [
+        "color.text.muted",
+        "color.text.primary",
+        "color.action.primary",
+        "space.4"
+      ]
+    },
+    {
+      "id": "dialog",
+      "base": "ts-dialog",
+      "classes": [
+        "ts-dialog",
+        "ts-dialog__header",
+        "ts-dialog__title",
+        "ts-dialog__body",
+        "ts-dialog__footer"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.bg.raised",
+        "radius.xl",
+        "shadow.lg",
+        "space.6"
+      ]
+    },
+    {
+      "id": "toast",
+      "base": "ts-toast",
+      "classes": [
+        "ts-toast",
+        "ts-toast--success",
+        "ts-toast--danger"
+      ],
+      "states": [
+        "default",
+        "success",
+        "error"
+      ],
+      "stateAttrs": [
+        "--success",
+        "--danger"
+      ],
+      "tokens": [
+        "color.bg.inverse",
+        "color.text.inverse",
+        "radius.md",
+        "shadow.md"
+      ]
+    },
+    {
+      "id": "avatar",
+      "base": "ts-avatar",
+      "classes": [
+        "ts-avatar",
+        "ts-avatar--sm",
+        "ts-avatar--lg",
+        "ts-avatar--square"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.bg.sunken",
+        "color.text.secondary",
+        "radius.full"
+      ]
+    },
+    {
+      "id": "empty",
+      "base": "ts-empty",
+      "classes": [
+        "ts-empty",
+        "ts-empty__icon",
+        "ts-empty__title",
+        "ts-empty__desc"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.text.muted",
+        "font.sizes.lg",
+        "space.4"
+      ]
+    },
+    {
+      "id": "progress",
+      "base": "ts-progress",
+      "classes": [
+        "ts-progress",
+        "ts-progress__bar"
+      ],
+      "states": [
+        "default"
+      ],
+      "stateAttrs": [],
+      "tokens": [
+        "color.bg.sunken",
+        "color.action.primary",
+        "radius.full"
+      ]
+    }
+  ]
+}
