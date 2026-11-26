@@ -231,11 +231,12 @@
       "requiredAttrs": [
         "自动消失用 data-ts-toast-duration=\"毫秒\"（默认 4000；0 表示不自动消失）"
       ],
-      "api": "区域内的 toast 到时长后自动淡出移除；点 data-ts-toast-dismiss 立即关闭。运行时另暴露 window.tsToast(text, variant) 追加一条（variant：''|success|danger）。",
-      "skeletonHtml": "<div class=\"ts-i-toast-region\" data-ts-toast-region data-ts-position=\"top-right\" aria-live=\"polite\">\n  <div class=\"ts-toast ts-toast--success\" data-ts-toast-duration=\"4000\">已保存<button class=\"ts-i-toast-close\" data-ts-toast-dismiss aria-label=\"关闭\"><svg data-icon=\"x\" class=\"ts-icon\"></svg></button></div>\n</div>",
+      "api": "区域内的 toast 到时长后自动淡出移除；点 data-ts-toast-dismiss 立即关闭。运行时另暴露 window.tsToast(text, variant) 追加一条（variant：''|success|danger）。danger/error 变体自动带 role=alert + aria-live=assertive，其余为 status/polite。",
+      "skeletonHtml": "<div class=\"ts-i-toast-region\" data-ts-toast-region data-ts-position=\"top-right\" aria-live=\"polite\">\n  <div class=\"ts-toast ts-toast--success\" data-ts-toast-duration=\"4000\">已保存<button class=\"ts-i-toast-close\" data-ts-toast-dismiss aria-label=\"关闭\"><svg data-icon=\"x\" class=\"ts-icon\"></svg></button></div>\n  <div class=\"ts-toast ts-toast--danger\" role=\"alert\" aria-live=\"assertive\" data-ts-toast-duration=\"6000\">保存失败<button class=\"ts-i-toast-close\" data-ts-toast-dismiss aria-label=\"关闭\"><svg data-icon=\"x\" class=\"ts-icon\"></svg></button></div>\n</div>",
       "a11y": {
         "roles": [
-          "status"
+          "status",
+          "alert"
         ],
         "attrs": [
           "aria-live"
@@ -254,7 +255,7 @@
         "ts-i-tooltip",
         "ts-i-tooltip__bubble"
       ],
-      "requiresScript": false,
+      "requiresScript": true,
       "rootAttr": "data-ts-tooltip",
       "requiredStructure": [
         "<span class=\"ts-i-tooltip\" data-ts-tooltip=\"提示文字\">触发元素</span>"
@@ -262,7 +263,7 @@
       "requiredAttrs": [
         "提示文字写在 data-ts-tooltip；方位用 data-ts-tooltip-side=\"top|bottom|left|right\"（默认 top）"
       ],
-      "api": "纯 CSS：hover 或键盘聚焦时显示气泡；气泡内容来自 data-ts-tooltip 的 ::after，无需脚本。",
+      "api": "hover 或键盘聚焦时显示气泡。运行时把气泡升级为真实元素：role=tooltip、触发元素 aria-describedby 指向气泡；无脚本时退化为 CSS ::after 气泡（读屏不可见，仅作降级）。",
       "skeletonHtml": "<span class=\"ts-i-tooltip\" data-ts-tooltip=\"这是提示文字\" data-ts-tooltip-side=\"top\"><svg data-icon=\"info\" class=\"ts-icon\"></svg></span>",
       "a11y": {
         "roles": [

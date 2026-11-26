@@ -41,15 +41,31 @@
     }
   }
 
-  /* 打开浮层时把页面其余部分设为 inert（不支持时只做 Tab 循环）。 */
-  function setBackgroundInert(active) {
+  /* 打开浮层时把页面其余部分设为 inert（不支持时只做 Tab 循环）。
+     同时打开的浮层可能不止一个，所以按「所有者」记账，各自关闭时只撤销自己的影响。 */
+  var inertOwners = [];
+
+  function refreshBackgroundInert() {
     if (typeof document.body.setAttribute !== 'function') return;
     var children = Array.prototype.slice.call(document.body.children);
     children.forEach(function (el) {
-      if (el === active || el.contains(active) || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
-      if (active) el.setAttribute('inert', '');
+      if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+      var owned = inertOwners.some(function (owner) { return owner === el || el.contains(owner); });
+      if (inertOwners.length && !owned) el.setAttribute('inert', '');
       else el.removeAttribute('inert');
     });
+  }
+
+  function setBackgroundInert(active) {
+    if (!active) { inertOwners = []; refreshBackgroundInert(); return; }
+    if (inertOwners.indexOf(active) === -1) inertOwners.push(active);
+    refreshBackgroundInert();
+  }
+
+  function clearBackgroundInert(active) {
+    var index = inertOwners.indexOf(active);
+    if (index !== -1) inertOwners.splice(index, 1);
+    refreshBackgroundInert();
   }
 
   /* 共享无障碍播报区：状态变化写入 aria-live，不抢焦点。 */
@@ -69,43 +85,72 @@
     window.setTimeout(function () { region.textContent = text; }, 16);
   }
 
-  /* 指针拖拽：单一 activePointer，第二个指针落下时忽略（第一个拖拽保持自己的 pointer）。
-     pointercancel / lostpointercapture / 控件外释放 / 窗口失焦 全部走 onCancel，
-     清掉 dragging 状态并释放 capture；此后下一次拖拽无需刷新即可工作。 */
+  /* 指针手势：单一 activePointer，第二个指针出现时不夺取（第一个手势保持自己的 pointer）。
+     pointercancel / lostpointercapture / 窗口失焦 一律走 onCancel，清掉状态并释放 capture，
+     此后下一次手势无需刷新即可工作。
+     follow: true 用于「悬停跟随」类手势（如 tilt-card）：无需按下即跟随第一个指针；
+       鼠标抬起仍保持跟随，触摸/笔抬起与离场视为结束并复位。
+     非 follow 是标准拖拽语义：pointerdown 才激活，pointerup 结束。 */
   function bindPointerDrag(el, handlers) {
+    var opts = handlers || {};
     var activeId = null;
+    var captured = false;
 
-    function release(event) {
+    function end(event) {
       if (activeId === null) return;
       if (event && event.pointerId !== undefined && event.pointerId !== activeId) return;
       var id = activeId;
       activeId = null;
-      try { if (el.releasePointerCapture) el.releasePointerCapture(id); } catch (e) { /* 已释放 */ }
-      if (handlers.onEnd) handlers.onEnd();
+      if (captured) {
+        captured = false;
+        try { if (el.releasePointerCapture) el.releasePointerCapture(id); } catch (e) { /* 已释放 */ }
+      }
+      if (opts.onEnd) opts.onEnd(event);
     }
 
     function cancel(event) {
       if (activeId === null) return;
       if (event && event.pointerId !== undefined && event.pointerId !== activeId) return;
-      release(event);
-      if (handlers.onCancel) handlers.onCancel();
+      end(event);
+      if (opts.onCancel) opts.onCancel(event);
+    }
+
+    function adopt(event, capture) {
+      activeId = event.pointerId;
+      if (capture) {
+        try {
+          if (el.setPointerCapture) { el.setPointerCapture(activeId); captured = true; }
+        } catch (e) { captured = false; /* 合成指针或不支持捕获 */ }
+      }
+      if (opts.onStart) opts.onStart(event);
     }
 
     el.addEventListener('pointerdown', function (event) {
       if (activeId !== null) return; /* 第二个指针：不夺取 */
       if (event.pointerType === 'mouse' && event.button !== 0) return;
-      activeId = event.pointerId;
-      try { if (el.setPointerCapture) el.setPointerCapture(activeId); } catch (e) { /* 不支持捕获 */ }
-      if (handlers.onStart) handlers.onStart(event);
+      /* 跟随类手势不夺取捕获：指针捕获会屏蔽后续 pointerleave，导致离场复位失效。 */
+      adopt(event, !opts.follow);
     });
     el.addEventListener('pointermove', function (event) {
-      if (activeId === null || event.pointerId !== activeId) return;
-      if (handlers.onMove) handlers.onMove(event);
+      if (activeId === null) {
+        if (!opts.follow) return;
+        adopt(event, false);
+      } else if (event.pointerId !== activeId) {
+        return; /* 第二个指针不夺取 */
+      }
+      if (opts.onMove) opts.onMove(event);
     });
-    el.addEventListener('pointerup', function (event) { release(event); });
+    el.addEventListener('pointerup', function (event) {
+      /* 悬停跟随：鼠标抬起不结束；触摸/笔抬起结束并复位。 */
+      if (opts.follow && event.pointerType === 'mouse') return;
+      if (opts.follow) cancel(event);
+      else end(event);
+    });
     el.addEventListener('pointercancel', function (event) { cancel(event); });
     el.addEventListener('lostpointercapture', function (event) { cancel(event); });
     window.addEventListener('blur', function () { cancel(null); });
+    /* 供跟随类手势在指针离场时主动复位（离场不是取消，但仍要回正）。 */
+    return { cancel: function () { cancel(null); } };
   }
 
   function qsa(root, sel) {
@@ -188,6 +233,11 @@
 
   function openOverlay(el, openClass) {
     if (!el) return;
+    /* initOverlays 对 modal 与 drawer 各跑一遍，同一触发按钮会绑两次；
+       已经在栈里的浮层不重复打开，否则关闭一次后背景 inert 撤不掉。 */
+    for (var s = 0; s < overlayStack.length; s++) {
+      if (overlayStack[s].el === el) return;
+    }
     var opener = document.activeElement;
     el.hidden = false;
     el.classList.add(openClass);
@@ -201,8 +251,11 @@
     var items = focusables(el);
     if (items.length) items[0].focus();
     else { el.setAttribute('tabindex', '-1'); el.focus(); }
-    /* 焦点陷阱：只在最上层浮层内循环，Tab 不会跑到页面背景。 */
-    el.addEventListener('keydown', function (event) { trapFocus(el, event); });
+    /* 焦点陷阱：只在最上层浮层内循环，Tab 不会跑到页面背景。只绑一次，重复开合不叠加。 */
+    if (!el.hasAttribute('data-ts-trap-bound')) {
+      el.setAttribute('data-ts-trap-bound', '');
+      el.addEventListener('keydown', function (event) { trapFocus(el, event); });
+    }
     emit(el, 'ts:open', null);
   }
 
@@ -236,6 +289,9 @@
       el.setAttribute('aria-hidden', el.hidden ? 'true' : 'false');
     });
     qsa(document, '[data-ts-open]').forEach(function (trigger) {
+      /* initOverlays 对 modal / drawer 各调一次，触发按钮只能绑一次，否则一次点击打开两层。 */
+      if (trigger.hasAttribute('data-ts-open-bound')) return;
+      trigger.setAttribute('data-ts-open-bound', '');
       /* aria-controls 让读屏知道这个按钮控制哪个浮层。 */
       var controlsId = (trigger.getAttribute('data-ts-open') || '').replace(/^#/, '');
       if (controlsId && document.getElementById(controlsId)) trigger.setAttribute('aria-controls', controlsId);
@@ -322,6 +378,36 @@
     setOpen(false, false);
   }
 
+  /* ---------------- tooltip：真实气泡 + aria-describedby ---------------- */
+
+  /* 纯 CSS 的 ::after 气泡读屏不可见。运行时把它升级为真实元素：
+     生成 role="tooltip" 的气泡并把触发元素用 aria-describedby 连过去。
+     文本仍以 data-ts-tooltip 为唯一来源；升级后给根加 data-ts-tip-runtime，
+     CSS 据此关掉 ::after，避免视觉与读屏各读一遍。 */
+  function initTooltips() {
+    qsa(document, '[data-ts-tooltip]').forEach(function (root) {
+      var text = root.getAttribute('data-ts-tooltip') || '';
+      if (!text.trim()) return;
+      var bubble = root.querySelector('.ts-i-tooltip__bubble');
+      if (!bubble) {
+        bubble = document.createElement('span');
+        bubble.className = 'ts-i-tooltip__bubble';
+        root.appendChild(bubble);
+      }
+      if (!bubble.id) bubble.id = 'ts-i-tip-' + (++tabSequence);
+      bubble.setAttribute('role', 'tooltip');
+      bubble.textContent = text;
+      root.setAttribute('data-ts-tip-runtime', '');
+      /* 触发元素：优先用可聚焦的子元素（按钮/链接），否则让根自己可聚焦。 */
+      var trigger = root.querySelector('button, a[href], input, select, textarea, [tabindex]') || root;
+      if (trigger === root && !root.hasAttribute('tabindex')) root.setAttribute('tabindex', '0');
+      var existing = (trigger.getAttribute('aria-describedby') || '').trim();
+      if (existing.split(/\s+/).indexOf(bubble.id) === -1) {
+        trigger.setAttribute('aria-describedby', (existing ? existing + ' ' : '') + bubble.id);
+      }
+    });
+  }
+
   /* ---------------- accordion（单开模式） ---------------- */
 
   function initAccordion(root) {
@@ -358,6 +444,11 @@
       if (!region.hasAttribute('aria-live')) region.setAttribute('aria-live', 'polite');
     });
     qsa(document, '[data-ts-toast-region] .ts-toast').forEach(function (el) {
+      /* 错误必须打断当前播报；成功/提示用 status 即可。 */
+      if (el.classList.contains('ts-toast--danger') || el.classList.contains('ts-toast--error')) {
+        el.setAttribute('role', 'alert');
+        el.setAttribute('aria-live', 'assertive');
+      }
       armToast(el);
       var closer = el.querySelector('[data-ts-toast-dismiss]');
       if (closer) closer.addEventListener('click', function () { dismissToast(el); });
@@ -369,17 +460,19 @@
       el.addEventListener('focusout', function () { paused = false; });
       var raw = el.getAttribute('data-ts-toast-duration');
       var duration = raw === null ? 4000 : parseInt(raw, 10);
+      var tick = null;
       if (duration && duration > 0) {
         var elapsed = 0;
-        var tick = window.setInterval(function () {
+        tick = window.setInterval(function () {
           if (paused) return;
           elapsed += 100;
           if (elapsed >= duration) { window.clearInterval(tick); dismissToast(el); }
         }, 100);
-        el.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape') { e.preventDefault(); window.clearInterval(tick); dismissToast(el); }
-        });
       }
+      /* Esc 关闭与自动消失无关：不会自动消失的 toast 也要能用键盘关掉。 */
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); if (tick) window.clearInterval(tick); dismissToast(el); }
+      });
     });
   }
 
@@ -395,6 +488,11 @@
     }
     var el = document.createElement('div');
     el.className = 'ts-toast' + (variant ? ' ts-toast--' + variant : '');
+    /* 动态创建的 toast 与静态骨架走同一语义：错误用 alert 打断播报。 */
+    if (variant === 'danger' || variant === 'error') {
+      el.setAttribute('role', 'alert');
+      el.setAttribute('aria-live', 'assertive');
+    }
     el.textContent = text;
     var closer = document.createElement('button');
     closer.className = 'ts-i-toast-close';
@@ -677,10 +775,20 @@
       if (isNaN(view.getTime())) view = new Date();
       var today = new Date();
       var todayKey = fmt(today.getFullYear(), today.getMonth(), today.getDate());
+      /* roving tabindex：整个网格只留一个 Tab 停靠点，其余日期用方向键走。
+         否则键盘用户要 Tab 三十次才能离开日历。 */
+      var rovingKey = '';
+
+      function defaultRoving(y, m) {
+        if (selected && selected.slice(0, 7) === y + '-' + pad2(m + 1)) return selected;
+        if (todayKey.slice(0, 7) === y + '-' + pad2(m + 1)) return todayKey;
+        return fmt(y, m, 1);
+      }
 
       function render() {
         var y = view.getFullYear();
         var m = view.getMonth();
+        if (!rovingKey || rovingKey.slice(0, 7) !== y + '-' + pad2(m + 1)) rovingKey = defaultRoving(y, m);
         var first = new Date(y, m, 1);
         var startDow = first.getDay();
         var daysInMonth = new Date(y, m + 1, 0).getDate();
@@ -697,7 +805,7 @@
           if (key === selected) cls += ' ts-i-datepicker__day--selected';
           /* aria-current=date 让读屏区分"今天"；选中用 aria-pressed。 */
           var aria = (key === todayKey ? ' aria-current="date"' : '') + (key === selected ? ' aria-pressed="true"' : ' aria-pressed="false"');
-          html += '<button type="button" class="' + cls + '" data-ts-date="' + key + '" aria-label="' + key + '"' + aria + '>' + d + '</button>';
+          html += '<button type="button" class="' + cls + '" data-ts-date="' + key + '" aria-label="' + key + '" tabindex="' + (key === rovingKey ? '0' : '-1') + '"' + aria + '>' + d + '</button>';
         }
         html += '</div>';
         popup.innerHTML = html;
@@ -705,6 +813,7 @@
 
       function setValue(key) {
         selected = key;
+        rovingKey = key;
         input.value = key;
         input.setAttribute('data-ts-value', key);
         render();
@@ -712,8 +821,8 @@
       }
 
       function focusFirst() {
-        var firstDay = popup.querySelector('[data-ts-date]:not([disabled])');
-        if (firstDay) firstDay.focus();
+        var target = popup.querySelector('[data-ts-date="' + rovingKey + '"]') || popup.querySelector('[data-ts-date]:not([disabled])');
+        if (target) target.focus();
       }
 
       function open() {
@@ -754,9 +863,10 @@
         var current = new Date(day.getAttribute('data-ts-date') + 'T00:00:00');
         current.setDate(current.getDate() + delta);
         view = new Date(current.getFullYear(), current.getMonth(), 1);
+        /* 方向键移动后停靠点跟着走，网格里始终只有一个 tabindex=0。 */
+        rovingKey = fmt(current.getFullYear(), current.getMonth(), current.getDate());
         render();
-        var key = fmt(current.getFullYear(), current.getMonth(), current.getDate());
-        var next = popup.querySelector('[data-ts-date="' + key + '"]');
+        var next = popup.querySelector('[data-ts-date="' + rovingKey + '"]');
         if (next) next.focus();
       });
       document.addEventListener('click', function (e) {
@@ -908,7 +1018,6 @@
       root.classList.add('ts-i-tilt--armed');
 
       function reset() { inner.style.transform = ''; }
-      var activePointer = null;
 
       function applyTilt(clientX, clientY) {
         var rect = root.getBoundingClientRect();
@@ -920,27 +1029,17 @@
         inner.style.transform = 'rotateX(' + rotateX.toFixed(2) + 'deg) rotateY(' + rotateY.toFixed(2) + 'deg)';
       }
 
-      /* 倾斜是「悬停跟随」，不是拖拽；但同样要处理中断：
-         第二个指针出现时不夺取，pointercancel / 丢失捕获 / 窗口失焦 / 离开元素都复位。 */
-      root.addEventListener('pointermove', function (event) {
-        if (activePointer === null) activePointer = event.pointerId;
-        else if (event.pointerId !== activePointer) return; /* 第二个指针不夺取 */
-        applyTilt(event.clientX, event.clientY);
+      /* 倾斜是「悬停跟随」：用 follow 模式复用同一套中断语义
+         （第二指针不夺取、pointercancel / 丢失捕获 / 失焦 / 离场全部复位）。 */
+      var gesture = bindPointerDrag(root, {
+        follow: true,
+        onMove: function (event) { applyTilt(event.clientX, event.clientY); },
+        onCancel: reset,
       });
       /* 兼容只派发 MouseEvent 的环境（旧浏览器与自动化测试）。 */
       root.addEventListener('mousemove', function (event) { applyTilt(event.clientX, event.clientY); });
-      root.addEventListener('pointerleave', function () { activePointer = null; reset(); });
-      root.addEventListener('mouseleave', function () { activePointer = null; reset(); });
-      root.addEventListener('pointerup', function (event) {
-        /* 鼠标抬起仍保持悬停跟随；触摸/笔抬起才复位。 */
-        if (event.pointerType === 'mouse') return;
-        if (activePointer === null || event.pointerId === activePointer) { activePointer = null; reset(); }
-      });
-      root.addEventListener('pointercancel', function (event) {
-        if (activePointer === null || event.pointerId === activePointer) { activePointer = null; reset(); }
-      });
-      root.addEventListener('lostpointercapture', function () { activePointer = null; reset(); });
-      window.addEventListener('blur', function () { activePointer = null; reset(); });
+      root.addEventListener('pointerleave', function () { gesture.cancel(); reset(); });
+      root.addEventListener('mouseleave', function () { gesture.cancel(); reset(); });
     });
   }
 
@@ -954,9 +1053,20 @@
       var openLabel = toggle.getAttribute('aria-label') || '';
 
       function setOpen(open, focusToggle) {
+        var wasOpen = root.classList.contains('ts-i-mobile-nav--open');
         root.classList.toggle('ts-i-mobile-nav--open', open);
         document.documentElement.classList.toggle('ts-i-mobile-nav--locked', open);
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        /* 打开即模态：背景 inert + 焦点陷阱，Tab 不会跑到菜单后面。 */
+        if (open && !wasOpen) {
+          setBackgroundInert(root);
+          if (!root.hasAttribute('data-ts-trap-bound')) {
+            root.setAttribute('data-ts-trap-bound', '');
+            root.addEventListener('keydown', function (event) { trapFocus(root, event); });
+          }
+        } else if (!open && wasOpen) {
+          clearBackgroundInert(root);
+        }
         if (focusToggle) toggle.focus();
       }
 
@@ -1044,8 +1154,19 @@
       if (!targets.length) return;
 
       function setOpen(open, focusToggle) {
+        var wasOpen = root.classList.contains('ts-i-toc--open');
         root.classList.toggle('ts-i-toc--open', open);
         if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        /* 窄屏下目录是抽屉式浮层：打开时背景 inert + 焦点陷阱（宽屏常驻不受影响）。 */
+        if (open && !wasOpen) {
+          setBackgroundInert(root);
+          if (!root.hasAttribute('data-ts-trap-bound')) {
+            root.setAttribute('data-ts-trap-bound', '');
+            root.addEventListener('keydown', function (event) { trapFocus(root, event); });
+          }
+        } else if (!open && wasOpen) {
+          clearBackgroundInert(root);
+        }
         if (focusToggle && toggle) toggle.focus();
       }
 
@@ -1280,6 +1401,7 @@
     initOverlays('[data-ts-drawer]', 'ts-i-drawer--open');
     qsa(document, '[data-ts-dropdown]').forEach(initDropdown);
     qsa(document, '[data-ts-accordion]').forEach(initAccordion);
+    initTooltips();
     initToasts();
     initForms();
     qsa(document, '[data-ts-segmented]').forEach(initSegmented);

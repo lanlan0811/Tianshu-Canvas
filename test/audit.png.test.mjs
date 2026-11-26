@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 
 const root = resolve(import.meta.dirname, '..')
-const { decodePng, encodePng, diffPng } = await import(pathToFileURL(join(root, 'src', 'audit', 'png.ts')).href)
+const { decodePng, encodePng, encodeImage, diffPng } = await import(pathToFileURL(join(root, 'src', 'audit', 'png.ts')).href)
 
 test('编码 → 解码 往返，像素值一致', () => {
   const png = encodePng(4, 3, [10, 20, 30, 255])
@@ -81,3 +81,34 @@ test('尺寸不一致给出可读错误', () => {
 test('非 PNG 输入被拒绝', () => {
   assert.throws(() => decodePng(Buffer.from('not a png')), /不是 PNG/)
 })
+
+test('encodeImage：任意像素往返一致（filmstrip 走这条路径）', () => {
+  const width = 5
+  const height = 3
+  const data = Buffer.alloc(width * height * 4)
+  for (let i = 0; i < width * height; i++) {
+    data[i * 4] = (i * 37) % 256
+    data[i * 4 + 1] = (i * 91) % 256
+    data[i * 4 + 2] = (i * 13) % 256
+    data[i * 4 + 3] = i % 2 ? 128 : 255
+  }
+  const png = encodeImage({ width, height, channels: 4, data })
+  const img = decodePng(png)
+  assert.equal(img.width, width)
+  assert.equal(img.height, height)
+  assert.equal(img.channels, 4)
+  assert.deepEqual(Buffer.from(img.data), data)
+})
+
+test('encodeImage：RGB 与灰度输入补成 RGBA，透明度为不透明', () => {
+  const rgb = Buffer.from([1, 2, 3, 4, 5, 6])
+  const fromRgb = decodePng(encodeImage({ width: 2, height: 1, channels: 3, data: rgb }))
+  assert.deepEqual([...fromRgb.data], [1, 2, 3, 255, 4, 5, 6, 255])
+
+  const gray = Buffer.from([9, 200])
+  const fromGray = decodePng(encodeImage({ width: 2, height: 1, channels: 1, data: gray }))
+  assert.deepEqual([...fromGray.data], [9, 9, 9, 255, 200, 200, 200, 255])
+
+  const grayAlpha = Buffer.from([9, 40])
+  const fromGrayAlpha = decodePng(encodeImage({ width: 1, height: 1, channels: 2, data: grayAlpha }))
+  assert.deepEqual([...fromGrayAlpha.data], [9, 9, 9, 40])})

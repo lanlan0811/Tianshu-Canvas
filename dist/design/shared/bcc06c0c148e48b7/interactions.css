@@ -308,9 +308,15 @@
   align-items: center;
 }
 
-.ts-i-tooltip__bubble,
+/* 纯 CSS 降级气泡：文本来自根上的 data-ts-tooltip。
+   注意 content 只写在 ::after 上——真实气泡元素用 textContent，
+   若也给它 content: attr(...) 会因属性不在气泡上而渲染成空白。 */
 .ts-i-tooltip::after {
   content: attr(data-ts-tooltip);
+}
+
+.ts-i-tooltip__bubble,
+.ts-i-tooltip::after {
   position: absolute;
   bottom: calc(100% + var(--ts-space-2));
   left: 50%;
@@ -331,12 +337,14 @@
   z-index: 800;
 }
 
-.ts-i-tooltip[data-ts-tooltip-side='bottom']::after {
+.ts-i-tooltip[data-ts-tooltip-side='bottom']::after,
+.ts-i-tooltip[data-ts-tooltip-side='bottom'] .ts-i-tooltip__bubble {
   bottom: auto;
   top: calc(100% + var(--ts-space-2));
 }
 
-.ts-i-tooltip[data-ts-tooltip-side='left']::after {
+.ts-i-tooltip[data-ts-tooltip-side='left']::after,
+.ts-i-tooltip[data-ts-tooltip-side='left'] .ts-i-tooltip__bubble {
   bottom: auto;
   top: 50%;
   left: auto;
@@ -344,7 +352,8 @@
   transform: translateY(-50%);
 }
 
-.ts-i-tooltip[data-ts-tooltip-side='right']::after {
+.ts-i-tooltip[data-ts-tooltip-side='right']::after,
+.ts-i-tooltip[data-ts-tooltip-side='right'] .ts-i-tooltip__bubble {
   bottom: auto;
   top: 50%;
   left: calc(100% + var(--ts-space-2));
@@ -354,6 +363,19 @@
 .ts-i-tooltip:hover::after,
 .ts-i-tooltip:focus-within::after,
 .ts-i-tooltip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 运行时把纯 CSS 气泡升级成真实元素（role=tooltip + aria-describedby）：
+   关掉 ::after 避免视觉与读屏各读一遍，改由真实气泡承载显示。 */
+.ts-i-tooltip[data-ts-tip-runtime]::after {
+  content: none;
+}
+
+.ts-i-tooltip[data-ts-tip-runtime]:hover .ts-i-tooltip__bubble,
+.ts-i-tooltip[data-ts-tip-runtime]:focus-within .ts-i-tooltip__bubble,
+.ts-i-tooltip[data-ts-tip-runtime]:focus-visible .ts-i-tooltip__bubble {
   opacity: 1;
   visibility: visible;
 }
@@ -845,6 +867,11 @@
 
 .ts-i-tilt {
   perspective: 1000px;
+}
+
+/* 追随指针的倾斜面不能把触摸手势让给浏览器滚动，否则倾斜会中途被滚动接管。 */
+.ts-i-tilt--armed {
+  touch-action: none;
 }
 
 .ts-i-tilt__inner {

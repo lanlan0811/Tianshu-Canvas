@@ -90,6 +90,17 @@ test('负例：某条目缺 a11y 字段必须报错', () => {
   assert.ok(errors.some((e) => e.includes('缺少 a11y 契约')), errors.join('|'))
 })
 
+test('负例：类名不能冒充 role 实现（值级匹配防假绿）', () => {
+  // 历史上 tooltip 靠类名 ts-i-tooltip 命中了子串校验，运行时其实不存在。
+  const broken = JSON.parse(JSON.stringify(doc))
+  const tooltip = broken.interactions.find((item) => item.id === 'tooltip')
+  tooltip.a11y.roles = ['tooltip']
+  tooltip.skeletonHtml = '<span class="ts-i-tooltip" data-ts-tooltip="提示"></span>'
+  const stripped = js.split("setAttribute('role', 'tooltip')").join('')
+  const errors = a11yErrors(broken, stripped)
+  assert.ok(errors.some((e) => e.includes('tooltip')), errors.slice(0, 3).join('|'))
+})
+
 test('负例：a11y.live 只允许 polite / assertive', () => {
   const broken = JSON.parse(JSON.stringify(doc))
   broken.interactions[0].a11y.live = 'rude'

@@ -87,7 +87,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -272,7 +272,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -457,7 +457,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -642,7 +642,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -827,7 +827,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -1012,7 +1012,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -1197,7 +1197,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -1382,7 +1382,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -1567,7 +1567,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -1752,7 +1752,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",
@@ -1937,7 +1937,7 @@
           "id": "tooltip",
           "name": "提示气泡",
           "category": "feedback",
-          "requiresScript": false
+          "requiresScript": true
         },
         {
           "id": "loading-skeleton",

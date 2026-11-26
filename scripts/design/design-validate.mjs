@@ -542,13 +542,33 @@ function selectorTexts(css) {
  * 交互库的 ARIA 契约校验：声明必须真在运行时里出现。
  *
  * 目的不是统一实现方式，而是让「文档说支持」变成「代码必须支持」：
- * - `roles` / `attrs` / `keys` 里的每个字符串都要在 interactions.js 源码里出现；
+ * - `roles` / `attrs` / `keys` 里的每个字符串都要在 interactions.js 源码或骨架里**按值**出现；
  * - `focusReturn: true` 的条目必须真的调用 focus()；
  * - `gesture: 'cancellable'` 的条目必须处理 pointercancel 与 lostpointercapture。
  * 新增条目忘了补契约、或删了实现却留着声明，都会在构建期失败。
+ *
+ * 匹配必须是值级而不是子串：类名 `ts-i-tooltip` 不能算实现了 `role="tooltip"`。
+ * 历史缺陷：tooltip 从未有过运行时，却因类名被子串命中，契约长期假绿。
  */
 export function validateInteractionA11y(interactionsDoc, interactionsJs, errors) {
   const list = Array.isArray(interactionsDoc?.interactions) ? interactionsDoc.interactions : []
+  const esc = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // 注释里写「这里会生成 role="tooltip"」不算实现。先剥注释再匹配，
+  // 否则一条说明性注释就能让契约假绿。
+  const stripComments = (source) => source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+  const cleanJs = stripComments(interactionsJs)
+  const rolePatterns = (role) => [
+    new RegExp(`role\\s*=\\s*["']${esc(role)}["']`),
+    new RegExp(`setAttribute\\(\\s*["']role["']\\s*,\\s*["']${esc(role)}["']`),
+  ]
+  const attrPatterns = (attr) => [
+    new RegExp(`(?:^|[\\s"'])${esc(attr)}\\s*=`),
+    new RegExp(`(?:set|get|remove|has|toggle)Attribute\\(\\s*["']${esc(attr)}["']`),
+  ]
+  const keyPatterns = (key) => [new RegExp(`["']${esc(key)}["']`)]
   for (const item of list) {
     const spec = item?.a11y
     const label = `交互 ${item?.id ?? '(无 id)'}`
@@ -558,7 +578,7 @@ export function validateInteractionA11y(interactionsDoc, interactionsJs, errors)
     }
     // 语义可以由运行时设置，也可以由骨架标记直接写死；两者都算实现，
     // 但必须至少有一处出现，不能只写在契约里。
-    const sources = [interactionsJs, String(item.skeletonHtml ?? '')]
+    const sources = [cleanJs, String(item.skeletonHtml ?? '')]
     for (const key of ['roles', 'attrs', 'keys']) {
       if (!Array.isArray(spec[key])) {
         errors.push(`${label} 的 a11y.${key} 必须是数组`)
@@ -569,7 +589,8 @@ export function validateInteractionA11y(interactionsDoc, interactionsJs, errors)
           errors.push(`${label} 的 a11y.${key} 含空值`)
           continue
         }
-        if (!sources.some((source) => source.includes(token))) {
+        const patterns = key === 'roles' ? rolePatterns(token) : key === 'attrs' ? attrPatterns(token) : keyPatterns(token)
+        if (!sources.some((source) => patterns.some((pattern) => pattern.test(source)))) {
           errors.push(`${label} 声明了 ${key}「${token}」，但运行时与骨架里都没有对应实现`)
         }
       }
