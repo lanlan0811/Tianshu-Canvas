@@ -3,6 +3,20 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
+## [v1.0.1] - 2026-11-27
+
+补丁版：处置 1.0.0 审查反馈的非阻断项，并修复本机实测暴露的端口回退问题。
+详细说明见 [release-1.0.1.md](release/release-1.0.1.md)，验证与已知边界见 [验收记录](docs/review-1.0.1-acceptance.md)。
+
+- **端口回退**：`canvas_open` 的首选端口被其他进程独占绑定时（Windows 实测返回 `EACCES` 而非
+  `EADDRINUSE`），现在与端口占用一样继续扫描候选端口，不再整体失败。
+- **P3-4 权限用途**：清单 `description` 写明 `shell` 仅用于调起系统浏览器与启动 headless Chromium，不执行用户输入的命令。
+- **P2-2 浏览器依赖**：清单 `description` 与 `canvas_audit` 工具描述披露审计/截图需本机 Chrome/Edge，
+  可用 `TIANSHU_CANVAS_BROWSER` 指定路径。
+- **包内文档**：新增 `docs/permissions-and-dependencies.md`，说明权限用途、前置依赖、写入权限边界与产物审计指引。
+- **P3-5 / P3-1 记录**：文档如实说明 Windows 上 `0o600` 不映射 ACL（仅同机多用户受影响，目录不含凭据），
+  并标注 `dist/index.mjs` 的 vendor 区间，供后续审计跳过。
+
 ## [v1.0.0] - 2026-11-27
 
 首个 1.0：完成阶段 2–6 五轮交付——UX 评审体系、交互 a11y 与动效、鲁棒性、视觉方向与反收敛、治理与回归。

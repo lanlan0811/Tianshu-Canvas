@@ -2196,7 +2196,7 @@ export const tools: TpiTool[] = [
   {
     definition: {
       name: 'canvas_audit',
-      description: '设计 CI 审计：契约、可访问性（含移动触控）、工艺质量、状态完整性、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审',
+      description: '设计 CI 审计：契约、可访问性（含移动触控）、工艺质量、状态完整性、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审；渲染类 action 需本机 Chrome/Edge（TIANSHU_CANVAS_BROWSER 可指定路径）',
       input_schema: {
         type: 'object',
         properties: {

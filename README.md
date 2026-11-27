@@ -256,6 +256,8 @@ AI 先打开画布、整理内容简报，使用相同文案和素材展示两�
   - 默认直接返回文件内容；传 `write_files=true` / `out_dir` 落到 `.tianshu-canvas/exports/`。
 
 > PNG 导出需系统安装 Chrome/Edge；可用 `TIANSHU_CANVAS_BROWSER` 指定路径。ZIP 不依赖浏览器。
+> 权限用途、浏览器前置、写入权限边界与产物审计指引见
+> [docs/permissions-and-dependencies.md](docs/permissions-and-dependencies.md)。
 > 截图与视觉回归**保留 Chromium 进程沙箱**（不传 `--no-sandbox`）。若所在环境确实无法启动沙箱，
 > 导出会**明确报错并停止**，而不是静默降级为无沙箱；仅在此类受限环境可用
 > `TIANSHU_CANVAS_ALLOW_NO_SANDBOX=1` 显式放开。
@@ -349,7 +351,8 @@ node scripts/pack-plugin.mjs ./tianshu-canvas-0.7.0.zip \
   --source-commit "$(git rev-parse HEAD)" --platforms win32-x64
 ```
 
-打包器只收 `tianshu.plugin.json`、`dist/`、`skills/`、`LICENSE`、`THIRD-PARTY-NOTICES.md`，并生成
+打包器只收 `tianshu.plugin.json`、`dist/`、`skills/`、`LICENSE`、`THIRD-PARTY-NOTICES.md`、
+`docs/permissions-and-dependencies.md` 与当版验收文档（`scripts/check-plugin.mjs` 的 `PACKAGE_ENTRIES`），并生成
 `xiaosi.release.json` 与 `xiaosi.contents.json`。打包前请确认 `npm run notices` 已执行
 （`npm run verify` 会自动带上），该文件列出所有实际内联进 `dist/` 的第三方组件及其许可全文。
 若本地有官方开发套件，可再复核一次：

@@ -3,8 +3,8 @@
   "kind": "tianshu.plugin",
   "id": "tianshu-canvas",
   "displayName": "画布设计",
-  "version": "1.0.0",
-  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、页面编排、页面间跳转与交互库、多页静态站导出、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包",
+  "version": "1.0.1",
+  "description": "无限画布设计工作台：写入前端原型、项目级设计风格、风格校验、选中反馈、元素批注、页面编排、页面间跳转与交互库、多页静态站导出、资源内联、设计系统反抽取与仓库主题导入、导出生产代码（含 shadcn/AntD 适配）、设计 CI 审计与品牌包。需要 shell 权限用于调起本机浏览器打开画布与无头截图（不执行用户输入的命令）；审计与截图需本机安装 Chrome/Edge，可用环境变量 TIANSHU_CANVAS_BROWSER 指定路径",
   "runtime": "agent",
   "entry": "dist/index.mjs",
   "capabilities": [
@@ -43,7 +43,7 @@
       },
       {
         "name": "canvas_audit",
-        "description": "设计 CI 审计：契约、可访问性（含移动触控）、工艺质量、状态完整性、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审"
+        "description": "设计 CI 审计：契约、可访问性（含移动触控）、工艺质量、状态完整性、UX 评审（三段隔离）、动效抓帧、视觉回归与漂移；截图与指标是证据，审美判断需读图和用户评审；渲染类 action 需本机 Chrome/Edge（TIANSHU_CANVAS_BROWSER 可指定路径）"
       },
       {
         "name": "canvas_comments",

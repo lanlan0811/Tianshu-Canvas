@@ -25,6 +25,13 @@ assert.ok(Array.isArray(manifest.capabilities) && manifest.capabilities.includes
 assert.ok(typeof manifest.engines?.tianshu === 'string' && manifest.engines.tianshu.length > 0, 'engines.tianshu 必须声明')
 assert.deepEqual(Object.keys(manifest.permissions).sort(), ['fs', 'net', 'shell'], '权限只声明 fs/net/shell')
 assert.equal(manifest.permissions.shell, true, '会启动浏览器/子进程，shell 权限必须如实声明')
+// 审查反馈 P3-4 / P2-2：权限用途与浏览器前置必须在清单中披露，文案被误删时这里必须失败。
+assert.match(manifest.description, /shell/, '清单 description 必须说明 shell 权限用途')
+assert.match(manifest.description, /Chrome\/Edge/, '清单 description 必须披露 Chrome/Edge 依赖')
+assert.match(manifest.description, /TIANSHU_CANVAS_BROWSER/, '清单 description 必须说明浏览器路径环境变量')
+const auditTool = manifest.contributes.tools.find((t) => t.name === 'canvas_audit')
+assert.ok(auditTool, '清单必须声明 canvas_audit')
+assert.match(auditTool.description, /Chrome\/Edge/, 'canvas_audit 描述必须披露渲染类 action 的浏览器依赖')
 
 const declaredTools = manifest.contributes.tools.map((t) => t.name)
 for (const t of manifest.contributes.tools) {

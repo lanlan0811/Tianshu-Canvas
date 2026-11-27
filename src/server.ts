@@ -111,7 +111,14 @@ function listen(server: http.Server, port: number): Promise<number> {
   })
 }
 
-async function listenWithFallback(server: http.Server, preferred: number): Promise<number> {
+/**
+ * 端口被占用时的两种表现都要继续换端口：
+ *  - EADDRINUSE：常规占用；
+ *  - EACCES：Windows 上端口被其他进程以独占方式绑定（实测 MuMuPlayer 占用 2050 时
+ *    对 127.0.0.1:2050 返回 EACCES），或落在系统排除端口段内。这两者都不是调用方
+ *    传错端口，继续在候选区间内找可用端口才符合「首选端口=偏好」的语义。
+ */
+export async function listenWithFallback(server: http.Server, preferred: number): Promise<number> {
   /* 越界端口必须报错，不能静默回退到随机端口——调用方传了非法值就要知道。 */
   if (preferred !== 0 && (!Number.isInteger(preferred) || preferred < 1 || preferred > 65535)) {
     const err = new Error(`端口必须在 1–65535 之间：${preferred}`) as NodeJS.ErrnoException
@@ -133,7 +140,8 @@ async function listenWithFallback(server: http.Server, preferred: number): Promi
     try {
       return await listen(server, candidate)
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw err
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== 'EADDRINUSE' && code !== 'EACCES') throw err
     }
   }
   for (let i = 0; i < 10; i++) {

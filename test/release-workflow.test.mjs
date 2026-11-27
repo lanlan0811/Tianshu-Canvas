@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
@@ -210,7 +210,10 @@ test('main CI requires full original-composition evidence before release eligibi
   assert.ok(workflow.includes('include-hidden-files: true'))
 })
 
-test('release package ships only the current acceptance document', () => {
+test('release package ships only the current acceptance document and the permissions doc', () => {
   const documents = PACKAGE_ENTRIES.filter(entry => entry.startsWith('docs/'))
-  assert.deepEqual(documents, ['docs/review-1.0.0-acceptance.md'])
+  assert.deepEqual(documents, ['docs/permissions-and-dependencies.md', 'docs/review-1.0.1-acceptance.md'])
+  const repository = resolve(import.meta.dirname, '..')
+  for (const document of documents) assert.ok(existsSync(join(repository, document)), `打包内容不存在：${document}`)
+  assert.ok(!documents.includes('docs/review-1.0.0-acceptance.md'), '旧版验收文档不得再进包')
 })
