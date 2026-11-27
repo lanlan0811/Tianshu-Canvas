@@ -3,7 +3,7 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 每个版本的详细发布说明见 `release/release-<版本>.md`。
 
-## [v1.0.1] - 2026-11-27
+## [v1.0.1] - 2026-11-28
 
 补丁版：处置 1.0.0 审查反馈的非阻断项，并修复本机实测暴露的端口回退问题。
 详细说明见 [release-1.0.1.md](release/release-1.0.1.md)，验证与已知边界见 [验收记录](docs/review-1.0.1-acceptance.md)。

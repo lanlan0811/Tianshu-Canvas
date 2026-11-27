@@ -1,6 +1,6 @@
 # 天枢画布设计 v1.0.1
 
-> 2026-11-27 · Apache-2.0
+> 2026-11-28 · Apache-2.0
 
 补丁版：处置 1.0.0 审查报告中 4 条非阻断建议（P3-4 / P2-2 / P3-5 / P3-1），
 并修复本机实测暴露的端口回退鲁棒性问题。工具仍是 9 个、项目格式保持 v1、权限三布尔不变。
@@ -55,11 +55,12 @@ Windows 不把 POSIX mode 映射为 ACL，生成文件与默认写文件 ACL 相
 
 | 审查项 | 复测方式 | 结果 |
 |---|---|---|
-| P3-4 | `grep -c "浏览器" tianshu.plugin.json` | 见验收记录实测 |
-| P2-2 | `grep -ci "chrome\|edge\|TIANSHU_CANVAS_BROWSER" tianshu.plugin.json` | 见验收记录实测 |
-| P3-5 | `icacls` 复跑 0o600 与默认对照 | ACL 逐行相同，已在包内文档如实记录 |
+| P3-4 | `grep -c "浏览器" tianshu.plugin.json` | 0 → 1（改前/改后） |
+| P2-2 | `grep -ci "chrome\|edge\|TIANSHU_CANVAS_BROWSER" tianshu.plugin.json` | 0 → 2 |
+| P3-5 | `icacls` 复跑 0o600 与默认对照 | ACL 逐行相同（均含 `Authenticated Users:(I)(M)`），已在包内文档如实记录 |
 | P3-1 | `grep -n "^// src/" dist/index.mjs \| head -1` | 已写入包内文档，供审查现查 |
-| 回归 | `npm run typecheck && npm run build && npm test` | 见 [验收记录](../docs/review-1.0.1-acceptance.md) |
-| 契约 | `npm run check:plugin` | 9 工具握手一致，描述逐字节相同 |
+| 回归 | `npm run typecheck && npm run build && npm test` | 785 项 → 784 pass / 0 fail / 1 skip |
+| 契约 | `npm run check:plugin` | 125 文件 / 4846.3 KiB，9 工具握手一致 |
+| 产物审计 | 自身源码区扫描 | 无 `new Function` / `eval(` / `vm.run` / `createRequire` |
 
 命令与通过计数以 `docs/review-1.0.1-acceptance.md` 的实测为准。
